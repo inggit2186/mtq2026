@@ -1,5 +1,6 @@
 <?php require __DIR__.'/sweet-alerts.php'; ?>
 <div
+    id="mtq-live-notifications"
     x-data
     class="pointer-events-none fixed right-4 top-4 z-[80] flex w-full max-w-sm flex-col gap-3"
 >

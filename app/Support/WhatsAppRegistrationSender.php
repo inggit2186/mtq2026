@@ -32,12 +32,14 @@ class WhatsAppRegistrationSender
         $websiteUrl = rtrim((string) config('app.url'), '/');
 
         return implode("\n", [
-            'Assalamu\'alaikum warahmatullahi wabarakatuh.',
+            '*Assalamu\'alaikum warahmatullahi wabarakatuh.*,
             '',
             '*Selamat, akun official e-MTQ Anda sudah berhasil didaftarkan.*',
             '',
             '*Website e-MTQ*',
+            '',
             $websiteUrl !== '' ? 'Klik link berikut untuk login: '.$websiteUrl : '-',
+            '',
             '',
             '*Data Akun*',
             '- Nama: '.($user->name ?: '-'),
@@ -60,12 +62,14 @@ class WhatsAppRegistrationSender
         $websiteUrl = rtrim((string) config('app.url'), '/');
 
         return implode("\n", [
-            'Assalamu\'alaikum warahmatullahi wabarakatuh.',
+            '*Assalamu\'alaikum warahmatullahi wabarakatuh.*',
             '',
             '*Selamat, akun panitia e-MTQ Anda sudah berhasil didaftarkan.*',
             '',
             '*Website e-MTQ*',
+            '',
             $websiteUrl !== '' ? 'Klik link berikut untuk login: '.$websiteUrl : '-',
+            '',
             '',
             '*Data Akun*',
             '- Nama: '.($user->name ?: '-'),
