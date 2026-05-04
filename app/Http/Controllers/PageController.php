@@ -39,6 +39,8 @@ class PageController extends Controller
 
     public function home(): View
     {
+        SessionSchedule::syncAutomaticStatuses();
+
         $documentConfig = $this->documentConfig();
         $coverSlides = collect();
         $galleryImages = null;
@@ -271,6 +273,8 @@ class PageController extends Controller
 
     public function dashboard(): View
     {
+        SessionSchedule::syncAutomaticStatuses();
+
         $user = auth()->user();
         $isAdminOps = in_array($user?->role, ['admin', 'panitia'], true);
         $isOfficial = in_array($user?->role, ['official', 'pendamping'], true);
@@ -512,6 +516,8 @@ class PageController extends Controller
 
     public function dashboardRealtimeSummary(Request $request): JsonResponse
     {
+        SessionSchedule::syncAutomaticStatuses();
+
         $user = auth()->user();
         $isOfficial = in_array($user?->role, ['official', 'pendamping'], true);
         $districtId = $isOfficial ? $user?->district_id : null;
@@ -2509,4 +2515,3 @@ class PageController extends Controller
         }
     }
 }
-

@@ -17,6 +17,8 @@ class AdminContentController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
 
+        SessionSchedule::syncAutomaticStatuses();
+
         $bigScreenUrl = route('big-screen');
         $projectorProtocolUrl = 'emtq-launch://bigscreen?url='.rawurlencode($bigScreenUrl);
 
@@ -191,6 +193,18 @@ POWERSHELL;
             ->with('status', 'Pengumuman baru berhasil dibuat.');
     }
 
+    public function destroyAnnouncement(Announcement $announcement): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $title = $announcement->title;
+        $announcement->delete();
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Pengumuman "'.$title.'" berhasil dihapus.');
+    }
+
     public function storeSchedule(Request $request): RedirectResponse
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
@@ -201,14 +215,51 @@ POWERSHELL;
             'venue' => ['required', 'string', 'max:255'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'status' => ['required', 'in:scheduled,ongoing,completed,postponed'],
+            'status' => ['required', 'in:scheduled,postponed'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        SessionSchedule::query()->create($validated);
+        $validated['status'] = $validated['status'] === SessionSchedule::STATUS_POSTPONED
+            ? SessionSchedule::STATUS_POSTPONED
+            : SessionSchedule::STATUS_SCHEDULED;
+
+        $schedule = SessionSchedule::query()->create($validated);
+        $schedule->syncAutomaticStatus();
 
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal baru berhasil ditambahkan.');
+    }
+
+    public function updateScheduleStatus(Request $request, SessionSchedule $schedule): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $validated = $request->validate([
+            'status' => ['required', 'in:scheduled,postponed'],
+        ]);
+
+        if ($validated['status'] === SessionSchedule::STATUS_POSTPONED) {
+            $schedule->forceFill(['status' => SessionSchedule::STATUS_POSTPONED])->save();
+
+            return back()->with('status', 'Jadwal "'.$schedule->title.'" berhasil ditandai ditunda.');
+        }
+
+        $schedule->forceFill(['status' => SessionSchedule::STATUS_SCHEDULED])->save();
+        $schedule->syncAutomaticStatus();
+
+        return back()->with('status', 'Status jadwal "'.$schedule->title.'" kembali otomatis mengikuti tanggal dan jam.');
+    }
+
+    public function destroySchedule(SessionSchedule $schedule): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $title = $schedule->title;
+        $schedule->delete();
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Jadwal "'.$title.'" berhasil dihapus.');
     }
 }

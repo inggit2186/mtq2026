@@ -32,6 +32,8 @@ class DashboardPage extends Component
 
     protected function loadDashboard(): void
     {
+        SessionSchedule::syncAutomaticStatuses();
+
         $today = Carbon::today();
 
         $this->stats = [

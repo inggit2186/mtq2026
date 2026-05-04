@@ -320,6 +320,7 @@ $latestParticipantPhoto = $resolveParticipantPhoto($latestScoredEntry?->particip
     <script>
         setTimeout(() => window.location.reload(), 30000);
     </script>
+    <?php require __DIR__.'/../partials/ongoing-schedules.php'; ?>
     <?php foreach ($jsAssets as $src): ?>
         <script type="module" src="<?= e($src) ?>"></script>
     <?php endforeach; ?>

@@ -42,7 +42,10 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/konten/sinkronisasi-kecamatan', [AdminContentController::class, 'syncDistricts'])->middleware('role:admin')->name('admin.content.districts.sync');
     Route::get('/admin/konten/projector-installer.ps1', [AdminContentController::class, 'projectorInstaller'])->middleware('role:admin,panitia')->name('admin.content.projector-installer');
     Route::post('/admin/konten/pengumuman', [AdminContentController::class, 'storeAnnouncement'])->middleware('role:admin,panitia')->name('admin.content.announcements.store');
+    Route::post('/admin/konten/pengumuman/{announcement}/hapus', [AdminContentController::class, 'destroyAnnouncement'])->middleware('role:admin,panitia')->name('admin.content.announcements.destroy');
     Route::post('/admin/konten/jadwal', [AdminContentController::class, 'storeSchedule'])->middleware('role:admin,panitia')->name('admin.content.schedules.store');
+    Route::post('/admin/konten/jadwal/{schedule}/status', [AdminContentController::class, 'updateScheduleStatus'])->middleware('role:admin,panitia')->name('admin.content.schedules.status');
+    Route::post('/admin/konten/jadwal/{schedule}/hapus', [AdminContentController::class, 'destroySchedule'])->middleware('role:admin,panitia')->name('admin.content.schedules.destroy');
     Route::get('/admin/dokumen', [DocumentSettingsController::class, 'index'])->middleware('role:admin,panitia')->name('admin.documents');
     Route::post('/admin/dokumen', [DocumentSettingsController::class, 'update'])->middleware('role:admin,panitia')->name('admin.documents.update');
     Route::get('/admin/galeri-mtq', [PageController::class, 'galleryDocumentation'])->middleware('role:admin,panitia,official,pendamping')->name('gallery.index');

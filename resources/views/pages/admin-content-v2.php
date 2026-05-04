@@ -26,6 +26,10 @@ $scheduleStatusLabels = [
     'completed' => 'Selesai',
     'postponed' => 'Ditunda',
 ];
+$scheduleFormStatusLabels = [
+    'scheduled' => 'Otomatis sesuai jam',
+    'postponed' => 'Ditunda',
+];
 $scheduleStatusClasses = [
     'scheduled' => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
     'ongoing' => 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
@@ -284,7 +288,7 @@ $scheduleStatusClasses = [
                                 <div>
                                     <label class="mb-2 block text-sm font-semibold text-slate-200">Status</label>
                                     <select name="status" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
-                                        <?php foreach ($scheduleStatusLabels as $status => $label): ?>
+                                        <?php foreach ($scheduleFormStatusLabels as $status => $label): ?>
                                             <option value="<?= e($status) ?>" <?= old('status', 'scheduled') === $status ? 'selected' : '' ?>><?= e($label) ?></option>
                                         <?php endforeach; ?>
                                     </select>
@@ -330,7 +334,7 @@ $scheduleStatusClasses = [
                                     ?>
                                     <div class="data-card">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
-                                            <div class="min-w-0">
+                                            <div class="min-w-0 flex-1">
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     <p class="font-semibold text-white"><?= e($announcement->title) ?></p>
                                                     <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($priorityClass) ?>"><?= e($priorityLabel) ?></span>
@@ -340,13 +344,22 @@ $scheduleStatusClasses = [
                                                     Oleh <?= e($announcement->author?->name ?? 'Sistem') ?> | <?= e(optional($announcement->published_at)->format('d M Y H:i') ?? '-') ?>
                                                 </p>
                                             </div>
-                                            <form method="POST" action="<?= e(route('broadcast.announcement', $announcement)) ?>">
-                                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                                                <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                    <?= mtq_icon('bell', 'h-4 w-4') ?>
-                                                    Siarkan
-                                                </button>
-                                            </form>
+                                            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                                <form method="POST" action="<?= e(route('broadcast.announcement', $announcement)) ?>">
+                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                    <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                        <?= mtq_icon('bell', 'h-4 w-4') ?>
+                                                        Siarkan
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="<?= e(route('admin.content.announcements.destroy', $announcement)) ?>" data-swal-confirm data-swal-title="Hapus pengumuman?" data-swal-text="Pengumuman <?= e($announcement->title) ?> akan dihapus dari daftar." data-swal-confirm="Ya, hapus" data-swal-cancel="Batal">
+                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                    <button type="submit" class="secondary-button rounded-xl border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs text-rose-100 hover:border-rose-300/40" title="Hapus pengumuman" aria-label="Hapus pengumuman <?= e($announcement->title) ?>">
+                                                        <?= mtq_icon('trash', 'h-4 w-4') ?>
+                                                        Hapus
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -374,30 +387,52 @@ $scheduleStatusClasses = [
                                     $statusLabel = $scheduleStatusLabels[$status] ?? ucfirst($status);
                                     ?>
                                     <div class="data-card">
-                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                        <div class="space-y-4">
                                             <div class="min-w-0">
-                                                <div class="flex flex-wrap items-center gap-2">
-                                                    <p class="font-semibold text-white"><?= e($schedule->title) ?></p>
-                                                    <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($statusClass) ?>"><?= e($statusLabel) ?></span>
+                                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                                    <p class="min-w-0 flex-1 text-base font-semibold leading-6 text-white"><?= e($schedule->title) ?></p>
+                                                    <span class="inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($statusClass) ?>"><?= e($statusLabel) ?></span>
                                                 </div>
-                                                <p class="mt-2 text-xs text-slate-400"><?= e($schedule->stage) ?> | <?= e($schedule->venue) ?></p>
-                                                <p class="mt-2 text-sm text-slate-300">
-                                                    <?= e(optional($schedule->starts_at)->format('d M Y H:i') ?? '-') ?>
-                                                    <?php if ($schedule->ends_at): ?>
-                                                        - <?= e(optional($schedule->ends_at)->format('d M Y H:i')) ?>
+                                                <div class="mt-3 space-y-2 text-sm leading-6">
+                                                    <p class="text-slate-400"><?= e($schedule->stage) ?> | <?= e($schedule->venue) ?></p>
+                                                    <p class="text-slate-300">
+                                                        <?= e(optional($schedule->starts_at)->format('d M Y H:i') ?? '-') ?>
+                                                        <?php if ($schedule->ends_at): ?>
+                                                            - <?= e(optional($schedule->ends_at)->format('d M Y H:i')) ?>
+                                                        <?php endif; ?>
+                                                    </p>
+                                                    <?php if ($schedule->notes): ?>
+                                                        <p class="text-slate-300"><?= e($schedule->notes) ?></p>
                                                     <?php endif; ?>
-                                                </p>
-                                                <?php if ($schedule->notes): ?>
-                                                    <p class="mt-3 text-sm leading-6 text-slate-300"><?= e($schedule->notes) ?></p>
-                                                <?php endif; ?>
+                                                </div>
                                             </div>
-                                            <form method="POST" action="<?= e(route('broadcast.schedule', $schedule)) ?>">
-                                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                                                <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                    <?= mtq_icon('bell', 'h-4 w-4') ?>
-                                                    Siarkan
-                                                </button>
-                                            </form>
+                                            <div class="flex flex-wrap items-center gap-2 border-t border-slate-800/80 pt-4">
+                                                <form method="POST" action="<?= e(route('admin.content.schedules.status', $schedule)) ?>" class="flex flex-wrap items-center gap-2" data-loading-text="Mengubah status jadwal...">
+                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                    <select name="status" class="min-w-[7rem] rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" aria-label="Mode status jadwal <?= e($schedule->title) ?>">
+                                                        <option value="scheduled" <?= $status !== 'postponed' ? 'selected' : '' ?>>Otomatis</option>
+                                                        <option value="postponed" <?= $status === 'postponed' ? 'selected' : '' ?>>Ditunda</option>
+                                                    </select>
+                                                    <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs" title="Update status jadwal" aria-label="Update status jadwal <?= e($schedule->title) ?>">
+                                                        <?= mtq_icon('refresh-cw', 'h-4 w-4') ?>
+                                                        Update
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="<?= e(route('broadcast.schedule', $schedule)) ?>">
+                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                    <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                        <?= mtq_icon('bell', 'h-4 w-4') ?>
+                                                        Siarkan
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="<?= e(route('admin.content.schedules.destroy', $schedule)) ?>" data-swal-confirm data-swal-title="Hapus jadwal?" data-swal-text="Jadwal <?= e($schedule->title) ?> akan dihapus dari daftar." data-swal-confirm="Ya, hapus" data-swal-cancel="Batal">
+                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                    <button type="submit" class="secondary-button rounded-xl border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs text-rose-100 hover:border-rose-300/40" title="Hapus jadwal" aria-label="Hapus jadwal <?= e($schedule->title) ?>">
+                                                        <?= mtq_icon('trash', 'h-4 w-4') ?>
+                                                        Hapus
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>

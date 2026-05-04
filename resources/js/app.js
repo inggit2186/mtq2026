@@ -759,18 +759,57 @@ window.addEventListener('mtq-announcement-published', (event) => {
     });
 });
 
-window.addEventListener('mtq-schedule-updated', (event) => {
-    const detail = event.detail ?? {};
-    const when = detail.starts_at ? ` pada ${new Date(detail.starts_at).toLocaleString('id-ID')}` : '';
+function scheduleTimeLabel(value) {
+    if (!value) {
+        return '';
+    }
+
+    return new Date(value).toLocaleString('id-ID');
+}
+
+function pushScheduleNotification(detail) {
+    const when = scheduleTimeLabel(detail.starts_at);
+    const place = detail.venue ? ` di ${detail.venue}` : '';
+    const time = when ? ` pada ${when}` : '';
+    const stage = detail.stage ? ` (${detail.stage})` : '';
+    const isOngoing = detail.status === 'ongoing';
 
     Alpine.store('ui').pushNotification({
-        tone: 'info',
-        title: 'Jadwal Disiarkan',
-        message: `${detail.title ?? 'Jadwal'}${detail.venue ? ` di ${detail.venue}` : ''}${when}.`,
+        tone: isOngoing ? 'success' : 'info',
+        title: isOngoing ? 'Jadwal Sedang Berlangsung' : 'Jadwal Disiarkan',
+        message: `${detail.title ?? 'Jadwal'}${stage}${place}${time}.`,
     });
+}
+
+function notifyOngoingSchedulesOnPageLoad() {
+    const schedules = Array.isArray(window.mtqOngoingSchedules) ? window.mtqOngoingSchedules : [];
+
+    schedules.forEach((schedule) => {
+        const key = `mtq-ongoing-schedule:${schedule.id ?? schedule.title}:${schedule.starts_at ?? ''}`;
+
+        try {
+            if (window.sessionStorage.getItem(key) === 'shown') {
+                return;
+            }
+
+            window.sessionStorage.setItem(key, 'shown');
+        } catch {
+            // If sessionStorage is unavailable, showing the notification once per page load is fine.
+        }
+
+        pushScheduleNotification({ ...schedule, status: 'ongoing', source: 'page-load' });
+    });
+}
+
+window.addEventListener('mtq-schedule-updated', (event) => {
+    const detail = event.detail ?? {};
+
+    pushScheduleNotification(detail);
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    notifyOngoingSchedulesOnPageLoad();
+
     if (!document.getElementById('mtq-theme-toggle')) {
         const button = document.createElement('button');
         button.id = 'mtq-theme-toggle';

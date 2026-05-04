@@ -38,3 +38,4 @@
         </div>
     </div>
 </section>
+<?php require __DIR__.'/ongoing-schedules.php'; ?>

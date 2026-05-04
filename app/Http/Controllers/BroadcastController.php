@@ -24,7 +24,9 @@ class BroadcastController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
 
-        RealtimeBroadcaster::dispatch(new SessionScheduleUpdated($schedule));
+        $schedule->syncAutomaticStatus();
+
+        RealtimeBroadcaster::dispatch(new SessionScheduleUpdated($schedule, 'manual'));
 
         return back()->with('status', 'Jadwal "'.$schedule->title.'" berhasil disiarkan realtime.');
     }

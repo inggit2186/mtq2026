@@ -15,7 +15,7 @@ class SessionScheduleUpdated implements ShouldBroadcastNow
     use InteractsWithSockets;
     use SerializesModels;
 
-    public function __construct(public SessionSchedule $schedule)
+    public function __construct(public SessionSchedule $schedule, public string $source = 'manual')
     {
     }
 
@@ -32,12 +32,15 @@ class SessionScheduleUpdated implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
+            'id' => $this->schedule->id,
             'title' => $this->schedule->title,
             'stage' => $this->schedule->stage,
             'venue' => $this->schedule->venue,
             'status' => $this->schedule->status,
             'starts_at' => $this->schedule->starts_at?->toIso8601String(),
+            'ends_at' => $this->schedule->ends_at?->toIso8601String(),
             'notes' => $this->schedule->notes,
+            'source' => $this->source,
         ];
     }
 }
