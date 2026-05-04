@@ -653,6 +653,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const realtimeEnabled = import.meta.env.VITE_REALTIME_ENABLED === 'true';
 const reverbAppKey = realtimeEnabled ? import.meta.env.VITE_REVERB_APP_KEY : '';
+let realtimeConnected = false;
+let ongoingSchedulesFallbackTimer = null;
+let ongoingSchedulesFallbackDelayTimer = null;
+
+function uiStore() {
+    try {
+        return Alpine.store('ui');
+    } catch {
+        return null;
+    }
+}
+
+function setRealtimeConnected(connected) {
+    realtimeConnected = connected;
+
+    const ui = uiStore();
+    if (ui) {
+        ui.liveConnected = connected;
+    }
+
+    if (connected) {
+        stopOngoingSchedulesFallbackPolling();
+        return;
+    }
+
+    runWhenReady(() => {
+        startOngoingSchedulesFallbackPolling();
+    });
+}
 
 if (reverbAppKey) {
     const scheme = import.meta.env.VITE_REVERB_SCHEME ?? 'http';
@@ -684,11 +713,30 @@ if (reverbAppKey) {
     channel.listen('.schedule.updated', (payload) => {
         window.dispatchEvent(new CustomEvent('mtq-schedule-updated', { detail: payload }));
     });
+
+    const pusherConnection = window.Echo?.connector?.pusher?.connection;
+
+    if (pusherConnection) {
+        pusherConnection.bind('connected', () => setRealtimeConnected(true));
+        pusherConnection.bind('disconnected', () => setRealtimeConnected(false));
+        pusherConnection.bind('unavailable', () => setRealtimeConnected(false));
+        pusherConnection.bind('failed', () => setRealtimeConnected(false));
+        pusherConnection.bind('state_change', ({ current }) => {
+            if (current === 'connected') {
+                setRealtimeConnected(true);
+                return;
+            }
+
+            if (['disconnected', 'unavailable', 'failed'].includes(current)) {
+                setRealtimeConnected(false);
+            }
+        });
+    }
 }
 
 Alpine.store('ui', {
     mobileMenuOpen: false,
-    liveConnected: Boolean(reverbAppKey),
+    liveConnected: realtimeConnected,
     notifications: [],
     theme: initialTheme,
     pushNotification(notification) {
@@ -768,6 +816,20 @@ function scheduleTimeLabel(value) {
 }
 
 function pushScheduleNotification(detail) {
+    if (detail.status === 'ongoing' && detail.source !== 'manual') {
+        const key = `mtq-ongoing-schedule:${detail.id ?? detail.title}:${detail.starts_at ?? ''}`;
+
+        try {
+            if (window.sessionStorage.getItem(key) === 'shown') {
+                return;
+            }
+
+            window.sessionStorage.setItem(key, 'shown');
+        } catch {
+            // If sessionStorage is unavailable, showing the notification once per page load is fine.
+        }
+    }
+
     const when = scheduleTimeLabel(detail.starts_at);
     const place = detail.venue ? ` di ${detail.venue}` : '';
     const time = when ? ` pada ${when}` : '';
@@ -785,20 +847,92 @@ function notifyOngoingSchedulesOnPageLoad() {
     const schedules = Array.isArray(window.mtqOngoingSchedules) ? window.mtqOngoingSchedules : [];
 
     schedules.forEach((schedule) => {
-        const key = `mtq-ongoing-schedule:${schedule.id ?? schedule.title}:${schedule.starts_at ?? ''}`;
-
-        try {
-            if (window.sessionStorage.getItem(key) === 'shown') {
-                return;
-            }
-
-            window.sessionStorage.setItem(key, 'shown');
-        } catch {
-            // If sessionStorage is unavailable, showing the notification once per page load is fine.
-        }
-
         pushScheduleNotification({ ...schedule, status: 'ongoing', source: 'page-load' });
     });
+}
+
+async function fetchOngoingSchedules() {
+    try {
+        const url = window.mtqOngoingSchedulesUrl || '/jadwal/berlangsung';
+        const response = await fetch(url, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const payload = await response.json();
+        const schedules = Array.isArray(payload.schedules) ? payload.schedules : [];
+
+        schedules.forEach((schedule) => {
+            pushScheduleNotification({ ...schedule, status: 'ongoing', source: schedule.source ?? 'poll' });
+        });
+    } catch (error) {
+        console.warn('Ongoing schedule check failed.', error);
+    }
+}
+
+function stopOngoingSchedulesFallbackPolling() {
+    if (ongoingSchedulesFallbackDelayTimer) {
+        window.clearTimeout(ongoingSchedulesFallbackDelayTimer);
+        ongoingSchedulesFallbackDelayTimer = null;
+    }
+
+    if (ongoingSchedulesFallbackTimer) {
+        window.clearInterval(ongoingSchedulesFallbackTimer);
+        ongoingSchedulesFallbackTimer = null;
+    }
+}
+
+function startOngoingSchedulesFallbackPolling() {
+    if (realtimeConnected || ongoingSchedulesFallbackTimer) {
+        return;
+    }
+
+    fetchOngoingSchedules();
+    ongoingSchedulesFallbackTimer = window.setInterval(() => {
+        if (realtimeConnected) {
+            stopOngoingSchedulesFallbackPolling();
+            return;
+        }
+
+        fetchOngoingSchedules();
+    }, 60000);
+}
+
+function startOngoingScheduleChecks() {
+    notifyOngoingSchedulesOnPageLoad();
+
+    if (!reverbAppKey) {
+        startOngoingSchedulesFallbackPolling();
+        return;
+    }
+
+    if (realtimeConnected) {
+        return;
+    }
+
+    ongoingSchedulesFallbackDelayTimer = window.setTimeout(() => {
+        ongoingSchedulesFallbackDelayTimer = null;
+
+        if (!realtimeConnected) {
+            startOngoingSchedulesFallbackPolling();
+        }
+    }, 10000);
+}
+
+function runWhenReady(callback) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', callback, { once: true });
+        return;
+    }
+
+    callback();
 }
 
 window.addEventListener('mtq-schedule-updated', (event) => {
@@ -807,8 +941,8 @@ window.addEventListener('mtq-schedule-updated', (event) => {
     pushScheduleNotification(detail);
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    notifyOngoingSchedulesOnPageLoad();
+runWhenReady(() => {
+    startOngoingScheduleChecks();
 
     if (!document.getElementById('mtq-theme-toggle')) {
         const button = document.createElement('button');

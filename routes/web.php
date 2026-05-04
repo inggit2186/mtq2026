@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/big-screen', [PageController::class, 'bigScreen'])->name('big-screen');
+Route::get('/jadwal/berlangsung', [PageController::class, 'ongoingSchedules'])->name('schedules.ongoing');
 Route::redirect('/panduan/pendaftaran-official', '/panduan/pendaftaran-peserta');
 Route::get('/panduan/pendaftaran-peserta', [PageController::class, 'participantRegistrationGuidePdf'])->name('participants.guide.pdf');
 Route::get('/panduan/pendaftaran-peserta/snapshot', [PageController::class, 'participantRegistrationGuideSnapshot'])->name('participants.guide.snapshot');

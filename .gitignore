@@ -19,3 +19,7 @@
 /bootstrap/cache/*.php
 /public/build
 /public/hot
+storage/logs/*.log
+bootstrap/cache/views/*
+bootstrap/cache/*.json
+bootstrap/cache/*.php

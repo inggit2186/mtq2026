@@ -13,6 +13,7 @@ use App\Models\ScoringSetting;
 use App\Models\SessionSchedule;
 use App\Models\ScoreEntry;
 use App\Models\User;
+use App\Support\ScheduleRealtimeNotifier;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Client\ConnectionException;
@@ -547,6 +548,13 @@ class PageController extends Controller
         return response()->json([
             'leaders' => $leaders,
             'participant_summary' => $participantSummary,
+        ]);
+    }
+
+    public function ongoingSchedules(): JsonResponse
+    {
+        return response()->json([
+            'schedules' => ScheduleRealtimeNotifier::ongoingPayloads(5),
         ]);
     }
 
