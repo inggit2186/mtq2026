@@ -181,9 +181,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             Admin dan panitia dapat memantau seluruh peserta yang masuk ke sistem.
                         <?php endif; ?>
                     </p>
-                    <p class="mt-3 text-xs font-medium uppercase tracking-[0.2em] text-cyan-100/80">
-                        Kecamatan tuan rumah mendapat kuota 2x untuk kategori berbasis kecamatan.
-                    </p>
                     <div class="mt-4 status-pill">
                         <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
                         Form Aktif
@@ -703,9 +700,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Lingkup kuota</p>
                                     <p class="mt-2 text-lg font-bold text-white" x-text="selectedCategory.scope_label"></p>
                                 </div>
-                            </div>
-                            <div x-show="selectedCategory && selectedCategory.host_district" class="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                                Kecamatan tuan rumah mendapat kuota 2x untuk kategori berbasis kecamatan.
                             </div>
                         </template>
                     </div>
