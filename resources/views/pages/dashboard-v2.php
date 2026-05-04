@@ -75,18 +75,29 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
                             Online
                         </div>
-                        <form method="POST" action="<?= e(route('dashboard.user-sync')) ?>">
-                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <div class="flex items-center gap-2">
+                            <form method="POST" action="<?= e(route('dashboard.user-sync')) ?>">
+                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                <button
+                                    type="submit"
+                                    class="secondary-button inline-flex h-9 w-9 items-center justify-center rounded-full p-0"
+                                    <?= $canSyncSilatarUser ? '' : 'disabled' ?>
+                                    title="<?= e($canSyncSilatarUser ? 'Sinkronkan data user dari API SILATAR.' : 'Akun ini belum memiliki NIP atau nomor induk untuk sinkronisasi SILATAR.') ?>"
+                                    aria-label="Sinkronkan data user dari SILATAR"
+                                >
+                                    <?= mtq_icon('refresh-cw', 'h-4 w-4') ?>
+                                </button>
+                            </form>
                             <button
-                                type="submit"
+                                type="button"
                                 class="secondary-button inline-flex h-9 w-9 items-center justify-center rounded-full p-0"
-                                <?= $canSyncSilatarUser ? '' : 'disabled' ?>
-                                title="<?= e($canSyncSilatarUser ? 'Sinkronkan data user dari API SILATAR.' : 'Akun ini belum memiliki NIP atau nomor induk untuk sinkronisasi SILATAR.') ?>"
-                                aria-label="Sinkronkan data user dari SILATAR"
+                                x-on:click="showPasswordModal = true"
+                                title="Ganti password akun"
+                                aria-label="Ganti password akun"
                             >
-                                <?= mtq_icon('refresh-cw', 'h-4 w-4') ?>
+                                <?= mtq_icon('key', 'h-4 w-4') ?>
                             </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
 
@@ -563,13 +574,34 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 </section>
             </div>
         </div>
-        <div x-cloak x-show="forcePasswordChange" class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-            <div class="absolute inset-0 bg-slate-950/85 backdrop-blur-md"></div>
-            <div class="relative z-10 w-full max-w-lg overflow-hidden rounded-[1.8rem] border border-cyan-400/18 bg-slate-950 shadow-[0_40px_120px_-40px_rgba(34,211,238,0.5)]">
+        <div
+            x-cloak
+            x-show="forcePasswordChange || showPasswordModal"
+            x-transition.opacity
+            x-on:keydown.escape.window="!forcePasswordChange && (showPasswordModal = false)"
+            class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+        >
+            <div class="absolute inset-0 bg-slate-950/85 backdrop-blur-md" x-on:click="!forcePasswordChange && (showPasswordModal = false)"></div>
+            <div class="relative z-10 w-full max-w-lg overflow-hidden rounded-[1.8rem] border border-cyan-400/18 bg-slate-950 shadow-[0_40px_120px_-40px_rgba(34,211,238,0.5)]" x-on:click.stop>
                 <div class="border-b border-white/8 bg-gradient-to-r from-cyan-400/10 to-blue-400/10 px-6 py-5">
-                    <p class="section-kicker">Wajib Aman</p>
-                    <h3 class="mt-2 text-2xl font-bold text-white">Ganti password sebelum lanjut</h3>
-                    <p class="mt-2 text-sm leading-6 text-slate-300">Akun official dan panitia harus mengganti password pertama terlebih dahulu saat login pertama kali. Modal ini tidak bisa ditutup sebelum password baru disimpan.</p>
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="section-kicker">Keamanan Akun</p>
+                            <h3 class="mt-2 text-2xl font-bold text-white">Ganti password akun</h3>
+                            <p class="mt-2 text-sm leading-6 text-slate-300">Gunakan formulir ini untuk memperbarui password akun Anda. Jika akun wajib ganti password, modal ini akan muncul otomatis saat login.</p>
+                        </div>
+                        <?php if (! $mustChangePassword): ?>
+                            <button
+                                type="button"
+                                class="secondary-button inline-flex h-10 w-10 items-center justify-center rounded-full p-0"
+                                x-on:click="showPasswordModal = false"
+                                aria-label="Tutup dialog"
+                                title="Tutup dialog"
+                            >
+                                <?= mtq_icon('x', 'h-4 w-4') ?>
+                            </button>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="p-6">
                     <?php if ($errors->has('password') || $errors->has('password_confirmation')): ?>
@@ -611,6 +643,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 participantLatestScore: initialState.participantLatestScore ?? '0.00',
                 participantAverageScore: initialState.participantAverageScore ?? '0.00',
                 forcePasswordChange: Boolean(initialState.forcePasswordChange ?? false),
+                showPasswordModal: false,
                 init() {
                     window.addEventListener('mtq-score-updated', (event) => {
                         this.applyScoreUpdate(event.detail ?? {});

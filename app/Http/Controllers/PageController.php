@@ -431,7 +431,7 @@ class PageController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user && in_array($user->role, ['official', 'panitia'], true), 403);
+        abort_unless($user, 403);
 
         $validated = $request->validate([
             'password' => ['required', 'string', PasswordRule::min(8), 'confirmed'],
@@ -2509,5 +2509,4 @@ class PageController extends Controller
         }
     }
 }
-
 
