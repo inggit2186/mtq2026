@@ -32,7 +32,7 @@ class WhatsAppRegistrationSender
         $websiteUrl = rtrim((string) config('app.url'), '/');
 
         return implode("\n", [
-            '*Assalamu\'alaikum warahmatullahi wabarakatuh.*,
+            '*Assalamu\'alaikum warahmatullahi wabarakatuh.*',
             '',
             '*Selamat, akun official e-MTQ Anda sudah berhasil didaftarkan.*',
             '',
