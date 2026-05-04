@@ -1,0 +1,626 @@
+<?php
+require_once __DIR__.'/../partials/icon.php';
+$cssAssets = $assets['css'] ?? [];
+$jsAssets = $assets['js'] ?? [];
+$user = auth()->user();
+$participants = $participants ?? collect();
+$participantsPage = $participantsPage ?? collect();
+$participantsPaginator = $participantsPaginator ?? null;
+$participantsPerPage = (int) ($participantsPerPage ?? 12);
+$categories = $categories ?? collect();
+$districts = $districts ?? collect();
+$filters = $filters ?? [];
+$registrationStats = $registrationStats ?? ['total' => 0, 'verified' => 0, 'pending' => 0, 'draft' => 0];
+$districtLocked = $districtLocked ?? false;
+$canVerify = $canVerify ?? false;
+$canManageMaqra = $canManageMaqra ?? false;
+$maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
+$mainParticipants = $participants
+    ->filter(fn ($participant) => ($participant->participant_role ?? 'main') !== 'reserve')
+    ->values();
+$reserveParticipants = $participants
+    ->filter(fn ($participant) => ($participant->participant_role ?? 'main') === 'reserve')
+    ->values();
+$buildParticipantGroup = function (\Illuminate\Support\Collection $items, array $config): array {
+    $verifiedCount = $items->where('verification_status', 'verified')->count();
+    $pendingCount = $items->where('verification_status', 'submitted')->count();
+    $needsReviewCount = $items->filter(fn ($participant) => in_array($participant->verification_status, ['draft', 'rejected'], true))->count();
+    $dominantState = 'verified';
+
+    if ($needsReviewCount > 0 && $needsReviewCount >= max($verifiedCount, $pendingCount)) {
+        $dominantState = 'review';
+    } elseif ($pendingCount > 0 && $pendingCount >= max($verifiedCount, $needsReviewCount)) {
+        $dominantState = 'pending';
+    }
+
+    $dominantBadgeClass = match ($dominantState) {
+        'review' => 'border-amber-300/30 bg-amber-300/14 text-amber-100',
+        'pending' => 'border-cyan-300/30 bg-cyan-300/14 text-cyan-100',
+        default => 'border-emerald-300/30 bg-emerald-300/14 text-emerald-100',
+    };
+    $dominantBadgeLabel = match ($dominantState) {
+        'review' => 'Prioritas Review',
+        'pending' => 'Menunggu Verifikasi',
+        default => 'Siap & Terverifikasi',
+    };
+
+    return array_merge($config, [
+        'items' => $items,
+        'verified_count' => $verifiedCount,
+        'pending_count' => $pendingCount,
+        'needs_review_count' => $needsReviewCount,
+        'dominant_state' => $dominantState,
+        'dominant_badge_class' => $dominantBadgeClass,
+        'dominant_badge_label' => $dominantBadgeLabel,
+    ]);
+};
+$participantGroups = [
+    $buildParticipantGroup($mainParticipants, [
+        'key' => 'main',
+        'label' => 'Peserta Inti',
+        'status' => 'Slot utama aktif',
+        'dot' => 'bg-cyan-300',
+        'accent' => 'cyan',
+        'panel_class' => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100',
+        'active_button_class' => 'border-cyan-300/40 bg-cyan-400/12 text-white shadow-[0_18px_55px_-28px_rgba(34,211,238,0.55)]',
+        'active_status_class' => 'text-cyan-200',
+        'summary' => 'Daftar utama untuk peserta yang mengisi slot inti pada golongan terpilih.',
+    ]),
+    $buildParticipantGroup($reserveParticipants, [
+        'key' => 'reserve',
+        'label' => 'Peserta Cadangan',
+        'status' => 'Slot cadangan aktif',
+        'dot' => 'bg-emerald-300',
+        'accent' => 'emerald',
+        'panel_class' => 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100',
+        'active_button_class' => 'border-emerald-300/40 bg-emerald-400/12 text-white shadow-[0_18px_55px_-28px_rgba(52,211,153,0.45)]',
+        'active_status_class' => 'text-emerald-200',
+        'summary' => 'Daftar cadangan untuk peserta pengganti bila slot inti pada golongan yang sama berubah.',
+    ]),
+];
+$defaultParticipantTab = 'main';
+$exportQuery = array_filter([
+    'district_id' => $filters['district_id'] ?? '',
+    'competition_category_id' => $filters['competition_category_id'] ?? '',
+    'verification_status' => $filters['verification_status'] ?? '',
+    'keyword' => $filters['keyword'] ?? '',
+], fn ($value) => filled($value));
+$verificationScopeLabel = 'Semua kecamatan';
+
+if ($districtLocked && filled($user?->district?->name)) {
+    $verificationScopeLabel = (string) $user?->district?->name;
+} elseif (filled($filters['district_id'] ?? null)) {
+    $selectedDistrict = collect($districts)->firstWhere('id', (string) ($filters['district_id'] ?? ''));
+    $verificationScopeLabel = (string) ($selectedDistrict->name ?? 'Semua kecamatan');
+} elseif ($restrictPanitiaDistricts && count($verificationDistrictIds) === 1) {
+    $selectedDistrict = collect($districts)->firstWhere('id', (string) $verificationDistrictIds[0]);
+    $verificationScopeLabel = (string) ($selectedDistrict->name ?? 'Semua kecamatan');
+} elseif ($restrictPanitiaDistricts && count($verificationDistrictIds) > 1) {
+    $verificationScopeLabel = 'Terbatas pada kecamatan verifikasi yang ditugaskan';
+}
+
+if ($mainParticipants->isEmpty() && $reserveParticipants->isNotEmpty()) {
+    $defaultParticipantTab = 'reserve';
+}
+
+$activeParticipantTabLabel = $defaultParticipantTab === 'reserve' ? 'Peserta Cadangan' : 'Peserta Inti';
+$navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'participants.list');
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+    <title><?= e(config('app.name', 'e-MTQ').' - Data Peserta') ?></title>
+    <?php foreach ($cssAssets as $href): ?>
+        <link rel="stylesheet" href="<?= e($href) ?>">
+    <?php endforeach; ?>
+</head>
+<body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
+    <?php require __DIR__.'/../partials/live-notifications.php'; ?>
+    <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8" x-data="{ mobileNavOpen: false, participantTab: '<?= e($defaultParticipantTab) ?>' }">
+        <div class="hero-orb hero-orb-cyan right-[-7rem] top-10 h-72 w-72"></div>
+        <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
+
+        <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
+                x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('users') ?></div>
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
+                            <h1 class="mt-1 text-lg font-bold text-white">Data Peserta</h1>
+                        </div>
+                    </div>
+                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
+                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                    </button>
+                </div>
+
+                <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
+                    <p class="section-kicker">Daftar Terdaftar</p>
+                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($registrationStats['total']) ?> Peserta</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-300">Kelola pencarian, verifikasi, dan perbaikan data peserta dari satu tempat.</p>
+                    <div class="mt-4 status-pill">
+                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                        Data Aktif
+                    </div>
+                </div>
+
+                <nav class="mt-8 space-y-2">
+                    <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
+                    <?php foreach ($navigation as $item): ?>
+                        <a href="<?= e($item['href']) ?>" class="sidebar-link <?= $item['active'] ? 'sidebar-link-active' : '' ?>">
+                            <span class="icon-chip h-10 w-10 rounded-xl"><?= mtq_icon($item['icon'], 'h-4 w-4') ?></span>
+                            <span><?= e($item['label']) ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </nav>
+
+                <div class="mt-8 grid gap-3">
+                    <div class="data-card">
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Menunggu</p>
+                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($registrationStats['pending']) ?></p>
+                    </div>
+                    <div class="data-card">
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Terverifikasi</p>
+                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($registrationStats['verified']) ?></p>
+                    </div>
+                    <form method="POST" action="<?= e(route('logout')) ?>">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <button type="submit" class="secondary-button w-full">
+                            <?= mtq_icon('logout', 'h-4 w-4') ?>
+                            Keluar
+                        </button>
+                    </form>
+                </div>
+            </aside>
+
+            <div class="min-w-0 space-y-6">
+                <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                            <?= mtq_icon('menu', 'h-4 w-4') ?>
+                        </button>
+                        <div>
+                            <p class="section-kicker">Data Masuk</p>
+                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Daftar peserta terdaftar</h2>
+                            <p class="mt-2 text-sm text-slate-300">Gunakan filter untuk mencari peserta berdasarkan kecamatan, golongan, status, nama, NIK, atau nomor registrasi.</p>
+                            <div class="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-100">
+                                <?= mtq_icon('shield-check', 'h-3.5 w-3.5') ?>
+                                <span class="truncate">Anda sedang melihat kecamatan verifikasi: <?= e($verificationScopeLabel) ?></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <?php if ($user?->role === 'admin'): ?>
+                            <a href="<?= e(route('participants.trash')) ?>" class="secondary-button">
+                                <?= mtq_icon('trash', 'h-4 w-4') ?>
+                                Arsip Peserta
+                            </a>
+                        <?php endif; ?>
+                            <a href="<?= e(route('participants.export.excel', $exportQuery)) ?>" class="secondary-button">
+                                <?= mtq_icon('book-open', 'h-4 w-4') ?>
+                                Ekspor Excel
+                            </a>
+                            <a href="<?= e(route('participants.export.pdf', $exportQuery)) ?>" target="_blank" rel="noreferrer" class="secondary-button">
+                                <?= mtq_icon('book-open', 'h-4 w-4') ?>
+                                Ekspor PDF
+                            </a>
+                        <a href="<?= e(route('participants.index')) ?>" class="primary-button">
+                            <?= mtq_icon('id-card', 'h-4 w-4') ?>
+                            Daftar Peserta Baru
+                        </a>
+                    </div>
+                </header>
+
+                <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Total</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($registrationStats['total']) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Terverifikasi</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($registrationStats['verified']) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('clock') ?></div><p class="mt-4 text-sm text-slate-400">Menunggu</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($registrationStats['pending']) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('upload') ?></div><p class="mt-4 text-sm text-slate-400">Draf</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($registrationStats['draft']) ?></p></div>
+                </section>
+
+                <section class="glass-card rounded-[2rem] p-6">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('layers') ?></div>
+                        <div>
+                            <p class="section-kicker">Filter Data</p>
+                            <h3 class="mt-2 text-2xl font-bold text-white">Saring peserta berdasarkan kebutuhan verifikasi</h3>
+                        </div>
+                    </div>
+
+                    <form method="GET" action="<?= e(route('participants.list')) ?>" class="mt-6 grid gap-4 lg:grid-cols-4">
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Kata kunci</label>
+                            <input name="keyword" type="text" value="<?= e($filters['keyword'] ?? '') ?>" placeholder="Nama / NIK / registrasi" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                        </div>
+
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Status verifikasi</label>
+                            <select name="verification_status" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                <option value="">Semua status</option>
+                                <option value="draft" <?= ($filters['verification_status'] ?? '') === 'draft' ? 'selected' : '' ?>>Draf</option>
+                                <option value="submitted" <?= ($filters['verification_status'] ?? '') === 'submitted' ? 'selected' : '' ?>>Menunggu</option>
+                                <option value="verified" <?= ($filters['verification_status'] ?? '') === 'verified' ? 'selected' : '' ?>>Terverifikasi</option>
+                                <option value="rejected" <?= ($filters['verification_status'] ?? '') === 'rejected' ? 'selected' : '' ?>>Ditolak</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Kecamatan</label>
+                            <select name="district_id" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" <?= $districtLocked ? 'disabled' : '' ?>>
+                                <option value="">Semua kecamatan</option>
+                                <?php foreach ($districts as $district): ?>
+                                    <option value="<?= e($district->id) ?>" <?= (string) ($filters['district_id'] ?? '') === (string) $district->id ? 'selected' : '' ?>><?= e($district->name) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if ($districtLocked): ?>
+                                <input type="hidden" name="district_id" value="<?= e($filters['district_id'] ?? $user?->district_id) ?>">
+                            <?php endif; ?>
+                        </div>
+
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Kategori</label>
+                            <select name="competition_category_id" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                <option value="">Semua golongan</option>
+                                <?php foreach ($categories as $category): ?>
+                                    <option value="<?= e($category->id) ?>" <?= (string) ($filters['competition_category_id'] ?? '') === (string) $category->id ? 'selected' : '' ?>>
+                                        <?= e($category->branch.' - '.$category->name) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="lg:col-span-4 flex flex-wrap gap-3">
+                            <button type="submit" class="primary-button">
+                                <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                Terapkan Filter
+                            </button>
+                            <a href="<?= e(route('participants.list')) ?>" class="secondary-button">
+                                <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                                Reset
+                            </a>
+                        </div>
+                        <div class="lg:col-span-4 rounded-2xl border border-cyan-400/16 bg-cyan-400/8 px-4 py-3 text-sm text-slate-300">
+                            Export rekap mengikuti filter aktif pada halaman ini. Official hanya dapat mengexport peserta kecamatan sendiri, sedangkan admin dan panitia dapat mengexport per kecamatan atau seluruh kecamatan.
+                        </div>
+                    </form>
+                </section>
+
+                <section class="glass-card rounded-[2rem] p-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-chip"><?= mtq_icon('users') ?></div>
+                            <div>
+                                <p class="section-kicker">Data Masuk</p>
+                                <h3 class="mt-2 text-2xl font-bold text-white">Daftar peserta terdaftar</h3>
+                            </div>
+                        </div>
+                        <span class="status-pill">
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                            <?= e($participants->count()) ?> peserta
+                        </span>
+                    </div>
+
+                    <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex w-full gap-3 overflow-x-auto pb-1 lg:w-auto">
+                            <?php foreach ($participantGroups as $group): ?>
+                                <button
+                                    type="button"
+                                    class="min-w-[220px] flex-1 rounded-2xl border px-4 py-3 text-left transition lg:flex-none"
+                                    x-on:click="participantTab = '<?= e($group['key']) ?>'"
+                                    x-bind:class="participantTab === '<?= e($group['key']) ?>' ? '<?= e($group['active_button_class']) ?>' : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:border-slate-600'"
+                                >
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p class="text-xs uppercase tracking-[0.18em] text-slate-400"><?= e($group['label']) ?></p>
+                                            <p class="mt-2 text-lg font-bold"><?= e($group['items']->count()) ?> peserta</p>
+                                        </div>
+                                        <span class="inline-flex h-2.5 w-2.5 rounded-full <?= e($group['dot']) ?>"></span>
+                                    </div>
+                                    <p class="mt-1 text-xs" x-bind:class="participantTab === '<?= e($group['key']) ?>' ? '<?= e($group['active_status_class']) ?>' : 'text-slate-500'"><?= e($group['status']) ?></p>
+                                    <div class="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                                        <div class="rounded-xl border border-white/10 bg-slate-950/20 px-2 py-2">
+                                            <p class="uppercase tracking-[0.18em] text-slate-500">Verif</p>
+                                            <p class="mt-1 font-bold text-emerald-200"><?= e($group['verified_count']) ?></p>
+                                        </div>
+                                        <div class="rounded-xl border border-white/10 bg-slate-950/20 px-2 py-2">
+                                            <p class="uppercase tracking-[0.18em] text-slate-500">Tunggu</p>
+                                            <p class="mt-1 font-bold text-cyan-200"><?= e($group['pending_count']) ?></p>
+                                        </div>
+                                        <div class="rounded-xl border border-white/10 bg-slate-950/20 px-2 py-2">
+                                            <p class="uppercase tracking-[0.18em] text-slate-500">Review</p>
+                                            <p class="mt-1 font-bold text-amber-100"><?= e($group['needs_review_count']) ?></p>
+                                        </div>
+                                    </div>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="status-pill hidden sm:inline-flex">
+                            <?php foreach ($participantGroups as $group): ?>
+                                <span x-show="participantTab === '<?= e($group['key']) ?>'" class="inline-flex items-center gap-2">
+                                    <span class="inline-flex h-2.5 w-2.5 rounded-full <?= e($group['dot']) ?>"></span>
+                                    <?= e($group['label']) ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
+                    <?php if ($participants->isNotEmpty() && $defaultParticipantTab === 'reserve'): ?>
+                        <div class="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                            Tab awal otomatis dibuka ke <strong><?= e($activeParticipantTabLabel) ?></strong> karena hasil filter saat ini hanya berisi peserta cadangan.
+                        </div>
+                    <?php endif; ?>
+
+                    <?php foreach ($participantGroups as $group): ?>
+                        <?php $pageGroupItems = $group['items']->filter(fn ($participant) => $participantsPage->contains('id', $participant->id))->values(); ?>
+                        <div x-show="participantTab === '<?= e($group['key']) ?>'" x-cloak>
+                            <div class="mt-6 rounded-[1.5rem] border px-4 py-4 sm:px-5 <?= e($group['panel_class']) ?>">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.18em]">Tab Aktif</p>
+                                        <p class="mt-2 text-lg font-bold"><?= e($group['label']) ?></p>
+                                        <p class="mt-1 text-sm opacity-90"><?= e($group['summary']) ?></p>
+                                        <div class="mt-3">
+                                            <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($group['dominant_badge_class']) ?>">
+                                                <?= e($group['dominant_badge_label']) ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        <div class="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3 text-sm text-white/90">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-white/60">Total</p>
+                                            <p class="mt-2 text-2xl font-black"><?= e($group['items']->count()) ?></p>
+                                        </div>
+                                        <div class="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3 text-sm text-white/90">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-white/60">Terverifikasi</p>
+                                            <p class="mt-2 text-2xl font-black text-emerald-200"><?= e($group['verified_count']) ?></p>
+                                        </div>
+                                        <div class="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3 text-sm text-white/90">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-white/60">Menunggu</p>
+                                            <p class="mt-2 text-2xl font-black text-cyan-200"><?= e($group['pending_count']) ?></p>
+                                        </div>
+                                        <div class="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3 text-sm text-white/90">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-white/60">Perlu Review</p>
+                                            <p class="mt-2 text-2xl font-black text-amber-100"><?= e($group['needs_review_count']) ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-shell mt-6">
+                            <table class="min-w-full">
+                                <thead class="table-head">
+                                    <tr>
+                                        <th class="px-5 py-4">No. Registrasi</th>
+                                        <th class="px-5 py-4">Peserta</th>
+                                        <th class="px-5 py-4">Kecamatan</th>
+                                        <th class="px-5 py-4">Kategori</th>
+                                        <th class="px-5 py-4">Status</th>
+                                        <th class="px-5 py-4">Aksi</th>
+                                        <?php if ($canVerify): ?>
+                                            <th class="px-5 py-4">Verifikasi</th>
+                                        <?php endif; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if ($group['items']->isEmpty()): ?>
+                                        <tr class="table-row">
+                                            <td colspan="<?= e($canVerify ? 7 : 6) ?>" class="px-5 py-8 text-center text-sm text-slate-400">Belum ada <?= e(mb_strtolower($group['label'])) ?> yang sesuai dengan filter.</td>
+                                        </tr>
+                                    <?php elseif ($pageGroupItems->isEmpty()): ?>
+                                        <tr class="table-row">
+                                            <td colspan="<?= e($canVerify ? 7 : 6) ?>" class="px-5 py-8 text-center text-sm text-slate-400">Tidak ada data <?= e(mb_strtolower($group['label'])) ?> pada halaman ini.</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                    <?php foreach ($pageGroupItems as $participant): ?>
+                                        <tr class="table-row">
+                                            <td class="px-5 py-4 text-sm text-cyan-200"><?= e($participant->registration_number) ?></td>
+                                            <td class="px-5 py-4">
+                                                <div class="font-semibold text-white"><?= e($participant->name) ?></div>
+                                                <?php if (filled($participant->lot_number)): ?>
+                                                    <div class="mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                                        Lot <?= e($participant->lot_number) ?>
+                                                    </div>
+                                                <?php elseif ($participant->verification_status === 'verified'): ?>
+                                                    <div class="mt-1 text-xs text-slate-400">Nomor lot belum diambil</div>
+                                                <?php endif; ?>
+                                                <div class="mt-1 text-xs text-slate-400"><?= e($participant->nik ?: '-') ?></div>
+                                            </td>
+                                            <td class="px-5 py-4 text-sm text-slate-300"><?= e($participant->district?->name ?? '-') ?></td>
+                                            <td class="px-5 py-4 text-sm text-slate-300"><?= e($participant->category?->name ?? '-') ?></td>
+                                            <td class="px-5 py-4">
+                                                <?php
+                                                $statusLabel = match ($participant->verification_status) {
+                                                    'verified' => 'Terverifikasi',
+                                                    'submitted' => 'Menunggu',
+                                                    'rejected' => 'Ditolak',
+                                                    default => 'Draf',
+                                                };
+                                                $statusClass = match ($participant->verification_status) {
+                                                    'verified' => 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
+                                                    'submitted' => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
+                                                    'rejected' => 'border-rose-400/20 bg-rose-400/10 text-rose-100',
+                                                    default => 'border-slate-600 bg-slate-800/80 text-slate-300',
+                                                };
+                                                $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
+                                                    && $user?->district?->mandate_status === 'rejected';
+                                                $canEditParticipant = ! (
+                                                    (in_array($user?->role, ['official', 'pendamping'], true)
+                                                    && $participant->verification_status === 'verified')
+                                                    || $officialMandateRejected
+                                                );
+                                                $canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
+                                                    || in_array($participant->verification_status, ['submitted', 'rejected'], true);
+                                                $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
+                                                ?>
+                                                <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($statusClass) ?>">
+                                                    <?= e($statusLabel) ?>
+                                                </span>
+                                                <?php if ($participant->verification_notes): ?>
+                                                    <div class="mt-2 text-xs text-slate-400"><?= e($participant->verification_notes) ?></div>
+                                                <?php endif; ?>
+                                                <?php if (filled($participant->lot_number)): ?>
+                                                    <div class="mt-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                                        Lot <?= e($participant->lot_number) ?>
+                                                    </div>
+                                                <?php elseif ($participant->verification_status === 'verified'): ?>
+                                                    <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-2 rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] text-cyan-100 hover:border-cyan-200/50">
+                                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                                        Ambil Nomor Lot
+                                                    </a>
+                                                <?php endif; ?>
+                                                <?php $usesMaqra = $participant->category ? app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category) : false; ?>
+                                                <?php if ($usesMaqra && filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null)): ?>
+                                                    <?php
+                                                        $latestMaqraRound = (string) ($participant->latestMaqraDraw?->round_label ?? 'Penyisihan');
+                                                        $maqraLabel = trim((string) preg_replace('/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/u', '', (string) ($participant->latestMaqraDraw?->maqraPackage?->title ?? '')));
+                                                        $maqraLabel = $maqraLabel !== '' ? (str_starts_with($maqraLabel, 'QS') ? $maqraLabel : 'QS '.$maqraLabel) : '-';
+                                                    ?>
+                                                    <div class="mt-2 inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
+                                                        <?= e($maqraLabel) ?>
+                                                    </div>
+                                                <?php elseif ($usesMaqra && $participant->verification_status === 'verified'): ?>
+                                                    <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-2 rounded-xl border-fuchsia-300/30 bg-fuchsia-400/10 px-3 py-2 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
+                                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                                        Ambil Maqra
+                                                    </a>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-5 py-4">
+                                                <div class="flex flex-wrap gap-2">
+                                                    <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                        <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                                        Lihat Detail
+                                                    </a>
+                                                    <?php if ($canEditParticipant): ?>
+                                                        <a href="<?= e(route('participants.edit', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                            <?= mtq_icon('id-card', 'h-4 w-4') ?>
+                                                            Edit
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <span class="inline-flex rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100">
+                                                            <?= e($officialMandateRejected ? 'Mandat Ditolak' : 'Terkunci') ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ($canDeleteParticipant): ?>
+                                                        <form method="POST" action="<?= e(route('participants.archive', $participant)) ?>" <?= $usesOfficialDeleteCopy ? 'data-swal-confirm data-swal-title="Hapus data peserta?" data-swal-text="Data akan dipindahkan ke arsip admin dan dapat dipanggil kembali jika diperlukan." data-swal-confirm="Ya, hapus" data-swal-cancel="Batal"' : '' ?>>
+                                                            <?= csrf_field() ?>
+                                                            <button type="submit" class="secondary-button rounded-xl border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs text-rose-100 hover:border-rose-300/40">
+                                                                <?= mtq_icon('trash', 'h-4 w-4') ?>
+                                                                <?= e($usesOfficialDeleteCopy ? 'Hapus' : 'Arsipkan') ?>
+                                                            </button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
+                                            <?php if ($canVerify): ?>
+                                                <td class="px-5 py-4">
+                                                    <div class="grid gap-2">
+                                                        <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-3 py-2 text-[11px] leading-tight text-center">
+                                                            <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                                            Cek Berkas
+                                                        </a>
+                                                        <?php if ($participant->verification_status === 'verified'): ?>
+                                                            <a href="<?= e(route('participants.cv', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-3 py-2 text-[11px] leading-tight text-center">
+                                                                <?= mtq_icon('download', 'h-4 w-4') ?>
+                                                                Download CV
+                                                            </a>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </td>
+                                            <?php endif; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    <?php if ($participantsPaginator instanceof \Illuminate\Pagination\LengthAwarePaginator && $participantsPaginator->hasPages()): ?>
+                        <div class="mt-6 rounded-[1.5rem] border border-slate-700/80 bg-slate-950/60 px-4 py-4">
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div class="text-sm text-slate-300">
+                                    Menampilkan <span class="font-semibold text-white"><?= e($participantsPaginator->firstItem() ?? 0) ?></span>
+                                    sampai <span class="font-semibold text-white"><?= e($participantsPaginator->lastItem() ?? 0) ?></span>
+                                    dari <span class="font-semibold text-white"><?= e($participantsPaginator->total()) ?></span> peserta
+                                </div>
+                                <div class="text-sm text-slate-400">
+                                    Halaman <?= e($participantsPaginator->currentPage()) ?> dari <?= e($participantsPaginator->lastPage()) ?> · <?= e($participantsPerPage) ?> data per halaman
+                                </div>
+                            </div>
+                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                                <a
+                                    href="<?= e($participantsPaginator->previousPageUrl() ?: '#') ?>"
+                                    class="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition <?= $participantsPaginator->onFirstPage() ? 'cursor-not-allowed border-slate-700 bg-slate-900/40 text-slate-500' : 'border-slate-600 bg-slate-900/80 text-slate-100 hover:border-cyan-300/30 hover:bg-cyan-400/10 hover:text-white' ?>"
+                                    aria-disabled="<?= $participantsPaginator->onFirstPage() ? 'true' : 'false' ?>"
+                                    <?= $participantsPaginator->onFirstPage() ? 'tabindex="-1"' : '' ?>
+                                >
+                                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                                    Previous
+                                </a>
+
+                                <div class="inline-flex items-center rounded-full border border-slate-700 bg-slate-950/80 px-4 py-2 text-sm font-semibold text-slate-200">
+                                    <?= e($participantsPaginator->currentPage()) ?> / <?= e($participantsPaginator->lastPage()) ?>
+                                </div>
+
+                                <a
+                                    href="<?= e($participantsPaginator->nextPageUrl() ?: '#') ?>"
+                                    class="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition <?= $participantsPaginator->hasMorePages() ? 'border-slate-600 bg-slate-900/80 text-slate-100 hover:border-cyan-300/30 hover:bg-cyan-400/10 hover:text-white' : 'cursor-not-allowed border-slate-700 bg-slate-900/40 text-slate-500' ?>"
+                                    aria-disabled="<?= $participantsPaginator->hasMorePages() ? 'false' : 'true' ?>"
+                                    <?= $participantsPaginator->hasMorePages() ? '' : 'tabindex="-1"' ?>
+                                >
+                                    Next
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <?php require __DIR__.'/../partials/app-footer.php'; ?>
+    <?php foreach ($jsAssets as $src): ?>
+        <script type="module" src="<?= e($src) ?>"></script>
+    <?php endforeach; ?>
+    <script>
+        (function () {
+            const launchers = document.querySelectorAll('[data-lot-launcher], [data-maqra-launcher]');
+            launchers.forEach((launcher) => {
+                launcher.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const url = launcher.getAttribute('href');
+                    if (!url) {
+                        return;
+                    }
+
+                    const windowName = launcher.hasAttribute('data-maqra-launcher') ? 'mtq-maqra-draw' : 'mtq-lot-draw';
+
+                    const popup = window.open(
+                        url,
+                        windowName,
+                        `popup=yes,width=${screen.availWidth},height=${screen.availHeight},left=0,top=0,noopener=no`
+                    );
+
+                    if (popup) {
+                        try {
+                            popup.moveTo(0, 0);
+                            popup.resizeTo(screen.availWidth, screen.availHeight);
+                            popup.focus();
+                        } catch (error) {
+                            popup.focus();
+                        }
+                    } else {
+                        window.location.href = url;
+                    }
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

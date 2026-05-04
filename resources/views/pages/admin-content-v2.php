@@ -1,0 +1,417 @@
+<?php
+require_once __DIR__.'/../partials/icon.php';
+$cssAssets = $assets['css'] ?? [];
+$jsAssets = $assets['js'] ?? [];
+$user = auth()->user();
+$rolePanel = $rolePanel ?? [];
+$announcements = $announcements ?? collect();
+$schedules = $schedules ?? collect();
+$bigScreenUrl = $bigScreenUrl ?? route('big-screen');
+$projectorProtocolUrl = $projectorProtocolUrl ?? ('emtq-launch://bigscreen?url='.rawurlencode($bigScreenUrl));
+$districtCount = $districtCount ?? 0;
+$navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'admin.content');
+$priorityLabels = [
+    'low' => 'Rendah',
+    'normal' => 'Normal',
+    'high' => 'Tinggi',
+];
+$priorityClasses = [
+    'low' => 'border-slate-500/30 bg-slate-500/10 text-slate-200',
+    'normal' => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
+    'high' => 'border-amber-400/20 bg-amber-400/10 text-amber-100',
+];
+$scheduleStatusLabels = [
+    'scheduled' => 'Terjadwal',
+    'ongoing' => 'Berlangsung',
+    'completed' => 'Selesai',
+    'postponed' => 'Ditunda',
+];
+$scheduleStatusClasses = [
+    'scheduled' => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
+    'ongoing' => 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
+    'completed' => 'border-slate-500/30 bg-slate-500/10 text-slate-200',
+    'postponed' => 'border-rose-400/20 bg-rose-400/10 text-rose-100',
+];
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+    <title><?= e(config('app.name', 'e-MTQ').' - Kelola Konten') ?></title>
+    <?php foreach ($cssAssets as $href): ?>
+        <link rel="stylesheet" href="<?= e($href) ?>">
+    <?php endforeach; ?>
+</head>
+<body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
+    <?php require __DIR__.'/../partials/live-notifications.php'; ?>
+    <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8" x-data="{ mobileNavOpen: false }">
+        <div class="hero-orb hero-orb-cyan right-[-8rem] top-10 h-72 w-72"></div>
+        <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
+
+        <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
+                x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('bell') ?></div>
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
+                            <h1 class="mt-1 text-lg font-bold text-white">Kelola Konten</h1>
+                        </div>
+                    </div>
+                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
+                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                    </button>
+                </div>
+
+                <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
+                    <p class="section-kicker">Pusat Siaran</p>
+                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($user?->name) ?></h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-300">Kelola pengumuman dan jadwal dari satu halaman, lalu siarkan pembaruan penting ke semua pengguna yang sedang online.</p>
+                    <div class="mt-4 status-pill">
+                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
+                        Admin Broadcast Ready
+                    </div>
+                </div>
+
+                <nav class="mt-8 space-y-2">
+                    <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
+                    <?php foreach ($navigation as $item): ?>
+                        <a href="<?= e($item['href']) ?>" class="sidebar-link <?= $item['active'] ? 'sidebar-link-active' : '' ?>">
+                            <span class="icon-chip h-10 w-10 rounded-xl"><?= mtq_icon($item['icon'], 'h-4 w-4') ?></span>
+                            <span><?= e($item['label']) ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </nav>
+
+                <div class="mt-8 grid gap-3">
+                    <div class="data-card">
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Fokus Saat Ini</p>
+                        <p class="mt-2 text-sm font-semibold text-white"><?= e($rolePanel['headline'] ?? 'Operasional Konten') ?></p>
+                        <p class="mt-2 text-sm leading-6 text-slate-300">Gunakan form di kanan untuk menambah konten baru, lalu siarkan hanya ketika informasi sudah final.</p>
+                    </div>
+                    <a href="<?= e(route('dashboard')) ?>" class="secondary-button w-full">
+                        <?= mtq_icon('home', 'h-4 w-4') ?>
+                        Kembali ke Dashboard
+                    </a>
+                    <form method="POST" action="<?= e(route('logout')) ?>">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <button type="submit" class="secondary-button w-full">
+                            <?= mtq_icon('logout', 'h-4 w-4') ?>
+                            Keluar
+                        </button>
+                    </form>
+                </div>
+            </aside>
+
+            <div class="min-w-0 space-y-6">
+                <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                            <?= mtq_icon('menu', 'h-4 w-4') ?>
+                        </button>
+                        <div>
+                            <p class="section-kicker">Panel Admin Konten</p>
+                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Manajemen pengumuman dan jadwal</h2>
+                            <p class="mt-2 text-sm text-slate-300">Semua update penting event bisa dibuat, ditinjau, dan disiarkan dari halaman ini.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="status-pill">
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                            <?= e($announcements->count()) ?> Pengumuman | <?= e($schedules->count()) ?> Jadwal
+                        </div>
+                    </div>
+                </header>
+
+                <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('bell') ?></div><p class="mt-4 text-sm text-slate-400">Total Pengumuman</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($announcements->count()) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('calendar') ?></div><p class="mt-4 text-sm text-slate-400">Total Jadwal</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($schedules->count()) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Jadwal Aktif</p><p class="mt-2 text-3xl font-extrabold text-emerald-300"><?= e($schedules->where('status', 'ongoing')->count()) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('clock') ?></div><p class="mt-4 text-sm text-slate-400">Jadwal Mendatang</p><p class="mt-2 text-3xl font-extrabold text-cyan-200"><?= e($schedules->filter(fn ($schedule) => optional($schedule->starts_at)->isFuture())->count()) ?></p></div>
+                </section>
+
+                <?php if ($user?->role === 'admin'): ?>
+                    <section class="glass-card rounded-[2rem] p-6">
+                        <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                            <div class="max-w-3xl">
+                                <p class="section-kicker">Sinkronisasi Master Data</p>
+                                <h3 class="mt-2 text-2xl font-bold text-white">Sinkronkan kecamatan dari SILATAR</h3>
+                                <p class="mt-3 text-sm leading-6 text-slate-300">Gunakan tombol ini untuk memperbarui daftar kecamatan e-MTQ agar mengikuti data KUA terbaru dari API SILATAR tanpa harus membuka terminal.</p>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-3">
+                                <div class="status-pill">
+                                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                                    <?= e($districtCount) ?> Kecamatan Tersimpan
+                                </div>
+                                <form method="POST" action="<?= e(route('admin.content.districts.sync')) ?>">
+                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                    <button type="submit" class="primary-button">
+                                        <?= mtq_icon('refresh', 'h-4 w-4') ?>
+                                        Sinkronisasi Kecamatan
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
+                <section class="glass-card rounded-[2rem] p-6">
+                    <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                        <div class="max-w-3xl">
+                            <p class="section-kicker">Projector Mode</p>
+                            <h3 class="mt-2 text-2xl font-bold text-white">Satu paket untuk layar besar arena</h3>
+                            <p class="mt-3 text-sm leading-6 text-slate-300">Tombol ini memakai launcher lokal di komputer panitia. Setelah dipasang sekali, klik "Aktifkan Projector" akan memanggil mode <span class="font-semibold text-cyan-200">extend</span> lalu membuka halaman tampilan besar penuh layar.</p>
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <a href="<?= e($projectorProtocolUrl) ?>" class="primary-button">
+                                <?= mtq_icon('zap', 'h-4 w-4') ?>
+                                Aktifkan Projector
+                            </a>
+                            <a href="<?= e($bigScreenUrl) ?>" target="_blank" rel="noreferrer" class="secondary-button">
+                                <?= mtq_icon('eye', 'h-4 w-4') ?>
+                                Pratinjau Layar Besar
+                            </a>
+                            <a href="<?= e(route('admin.content.projector-installer')) ?>" class="secondary-button">
+                                <?= mtq_icon('upload', 'h-4 w-4') ?>
+                                Unduh Launcher
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 grid gap-4 md:grid-cols-3">
+                        <div class="data-card">
+                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Langkah 1</p>
+                            <p class="mt-2 font-semibold text-white">Pasang launcher lokal</p>
+                            <p class="mt-2 text-sm leading-6 text-slate-300">Unduh `install-emtq-projector.ps1`, lalu jalankan sekali di komputer operator atau laptop panitia.</p>
+                        </div>
+                        <div class="data-card">
+                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Langkah 2</p>
+                            <p class="mt-2 font-semibold text-white">Sambungkan layar</p>
+                            <p class="mt-2 text-sm leading-6 text-slate-300">Pastikan layar kedua sudah terdeteksi Windows sebelum tombol aktivasi ditekan.</p>
+                        </div>
+                        <div class="data-card">
+                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Langkah 3</p>
+                            <p class="mt-2 font-semibold text-white">Klik tombol aktivasi</p>
+                            <p class="mt-2 text-sm leading-6 text-slate-300">Browser akan meminta izin membuka aplikasi eksternal, lalu launcher menjalankan mode extend dan membuka halaman layar besar.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="grid gap-6 xl:grid-cols-2">
+                    <div class="glass-card rounded-[2rem] p-6">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-chip"><?= mtq_icon('bell') ?></div>
+                            <div>
+                                <p class="section-kicker">Pengumuman Baru</p>
+                                <h3 class="mt-1 text-2xl font-bold text-white">Tulis pengumuman resmi</h3>
+                            </div>
+                        </div>
+
+                        <form method="POST" action="<?= e(route('admin.content.announcements.store')) ?>" class="mt-6 space-y-4">
+                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-200">Judul</label>
+                                <input name="title" type="text" value="<?= e(old('title')) ?>" placeholder="Contoh: Verifikasi Tahap I Dibuka" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-200">Isi pengumuman</label>
+                                <textarea name="body" rows="5" placeholder="Tuliskan informasi resmi yang ingin diumumkan..." class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"><?= e(old('body')) ?></textarea>
+                            </div>
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Prioritas</label>
+                                    <select name="priority" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                        <?php foreach ($priorityLabels as $priority => $label): ?>
+                                            <option value="<?= e($priority) ?>" <?= old('priority', 'normal') === $priority ? 'selected' : '' ?>><?= e($label) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Waktu publikasi</label>
+                                    <input name="published_at" type="datetime-local" value="<?= e(old('published_at')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap gap-3">
+                                <button type="submit" class="primary-button">
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                    Simpan Pengumuman
+                                </button>
+                                <a href="#pengumuman-list" class="secondary-button">
+                                    <?= mtq_icon('bell', 'h-4 w-4') ?>
+                                    Lihat Daftar
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="glass-card rounded-[2rem] p-6">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-chip"><?= mtq_icon('calendar') ?></div>
+                            <div>
+                                <p class="section-kicker">Jadwal Baru</p>
+                                <h3 class="mt-1 text-2xl font-bold text-white">Tambahkan sesi dan agenda</h3>
+                            </div>
+                        </div>
+
+                        <form method="POST" action="<?= e(route('admin.content.schedules.store')) ?>" class="mt-6 space-y-4">
+                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <div class="md:col-span-2">
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Judul sesi</label>
+                                    <input name="title" type="text" value="<?= e(old('title')) ?>" placeholder="Contoh: Babak Penyisihan Tilawah Dewasa" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Tahap / babak</label>
+                                    <input name="stage" type="text" value="<?= e(old('stage')) ?>" placeholder="Penyisihan / Final / Verifikasi" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Lokasi</label>
+                                    <input name="venue" type="text" value="<?= e(old('venue')) ?>" placeholder="Panggung utama / Aula / Masjid" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Mulai</label>
+                                    <input name="starts_at" type="datetime-local" value="<?= e(old('starts_at')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Selesai</label>
+                                    <input name="ends_at" type="datetime-local" value="<?= e(old('ends_at')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Status</label>
+                                    <select name="status" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                        <?php foreach ($scheduleStatusLabels as $status => $label): ?>
+                                            <option value="<?= e($status) ?>" <?= old('status', 'scheduled') === $status ? 'selected' : '' ?>><?= e($label) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan</label>
+                                    <textarea name="notes" rows="4" placeholder="Catatan tambahan untuk panitia atau peserta..." class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"><?= e(old('notes')) ?></textarea>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap gap-3">
+                                <button type="submit" class="primary-button">
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                    Simpan Jadwal
+                                </button>
+                                <a href="#jadwal-list" class="secondary-button">
+                                    <?= mtq_icon('calendar', 'h-4 w-4') ?>
+                                    Lihat Daftar
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="grid gap-6 xl:grid-cols-2">
+                    <div id="pengumuman-list" class="glass-card rounded-[2rem] p-6">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-chip"><?= mtq_icon('bell') ?></div>
+                            <div>
+                                <p class="section-kicker">Daftar Pengumuman</p>
+                                <h3 class="mt-1 text-2xl font-bold text-white">Publikasi terbaru</h3>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 space-y-3">
+                            <?php if ($announcements->isEmpty()): ?>
+                                <div class="data-card text-sm text-slate-300">Belum ada pengumuman yang tersimpan.</div>
+                            <?php else: ?>
+                                <?php foreach ($announcements as $announcement): ?>
+                                    <?php
+                                    $priority = (string) ($announcement->priority ?? 'normal');
+                                    $priorityClass = $priorityClasses[$priority] ?? $priorityClasses['normal'];
+                                    $priorityLabel = $priorityLabels[$priority] ?? ucfirst($priority);
+                                    ?>
+                                    <div class="data-card">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <p class="font-semibold text-white"><?= e($announcement->title) ?></p>
+                                                    <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($priorityClass) ?>"><?= e($priorityLabel) ?></span>
+                                                </div>
+                                                <p class="mt-2 text-sm leading-6 text-slate-300"><?= e($announcement->body) ?></p>
+                                                <p class="mt-3 text-xs text-slate-500">
+                                                    Oleh <?= e($announcement->author?->name ?? 'Sistem') ?> | <?= e(optional($announcement->published_at)->format('d M Y H:i') ?? '-') ?>
+                                                </p>
+                                            </div>
+                                            <form method="POST" action="<?= e(route('broadcast.announcement', $announcement)) ?>">
+                                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                    <?= mtq_icon('bell', 'h-4 w-4') ?>
+                                                    Siarkan
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div id="jadwal-list" class="glass-card rounded-[2rem] p-6">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-chip"><?= mtq_icon('calendar') ?></div>
+                            <div>
+                                <p class="section-kicker">Daftar Jadwal</p>
+                                <h3 class="mt-1 text-2xl font-bold text-white">Agenda dan sesi terbaru</h3>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 space-y-3">
+                            <?php if ($schedules->isEmpty()): ?>
+                                <div class="data-card text-sm text-slate-300">Belum ada jadwal yang tersimpan.</div>
+                            <?php else: ?>
+                                <?php foreach ($schedules as $schedule): ?>
+                                    <?php
+                                    $status = (string) ($schedule->status ?? 'scheduled');
+                                    $statusClass = $scheduleStatusClasses[$status] ?? $scheduleStatusClasses['scheduled'];
+                                    $statusLabel = $scheduleStatusLabels[$status] ?? ucfirst($status);
+                                    ?>
+                                    <div class="data-card">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <p class="font-semibold text-white"><?= e($schedule->title) ?></p>
+                                                    <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($statusClass) ?>"><?= e($statusLabel) ?></span>
+                                                </div>
+                                                <p class="mt-2 text-xs text-slate-400"><?= e($schedule->stage) ?> | <?= e($schedule->venue) ?></p>
+                                                <p class="mt-2 text-sm text-slate-300">
+                                                    <?= e(optional($schedule->starts_at)->format('d M Y H:i') ?? '-') ?>
+                                                    <?php if ($schedule->ends_at): ?>
+                                                        - <?= e(optional($schedule->ends_at)->format('d M Y H:i')) ?>
+                                                    <?php endif; ?>
+                                                </p>
+                                                <?php if ($schedule->notes): ?>
+                                                    <p class="mt-3 text-sm leading-6 text-slate-300"><?= e($schedule->notes) ?></p>
+                                                <?php endif; ?>
+                                            </div>
+                                            <form method="POST" action="<?= e(route('broadcast.schedule', $schedule)) ?>">
+                                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                    <?= mtq_icon('bell', 'h-4 w-4') ?>
+                                                    Siarkan
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <?php require __DIR__.'/../partials/app-footer.php'; ?>
+    <?php foreach ($jsAssets as $src): ?>
+        <script type="module" src="<?= e($src) ?>"></script>
+    <?php endforeach; ?>
+</body>
+</html>

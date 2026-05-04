@@ -1,0 +1,45 @@
+<?php
+
+if (! function_exists('mtq_icon')) {
+    function mtq_icon(string $name, string $classes = 'h-5 w-5'): string
+    {
+        $icons = [
+            'spark' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 16l.9 2.1L8 19l-2.1.9L5 22l-.9-2.1L2 19l2.1-.9L5 16Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l1.1 2.4L22.5 17l-2.4 1.1L19 20.5l-1.1-2.4L15.5 17l2.4-1.1L19 14Z"/>',
+            'shield' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.4-2.8 8.4-7 9-4.2-.6-7-4.6-7-9V6l7-3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12 1.7 1.7 3.3-3.7"/>',
+            'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.5 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20 21v-1a4 4 0 0 0-3-3.9"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 4.1a4 4 0 0 1 0 7.8"/>',
+            'chart' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 16v-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V8"/><path stroke-linecap="round" stroke-linejoin="round" d="M17 16v-9"/>',
+            'calendar' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8 2v4"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18"/>',
+            'bell' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 17H5.8a1 1 0 0 1-.8-1.6l1-1.4V10a6 6 0 1 1 12 0v4l1 1.4a1 1 0 0 1-.8 1.6H15"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 17a2 2 0 0 0 4 0"/>',
+            'logout' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path stroke-linecap="round" stroke-linejoin="round" d="m16 17 5-5-5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12H9"/>',
+            'arrow-left' => '<path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12H9"/>',
+            'arrow-right' => '<path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h12"/>',
+            'arrow-up' => '<path stroke-linecap="round" stroke-linejoin="round" d="m6 15 6-6 6 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 21V9"/>',
+            'arrow-down' => '<path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12"/>',
+            'fingerprint' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 11a3 3 0 0 1 3 3v1.5a6.5 6.5 0 0 1-13 0"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 9.5a6 6 0 0 1 12 0V12"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 5a9 9 0 0 1 9 9c0 2.6-.6 5.1-1.8 7.4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2a12 12 0 0 0-12 12c0 2.5.8 4.9 2.1 6.8"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.5v1a3 3 0 0 0 6 0V13"/>',
+            'mail' => '<rect width="18" height="14" x="3" y="5" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 7 9 6 9-6"/>',
+            'eye' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/>',
+            'zap' => '<path stroke-linecap="round" stroke-linejoin="round" d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>',
+            'trophy' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 17v4"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 6H5a2 2 0 0 0-2 2 5 5 0 0 0 5 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M17 6h2a2 2 0 0 1 2 2 5 5 0 0 1-5 5"/>',
+            'building' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 21V7l7-4 7 4v14"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10h.01"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 10h.01"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 14h.01"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 14h.01"/><path stroke-linecap="round" stroke-linejoin="round" d="M11 21v-4h2v4"/>',
+            'check-circle' => '<path stroke-linecap="round" stroke-linejoin="round" d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path stroke-linecap="round" stroke-linejoin="round" d="m9 11 3 3L22 4"/>',
+            'menu' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 17h16"/>',
+            'home' => '<path stroke-linecap="round" stroke-linejoin="round" d="m3 11 9-8 9 8"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 10v10h14V10"/>',
+            'clock' => '<circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/>',
+            'layers' => '<path stroke-linecap="round" stroke-linejoin="round" d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 12 9 4.5 9-4.5"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 16.5 9 4.5 9-4.5"/>',
+            'book-open' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2 6.5A2.5 2.5 0 0 1 4.5 4H10v16H4.5A2.5 2.5 0 0 0 2 22V6.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M22 6.5A2.5 2.5 0 0 0 19.5 4H14v16h5.5A2.5 2.5 0 0 1 22 22V6.5Z"/>',
+            'pencil' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12.5 5.5 18.5 11.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M14.5 3.5a2.1 2.1 0 0 1 3 0l3 3a2.1 2.1 0 0 1 0 3L9 20H5v-4L14.5 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l6 6"/>',
+            'sun' => '<circle cx="12" cy="12" r="4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>',
+            'moon' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20 14.8A8.5 8.5 0 1 1 9.2 4a7 7 0 1 0 10.8 10.8Z"/>',
+            'id-card' => '<rect width="20" height="14" x="2" y="5" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14h5"/><circle cx="5.5" cy="11.5" r="1.5"/>',
+            'upload' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/><path stroke-linecap="round" stroke-linejoin="round" d="m7 9 5-5 5 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M20 16.7A4 4 0 0 1 18 20H6a4 4 0 0 1-2-3.3"/>',
+            'download' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v10"/><path stroke-linecap="round" stroke-linejoin="round" d="m7 9 5 5 5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16"/>',
+            'trash' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 11v6"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 7l1 14h10l1-14"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 7V4h6v3"/>',
+            'refresh-cw' => '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.64-6.36"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 3v6h-6"/>',
+            'image' => '<rect width="18" height="14" x="3" y="5" rx="2"/><circle cx="8" cy="10" r="1.5"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 16 4-4 3 3 4-5 7 6"/>',
+        ];
+
+        $svg = $icons[$name] ?? $icons['spark'];
+
+        return '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" class="'.e($classes).'" aria-hidden="true">'.$svg.'</svg>';
+    }
+}

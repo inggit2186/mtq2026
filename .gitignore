@@ -1,0 +1,15 @@
+*.zip
+/vendor
+/node_modules
+/.env
+/.env.backup
+/.phpunit.result.cache
+/storage/*.key
+/storage/app/public
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/bootstrap/cache/*.php
+/public/build
+/public/hot

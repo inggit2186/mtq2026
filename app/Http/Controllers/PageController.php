@@ -1,0 +1,2513 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ActivityDocumentation;
+use App\Models\Announcement;
+use App\Models\CompetitionCategory;
+use App\Models\District;
+use App\Models\DocumentSetting;
+use App\Models\MaqraPackage;
+use App\Models\Participant;
+use App\Models\ScoringSetting;
+use App\Models\SessionSchedule;
+use App\Models\ScoreEntry;
+use App\Models\User;
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+
+class PageController extends Controller
+{
+    private const SILATAR_NIP_API = 'https://ptsp.kemenagtanahdatar.cloud/api/v1/nip/';
+
+    public function home(): View
+    {
+        $documentConfig = $this->documentConfig();
+        $coverSlides = collect();
+        $galleryImages = null;
+
+        if (Schema::hasTable('activity_documentations')) {
+            $coverSlides = ActivityDocumentation::query()
+                ->with('uploader')
+                ->where('is_active', true)
+                ->where('is_cover_homepage', true)
+                ->orderBy('sort_order')
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->limit(5)
+                ->get()
+                ->map(function (ActivityDocumentation $item): array {
+                    $caption = trim((string) $item->caption);
+                    $uploadedBy = trim((string) ($item->uploader?->name ?? 'Panitia'));
+                    $uploadedAt = optional($item->created_at)->translatedFormat('d M Y');
+
+                    return [
+                        'src' => $item->imageUrl(),
+                        'full_src' => $item->imageUrl(),
+                        'label' => Str::limit($caption !== '' ? $caption : 'Dokumentasi MTQ', 24),
+                        'caption' => $caption !== '' ? $caption : 'Dokumentasi kegiatan e-MTQ.',
+                        'meta' => trim($uploadedBy.($uploadedAt ? ' • '.$uploadedAt : '')),
+                    ];
+                })
+                ->filter(fn (array $item): bool => filled($item['src'] ?? null))
+                ->values();
+
+            $galleryImages = ActivityDocumentation::query()
+                ->with('uploader')
+                ->select([
+                    'id',
+                    'caption',
+                    'image_path',
+                    'thumbnail_path',
+                    'uploaded_by',
+                    'is_active',
+                    'is_cover_homepage',
+                    'sort_order',
+                    'created_at',
+                ])
+                ->where('is_active', true)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->paginate(9, ['*'], 'gallery_page')
+                ->withQueryString();
+
+            $galleryImages->setCollection(
+                $galleryImages->getCollection()
+                ->map(function (ActivityDocumentation $item): array {
+                    $caption = trim((string) $item->caption);
+                    $uploadedBy = trim((string) ($item->uploader?->name ?? 'Panitia'));
+                    $uploadedAt = optional($item->created_at)->translatedFormat('d M Y');
+
+                    return [
+                        'src' => $item->thumbnailUrl(),
+                        'full_src' => $item->imageUrl(),
+                        'label' => Str::limit($caption !== '' ? $caption : 'Dokumentasi MTQ', 24),
+                        'caption' => $caption !== '' ? $caption : 'Dokumentasi kegiatan e-MTQ.',
+                        'meta' => trim($uploadedBy.($uploadedAt ? ' | '.$uploadedAt : '')),
+                    ];
+                })
+                ->filter(fn (array $item): bool => filled($item['src'] ?? null))
+                    ->values()
+            );
+        }
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+        $announcements = Announcement::query()
+            ->latest('published_at')
+            ->limit(3)
+            ->get();
+        $featuredSchedules = SessionSchedule::query()
+            ->orderByRaw("case when status = 'ongoing' then 0 when starts_at >= ? then 1 else 2 end", [now()])
+            ->orderBy('starts_at')
+            ->limit(4)
+            ->get();
+        $timeline = collect(config('juknis.event_schedule', []))
+            ->take(4)
+            ->values();
+        $featuredParticipants = Participant::query()
+            ->with(['category', 'district'])
+            ->where('verification_status', 'verified')
+            ->where(function ($query): void {
+                $query->whereNotNull('document_photo')
+                    ->orWhereNotNull('avatar');
+            })
+            ->orderBy('competition_category_id')
+            ->orderBy('district_id')
+            ->orderBy('name')
+            ->limit(8)
+            ->get()
+            ->map(function (Participant $participant): array {
+                $categoryLabel = trim((string) ($participant->category?->branch ? $participant->category->branch.' - ' : '').(string) ($participant->category?->name ?? '-'));
+                $originLabel = trim((string) ($participant->district?->name ?? $participant->institution ?? '-'));
+
+                return [
+                    'participant_id' => $participant->id,
+                    'name' => $participant->name,
+                    'origin' => $originLabel !== '' ? $originLabel : '-',
+                    'category_label' => $categoryLabel !== '' ? $categoryLabel : '-',
+                    'branch' => $participant->category?->branch ?? '-',
+                    'photo_url' => $this->publicParticipantPhotoUrl($participant),
+                ];
+            })
+            ->values();
+
+        return view('pages.home', [
+            'assets' => $this->viteAssets(),
+            'documentConfig' => $documentConfig,
+            'stats' => [
+                'branches' => $categories->pluck('branch')->filter()->unique()->count(),
+                'categories' => $categories->count(),
+                'participants' => Participant::query()->count(),
+                'announcements' => Announcement::query()->count(),
+            ],
+            'featuredBranches' => $categories
+            ->groupBy('branch')
+            ->map(fn ($items, $branch): array => [
+                    'name' => $branch,
+                    'category_total' => $items->count(),
+                    'quota_total' => (int) $items->sum('quota'),
+                    'highlight' => $this->featuredBranchHighlight($items, (string) $branch),
+                ])
+                ->take(4)
+                ->values(),
+            'announcements' => $announcements,
+            'featuredSchedules' => $featuredSchedules,
+            'timeline' => $timeline,
+            'galleryImages' => $galleryImages,
+            'coverSlides' => $coverSlides,
+            'featuredParticipants' => $featuredParticipants,
+        ]);
+    }
+
+    public function bigScreen(Request $request): View
+    {
+        $filters = $request->validate([
+            'competition_category_id' => ['nullable', 'integer'],
+            'participant_id' => ['nullable', 'integer'],
+        ]);
+
+        $documentConfig = $this->documentConfig();
+        $requestedParticipantId = (int) ($filters['participant_id'] ?? 0);
+        $selectedCategory = null;
+
+        if (filled($filters['competition_category_id'] ?? null)) {
+            $selectedCategory = CompetitionCategory::query()->find($filters['competition_category_id']);
+        } elseif ($requestedParticipantId) {
+            $selectedCategory = CompetitionCategory::query()
+                ->whereHas('participants', fn ($query) => $query->whereKey($requestedParticipantId))
+                ->first();
+        }
+
+        $participants = Participant::query()
+            ->with(['category', 'district', 'scores' => fn ($query) => $query->orderByDesc('submitted_at')])
+            ->where('verification_status', 'verified')
+            ->when($selectedCategory, fn ($query) => $query->where('competition_category_id', $selectedCategory->id))
+            ->orderBy('name')
+            ->get();
+        $announcements = Announcement::query()
+            ->with('author')
+            ->latest('published_at')
+            ->latest('created_at')
+            ->limit(2)
+            ->get();
+        $recentScores = ScoreEntry::query()
+            ->with(['participant.category', 'participant.district'])
+            ->whereHas('participant', function ($query) use ($selectedCategory): void {
+                $query->where('verification_status', 'verified');
+
+                if ($selectedCategory) {
+                    $query->where('competition_category_id', $selectedCategory->id);
+                }
+            })
+            ->orderByDesc('submitted_at')
+            ->limit(6)
+            ->get();
+        $cachedParticipantId = $selectedCategory
+            ? (int) Cache::get($this->currentParticipantCacheKey($selectedCategory->id), 0)
+            : 0;
+        $seedParticipantId = $cachedParticipantId ?: $requestedParticipantId;
+        $currentParticipant = $seedParticipantId
+            ? $participants->firstWhere('id', $seedParticipantId)
+            : null;
+
+        if (! $currentParticipant) {
+            $currentParticipant = $participants->first();
+        }
+
+        $latestScoredEntry = $recentScores->first();
+        $leaders = $this->buildLeaders(
+            $participants->filter(fn (Participant $participant): bool => $participant->scores->isNotEmpty())
+        );
+
+        $queueParticipants = $participants
+            ->values()
+            ->reject(fn (Participant $participant): bool => $participant->id === $currentParticipant?->id)
+            ->take(5)
+            ->values();
+        $rankingPriorityContext = $this->rankingPriorityContext($selectedCategory?->id, $selectedCategory?->branch, true);
+
+        return view('pages/big-screen', [
+            'assets' => $this->viteAssets(),
+            'documentConfig' => $documentConfig,
+            'selectedCategory' => $selectedCategory,
+            'currentParticipant' => $currentParticipant,
+            'latestScoredEntry' => $latestScoredEntry,
+            'recentScores' => $recentScores,
+            'queueParticipants' => $queueParticipants,
+            'stats' => [
+                'verified_participants' => $participants->count(),
+                'score_entries' => $recentScores->count(),
+                'leaders' => count($leaders),
+                'announcements' => $announcements->count(),
+            ],
+            'leaders' => array_slice($leaders, 0, 8),
+            'rankingPriorityContext' => $rankingPriorityContext,
+            'announcements' => $announcements,
+            'schedules' => collect(),
+            'todaySchedules' => collect(),
+            'generatedAt' => now(),
+        ]);
+    }
+
+    public function dashboard(): View
+    {
+        $user = auth()->user();
+        $isAdminOps = in_array($user?->role, ['admin', 'panitia'], true);
+        $isOfficial = in_array($user?->role, ['official', 'pendamping'], true);
+        $isParticipant = $user?->role === 'peserta';
+        $mustChangePassword = User::supportsMustChangePasswordFlag()
+            && in_array($user?->role, ['official', 'panitia'], true)
+            && (bool) $user?->must_change_password;
+        $districtId = $isOfficial ? $user?->district_id : null;
+        $participantProfile = $this->resolveParticipantProfile($user?->nomor_induk);
+
+        $participantQuery = Participant::query()
+            ->with(['category', 'district', 'scores'])
+            ->when($districtId, fn ($query) => $query->where('district_id', $districtId));
+
+        $leaders = $this->buildLeaders((clone $participantQuery)->get());
+
+        $participants = (clone $participantQuery)->get();
+        $needsAttentionParticipants = $participants
+            ->filter(fn (Participant $participant): bool => in_array($participant->verification_status, ['submitted', 'rejected'], true))
+            ->sortBy([
+                fn (Participant $participant): int => $participant->verification_status === 'rejected' ? 0 : 1,
+                fn (Participant $participant): string => $participant->name,
+            ])
+            ->take(6)
+            ->values();
+
+        $district = $districtId ? District::query()->find($districtId) : null;
+        $mandateAlert = $isOfficial ? $this->buildOfficialMandateAlert($district) : null;
+        $participantAlerts = $isOfficial
+            ? $participants
+                ->filter(fn (Participant $participant): bool => $participant->verification_status === 'rejected')
+                ->map(function (Participant $participant): array {
+                    return [
+                        'participant_id' => $participant->id,
+                        'name' => $participant->name,
+                        'category' => $participant->category?->name ?? '-',
+                        'message' => $participant->verification_notes ?: 'Data peserta perlu diperbaiki dan dikirim ulang.',
+                        'href' => route('participants.show', $participant),
+                    ];
+                })
+                ->take(5)
+                ->values()
+            : collect();
+        $statusBreakdown = [
+            'draft' => $participants->where('verification_status', 'draft')->count(),
+            'submitted' => $participants->where('verification_status', 'submitted')->count(),
+            'verified' => $participants->where('verification_status', 'verified')->count(),
+            'rejected' => $participants->where('verification_status', 'rejected')->count(),
+        ];
+
+        $stats = $isOfficial
+            ? [
+                'participants' => $participants->count(),
+                'categories' => $participants->pluck('competition_category_id')->filter()->unique()->count(),
+                'today_sessions' => SessionSchedule::query()->whereDate('starts_at', today())->count(),
+                'average_score' => number_format((float) ($participants->flatMap->scores->avg('score') ?? 0), 2),
+            ]
+            : ($isParticipant
+                ? [
+                    'participants' => $participantProfile ? 1 : 0,
+                    'categories' => $participantProfile?->competition_category_id ? 1 : 0,
+                    'today_sessions' => SessionSchedule::query()->whereDate('starts_at', today())->count(),
+                    'average_score' => number_format((float) ($participantProfile?->scores?->avg('score') ?? 0), 2),
+                ]
+            : [
+                'participants' => Participant::count(),
+                'categories' => CompetitionCategory::count(),
+                'today_sessions' => SessionSchedule::query()->whereDate('starts_at', today())->count(),
+                'average_score' => number_format((float) (ScoreEntry::avg('score') ?? 0), 2),
+            ]);
+
+        $nextSchedule = SessionSchedule::query()
+            ->where('starts_at', '>=', now())
+            ->orderBy('starts_at')
+            ->first();
+
+        $branchRecap = $isAdminOps
+            ? CompetitionCategory::query()
+                ->orderBy('sort_order')
+                ->orderBy('branch')
+                ->get()
+                ->groupBy('branch')
+                ->map(function ($categories, string $branch): array {
+                    $participants = Participant::query()
+                        ->with('scores')
+                        ->whereIn('competition_category_id', $categories->pluck('id'))
+                        ->where('verification_status', 'verified')
+                        ->get();
+
+                    $scores = $participants->flatMap->scores;
+
+                    return [
+                        'branch' => $branch,
+                        'category_total' => $categories->count(),
+                        'participant_total' => $participants->count(),
+                        'score_entries' => $scores->count(),
+                        'average_score' => number_format((float) ($scores->avg('score') ?? 0), 2),
+                    ];
+                })
+                ->sortByDesc(fn (array $row): float => (float) $row['average_score'])
+                ->take(6)
+                ->values()
+            : collect();
+        return view('pages.dashboard-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) $user?->role),
+            'stats' => $stats,
+            'leaders' => $leaders,
+            'schedules' => SessionSchedule::query()
+                ->orderBy('starts_at')
+                ->limit(5)
+                ->get(),
+            'announcements' => Announcement::query()
+                ->latest('published_at')
+                ->limit(4)
+                ->get(),
+            'officialDashboard' => [
+                'enabled' => $isOfficial,
+                'district' => $district,
+                'mandate_alert' => $mandateAlert,
+                'participant_alerts' => $participantAlerts,
+                'status_breakdown' => $statusBreakdown,
+                'needs_attention' => $needsAttentionParticipants,
+            ],
+            'mustChangePassword' => $mustChangePassword,
+            'participantDashboard' => [
+                'enabled' => $isParticipant,
+                'profile' => $participantProfile,
+                'latest_score' => number_format((float) ($participantProfile?->scores?->sortByDesc('submitted_at')->first()?->score ?? 0), 2),
+                'average_score' => number_format((float) ($participantProfile?->scores?->avg('score') ?? 0), 2),
+                'next_schedule' => $nextSchedule,
+                'cv_url' => ($isParticipant && $participantProfile?->verification_status === 'verified')
+                    ? route('participants.cv', $participantProfile)
+                    : null,
+            ],
+            'adminDashboard' => [
+                'enabled' => $isAdminOps,
+                'branch_recap' => $branchRecap,
+                'quick_exports' => [
+                    ['label' => 'Rekap Penilaian', 'href' => route('results.recap')],
+                    ['label' => 'Hasil Nilai Peserta', 'href' => route('results.index')],
+                    ['label' => 'Kelola Konten', 'href' => route('admin.content')],
+                    ['label' => 'Panitia Golongan', 'href' => route('committees.index')],
+                    ['label' => 'Modul Penilaian', 'href' => route('scoring')],
+                    ['label' => 'Pendaftaran Peserta', 'href' => route('participants.index')],
+                ],
+                'ops_stats' => [
+                    'announcements' => Announcement::query()->count(),
+                    'schedules' => SessionSchedule::query()->count(),
+                    'verified_participants' => Participant::query()->where('verification_status', 'verified')->count(),
+                    'score_entries' => ScoreEntry::query()->count(),
+                ],
+            ],
+        ]);
+    }
+
+    public function updateDashboardPassword(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user && in_array($user->role, ['official', 'panitia'], true), 403);
+
+        $validated = $request->validate([
+            'password' => ['required', 'string', PasswordRule::min(8), 'confirmed'],
+        ]);
+
+        $payload = [
+            'password' => Hash::make((string) $validated['password']),
+        ];
+
+        if (User::supportsMustChangePasswordFlag()) {
+            $payload['must_change_password'] = false;
+        }
+
+        $user->forceFill($payload)->save();
+
+        return redirect()
+            ->route('dashboard')
+            ->with('status', 'Password berhasil diperbarui. Silakan lanjutkan ke dashboard.');
+    }
+
+    public function syncDashboardUser(): RedirectResponse
+    {
+        $user = auth()->user();
+
+        abort_unless($user, 403);
+
+        $nomorInduk = preg_replace('/\D+/', '', (string) ($user->nomor_induk ?? '')) ?: '';
+
+        if ($nomorInduk === '') {
+            return redirect()
+                ->route('dashboard')
+                ->with('warning', 'Sinkronisasi SILATAR belum bisa dijalankan karena akun ini belum memiliki NIP atau nomor induk.');
+        }
+
+        $employee = $this->fetchSilatarEmployee($nomorInduk);
+
+        if (! $employee) {
+            return redirect()
+                ->route('dashboard')
+                ->with('warning', 'Data user di SILATAR untuk NIP tersebut tidak ditemukan atau belum dapat diakses.');
+        }
+
+        $profilePhotoPath = $this->syncSilatarProfilePhoto($employee, $user->profile_photo_path);
+        $resolvedEmail = $this->resolveDashboardUserEmail($user, $employee);
+        $district = $this->resolveDistrictFromEmployee($employee);
+
+        $payload = [
+            'name' => (string) data_get($employee, 'name', $user->name),
+            'email' => $resolvedEmail,
+            'phone' => $this->normalizePhoneNumber((string) data_get($employee, 'telp', '')),
+            'silatar_user_id' => ($silatarUserId = (int) data_get($employee, 'id', 0)) > 0 ? $silatarUserId : $user->silatar_user_id,
+        ];
+
+        if ($district) {
+            $payload['district_id'] = $district->id;
+        }
+
+        if ($profilePhotoPath) {
+            $payload['profile_photo_path'] = $profilePhotoPath;
+        }
+
+        $user->fill($payload)->save();
+
+        $status = 'Data user berhasil disinkronkan dari SILATAR.';
+
+        if (! $district) {
+            $status .= ' Kecamatan e-MTQ dipertahankan karena dept_id SILATAR tidak cocok dengan silatar_id kecamatan.';
+        }
+
+        if ($resolvedEmail !== trim((string) data_get($employee, 'email', ''))) {
+            $status .= ' Email akun dipertahankan karena email SILATAR kosong atau sedang dipakai akun lain.';
+        }
+
+        return redirect()
+            ->route('dashboard')
+            ->with('status', $status);
+    }
+
+    public function dashboardRealtimeSummary(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        $isOfficial = in_array($user?->role, ['official', 'pendamping'], true);
+        $districtId = $isOfficial ? $user?->district_id : null;
+        $participantId = $request->integer('participant_id') ?: null;
+
+        $participants = Participant::query()
+            ->with(['category', 'district', 'scores'])
+            ->when($districtId, fn ($query) => $query->where('district_id', $districtId))
+            ->get();
+
+        $leaders = $this->buildLeaders($participants);
+        $participantSummary = null;
+
+        if ($participantId) {
+            $participant = $participants->firstWhere('id', $participantId);
+
+            if ($participant) {
+                $latestScore = $participant->scores->sortByDesc('submitted_at')->first();
+                $participantSummary = [
+                    'participant_id' => $participant->id,
+                    'latest_score' => number_format((float) ($latestScore->score ?? 0), 2),
+                    'average_score' => number_format((float) ($participant->scores->avg('score') ?? 0), 2),
+                ];
+            }
+        }
+
+        return response()->json([
+            'leaders' => $leaders,
+            'participant_summary' => $participantSummary,
+        ]);
+    }
+
+    public function scoring(): View
+    {
+        return view('pages.scoring-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'participants' => Participant::query()
+                ->with('category')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
+    public function categories(): View
+    {
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get()
+            ->groupBy('branch');
+
+        $districts = District::query()
+            ->with(['users' => fn ($query) => $query->where('role', 'official')->orderBy('name')])
+            ->orderBy('name')
+            ->get();
+
+        $districtBasedCategories = $categories
+            ->flatten(1)
+            ->filter(fn (CompetitionCategory $category): bool => str_contains((string) $category->notes, 'Kecamatan'));
+
+        $hostDistrict = Str::of((string) config('juknis.host', ''))
+            ->lower()
+            ->trim()
+            ->replaceMatches('/^kecamatan\s+/u', '')
+            ->replaceMatches('/\s+/u', ' ')
+            ->toString();
+
+        $districtSlotTotal = $districtBasedCategories->sum(function (CompetitionCategory $category) use ($districts, $hostDistrict): int {
+            $baseQuota = (int) $category->quota;
+
+            return $districts->sum(function (District $district) use ($baseQuota, $hostDistrict): int {
+                $districtName = Str::of((string) $district->name)
+                    ->lower()
+                    ->trim()
+                    ->replaceMatches('/^kecamatan\s+/u', '')
+                    ->replaceMatches('/\s+/u', ' ')
+                    ->toString();
+
+                return $baseQuota * ($districtName === $hostDistrict ? 2 : 1);
+            });
+        });
+
+        return view('pages/categories-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'categoryGroups' => $categories,
+            'districts' => $districts,
+            'categoryStats' => [
+                'branches' => $categories->count(),
+                'categories' => $categories->flatten(1)->count(),
+                'quota_total' => $categories->flatten(1)->sum('quota'),
+                'district_count' => $districts->count(),
+                'official_count' => User::query()->where('role', 'official')->whereNotNull('district_id')->count(),
+                'district_slot_total' => $districtSlotTotal,
+            ],
+            ]);
+    }
+
+    public function updateCategoryLotSettings(Request $request, CompetitionCategory $category): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'lot_code' => ['nullable', 'string', 'max:10'],
+            'lot_number_min' => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'lot_number_max' => ['nullable', 'integer', 'min:1', 'max:999999'],
+        ]);
+
+        $min = filled($data['lot_number_min'] ?? null) ? (int) $data['lot_number_min'] : null;
+        $max = filled($data['lot_number_max'] ?? null) ? (int) $data['lot_number_max'] : null;
+
+        if ($min !== null && $max !== null && $min > $max) {
+            return back()
+                ->withInput()
+                ->withErrors(['lot_number_max' => 'Nomor maksimum harus lebih besar atau sama dengan nomor minimum.']);
+        }
+
+        $category->update([
+            'lot_code' => strtoupper(trim((string) ($data['lot_code'] ?? ''))) ?: null,
+            'lot_number_min' => $min,
+            'lot_number_max' => $max,
+        ]);
+
+        return back()->with('status', 'Pengaturan nomor lot untuk golongan '.$category->name.' berhasil disimpan.');
+    }
+
+    public function leaderboard(Request $request): View
+    {
+        $filters = $request->validate([
+            'competition_category_id' => ['nullable', 'integer'],
+        ]);
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        $participants = Participant::query()
+            ->with(['category', 'district', 'scores' => fn ($query) => $query->orderByDesc('submitted_at')])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $categoryGroups = $categories
+            ->map(function (CompetitionCategory $category) use ($participants): ?array {
+                $categoryParticipants = $participants->filter(fn (Participant $participant): bool => (int) $participant->competition_category_id === (int) $category->id);
+
+                if ($categoryParticipants->isEmpty()) {
+                    return null;
+                }
+
+                $rounds = [];
+
+                foreach (['Penyisihan', 'Final'] as $roundLabel) {
+                    $roundLeaders = $this->buildRoundLeaders($categoryParticipants, $roundLabel);
+                    $rounds[$roundLabel] = [
+                        'label' => $roundLabel,
+                        'leaders' => $roundLeaders,
+                        'leader_count' => count($roundLeaders),
+                        'top_score' => $roundLeaders[0]['average_score'] ?? '0.00',
+                    ];
+                }
+
+                $overallLeaders = collect($this->buildLeaders($categoryParticipants))
+                    ->take(3)
+                    ->values()
+                    ->all();
+
+                return [
+                    'category_id' => $category->id,
+                    'branch' => $category->branch,
+                    'category_name' => $category->name,
+                    'participant_total' => $categoryParticipants->count(),
+                    'score_entries' => $categoryParticipants->flatMap->scores->count(),
+                    'overall_leaders' => $overallLeaders,
+                    'rounds' => $rounds,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->sortByDesc(fn (array $category): int => $category['participant_total'])
+            ->values();
+
+        $selectedCategoryId = filled($filters['competition_category_id'] ?? null)
+            ? (int) $filters['competition_category_id']
+            : (int) ($categoryGroups->first()['category_id'] ?? 0);
+        $selectedCategoryData = $categoryGroups->firstWhere('category_id', $selectedCategoryId);
+        $branchGroups = $categoryGroups
+            ->groupBy('branch')
+            ->map(function ($branchCategories, string $branch): array {
+                return [
+                    'branch' => $branch,
+                    'category_total' => $branchCategories->count(),
+                    'participant_total' => $branchCategories->sum('participant_total'),
+                    'score_entries' => $branchCategories->sum('score_entries'),
+                    'categories' => $branchCategories->values()->all(),
+                ];
+            })
+            ->values();
+        $selectedBranch = $selectedCategoryData['branch'] ?? ($branchGroups->first()['branch'] ?? null);
+
+        return view('pages.leaderboard-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'categoryGroups' => $categoryGroups,
+            'branchGroups' => $branchGroups,
+            'selectedCategoryId' => $selectedCategoryId,
+            'selectedCategoryData' => $selectedCategoryData,
+            'selectedBranch' => $selectedBranch,
+            'leaderboardStats' => [
+                'categories' => $categoryGroups->count(),
+                'verified_participants' => $participants->count(),
+                'branches' => $categories->pluck('branch')->filter()->unique()->count(),
+                'score_entries' => $participants->flatMap->scores->count(),
+            ],
+        ]);
+    }
+
+    public function maqra(): View
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        $maqraPackages = MaqraPackage::query()
+            ->with('category')
+            ->orderBy('competition_category_id')
+            ->orderBy('round_label')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $maqraGroups = $categories->map(function (CompetitionCategory $category) use ($maqraPackages): array {
+            $packages = $maqraPackages->where('competition_category_id', $category->id)->values();
+
+            return [
+                'category' => $category,
+                'packages' => $packages,
+                'rounds' => $packages->groupBy('round_label'),
+            ];
+        })->filter(fn (array $group): bool => $group['packages']->isNotEmpty())->values();
+
+        return view('pages.maqra-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'navigation' => $this->consoleNavigation((string) auth()->user()?->role, 'maqra'),
+            'categories' => $categories,
+            'maqraGroups' => $maqraGroups,
+            'maqraStats' => [
+                'categories' => $maqraGroups->count(),
+                'packages' => $maqraPackages->count(),
+                'active' => $maqraPackages->where('is_active', true)->count(),
+                'inactive' => $maqraPackages->where('is_active', false)->count(),
+            ],
+            'roundOptions' => ['Penyisihan', 'Final'],
+        ]);
+    }
+
+    public function storeMaqra(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'competition_category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'round_label' => ['required', 'in:Penyisihan,Final'],
+            'maqra_code' => ['required', 'string', 'max:30'],
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+            'notes' => ['nullable', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $code = strtoupper(trim((string) $data['maqra_code']));
+        $sortOrder = (int) ($data['sort_order'] ?? 0);
+
+        $exists = MaqraPackage::query()
+            ->where('competition_category_id', $data['competition_category_id'])
+            ->where('round_label', $data['round_label'])
+            ->where('maqra_code', $code)
+            ->exists();
+
+        abort_if($exists, 422, 'Kode maqra sudah digunakan pada kategori dan babak yang sama.');
+
+        MaqraPackage::query()->create([
+            'competition_category_id' => $data['competition_category_id'],
+            'round_label' => $data['round_label'],
+            'maqra_code' => $code,
+            'title' => trim((string) $data['title']),
+            'content' => trim((string) $data['content']),
+            'notes' => filled($data['notes'] ?? null) ? trim((string) $data['notes']) : null,
+            'sort_order' => $sortOrder,
+            'is_active' => (bool) ($data['is_active'] ?? false),
+        ]);
+
+        return back()->with('status', 'Paket maqra baru berhasil ditambahkan.');
+    }
+
+    public function maqraCsvTemplate()
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $headers = [
+            'branch',
+            'category_name',
+            'round_label',
+            'maqra_code',
+            'title',
+            'content',
+            'notes',
+            'sort_order',
+            'is_active',
+        ];
+
+        $sampleRows = [
+            ['Tilawah Anak', 'Anak A', 'Penyisihan', 'TLW-A-01', 'Al-Fatihah 1-7', 'QS Al-Fatihah ayat 1 sampai 7', 'Contoh import', '1', '1'],
+            ['Tilawah Anak', 'Anak A', 'Final', 'TLW-A-02', 'Al-Baqarah 1-5', 'QS Al-Baqarah ayat 1 sampai 5', 'Contoh import', '2', '1'],
+        ];
+
+        $filename = 'template-import-maqra-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($headers, $sampleRows): void {
+            $output = fopen('php://output', 'w');
+
+            if ($output === false) {
+                return;
+            }
+
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, $headers);
+
+            foreach ($sampleRows as $row) {
+                fputcsv($output, $row);
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function importMaqraCsv(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'maqra_csv' => ['required', 'file', 'max:2048', 'mimes:csv,txt'],
+            'update_existing' => ['nullable', 'boolean'],
+        ]);
+
+        $result = $this->processMaqraCsvImport(
+            $data['maqra_csv'],
+            (bool) ($data['update_existing'] ?? false),
+            true,
+        );
+
+        if (! empty($result['fatal_error'])) {
+            return back()->with('warning', (string) $result['fatal_error']);
+        }
+
+        $message = 'Import CSV selesai: '.$result['created'].' paket baru berhasil ditambahkan';
+
+        if ($result['updated'] > 0) {
+            $message .= ', '.$result['updated'].' paket diperbarui';
+        }
+
+        if ($result['duplicate_count'] > 0) {
+            $message .= ', '.$result['duplicate_count'].' duplikat dilewati';
+        }
+
+        $invalidCount = $result['invalid_count'];
+        if ($invalidCount > 0) {
+            $message .= ', '.$invalidCount.' baris invalid dilewati';
+        }
+
+        if ($result['errors'] !== []) {
+            $message .= '. Rincian: '.implode(' | ', array_slice($result['errors'], 0, 5));
+        } else {
+            $message .= '.';
+        }
+
+        if ($result['update_existing']) {
+            $message .= ' Mode update aktif.';
+        }
+
+        return back()->with($result['errors'] !== [] ? 'warning' : 'status', $message);
+    }
+
+    public function previewMaqraCsv(Request $request): JsonResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'maqra_csv' => ['required', 'file', 'max:2048', 'mimes:csv,txt'],
+            'update_existing' => ['nullable', 'boolean'],
+        ]);
+
+        $result = $this->processMaqraCsvImport(
+            $data['maqra_csv'],
+            (bool) ($data['update_existing'] ?? false),
+            false,
+        );
+
+        if (! empty($result['fatal_error'])) {
+            return response()->json([
+                'ok' => false,
+                'message' => (string) $result['fatal_error'],
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Preview CSV siap.',
+            'summary' => [
+                'total' => $result['total_rows'],
+                'created' => $result['created'],
+                'updated' => $result['updated'],
+                'duplicate_count' => $result['duplicate_count'],
+                'invalid_count' => $result['invalid_count'],
+                'update_existing' => $result['update_existing'],
+            ],
+            'errors' => $result['errors'],
+            'rows' => $result['rows'],
+        ]);
+    }
+
+    public function downloadMaqraCsvReport(Request $request)
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'maqra_csv' => ['required', 'file', 'max:2048', 'mimes:csv,txt'],
+            'update_existing' => ['nullable', 'boolean'],
+        ]);
+
+        $result = $this->processMaqraCsvImport(
+            $data['maqra_csv'],
+            (bool) ($data['update_existing'] ?? false),
+            false,
+        );
+
+        if (! empty($result['fatal_error'])) {
+            return back()->with('warning', (string) $result['fatal_error']);
+        }
+
+        $filename = 'laporan-maqra-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($result): void {
+            $output = fopen('php://output', 'w');
+
+            if ($output === false) {
+                return;
+            }
+
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['row_number', 'branch', 'category_name', 'round_label', 'maqra_code', 'title', 'status', 'note']);
+
+            foreach ($result['rows'] as $row) {
+                fputcsv($output, [
+                    $row['row_number'] ?? '',
+                    $row['branch'] ?? '',
+                    $row['category_name'] ?? '',
+                    $row['round_label'] ?? '',
+                    $row['maqra_code'] ?? '',
+                    $row['title'] ?? '',
+                    $row['status'] ?? '',
+                    $row['note'] ?? '',
+                ]);
+            }
+
+            if ($result['errors'] !== []) {
+                fputcsv($output, []);
+                fputcsv($output, ['errors']);
+                foreach ($result['errors'] as $error) {
+                    fputcsv($output, [$error]);
+                }
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    protected function processMaqraCsvImport(UploadedFile $file, bool $updateExisting, bool $persist = true): array
+    {
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return [
+                'fatal_error' => 'File CSV tidak dapat dibaca.',
+                'update_existing' => $updateExisting,
+                'total_rows' => 0,
+                'created' => 0,
+                'updated' => 0,
+                'duplicate_count' => 0,
+                'invalid_count' => 0,
+                'errors' => [],
+                'rows' => [],
+            ];
+        }
+
+        $header = fgetcsv($handle);
+
+        if (! is_array($header)) {
+            fclose($handle);
+
+            return [
+                'fatal_error' => 'File CSV kosong atau format header tidak valid.',
+                'update_existing' => $updateExisting,
+                'total_rows' => 0,
+                'created' => 0,
+                'updated' => 0,
+                'duplicate_count' => 0,
+                'invalid_count' => 0,
+                'errors' => [],
+                'rows' => [],
+            ];
+        }
+
+        $normalize = static function (?string $value): string {
+            $value = strtolower(trim((string) $value));
+            $value = preg_replace('/^\xEF\xBB\xBF/', '', $value) ?? $value;
+            $value = preg_replace('/[^a-z0-9]+/', '_', $value) ?: '';
+
+            return trim($value, '_');
+        };
+
+        $columns = array_map($normalize, $header);
+        $requiredColumns = ['branch', 'category_name', 'round_label', 'maqra_code', 'title', 'content'];
+        $missingColumns = array_values(array_diff($requiredColumns, $columns));
+
+        if ($missingColumns !== []) {
+            fclose($handle);
+
+            return [
+                'fatal_error' => 'Kolom CSV kurang lengkap: '.implode(', ', $missingColumns).'.',
+                'update_existing' => $updateExisting,
+                'total_rows' => 0,
+                'created' => 0,
+                'updated' => 0,
+                'duplicate_count' => 0,
+                'invalid_count' => 0,
+                'errors' => [],
+                'rows' => [],
+            ];
+        }
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function (CompetitionCategory $category): array {
+                $key = mb_strtolower(trim((string) $category->branch).'|'.trim((string) $category->name));
+
+                return [$key => $category];
+            });
+
+        $created = 0;
+        $updated = 0;
+        $duplicateCount = 0;
+        $invalidCount = 0;
+        $errors = [];
+        $rows = [];
+        $totalRows = 0;
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if ($row === [null] || $row === [] || count(array_filter($row, fn ($value): bool => trim((string) $value) !== '')) === 0) {
+                continue;
+            }
+
+            $totalRows++;
+
+            $record = [];
+            foreach ($columns as $index => $column) {
+                $record[$column] = trim((string) ($row[$index] ?? ''));
+            }
+
+            $branch = $record['branch'] ?? '';
+            $categoryName = $record['category_name'] ?? '';
+            $roundLabel = $record['round_label'] ?? '';
+            $maqraCode = strtoupper(trim((string) ($record['maqra_code'] ?? '')));
+            $title = trim((string) ($record['title'] ?? ''));
+            $content = trim((string) ($record['content'] ?? ''));
+            $notes = trim((string) ($record['notes'] ?? ''));
+            $sortOrder = (int) ($record['sort_order'] !== '' ? $record['sort_order'] : 0);
+            $isActive = in_array(strtolower((string) ($record['is_active'] ?? '1')), ['1', 'true', 'yes', 'ya'], true);
+
+            $previewRow = [
+                'row_number' => $rowNumber,
+                'branch' => $branch,
+                'category_name' => $categoryName,
+                'round_label' => $roundLabel,
+                'maqra_code' => $maqraCode,
+                'title' => $title,
+                'status' => 'valid',
+                'note' => '',
+            ];
+
+            if ($branch === '' || $categoryName === '' || $roundLabel === '' || $maqraCode === '' || $title === '' || $content === '') {
+                $invalidCount++;
+                $message = 'Ada kolom wajib yang kosong.';
+                $errors[] = 'Baris '.$rowNumber.' dilewati: '.$message;
+                $previewRow['status'] = 'invalid';
+                $previewRow['note'] = $message;
+                $rows[] = $previewRow;
+                continue;
+            }
+
+            $category = $categories->get(mb_strtolower(trim($branch).'|'.trim($categoryName)));
+
+            if (! $category) {
+                $invalidCount++;
+                $message = 'Golongan "'.$branch.' - '.$categoryName.'" tidak ditemukan.';
+                $errors[] = 'Baris '.$rowNumber.' dilewati: '.$message;
+                $previewRow['status'] = 'invalid';
+                $previewRow['note'] = $message;
+                $rows[] = $previewRow;
+                continue;
+            }
+
+            $roundLabel = in_array($roundLabel, ['Penyisihan', 'Final'], true) ? $roundLabel : '';
+            if ($roundLabel === '') {
+                $invalidCount++;
+                $message = 'Babak harus "Penyisihan" atau "Final".';
+                $errors[] = 'Baris '.$rowNumber.' dilewati: '.$message;
+                $previewRow['status'] = 'invalid';
+                $previewRow['note'] = $message;
+                $rows[] = $previewRow;
+                continue;
+            }
+
+            $existingPackage = MaqraPackage::query()
+                ->where('competition_category_id', $category->id)
+                ->where('round_label', $roundLabel)
+                ->where('maqra_code', $maqraCode)
+                ->first();
+
+            if ($existingPackage) {
+                if ($updateExisting) {
+                    if ($persist) {
+                        $existingPackage->update([
+                            'title' => $title,
+                            'content' => $content,
+                            'notes' => $notes !== '' ? $notes : null,
+                            'sort_order' => $sortOrder,
+                            'is_active' => $isActive,
+                        ]);
+                    }
+
+                    $updated++;
+                    $previewRow['status'] = 'updated';
+                    $previewRow['note'] = 'Data akan diperbarui.';
+                    $rows[] = $previewRow;
+                    continue;
+                }
+
+                $duplicateCount++;
+                $previewRow['status'] = 'duplicate';
+                $previewRow['note'] = 'Data sudah ada dan akan dilewati.';
+                $rows[] = $previewRow;
+                continue;
+            }
+
+            if ($persist) {
+                MaqraPackage::query()->create([
+                    'competition_category_id' => $category->id,
+                    'round_label' => $roundLabel,
+                    'maqra_code' => $maqraCode,
+                    'title' => $title,
+                    'content' => $content,
+                    'notes' => $notes !== '' ? $notes : null,
+                    'sort_order' => $sortOrder,
+                    'is_active' => $isActive,
+                ]);
+            }
+
+            $created++;
+            $previewRow['status'] = 'created';
+            $previewRow['note'] = 'Data baru akan ditambahkan.';
+            $rows[] = $previewRow;
+        }
+
+        fclose($handle);
+
+        return [
+            'fatal_error' => null,
+            'update_existing' => $updateExisting,
+            'total_rows' => $totalRows,
+            'created' => $created,
+            'updated' => $updated,
+            'duplicate_count' => $duplicateCount,
+            'invalid_count' => $invalidCount,
+            'errors' => $errors,
+            'rows' => array_slice($rows, 0, 12),
+        ];
+    }
+
+    public function updateMaqra(Request $request, MaqraPackage $maqraPackage): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'competition_category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'round_label' => ['required', 'in:Penyisihan,Final'],
+            'maqra_code' => ['required', 'string', 'max:30'],
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+            'notes' => ['nullable', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $code = strtoupper(trim((string) $data['maqra_code']));
+        $sortOrder = (int) ($data['sort_order'] ?? 0);
+
+        $exists = MaqraPackage::query()
+            ->where('id', '!=', $maqraPackage->id)
+            ->where('competition_category_id', $data['competition_category_id'])
+            ->where('round_label', $data['round_label'])
+            ->where('maqra_code', $code)
+            ->exists();
+
+        abort_if($exists, 422, 'Kode maqra sudah digunakan pada kategori dan babak yang sama.');
+
+        $maqraPackage->update([
+            'competition_category_id' => $data['competition_category_id'],
+            'round_label' => $data['round_label'],
+            'maqra_code' => $code,
+            'title' => trim((string) $data['title']),
+            'content' => trim((string) $data['content']),
+            'notes' => filled($data['notes'] ?? null) ? trim((string) $data['notes']) : null,
+            'sort_order' => $sortOrder,
+            'is_active' => (bool) ($data['is_active'] ?? false),
+        ]);
+
+        return back()->with('status', 'Paket maqra '.$maqraPackage->maqra_code.' berhasil diperbarui.');
+    }
+
+    public function destroyMaqra(MaqraPackage $maqraPackage): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        abort_if($maqraPackage->draws()->exists(), 422, 'Paket yang sudah pernah diambil tidak dapat dihapus. Nonaktifkan saja jika tidak dipakai.');
+
+        $code = $maqraPackage->maqra_code;
+        $maqraPackage->delete();
+
+        return back()->with('status', 'Paket maqra '.$code.' berhasil dihapus.');
+    }
+
+    public function juknis(): View
+    {
+        return view('pages/juknis-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'juknis' => config('juknis'),
+        ]);
+    }
+
+    public function participantRegistrationGuideSnapshot(Request $request): View
+    {
+        $mode = in_array($request->query('mode', 'form'), ['form', 'review'], true)
+            ? (string) $request->query('mode', 'form')
+            : 'form';
+
+        return view('pages/participant-guide-snapshot', [
+            'mode' => $mode,
+            'documentConfig' => $this->documentConfig(),
+            'previewUser' => User::query()->where('role', 'admin')->orderBy('id')->first(),
+            'districts' => District::query()->orderBy('name')->limit(8)->get(),
+            'participants' => Participant::query()
+                ->with(['category', 'district'])
+                ->where('verification_status', 'verified')
+                ->orderBy('name')
+                ->limit(8)
+                ->get(),
+            'stats' => [
+                'participants' => Participant::count(),
+                'districts' => District::count(),
+                'verified' => Participant::query()->where('verification_status', 'verified')->count(),
+                'categories' => CompetitionCategory::count(),
+            ],
+            'categories' => CompetitionCategory::query()
+                ->orderBy('sort_order')
+                ->orderBy('branch')
+                ->orderBy('name')
+                ->limit(6)
+                ->get(),
+        ]);
+    }
+
+    public function participantRegistrationGuidePdf(): \Illuminate\Http\Response
+    {
+        $payload = [
+            'documentConfig' => $this->documentConfig(),
+            'guideTitle' => 'Buku Petunjuk Pendaftaran Peserta MTQ',
+            'guideSubtitle' => 'Panduan step by step untuk official kecamatan saat mendaftarkan peserta di e-MTQ',
+            'stepScreenshots' => [
+                [
+                    'title' => 'Langkah 1 - Pilih golongan peserta',
+                    'caption' => 'Pilih cabang dan golongan yang sesuai sebelum membuka form pendaftaran.',
+                    'src' => $this->publicImageDataUri('images/guides/participant-registration/form.png'),
+                ],
+                [
+                    'title' => 'Langkah 2 - Tinjau data sebelum simpan',
+                    'caption' => 'Periksa identitas, kategori, dan berkas yang wajib agar pendaftaran tidak perlu diulang.',
+                    'src' => $this->publicImageDataUri('images/guides/participant-registration/review.png'),
+                ],
+            ],
+            'checklistItems' => [
+                'Peserta sudah diverifikasi secara administratif oleh kecamatan.',
+                'Golongan dan cabang sudah dipilih sesuai usia dan ketentuan.',
+                'Nomor induk peserta, alamat, dan kontak aktif sudah lengkap.',
+                'File berkas wajib seperti KK, KTP, dan dokumen pendukung sudah siap.',
+            ],
+            'tipsItems' => [
+                'Pastikan satu peserta hanya dipilih pada golongan yang benar agar tidak salah kategori.',
+                'Gunakan pratinjau sebelum menyimpan untuk mencegah kesalahan input data.',
+                'Jika ada berkas yang kurang, lengkapi dulu sebelum menekan tombol simpan.',
+            ],
+            'footerNote' => 'Dokumen ini dibuat untuk membantu official memahami alur pendaftaran peserta MTQ secara ringkas dan jelas.',
+        ];
+
+        $html = view('pdf.participant-registration-guide', $payload)->render();
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="buku-petunjuk-pendaftaran-peserta-mtq.pdf"',
+        ]);
+    }
+
+    protected function publicImageDataUri(string $relativePath): ?string
+    {
+        $path = public_path($relativePath);
+
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $mime = mime_content_type($path) ?: 'image/png';
+        $contents = file_get_contents($path);
+
+        return $contents !== false
+            ? 'data:'.$mime.';base64,'.base64_encode($contents)
+            : null;
+    }
+
+    protected function featuredBranchHighlight($items, string $branch): string
+    {
+        $branchName = mb_strtolower($branch);
+
+        if (str_contains($branchName, 'fahmil') || str_contains($branchName, 'syarhil')) {
+            return 'Golongan putra 3 peserta per kecamatan | Golongan putri 3 peserta per kecamatan';
+        }
+
+        return $items->pluck('name')->filter()->take(2)->implode(' | ');
+    }
+
+    public function rolePanel(string $role): array
+    {
+        return match ($role) {
+            'admin' => [
+                'headline' => 'Kontrol penuh sistem e-MTQ',
+                'description' => 'Pantau performa lomba, jaga kualitas data, dan arahkan tim dari satu panel yang ringkas.',
+                'accent' => 'from-cyan-400/20 to-blue-500/10',
+                'focus' => [
+                    'Pastikan data peserta dan kategori selalu valid.',
+                    'Amati ritme penilaian dan pengumuman.',
+                    'Gunakan leaderboard sebagai sinyal keputusan cepat.',
+                ],
+                'actions' => [
+                    ['label' => 'Buka Juknis', 'href' => route('juknis.index')],
+                    ['label' => 'Daftarkan Peserta', 'href' => route('participants.index')],
+                    ['label' => 'Official Kecamatan', 'href' => route('officials.index')],
+                    ['label' => 'Panitia Golongan', 'href' => route('committees.index')],
+                    ['label' => 'Modul Kategori', 'href' => route('categories.index')],
+                    ['label' => 'Kelola Konten', 'href' => route('admin.content')],
+                    ['label' => 'Galeri MTQ', 'href' => route('gallery.index')],
+                    ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
+                    ['label' => 'Hasil Nilai', 'href' => route('results.index')],
+                    ['label' => 'Buka Penilaian', 'href' => route('scoring')],
+                    ['label' => 'Muat Ulang Dashboard', 'href' => route('dashboard')],
+                ],
+            ],
+            'panitia' => [
+                'headline' => 'Pusat operasional arena',
+                'description' => 'Fokus pada input nilai, alur sesi, dan koordinasi lapangan agar lomba berjalan rapi.',
+                'accent' => 'from-emerald-400/20 to-cyan-500/10',
+                'focus' => [
+                    'Input nilai tepat peserta dan kategori.',
+                    'Pantau sesi yang sedang berjalan.',
+                    'Sampaikan perubahan jadwal secepat mungkin.',
+                ],
+                'actions' => [
+                    ['label' => 'Buka Juknis', 'href' => route('juknis.index')],
+                    ['label' => 'Daftarkan Peserta', 'href' => route('participants.index')],
+                    ['label' => 'Modul Kategori', 'href' => route('categories.index')],
+                    ['label' => 'Kelola Konten', 'href' => route('admin.content')],
+                    ['label' => 'Galeri MTQ', 'href' => route('gallery.index')],
+                    ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
+                    ['label' => 'Hasil Nilai', 'href' => route('results.index')],
+                    ['label' => 'Input Nilai', 'href' => route('scoring')],
+                    ['label' => 'Lihat Ringkasan', 'href' => route('dashboard')],
+                ],
+            ],
+            'official', 'pendamping' => [
+                'headline' => 'Ringkasan untuk official kafilah',
+                'description' => 'Pantau status verifikasi peserta kecamatan, cek tindak lanjut berkas, dan ikuti jadwal lomba dari satu panel yang lebih fokus.',
+                'accent' => 'from-violet-400/20 to-sky-500/10',
+                'focus' => [
+                    'Pastikan berkas peserta yang ditolak segera diperbaiki.',
+                    'Pantau jumlah peserta yang masih menunggu verifikasi.',
+                    'Cek sesi tampil dan pengumuman resmi untuk kecamatan Anda.',
+                ],
+                'actions' => [
+                    ['label' => 'Buka Juknis', 'href' => route('juknis.index')],
+                    ['label' => 'Pendaftaran Peserta', 'href' => route('participants.index')],
+                    ['label' => 'Hasil Nilai', 'href' => route('results.index')],
+                    ['label' => 'Lihat Kategori', 'href' => route('categories.index')],
+                    ['label' => 'Lihat Peserta Kecamatan', 'href' => route('participants.list')],
+                    ['label' => 'Galeri MTQ', 'href' => route('gallery.index')],
+                    ['label' => 'Kembali Beranda', 'href' => route('home')],
+                ],
+            ],
+            default => [
+                'headline' => 'Panel peserta yang lebih personal',
+                'description' => 'Pantau status berkas, jadwal tampil, dan ringkasan nilai Anda sendiri dari satu dashboard yang lebih tenang dan jelas.',
+                'accent' => 'from-amber-400/20 to-orange-500/10',
+                'focus' => [
+                    'Pastikan status verifikasi berkas selalu aman.',
+                    'Cek jadwal dan venue tampil berikutnya.',
+                    'Pantau ringkasan nilai dan pengumuman resmi panitia.',
+                ],
+                'actions' => [
+                    ['label' => 'Buka Juknis', 'href' => route('juknis.index')],
+                    ['label' => 'Lihat Data Saya', 'href' => route('dashboard')],
+                    ['label' => 'Hasil Nilai', 'href' => route('results.index')],
+                    ['label' => 'Lihat Kategori', 'href' => route('categories.index')],
+                    ['label' => 'Segarkan Dashboard', 'href' => route('dashboard')],
+                    ['label' => 'Kembali Beranda', 'href' => route('home')],
+                ],
+            ],
+        };
+    }
+
+    public function consoleNavigation(string $role, string $active): array
+    {
+        $navigation = [
+            ['key' => 'dashboard', 'label' => 'Overview', 'href' => route('dashboard'), 'icon' => 'home'],
+            ['key' => 'juknis', 'label' => 'Juknis MTQ', 'href' => route('juknis.index'), 'icon' => 'book-open'],
+            ['key' => 'participants.index', 'label' => 'Pendaftaran', 'href' => route('participants.index'), 'icon' => 'id-card'],
+            ['key' => 'participants.list', 'label' => 'Data Peserta', 'href' => route('participants.list'), 'icon' => 'users'],
+            ['key' => 'categories', 'label' => 'Kategori MTQ', 'href' => route('categories.index'), 'icon' => 'book-open'],
+            ['key' => 'results', 'label' => 'Hasil Nilai', 'href' => route('results.index'), 'icon' => 'chart'],
+            ['key' => 'leaderboard', 'label' => 'Leaderboard', 'href' => route('leaderboard.index'), 'icon' => 'trophy'],
+            ['key' => 'schedule', 'label' => 'Jadwal', 'href' => route('dashboard').'#jadwal', 'icon' => 'calendar'],
+            ['key' => 'announcements', 'label' => 'Pengumuman', 'href' => route('dashboard').'#pengumuman', 'icon' => 'bell'],
+        ];
+
+        if (in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)) {
+            $navigation[] = ['key' => 'gallery.index', 'label' => 'Galeri MTQ', 'href' => route('gallery.index'), 'icon' => 'image'];
+        }
+
+        if (in_array($role, ['admin', 'panitia'], true)) {
+            $navigation[] = ['key' => 'scoring', 'label' => 'Penilaian', 'href' => route('scoring'), 'icon' => 'chart'];
+            $navigation[] = ['key' => 'admin.content', 'label' => 'Kelola Konten', 'href' => route('admin.content'), 'icon' => 'bell'];
+            $navigation[] = ['key' => 'admin.documents', 'label' => 'Dokumen Resmi', 'href' => route('admin.documents'), 'icon' => 'book-open'];
+        }
+
+        if ($role === 'admin') {
+            $navigation[] = ['key' => 'maqra', 'label' => 'Kelola Maqra', 'href' => route('maqra.index'), 'icon' => 'book-open'];
+            $navigation[] = ['key' => 'officials.index', 'label' => 'Official Kecamatan', 'href' => route('officials.index'), 'icon' => 'users'];
+            $navigation[] = ['key' => 'committees.index', 'label' => 'Panitia Golongan', 'href' => route('committees.index'), 'icon' => 'shield'];
+            $navigation[] = ['key' => 'participants.trash', 'label' => 'Arsip Peserta', 'href' => route('participants.trash'), 'icon' => 'trash'];
+        }
+
+        return array_map(function (array $item) use ($active): array {
+            $item['active'] = $item['key'] === $active;
+
+            return $item;
+        }, $navigation);
+    }
+
+    public function documentConfig(): array
+    {
+        $config = config('documents');
+        $setting = DocumentSetting::current();
+
+        if (! $setting) {
+            return $config;
+        }
+
+        return array_replace_recursive($config, [
+            'organization_name' => $setting->organization_name,
+            'event_title' => $setting->event_title,
+            'event_location' => $setting->event_location,
+            'signature_city' => $setting->signature_city,
+            'officials' => $setting->officials ?? [],
+        ]);
+    }
+
+    protected function resolveParticipantProfile(?string $nomorInduk): ?Participant
+    {
+        if (! filled($nomorInduk)) {
+            return null;
+        }
+
+        return Participant::query()
+            ->with(['category', 'district', 'scores'])
+            ->where('nik', $nomorInduk)
+            ->first();
+    }
+
+    protected function buildLeaders($participants): array
+    {
+        $rows = collect($participants)
+            ->map(function (Participant $participant): array {
+                $latestScore = $participant->scores->sortByDesc('submitted_at')->first();
+                $priorityValues = $this->participantPriorityValues($participant);
+                $averageScore = (float) ($participant->scores->avg('score') ?? 0);
+                $latestScoreValue = (float) ($latestScore->score ?? 0);
+
+                return [
+                    'participant_id' => $participant->id,
+                    'name' => $participant->name,
+                    'institution' => $participant->institution,
+                    'category' => $participant->category?->name ?? '-',
+                    'latest_score' => number_format($latestScoreValue, 2),
+                    'average_score' => number_format($averageScore, 2),
+                    'latest_score_value' => $latestScoreValue,
+                    'average_score_value' => $averageScore,
+                    'priority_values' => $priorityValues,
+                ];
+            })
+            ->values()
+            ->all();
+
+        usort($rows, function (array $left, array $right): int {
+            $averageComparison = $right['average_score_value'] <=> $left['average_score_value'];
+            if ($averageComparison !== 0) {
+                return $averageComparison;
+            }
+
+            $maxPriorityCount = max(count($left['priority_values']), count($right['priority_values']));
+            for ($index = 0; $index < $maxPriorityCount; $index++) {
+                $leftValue = (float) ($left['priority_values'][$index] ?? 0);
+                $rightValue = (float) ($right['priority_values'][$index] ?? 0);
+                $priorityComparison = $rightValue <=> $leftValue;
+
+                if ($priorityComparison !== 0) {
+                    return $priorityComparison;
+                }
+            }
+
+            $latestComparison = $right['latest_score_value'] <=> $left['latest_score_value'];
+            if ($latestComparison !== 0) {
+                return $latestComparison;
+            }
+
+            return strcmp((string) $left['name'], (string) $right['name']);
+        });
+
+        return collect($rows)
+            ->take(6)
+            ->map(function (array $row): array {
+                unset($row['latest_score_value'], $row['average_score_value'], $row['priority_values']);
+
+                return $row;
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function buildRoundLeaders($participants, string $roundLabel): array
+    {
+        $rows = collect($participants)
+            ->map(function (Participant $participant) use ($roundLabel): ?array {
+                $roundScores = $participant->scores->filter(fn (ScoreEntry $entry): bool => (string) $entry->judging_round === $roundLabel);
+
+                if ($roundScores->isEmpty()) {
+                    return null;
+                }
+
+                $latestScore = $roundScores->sortByDesc('submitted_at')->first();
+                $priorityValues = $this->participantPriorityValuesFromScores($participant, $roundScores);
+                $averageScore = (float) ($roundScores->avg('score') ?? 0);
+                $latestScoreValue = (float) ($latestScore->score ?? 0);
+
+                return [
+                    'participant_id' => $participant->id,
+                    'name' => $participant->name,
+                    'institution' => $participant->institution,
+                    'district' => $participant->district?->name ?? '-',
+                    'category' => $participant->category?->name ?? '-',
+                    'branch' => $participant->category?->branch ?? '-',
+                    'round_label' => $roundLabel,
+                    'latest_score' => number_format($latestScoreValue, 2),
+                    'average_score' => number_format($averageScore, 2),
+                    'latest_score_value' => $latestScoreValue,
+                    'average_score_value' => $averageScore,
+                    'entry_count' => $roundScores->count(),
+                    'priority_values' => $priorityValues,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        usort($rows, function (array $left, array $right): int {
+            $averageComparison = $right['average_score_value'] <=> $left['average_score_value'];
+            if ($averageComparison !== 0) {
+                return $averageComparison;
+            }
+
+            $maxPriorityCount = max(count($left['priority_values']), count($right['priority_values']));
+            for ($index = 0; $index < $maxPriorityCount; $index++) {
+                $leftValue = (float) ($left['priority_values'][$index] ?? 0);
+                $rightValue = (float) ($right['priority_values'][$index] ?? 0);
+                $priorityComparison = $rightValue <=> $leftValue;
+
+                if ($priorityComparison !== 0) {
+                    return $priorityComparison;
+                }
+            }
+
+            $latestComparison = $right['latest_score_value'] <=> $left['latest_score_value'];
+            if ($latestComparison !== 0) {
+                return $latestComparison;
+            }
+
+            return strcmp((string) $left['name'], (string) $right['name']);
+        });
+
+        return collect($rows)
+            ->take(10)
+            ->map(function (array $row): array {
+                unset($row['latest_score_value'], $row['average_score_value'], $row['priority_values']);
+
+                return $row;
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function buildOfficialMandateAlert(?District $district): ?array
+    {
+        if (! $district || ! filled($district->mandate_document_path)) {
+            return [
+                'level' => 'warning',
+                'title' => 'Surat mandat kecamatan belum diupload',
+                'message' => 'Upload surat mandat kecamatan agar seluruh official dapat membuka dan mengelola pendaftaran peserta.',
+                'status' => 'missing',
+                'href' => route('participants.index'),
+            ];
+        }
+
+        if ($district->mandate_status === 'rejected') {
+            return [
+                'level' => 'danger',
+                'title' => 'Surat mandat kecamatan ditolak',
+                'message' => $district->mandate_verification_notes ?: 'Perlu upload ulang atau perbaikan surat mandat kecamatan.',
+                'status' => 'rejected',
+                'href' => route('participants.index'),
+            ];
+        }
+
+        if ($district->mandate_status === 'submitted') {
+            return [
+                'level' => 'info',
+                'title' => 'Surat mandat kecamatan menunggu verifikasi',
+                'message' => 'Mandat sudah diupload dan sedang diperiksa panitia.',
+                'status' => 'submitted',
+                'href' => route('participants.index'),
+            ];
+        }
+
+        return null;
+    }
+
+    public function viteAssets(): array
+    {
+        $manifestPath = public_path('build/manifest.json');
+
+        if (! file_exists($manifestPath)) {
+            return [
+                'css' => [],
+                'js' => [],
+            ];
+        }
+
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+
+        return [
+            'css' => collect($manifest['resources/css/app.css']['css'] ?? [])
+                ->merge($manifest['resources/js/app.js']['css'] ?? [])
+                ->prepend($manifest['resources/css/app.css']['file'] ?? null)
+                ->filter()
+                ->unique()
+                ->map(fn (string $file): string => asset('build/'.$file))
+                ->values()
+                ->all(),
+            'js' => collect([$manifest['resources/js/app.js']['file'] ?? null])
+                ->filter()
+                ->map(fn (string $file): string => asset('build/'.$file))
+                ->values()
+                ->all(),
+        ];
+    }
+
+    protected function currentParticipantCacheKey(int $categoryId): string
+    {
+        return 'mtq:bigscreen:category:'.$categoryId.':current_participant_id';
+    }
+
+    protected function publicParticipantPhotoUrl(Participant $participant): ?string
+    {
+        $path = trim((string) ($participant->document_photo ?? $participant->avatar ?? ''));
+
+        if ($path === '' || ! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return asset('storage/'.ltrim(str_replace('\\', '/', $path), '/'));
+    }
+
+    public function galleryDocumentation(): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+
+        $galleryItems = Schema::hasTable('activity_documentations')
+            ? ActivityDocumentation::query()
+                ->with('uploader')
+                ->orderByDesc('is_cover_homepage')
+                ->orderBy('sort_order')
+                ->latest('created_at')
+                ->latest('id')
+                ->paginate(9)
+                ->withQueryString()
+            : null;
+
+        return view('pages.gallery-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'navigation' => $this->consoleNavigation((string) auth()->user()?->role, 'gallery.index'),
+            'galleryItems' => $galleryItems,
+            'galleryStats' => [
+                'total' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->count() : 0,
+                'active' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->where('is_active', true)->count() : 0,
+                'cover' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->where('is_cover_homepage', true)->count() : 0,
+                'contributors' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->whereNotNull('uploaded_by')->distinct('uploaded_by')->count('uploaded_by') : 0,
+                'this_week' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->where('created_at', '>=', now()->subDays(7))->count() : 0,
+            ],
+        ]);
+    }
+
+    public function storeGalleryDocumentation(Request $request): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+        abort_unless(Schema::hasTable('activity_documentations'), 503);
+
+        $validated = $request->validate([
+            'caption' => ['required', 'string', 'max:255'],
+            'photos' => ['required', 'array', 'min:1', 'max:8'],
+            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'is_active' => ['nullable', 'boolean'],
+            'is_cover_homepage' => ['nullable', 'boolean'],
+        ], [
+            'caption.required' => 'Caption galeri wajib diisi.',
+            'caption.string' => 'Caption galeri harus berupa teks.',
+            'caption.max' => 'Caption galeri maksimal 255 karakter.',
+            'photos.required' => 'Pilih minimal satu foto untuk diupload.',
+            'photos.array' => 'Format unggahan foto tidak valid.',
+            'photos.min' => 'Pilih minimal satu foto untuk diupload.',
+            'photos.max' => 'Maksimal 8 foto per unggahan galeri.',
+            'photos.*.file' => 'Setiap item upload harus berupa file foto yang valid.',
+            'photos.*.image' => 'File galeri harus berupa gambar.',
+            'photos.*.mimes' => 'Format foto harus JPG, JPEG, PNG, atau WEBP.',
+            'photos.*.max' => 'Ukuran maksimal setiap foto adalah 5 MB.',
+            'is_active.boolean' => 'Status aktif galeri tidak valid.',
+            'is_cover_homepage.boolean' => 'Opsi slideshow homepage tidak valid.',
+        ], [
+            'caption' => 'caption',
+            'photos' => 'foto',
+            'photos.*' => 'foto',
+            'is_active' => 'status aktif',
+            'is_cover_homepage' => 'slideshow homepage',
+        ]);
+
+        if (($validated['is_cover_homepage'] ?? false) && $this->galleryCoverCount() >= 5) {
+            throw ValidationException::withMessages([
+                'is_cover_homepage' => 'Maksimal 5 foto bisa dipilih untuk slideshow homepage.',
+            ]);
+        }
+
+        $nextCoverSortOrder = ($validated['is_cover_homepage'] ?? false)
+            ? $this->nextGalleryCoverSortOrder()
+            : 0;
+
+        $storedPaths = [];
+        $uploadedCount = 0;
+
+        foreach ($request->file('photos', []) as $photo) {
+            if (! $photo instanceof UploadedFile) {
+                continue;
+            }
+
+            $storedImage = $this->storeGalleryImageVariants($photo);
+            $storedPaths[] = $storedImage['image_path'];
+
+            ActivityDocumentation::query()->create([
+                'caption' => trim((string) $validated['caption']),
+                'image_path' => $storedImage['image_path'],
+                'thumbnail_path' => $storedImage['thumbnail_path'],
+                'uploaded_by' => auth()->id(),
+                'is_active' => (bool) ($validated['is_active'] ?? true),
+                'is_cover_homepage' => (bool) ($validated['is_cover_homepage'] ?? false),
+                'sort_order' => $nextCoverSortOrder,
+            ]);
+            $uploadedCount++;
+        }
+
+        return redirect()
+            ->route('gallery.index', ['page' => $request->integer('return_page', 1)])
+            ->with('status', sprintf('%d foto dokumentasi berhasil diupload ke galeri MTQ.', $uploadedCount));
+    }
+
+    public function setGalleryMainCover(ActivityDocumentation $activityDocumentation): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+        abort_unless(Schema::hasTable('activity_documentations'), 503);
+
+        if (! $activityDocumentation->is_cover_homepage && $this->galleryCoverCount() >= 5) {
+            return redirect()
+                ->back()
+                ->with('warning', 'Maksimal 5 foto bisa dipilih untuk slideshow homepage.');
+        }
+
+        $activityDocumentation->forceFill([
+            'is_active' => true,
+            'is_cover_homepage' => true,
+            'sort_order' => $activityDocumentation->is_cover_homepage
+                ? (int) ($activityDocumentation->sort_order ?? 0)
+                : $this->nextGalleryCoverSortOrder(),
+        ])->save();
+
+        return redirect()
+            ->route('gallery.index', [
+                'focus_gallery_id' => $activityDocumentation->id,
+                'page' => request()->integer('return_page', 1),
+            ])
+            ->with('status', 'Foto sudah dimasukkan ke slideshow homepage.');
+    }
+
+    public function releaseGalleryMainCover(ActivityDocumentation $activityDocumentation): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+        abort_unless(Schema::hasTable('activity_documentations'), 503);
+
+        if ($activityDocumentation->is_cover_homepage) {
+            $activityDocumentation->forceFill([
+                'is_cover_homepage' => false,
+            ])->save();
+        }
+
+        return redirect()
+            ->route('gallery.index', [
+                'focus_gallery_id' => $activityDocumentation->id,
+                'page' => request()->integer('return_page', 1),
+            ])
+            ->with('status', 'Foto sudah dikeluarkan dari slideshow homepage.');
+    }
+
+    public function toggleGalleryCover(ActivityDocumentation $activityDocumentation): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        if (! $activityDocumentation->is_cover_homepage && $this->galleryCoverCount() >= 5) {
+            return redirect()
+                ->back()
+                ->with('warning', 'Maksimal 5 foto bisa dipilih untuk slideshow homepage.');
+        }
+
+        $activityDocumentation->forceFill([
+            'is_cover_homepage' => ! $activityDocumentation->is_cover_homepage,
+            'sort_order' => $activityDocumentation->is_cover_homepage ? 0 : $this->nextGalleryCoverSortOrder(),
+        ])->save();
+
+        return redirect()
+            ->route('gallery.index', ['page' => request()->integer('return_page', 1)])
+            ->with('status', $activityDocumentation->is_cover_homepage
+                ? 'Foto sudah dimasukkan ke slideshow homepage.'
+                : 'Foto sudah dikeluarkan dari slideshow homepage.');
+    }
+
+    public function bulkSetGalleryCovers(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+        abort_unless(Schema::hasTable('activity_documentations'), 503);
+
+        $selectedIds = collect($request->input('gallery_cover_ids', []))
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'gallery_cover_ids' => 'Pilih minimal satu foto untuk slideshow homepage.',
+            ]);
+        }
+
+        if ($selectedIds->count() > 5) {
+            throw ValidationException::withMessages([
+                'gallery_cover_ids' => 'Maksimal 5 foto bisa dipilih untuk slideshow homepage.',
+            ]);
+        }
+
+        $galleryItems = ActivityDocumentation::query()
+            ->whereIn('id', $selectedIds->all())
+            ->get()
+            ->keyBy('id');
+
+        if ($galleryItems->count() !== $selectedIds->count()) {
+            throw ValidationException::withMessages([
+                'gallery_cover_ids' => 'Beberapa foto slideshow tidak ditemukan.',
+            ]);
+        }
+
+        DB::transaction(function () use ($galleryItems, $selectedIds): void {
+            ActivityDocumentation::query()->where('is_cover_homepage', true)->update([
+                'is_cover_homepage' => false,
+            ]);
+
+            $sortOrder = 1;
+
+            foreach ($selectedIds as $id) {
+                $item = $galleryItems->get($id);
+
+                if (! $item instanceof ActivityDocumentation) {
+                    continue;
+                }
+
+                $item->forceFill([
+                    'is_active' => true,
+                    'is_cover_homepage' => true,
+                    'sort_order' => $sortOrder++,
+                ])->save();
+            }
+        });
+
+        return redirect()
+            ->route('gallery.index', ['page' => $request->integer('return_page', 1)])
+            ->with('status', sprintf('%d foto berhasil dipilih untuk slideshow homepage.', $selectedIds->count()));
+    }
+
+    public function moveGalleryCover(ActivityDocumentation $activityDocumentation, string $direction): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+        abort_unless(in_array($direction, ['up', 'down'], true), 404);
+
+        if (! $activityDocumentation->is_cover_homepage) {
+            return redirect()
+                ->back()
+                ->with('warning', 'Foto ini belum dipilih untuk slideshow homepage.');
+        }
+
+        $coverItems = ActivityDocumentation::query()
+            ->where('is_cover_homepage', true)
+            ->orderBy('sort_order')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->values();
+
+        $currentIndex = $coverItems->search(fn (ActivityDocumentation $item): bool => $item->id === $activityDocumentation->id);
+
+        if ($currentIndex === false) {
+            return redirect()
+                ->back()
+                ->with('warning', 'Foto slideshow tidak ditemukan.');
+        }
+
+        $swapIndex = $direction === 'up' ? $currentIndex - 1 : $currentIndex + 1;
+
+        if (! $coverItems->has($swapIndex)) {
+            return redirect()
+                ->back()
+                ->with('warning', $direction === 'up'
+                    ? 'Foto ini sudah berada di urutan paling atas.'
+                    : 'Foto ini sudah berada di urutan paling bawah.');
+        }
+
+        $targetItem = $coverItems->get($swapIndex);
+        $currentSortOrder = (int) ($activityDocumentation->sort_order ?? 0);
+        $targetSortOrder = (int) ($targetItem?->sort_order ?? 0);
+
+        DB::transaction(function () use ($activityDocumentation, $targetItem, $currentSortOrder, $targetSortOrder): void {
+            $activityDocumentation->forceFill(['sort_order' => $targetSortOrder])->save();
+
+            if ($targetItem) {
+                $targetItem->forceFill(['sort_order' => $currentSortOrder])->save();
+            }
+        });
+
+        return redirect()
+            ->route('gallery.index', ['page' => request()->integer('return_page', 1)])
+            ->with('status', $direction === 'up'
+                ? 'Foto slideshow dipindah ke urutan sebelumnya.'
+                : 'Foto slideshow dipindah ke urutan berikutnya.');
+    }
+
+    protected function galleryCoverCount(): int
+    {
+        if (! Schema::hasTable('activity_documentations')) {
+            return 0;
+        }
+
+        return ActivityDocumentation::query()->where('is_cover_homepage', true)->count();
+    }
+
+    protected function nextGalleryCoverSortOrder(): int
+    {
+        if (! Schema::hasTable('activity_documentations')) {
+            return 1;
+        }
+
+        $maxSortOrder = (int) ActivityDocumentation::query()
+            ->where('is_cover_homepage', true)
+            ->max('sort_order');
+
+        return $maxSortOrder + 1;
+    }
+
+    protected function storeGalleryImageVariants(UploadedFile $photo): array
+    {
+        $sourcePath = $photo->getRealPath();
+
+        if ($sourcePath === false || ! is_file($sourcePath)) {
+            throw new \RuntimeException('File upload foto tidak valid.');
+        }
+
+        $binary = file_get_contents($sourcePath);
+
+        if ($binary === false) {
+            throw new \RuntimeException('File upload foto tidak bisa dibaca.');
+        }
+
+        $image = imagecreatefromstring($binary);
+
+        if ($image === false) {
+            throw new \RuntimeException('File upload foto tidak bisa diproses.');
+        }
+
+        $main = $this->encodeGalleryImage($image, 1600, 1600, 82);
+        $thumbnail = $this->encodeGalleryImage($image, 640, 640, 76);
+
+        imagedestroy($image);
+
+        $directory = 'gallery/documentations/'.now()->format('Y/m');
+        $mainPath = $directory.'/'.Str::random(40).'.'.$main['extension'];
+        $thumbnailPath = $directory.'/thumbs/'.Str::random(40).'.'.$thumbnail['extension'];
+
+        Storage::disk('public')->put($mainPath, $main['contents']);
+        Storage::disk('public')->put($thumbnailPath, $thumbnail['contents']);
+
+        return [
+            'image_path' => $mainPath,
+            'thumbnail_path' => $thumbnailPath,
+        ];
+    }
+
+    protected function encodeGalleryImage($sourceImage, int $maxWidth, int $maxHeight, int $quality): array
+    {
+        $width = imagesx($sourceImage);
+        $height = imagesy($sourceImage);
+        $ratio = min($maxWidth / max(1, $width), $maxHeight / max(1, $height), 1);
+        $targetWidth = max(1, (int) round($width * $ratio));
+        $targetHeight = max(1, (int) round($height * $ratio));
+        $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
+        $supportsWebp = function_exists('imagewebp');
+        $extension = $supportsWebp ? 'webp' : 'jpg';
+
+        if ($supportsWebp) {
+            imagealphablending($canvas, false);
+            imagesavealpha($canvas, true);
+            $transparent = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
+            imagefilledrectangle($canvas, 0, 0, $targetWidth, $targetHeight, $transparent);
+        } else {
+            $white = imagecolorallocate($canvas, 255, 255, 255);
+            imagefilledrectangle($canvas, 0, 0, $targetWidth, $targetHeight, $white);
+        }
+
+        imagecopyresampled($canvas, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+        ob_start();
+
+        if ($supportsWebp) {
+            imagewebp($canvas, null, $quality);
+        } else {
+            imagejpeg($canvas, null, $quality);
+        }
+
+        $contents = ob_get_clean();
+
+        imagedestroy($canvas);
+
+        if ($contents === false || $contents === '') {
+            throw new \RuntimeException('Foto gagal dikompres.');
+        }
+
+        return [
+            'extension' => $extension,
+            'contents' => $contents,
+        ];
+    }
+
+    public function destroyGalleryDocumentation(ActivityDocumentation $activityDocumentation): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+        abort_unless(
+            auth()->user()?->role === 'admin' || (int) $activityDocumentation->uploaded_by === (int) auth()->id(),
+            403
+        );
+
+        foreach ([$activityDocumentation->image_path, $activityDocumentation->thumbnail_path] as $path) {
+            if (filled($path) && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+
+        $activityDocumentation->delete();
+
+        return redirect()
+            ->route('gallery.index')
+            ->with('status', 'Dokumentasi berhasil dihapus dari galeri.');
+    }
+
+    public function backfillGalleryThumbnails(): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+        abort_unless(Schema::hasTable('activity_documentations'), 503);
+
+        $items = ActivityDocumentation::query()
+            ->where(function ($query): void {
+                $query->whereNull('thumbnail_path')
+                    ->orWhere('thumbnail_path', '');
+            })
+            ->orderBy('id')
+            ->get();
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($items as $item) {
+            $mainPath = trim((string) $item->image_path);
+
+            if ($mainPath === '' || ! Storage::disk('public')->exists($mainPath)) {
+                $skipped++;
+                continue;
+            }
+
+            $thumbnailPath = $this->generateThumbnailFromStoredImage($mainPath);
+
+            if (! $thumbnailPath) {
+                $skipped++;
+                continue;
+            }
+
+            $item->forceFill([
+                'thumbnail_path' => $thumbnailPath,
+            ])->save();
+            $updated++;
+        }
+
+        return redirect()
+            ->route('gallery.index')
+            ->with('status', sprintf('Backfill thumbnail selesai. %d foto diperbarui, %d foto dilewati.', $updated, $skipped));
+    }
+
+    protected function generateThumbnailFromStoredImage(string $storedPath): ?string
+    {
+        if (! Storage::disk('public')->exists($storedPath)) {
+            return null;
+        }
+
+        $absolutePath = Storage::disk('public')->path($storedPath);
+        $binary = @file_get_contents($absolutePath);
+
+        if ($binary === false) {
+            return null;
+        }
+
+        $image = @imagecreatefromstring($binary);
+
+        if ($image === false) {
+            return null;
+        }
+
+        $thumbnail = $this->encodeGalleryImage($image, 640, 640, 76);
+        imagedestroy($image);
+
+        $directory = trim(dirname($storedPath), '.');
+        $thumbnailDirectory = ($directory !== '' ? $directory : 'gallery/documentations').'/thumbs';
+        $thumbnailPath = $thumbnailDirectory.'/'.Str::random(40).'.'.$thumbnail['extension'];
+
+        Storage::disk('public')->put($thumbnailPath, $thumbnail['contents']);
+
+        return $thumbnailPath;
+    }
+
+    protected function publicActivityDocumentationUrl(ActivityDocumentation $item): ?string
+    {
+        return $item->imageUrl();
+    }
+
+    public function categoryLotPrefix(CompetitionCategory $category): string
+    {
+        $configured = strtoupper(trim((string) ($category->lot_code ?? '')));
+
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        $source = trim((string) ($category->branch ?? '').' '.(string) ($category->name ?? ''));
+        $tokens = preg_split('/[^A-Z0-9]+/u', Str::upper($source), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $stopWords = ['AL', 'AN', 'BACA', 'CABANG', 'DAN', 'DARI', 'DENGAN', 'GOL', 'GOLONGAN', 'LOT', 'MTQ', 'NOMOR', 'PESERTA', 'QUR', 'QURAN', 'SENI'];
+        $significant = array_values(array_filter($tokens, fn (string $token): bool => ! in_array($token, $stopWords, true)));
+
+        if (count($significant) >= 2) {
+            $prefix = mb_substr($significant[0], 0, 1).mb_substr($significant[1], 0, 1);
+        } elseif (count($significant) === 1) {
+            $prefix = mb_substr($significant[0], 0, min(4, mb_strlen($significant[0])));
+        } else {
+            $prefix = mb_substr(preg_replace('/[^A-Z0-9]/u', '', Str::upper((string) ($category->slug ?? 'MTQ'))) ?: 'MTQ', 0, 4);
+        }
+
+        return $prefix !== '' ? $prefix : 'MTQ';
+    }
+
+    public function categoryLotRange(CompetitionCategory $category): array
+    {
+        $min = (int) ($category->lot_number_min ?? 1);
+        $max = (int) ($category->lot_number_max ?? 999);
+
+        if ($min < 1) {
+            $min = 1;
+        }
+
+        if ($max < $min) {
+            [$min, $max] = [$max, $min];
+        }
+
+        if ($max < $min) {
+            $max = $min;
+        }
+
+        return [$min, $max];
+    }
+
+    public function categoryLotRangeLabel(CompetitionCategory $category): string
+    {
+        [$min, $max] = $this->categoryLotRange($category);
+
+        return sprintf('%03d - %03d', $min, $max);
+    }
+
+    public function categoryUsesMaqra(CompetitionCategory $category): bool
+    {
+        $branch = mb_strtolower((string) ($category->branch ?? ''));
+        $name = mb_strtolower((string) ($category->name ?? ''));
+        $haystack = trim($branch.' '.$name);
+
+        return str_contains($haystack, 'seni baca al qur')
+            || str_contains($haystack, 'hafalan al qur')
+            || str_contains($haystack, 'tafsir al qur')
+            || str_contains($haystack, 'fahmil qur');
+    }
+
+    public function categoryMaqraSystemLabel(CompetitionCategory $category): ?string
+    {
+        $branch = mb_strtolower((string) ($category->branch ?? ''));
+
+        return match (true) {
+            str_contains($branch, 'seni baca al qur') => 'Tilawah',
+            str_contains($branch, 'hafalan al qur') => 'Tahfizh',
+            str_contains($branch, 'tafsir al qur') => 'Tafsir',
+            str_contains($branch, 'fahmil qur') => 'Fahmil',
+            default => null,
+        };
+    }
+
+    public function categoryMaqraCodePrefix(CompetitionCategory $category): string
+    {
+        return match ($this->categoryMaqraSystemLabel($category)) {
+            'Tilawah' => 'TLW',
+            'Tahfizh' => 'HFZ',
+            'Tafsir' => 'TFS',
+            'Fahmil' => 'FHL',
+            default => 'MQR',
+        };
+    }
+
+    protected function participantPriorityValues(Participant $participant): array
+    {
+        $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch);
+        $scores = collect($participant->scores);
+
+        return collect($priorityKeys)
+            ->map(function (string $key) use ($scores): float {
+                return (float) ($scores->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function participantPriorityValuesFromScores(Participant $participant, $scores): array
+    {
+        $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch);
+        $scoreCollection = collect($scores);
+
+        return collect($priorityKeys)
+            ->map(function (string $key) use ($scoreCollection): float {
+                return (float) ($scoreCollection->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function priorityKeysForCategory(?int $categoryId, ?string $branch = null): array
+    {
+        $setting = ScoringSetting::forCategory($categoryId);
+        $priorityKeys = array_values(array_filter($setting?->scoring_priorities ?? []));
+
+        if ($priorityKeys !== []) {
+            return $priorityKeys;
+        }
+
+        $criteria = $setting?->scoring_points
+            ?? config('scoring.criteria.'.($branch ?? ''))
+            ?? config('scoring.criteria.default', []);
+
+        return array_keys($criteria);
+    }
+
+    public function rankingPriorityContext(?int $categoryId, ?string $branch = null, bool $preferSpecific = true): array
+    {
+        $labels = $this->priorityLabelsForCategory($categoryId, $branch);
+
+        if ($labels !== [] && $preferSpecific) {
+            return [
+                'labels' => $labels,
+                'specific' => true,
+                'text' => 'Tie-break: '.implode(' > ', $labels),
+            ];
+        }
+
+        return [
+            'labels' => $labels,
+            'specific' => false,
+            'text' => 'Tie-break mengikuti prioritas poin pada setting penilaian tiap golongan.',
+        ];
+    }
+
+    public function priorityLabelsForCategory(?int $categoryId, ?string $branch = null): array
+    {
+        $setting = ScoringSetting::forCategory($categoryId);
+        $criteria = $setting?->scoring_points
+            ?? config('scoring.criteria.'.($branch ?? ''))
+            ?? config('scoring.criteria.default', []);
+        $priorityKeys = $this->priorityKeysForCategory($categoryId, $branch);
+
+        return collect($priorityKeys)
+            ->map(fn (string $key): string => (string) ($criteria[$key] ?? ucwords(str_replace('_', ' ', $key))))
+            ->filter(fn (string $label): bool => $label !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function fetchSilatarEmployee(string $nip): ?array
+    {
+        $response = $this->safeGet(self::SILATAR_NIP_API.$nip);
+
+        if (! $response || ! $response->successful()) {
+            return null;
+        }
+
+        $user = $response->json('user');
+
+        return is_array($user) ? $user : null;
+    }
+
+    protected function resolveDashboardUserEmail(User $user, array $employee): string
+    {
+        $email = trim((string) data_get($employee, 'email', ''));
+
+        if ($email === '') {
+            return (string) $user->email;
+        }
+
+        $owner = User::query()
+            ->where('email', $email)
+            ->whereKeyNot($user->id)
+            ->first();
+
+        return $owner ? (string) $user->email : $email;
+    }
+
+    protected function resolveDistrictFromEmployee(array $employee): ?District
+    {
+        $employeeDeptId = (int) data_get($employee, 'dept_id', 0);
+
+        if ($employeeDeptId <= 0) {
+            return null;
+        }
+
+        return District::query()
+            ->where('silatar_id', $employeeDeptId)
+            ->first();
+    }
+
+    protected function syncSilatarProfilePhoto(array $employee, ?string $existingPath): ?string
+    {
+        $avatarUrl = trim((string) data_get($employee, 'avatar', ''));
+
+        if ($avatarUrl === '') {
+            return $existingPath;
+        }
+
+        $response = $this->safeGet($avatarUrl);
+
+        if (! $response || ! $response->successful()) {
+            return $existingPath;
+        }
+
+        $extension = pathinfo(parse_url($avatarUrl, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION) ?: 'jpg';
+        $nomorInduk = (string) data_get($employee, 'nomor_induk', Str::random(12));
+        $path = 'users/profile-photos/user-'.$nomorInduk.'.'.$extension;
+
+        Storage::disk('public')->put($path, $response->body());
+
+        return $path;
+    }
+
+    protected function normalizePhoneNumber(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', trim($phone)) ?: '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        if (str_starts_with($digits, '62')) {
+            return '0'.substr($digits, 2);
+        }
+
+        if (! str_starts_with($digits, '0')) {
+            return '0'.$digits;
+        }
+
+        return $digits;
+    }
+
+    protected function safeGet(string $url): ?Response
+    {
+        try {
+            return Http::acceptJson()->timeout(20)->retry(2, 500)->get($url);
+        } catch (ConnectionException|RequestException) {
+            try {
+                return Http::acceptJson()->withoutVerifying()->timeout(20)->retry(2, 500)->get($url);
+            } catch (ConnectionException|RequestException) {
+                return null;
+            }
+        }
+    }
+}
+
+
