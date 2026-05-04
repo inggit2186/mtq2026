@@ -812,7 +812,26 @@ function scheduleTimeLabel(value) {
         return '';
     }
 
-    return new Date(value).toLocaleString('id-ID');
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    const dateLabel = new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Jakarta',
+    }).format(date);
+    const timeLabel = new Intl.DateTimeFormat('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+        timeZone: 'Asia/Jakarta',
+    }).format(date);
+
+    return `${dateLabel} pukul ${timeLabel} WIB`;
 }
 
 function pushScheduleNotification(detail) {
