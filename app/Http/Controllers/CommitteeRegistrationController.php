@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\User;
+use App\Support\ActivityLogger;
 use App\Support\WhatsAppRegistrationSender;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Client\ConnectionException;
@@ -154,6 +155,19 @@ class CommitteeRegistrationController extends Controller
                 $districts->pluck('name')->all(),
             );
 
+            ActivityLogger::log(
+                'user.committee.created',
+                (auth()->user()?->name ?? 'Admin').' membuat akun panitia '.$committee->name.'.',
+                $committee,
+                [
+                    'committee_id' => $committee->id,
+                    'committee_name' => $committee->name,
+                    'categories' => $categories->map(fn (CompetitionCategory $category): string => trim($category->branch.' - '.$category->name))->values()->all(),
+                    'districts' => $districts->pluck('name')->values()->all(),
+                    'whatsapp_sent' => $whatsappSent,
+                ]
+            );
+
             return redirect()
                 ->route('committees.index')
                 ->with('status', $whatsappSent
@@ -178,6 +192,18 @@ class CommitteeRegistrationController extends Controller
         $existing->districtAccesses()->delete();
         $existing->districtAccesses()->createMany(
             $districts->map(fn (District $district): array => ['district_id' => $district->id])->all()
+        );
+
+        ActivityLogger::log(
+            'user.committee.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui data panitia '.$existing->name.'.',
+            $existing,
+            [
+                'committee_id' => $existing->id,
+                'committee_name' => $existing->name,
+                'categories' => $categories->map(fn (CompetitionCategory $category): string => trim($category->branch.' - '.$category->name))->values()->all(),
+                'districts' => $districts->pluck('name')->values()->all(),
+            ]
         );
 
         return redirect()
@@ -209,6 +235,18 @@ class CommitteeRegistrationController extends Controller
             $districts->map(fn (District $district): array => ['district_id' => $district->id])->all()
         );
 
+        ActivityLogger::log(
+            'user.committee.access_updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui hak akses panitia '.$committee->name.'.',
+            $committee,
+            [
+                'committee_id' => $committee->id,
+                'committee_name' => $committee->name,
+                'categories' => $categories->map(fn (CompetitionCategory $category): string => trim($category->branch.' - '.$category->name))->values()->all(),
+                'districts' => $districts->pluck('name')->values()->all(),
+            ]
+        );
+
         return redirect()
             ->route('committees.index')
             ->with('status', 'Hak akses golongan dan kecamatan verifikator untuk panitia '.$committee->name.' berhasil diperbarui.');
@@ -224,6 +262,8 @@ class CommitteeRegistrationController extends Controller
         }
 
         $profilePhotoPath = (string) ($committee->profile_photo_path ?? '');
+        $committeeName = $committee->name;
+        $committeeId = $committee->id;
         $committee->categoryAccesses()->delete();
         $committee->districtAccesses()->delete();
         $committee->delete();
@@ -232,9 +272,19 @@ class CommitteeRegistrationController extends Controller
             Storage::disk('public')->delete($profilePhotoPath);
         }
 
+        ActivityLogger::log(
+            'user.committee.deleted',
+            (auth()->user()?->name ?? 'Admin').' menghapus akun panitia '.$committeeName.'.',
+            $committee,
+            [
+                'committee_id' => $committeeId,
+                'committee_name' => $committeeName,
+            ]
+        );
+
         return redirect()
             ->route('committees.index')
-            ->with('status', 'Akun panitia '.$committee->name.' berhasil dihapus.');
+            ->with('status', 'Akun panitia '.$committeeName.' berhasil dihapus.');
     }
 
     private function fetchSilatarEmployee(string $nip): ?array

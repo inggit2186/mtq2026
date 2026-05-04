@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CompetitionCategory;
 use App\Models\DocumentSetting;
 use App\Models\Participant;
+use App\Support\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -54,6 +55,17 @@ class DocumentSettingsController extends Controller
         $setting = DocumentSetting::current() ?? new DocumentSetting();
         $setting->fill($validated);
         $setting->save();
+
+        ActivityLogger::log(
+            'document.settings.updated',
+            (auth()->user()?->name ?? 'Panitia').' memperbarui metadata dokumen resmi.',
+            $setting,
+            [
+                'organization_name' => $setting->organization_name,
+                'event_title' => $setting->event_title,
+                'signature_city' => $setting->signature_city,
+            ]
+        );
 
         return redirect()
             ->route('admin.documents')

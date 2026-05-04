@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Announcement;
 use App\Models\District;
 use App\Models\SessionSchedule;
+use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -180,13 +181,23 @@ POWERSHELL;
             'published_at' => ['nullable', 'date'],
         ]);
 
-        Announcement::query()->create([
+        $announcement = Announcement::query()->create([
             'title' => $validated['title'],
             'body' => $validated['body'],
             'priority' => $validated['priority'],
             'published_by' => auth()->id(),
             'published_at' => $validated['published_at'] ?? now(),
         ]);
+
+        ActivityLogger::log(
+            'announcement.created',
+            (auth()->user()?->name ?? 'Panitia').' membuat pengumuman "'.$announcement->title.'".',
+            $announcement,
+            [
+                'priority' => $announcement->priority,
+                'published_at' => optional($announcement->published_at)->toDateTimeString(),
+            ]
+        );
 
         return redirect()
             ->route('admin.content')
@@ -199,6 +210,13 @@ POWERSHELL;
 
         $title = $announcement->title;
         $announcement->delete();
+
+        ActivityLogger::log(
+            'announcement.deleted',
+            (auth()->user()?->name ?? 'Panitia').' menghapus pengumuman "'.$title.'".',
+            $announcement,
+            ['title' => $title]
+        );
 
         return redirect()
             ->route('admin.content')
@@ -226,6 +244,19 @@ POWERSHELL;
         $schedule = SessionSchedule::query()->create($validated);
         $schedule->syncAutomaticStatus();
 
+        ActivityLogger::log(
+            'schedule.created',
+            (auth()->user()?->name ?? 'Panitia').' membuat jadwal "'.$schedule->title.'".',
+            $schedule,
+            [
+                'stage' => $schedule->stage,
+                'venue' => $schedule->venue,
+                'starts_at' => optional($schedule->starts_at)->toDateTimeString(),
+                'ends_at' => optional($schedule->ends_at)->toDateTimeString(),
+                'status' => $schedule->status,
+            ]
+        );
+
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal baru berhasil ditambahkan.');
@@ -240,13 +271,35 @@ POWERSHELL;
         ]);
 
         if ($validated['status'] === SessionSchedule::STATUS_POSTPONED) {
+            $oldStatus = $schedule->status;
             $schedule->forceFill(['status' => SessionSchedule::STATUS_POSTPONED])->save();
+
+            ActivityLogger::log(
+                'schedule.status_updated',
+                (auth()->user()?->name ?? 'Panitia').' menandai jadwal "'.$schedule->title.'" sebagai ditunda.',
+                $schedule,
+                [
+                    'old_status' => $oldStatus,
+                    'new_status' => $schedule->status,
+                ]
+            );
 
             return back()->with('status', 'Jadwal "'.$schedule->title.'" berhasil ditandai ditunda.');
         }
 
+        $oldStatus = $schedule->status;
         $schedule->forceFill(['status' => SessionSchedule::STATUS_SCHEDULED])->save();
         $schedule->syncAutomaticStatus();
+
+        ActivityLogger::log(
+            'schedule.status_updated',
+            (auth()->user()?->name ?? 'Panitia').' mengembalikan jadwal "'.$schedule->title.'" ke status otomatis.',
+            $schedule,
+            [
+                'old_status' => $oldStatus,
+                'new_status' => $schedule->status,
+            ]
+        );
 
         return back()->with('status', 'Status jadwal "'.$schedule->title.'" kembali otomatis mengikuti tanggal dan jam.');
     }
@@ -257,6 +310,13 @@ POWERSHELL;
 
         $title = $schedule->title;
         $schedule->delete();
+
+        ActivityLogger::log(
+            'schedule.deleted',
+            (auth()->user()?->name ?? 'Panitia').' menghapus jadwal "'.$title.'".',
+            $schedule,
+            ['title' => $title]
+        );
 
         return redirect()
             ->route('admin.content')

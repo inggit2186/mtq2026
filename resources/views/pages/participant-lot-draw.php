@@ -67,12 +67,12 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
         </header>
 
         <section class="relative z-10 mx-auto grid w-full max-w-[1500px] flex-1 min-h-0 gap-6 px-4 pb-4 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
-            <aside class="glass-card flex min-h-0 flex-col rounded-[2rem] p-5">
+            <aside class="glass-card flex min-h-0 flex-col overflow-y-auto rounded-[2rem] p-5">
                 <p class="section-kicker">Peserta</p>
                 <div class="mt-3 overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/60">
-                    <div class="relative aspect-[16/10]">
+                    <div class="aspect-[4/5] bg-slate-950/80">
                         <?php if (filled($photoDataUri)): ?>
-                            <img src="<?= e($photoDataUri) ?>" alt="<?= e($participant?->name) ?>" class="h-full w-full object-cover">
+                            <img src="<?= e($photoDataUri) ?>" alt="<?= e($participant?->name) ?>" class="h-full w-full object-contain object-center">
                         <?php else: ?>
                             <div class="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),_rgba(15,23,42,0.95))]">
                                 <div class="flex h-28 w-28 items-center justify-center rounded-[1.5rem] border border-white/10 bg-white/5 text-4xl font-black tracking-[0.2em] text-cyan-100 shadow-[0_0_80px_rgba(34,211,238,0.18)]">
@@ -80,10 +80,10 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                                 </div>
                             </div>
                         <?php endif; ?>
-                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent p-3">
-                            <p class="text-xs uppercase tracking-[0.22em] text-cyan-200">Peserta</p>
-                            <h2 class="mt-1 text-xl font-black leading-tight text-white"><?= e($participant?->name) ?></h2>
-                        </div>
+                    </div>
+                    <div class="border-t border-white/10 bg-slate-950/75 p-3">
+                        <p class="text-xs uppercase tracking-[0.22em] text-cyan-200">Peserta</p>
+                        <h2 class="mt-1 text-xl font-black leading-tight text-white"><?= e($participant?->name) ?></h2>
                     </div>
                 </div>
                 <div class="mt-3 inline-flex w-fit rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-100">
@@ -111,7 +111,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                 <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-fuchsia-500"></div>
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <p class="section-kicker">Nomor Loot</p>
+                        <p class="section-kicker">Nomor Lot</p>
                         <h2 class="mt-2 text-2xl font-black tracking-tight text-white xl:text-3xl">Angka akan berputar seperti acara TV</h2>
                         <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Tekan tombol di bawah untuk memulai. Setelah putaran selesai, sistem otomatis mengunci nomor lot yang sesuai dengan aturan genap atau ganjil.</p>
                     </div>
@@ -127,7 +127,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                     <div class="rounded-[2rem] border border-slate-700/80 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))] p-5">
                         <div class="flex flex-wrap items-center justify-between gap-4">
                             <div>
-                                <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Nomor Loot</p>
+                                <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Nomor Lot</p>
                                 <p class="mt-2 text-sm text-slate-300">Klik tombol untuk memulai pengacakan.</p>
                             </div>
                             <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($lotParity === 'even' ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100' : 'border-fuchsia-300/20 bg-fuchsia-400/10 text-fuchsia-100') ?>">
@@ -141,7 +141,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                                 <div class="relative flex flex-col items-center gap-4">
                                         <div class="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-slate-300">
                                             <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                        Nomor Loot
+                                        Nomor Lot
                                         </div>
                                     <div class="flex flex-nowrap items-center justify-center gap-3 overflow-hidden px-2">
                                         <span class="inline-flex shrink-0 items-center justify-center rounded-[1.1rem] border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[0.8rem] font-black tracking-[0.16em] text-cyan-100 shadow-[0_0_40px_rgba(34,211,238,0.16)]"><?= e($lotPrefix) ?></span>

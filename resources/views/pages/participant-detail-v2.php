@@ -19,6 +19,7 @@ $canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
 $cvDownloadUrl = $cvDownloadUrl ?? null;
 $canManageMaqra = $canManageMaqra ?? false;
+$canDrawParticipant = $canDrawParticipant ?? in_array($user?->role, ['admin', 'panitia'], true);
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'participants.list');
 $usesMaqra = $participant?->category ? app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category) : false;
 $latestMaqraDraw = $participant?->latestMaqraDraw;
@@ -89,10 +90,12 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                         <?php if (filled($participant?->lot_number)): ?>
                             <p class="mt-2 text-lg font-bold text-white"><?= e($participant?->lot_number) ?></p>
                             <p class="mt-1 text-xs text-emerald-300">Diambil pada <?= e(optional($participant?->lot_assigned_at)->format('d M Y H:i') ?: '-') ?></p>
-                            <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
-                                <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                Ambil Nomor Lot
-                            </a>
+                            <?php if ($canDrawParticipant): ?>
+                                <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
+                                    <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                    Ambil Nomor Lot
+                                </a>
+                            <?php endif; ?>
                             <?php if ($canManageLot): ?>
                                 <details class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
                                     <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
@@ -153,10 +156,12 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             <?php endif; ?>
                         <?php elseif ($participant?->verification_status === 'verified'): ?>
                             <p class="mt-2 text-sm text-slate-300">Peserta sudah terverifikasi dan siap diambil nomor lot-nya.</p>
-                            <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
-                                <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                Ambil Nomor Lot
-                            </a>
+                            <?php if ($canDrawParticipant): ?>
+                                <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
+                                    <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                    Ambil Nomor Lot
+                                </a>
+                            <?php endif; ?>
                             <p class="mt-2 text-xs text-slate-400">Format: kode golongan - nomor. Putra genap, putri ganjil.</p>
                             <?php if ($canManageLot): ?>
                                 <details class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
@@ -198,10 +203,12 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 <p class="mt-2 text-lg font-bold text-white"><?= e($maqraLabel) ?></p>
                                 <p class="mt-1 text-xs text-emerald-300">Diambil pada <?= e(optional($latestMaqraDraw?->drawn_at)->format('d M Y H:i') ?: '-') ?> • <?= e($latestMaqraDraw->round_label ?? 'Penyisihan') ?></p>
                                 <p class="mt-2 text-sm text-slate-300">QS resmi untuk pengambilan maqra ini.</p>
-                                <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.urlencode($latestMaqraRound)) ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
-                                    <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                    Ambil Maqra
-                                </a>
+                                <?php if ($canDrawParticipant): ?>
+                                    <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.urlencode($latestMaqraRound)) ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
+                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                        Ambil Maqra
+                                    </a>
+                                <?php endif; ?>
                                 <?php if ($canManageMaqra): ?>
                                     <details class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
                                         <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
@@ -255,10 +262,12 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 <?php endif; ?>
                             <?php elseif ($participant?->verification_status === 'verified'): ?>
                                 <p class="mt-2 text-sm text-slate-300">Peserta sudah terverifikasi dan siap diambil maqra-nya.</p>
-                                <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
-                                    <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                    Ambil Maqra
-                                </a>
+                                <?php if ($canDrawParticipant): ?>
+                                    <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
+                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                        Ambil Maqra
+                                    </a>
+                                <?php endif; ?>
                                 <p class="mt-2 text-xs text-slate-400">Babak default dimulai dari Penyisihan.</p>
                                 <?php if ($canManageMaqra): ?>
                                     <div class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
@@ -457,20 +466,32 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             </div>
                         </div>
                         <?php $photoDocument = $documentMap['photo'] ?? null; ?>
-                        <div class="mt-6 grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)] xl:items-start">
-                            <?php if (! empty($photoDocument['path'])): ?>
-                                <div class="data-card xl:sticky xl:top-6">
-                                    <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Pas Foto</p>
-                                    <div class="mt-4 flex justify-center">
+                        <div class="mt-6 space-y-5">
+                            <div class="data-card">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Pas Foto</p>
+                                        <p class="mt-1 text-sm text-slate-300"><?= e($participant?->name ?: '-') ?></p>
+                                    </div>
+                                    <span class="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                        <?= e(($participant?->participant_role ?? 'main') === 'reserve' ? 'Cadangan' : 'Peserta Inti') ?>
+                                    </span>
+                                </div>
+                                <div class="mt-4 flex justify-center">
+                                    <?php if (! empty($photoDocument['path'])): ?>
                                         <img
                                             src="<?= e(route('participants.documents.preview', ['participant' => $participant, 'document' => 'photo'])) ?>"
                                             alt="<?= e('Pas foto '.$participant?->name) ?>"
-                                            class="h-56 w-44 rounded-[1.4rem] border border-cyan-300/12 object-cover shadow-[0_20px_50px_-28px_rgba(34,211,238,0.5)]"
+                                            class="h-72 w-56 rounded-[1.4rem] border border-cyan-300/12 object-cover shadow-[0_20px_50px_-28px_rgba(34,211,238,0.5)]"
                                         >
-                                    </div>
+                                    <?php else: ?>
+                                        <div class="flex h-72 w-56 items-center justify-center rounded-[1.4rem] border border-dashed border-slate-700 bg-slate-950/65 text-center text-sm leading-6 text-slate-400">
+                                            Pas foto belum tersedia.
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
-                            <div class="grid gap-4 md:grid-cols-2">
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="data-card md:col-span-2">
                                     <div class="flex items-center gap-2 text-slate-500">
                                         <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-300/14 bg-cyan-400/10 text-cyan-200"><?= mtq_icon('users', 'h-4 w-4') ?></span>

@@ -12,6 +12,7 @@ use App\Models\ParticipantVerificationLog;
 use App\Models\User;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use App\Support\ActivityLogger;
 use App\Support\RealtimeBroadcaster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -198,6 +199,7 @@ class ParticipantRegistrationController extends Controller
             'restrictPanitiaDistricts' => $restrictPanitiaDistricts,
             'verificationDistrictIds' => $verificationDistrictIds,
             'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
+            'canDrawParticipant' => in_array($user?->role, ['admin', 'panitia'], true),
             'canManageMaqra' => (string) $user?->role === 'admin',
             'maqraSwapCandidatesMap' => $maqraSwapCandidatesMap,
             'filters' => [
@@ -379,16 +381,29 @@ class ParticipantRegistrationController extends Controller
                 : 'Data masih disimpan sebagai draft.',
         ]);
 
+        $this->logParticipantActivity(
+            'participant.created',
+            $participant,
+            ($user?->name ?? 'Pengguna').' mendaftarkan peserta '.$participant->name.' dengan nomor '.$participant->registration_number.'.',
+            ['submit_action' => $validated['submit_action']]
+        );
+
         return redirect()
             ->route('participants.index')
             ->with('status', 'Peserta '.$participant->name.' berhasil didaftarkan dengan nomor '.$participant->registration_number.'.');
     }
 
-    public function uploadMandate(Request $request): RedirectResponse
+    public function uploadMandate(Request $request): RedirectResponse|JsonResponse
     {
         $user = auth()->user();
         abort_unless(in_array($user?->role, ['official', 'pendamping'], true), 403);
-        $district = District::query()->findOrFail((int) $user?->district_id);
+        $district = District::query()->find((int) $user?->district_id);
+
+        if (! $district) {
+            throw ValidationException::withMessages([
+                'mandate_document' => 'Akun official belum terhubung ke kecamatan. Hubungi admin untuk mengatur kecamatan akun ini.',
+            ]);
+        }
 
         $request->validate([
             'mandate_document' => ['required', 'file', 'mimes:pdf', 'max:4096'],
@@ -398,22 +413,74 @@ class ParticipantRegistrationController extends Controller
             'mandate_document.max' => 'Surat mandat maksimal berukuran 4 MB.',
         ]);
 
-        if ($district->mandate_document_path && Storage::disk('public')->exists($district->mandate_document_path)) {
-            Storage::disk('public')->delete($district->mandate_document_path);
+        $file = $request->file('mandate_document');
+
+        try {
+            $newPath = $file?->store('districts/mandates', 'public');
+        } catch (\Throwable) {
+            throw ValidationException::withMessages([
+                'mandate_document' => 'Surat mandat gagal disimpan ke storage. Periksa permission folder storage/app/public.',
+            ]);
         }
 
-        $district->update([
-            'mandate_document_path' => $request->file('mandate_document')?->store('districts/mandates', 'public'),
-            'mandate_uploaded_at' => now(),
-            'mandate_status' => 'submitted',
-            'mandate_verification_notes' => null,
-            'mandate_verified_by' => null,
-            'mandate_verified_at' => null,
-        ]);
+        if (! $newPath || ! Storage::disk('public')->exists($newPath)) {
+            throw ValidationException::withMessages([
+                'mandate_document' => 'Surat mandat belum berhasil disimpan ke storage. Periksa permission folder storage/app/public.',
+            ]);
+        }
+
+        $oldPath = (string) ($district->mandate_document_path ?? '');
+
+        try {
+            DB::transaction(function () use ($district, $newPath): void {
+                District::query()
+                    ->whereKey($district->id)
+                    ->update([
+                        'mandate_document_path' => $newPath,
+                        'mandate_uploaded_at' => now(),
+                        'mandate_status' => 'submitted',
+                        'mandate_verification_notes' => null,
+                        'mandate_verified_by' => null,
+                        'mandate_verified_at' => null,
+                    ]);
+            });
+        } catch (\Throwable) {
+            Storage::disk('public')->delete($newPath);
+
+            throw ValidationException::withMessages([
+                'mandate_document' => 'Surat mandat sudah terunggah, tetapi database gagal diperbarui. Silakan coba lagi.',
+            ]);
+        }
+
+        if ($oldPath !== '' && $oldPath !== $newPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $district->refresh();
+        ActivityLogger::log(
+            'mandate.uploaded',
+            ($user?->name ?? 'Official').' mengupload surat mandat Kecamatan '.$district->name.'.',
+            $district,
+            [
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'mandate_status' => $district->mandate_status,
+                'mandate_document_path' => $newPath,
+            ]
+        );
+
+        $status = 'Surat mandat kecamatan berhasil diupload. Semua official pada kecamatan ini dapat melanjutkan pendaftaran peserta.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $status,
+                'redirect_url' => route('participants.index'),
+            ]);
+        }
 
         return redirect()
             ->route('participants.index')
-            ->with('status', 'Surat mandat kecamatan berhasil diupload. Semua official pada kecamatan ini dapat melanjutkan pendaftaran peserta.');
+            ->with('status', $status);
     }
 
     public function previewMandate(): StreamedResponse|BinaryFileResponse
@@ -457,6 +524,18 @@ class ParticipantRegistrationController extends Controller
             'mandate_verified_by' => auth()->id(),
             'mandate_verified_at' => now(),
         ]);
+
+        ActivityLogger::log(
+            'mandate.'.$validated['mandate_status'],
+            (auth()->user()?->name ?? 'Panitia').' memperbarui verifikasi surat mandat Kecamatan '.$district->name.' menjadi '.$validated['mandate_status'].'.',
+            $district,
+            [
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'mandate_status' => $validated['mandate_status'],
+                'notes' => $district->mandate_verification_notes,
+            ]
+        );
 
         return redirect()
             ->route('participants.index')
@@ -597,6 +676,20 @@ class ParticipantRegistrationController extends Controller
             'notes' => 'Data peserta diperbarui dan dikirim ulang oleh '.($user?->name ?? 'pengguna').'.',
         ]);
 
+        $this->logParticipantActivity(
+            'participant.updated',
+            $participant,
+            ($user?->name ?? 'Pengguna').' memperbarui data peserta '.$participant->name.'.',
+            [
+                'submit_action' => $validated['submit_action'],
+                'uploaded_documents' => collect(array_keys($fileFields))
+                    ->merge(['certificate_documents', 'other_documents'])
+                    ->filter(fn (string $input): bool => $request->hasFile($input))
+                    ->values()
+                    ->all(),
+            ]
+        );
+
         return redirect()
             ->route('participants.show', $participant)
             ->with('status', 'Data peserta '.$participant->name.' berhasil diperbarui.');
@@ -611,6 +704,12 @@ class ParticipantRegistrationController extends Controller
 
         $participant->delete();
 
+        $this->logParticipantActivity(
+            'participant.archived',
+            $participant,
+            (auth()->user()?->name ?? 'Pengguna').' mengarsipkan peserta '.$participantName.'.',
+        );
+
         return redirect()
             ->route('participants.list')
             ->with('status', 'Data peserta '.$participantName.' dipindahkan ke arsip admin.');
@@ -624,6 +723,12 @@ class ParticipantRegistrationController extends Controller
         $participantName = $participantModel->name;
         $participantModel->restore();
 
+        $this->logParticipantActivity(
+            'participant.restored',
+            $participantModel,
+            (auth()->user()?->name ?? 'Admin').' memulihkan peserta '.$participantName.' dari arsip.',
+        );
+
         return redirect()
             ->route('participants.trash')
             ->with('status', 'Data peserta '.$participantName.' berhasil dipulihkan ke daftar peserta.');
@@ -633,8 +738,10 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district', 'verificationLogs.verifier', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage']);
         $this->authorizeParticipantAccess($participant);
-        $canManageLot = auth()->user()?->role === 'admin';
-        $canManageMaqra = auth()->user()?->role === 'admin' && $this->participantUsesMaqra($participant);
+        $user = auth()->user();
+        $canDrawParticipant = in_array($user?->role, ['admin', 'panitia'], true);
+        $canManageLot = $user?->role === 'admin';
+        $canManageMaqra = $user?->role === 'admin' && $this->participantUsesMaqra($participant);
         $maqraSwapCandidates = $canManageMaqra && $participant->latestMaqraDraw?->maqraPackage
             ? Participant::query()
                 ->with(['district', 'maqraDraws.maqraPackage'])
@@ -653,7 +760,8 @@ class ParticipantRegistrationController extends Controller
             'participant' => $participant,
             'documentMap' => $this->documentMap($participant),
             'cvDownloadUrl' => $this->participantCvDownloadUrl($participant),
-            'canVerify' => in_array(auth()->user()?->role, ['admin', 'panitia'], true),
+            'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
+            'canDrawParticipant' => $canDrawParticipant,
             'districtMandate' => $this->districtMandateForParticipant($participant),
             'canManageLot' => $canManageLot,
             'canManageMaqra' => $canManageMaqra,
@@ -724,6 +832,7 @@ class ParticipantRegistrationController extends Controller
 
     public function lotDraw(Participant $participant): View
     {
+        $this->authorizeParticipantDrawAccess();
         $participant->loadMissing(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar undian hanya tersedia untuk peserta yang sudah terverifikasi.');
@@ -742,7 +851,7 @@ class ParticipantRegistrationController extends Controller
 
     public function assignLotNumber(Request $request, Participant $participant): RedirectResponse|JsonResponse
     {
-        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+        $this->authorizeParticipantDrawAccess();
 
         $participant->loadMissing(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
@@ -750,14 +859,17 @@ class ParticipantRegistrationController extends Controller
         abort_unless(in_array($participant->gender, ['putra', 'putri'], true), 422, 'Jenis kelamin peserta harus putra atau putri untuk mengambil nomor lot.');
         abort_unless($participant->verification_status === 'verified', 403, 'Nomor lot hanya dapat diambil untuk peserta yang sudah terverifikasi.');
 
-        $lotNumber = DB::transaction(function () use ($participant): string {
+        $lotResult = DB::transaction(function () use ($participant): array {
             $lockedParticipant = Participant::query()
                 ->with('category')
                 ->lockForUpdate()
                 ->findOrFail($participant->id);
 
             if (filled($lockedParticipant->lot_number)) {
-                return (string) $lockedParticipant->lot_number;
+                return [
+                    'lot_number' => (string) $lockedParticipant->lot_number,
+                    'created' => false,
+                ];
             }
 
             CompetitionCategory::query()
@@ -775,8 +887,22 @@ class ParticipantRegistrationController extends Controller
                 'lot_assigned_at' => now(),
             ]);
 
-            return $candidate;
+            return [
+                'lot_number' => $candidate,
+                'created' => true,
+            ];
         });
+        $lotNumber = (string) $lotResult['lot_number'];
+
+        $this->logParticipantActivity(
+            $lotResult['created'] ? 'participant.lot.assigned' : 'participant.lot.reused',
+            $participant,
+            (auth()->user()?->name ?? 'Panitia').' '.($lotResult['created'] ? 'mengambil' : 'membuka kembali').' nomor lot peserta '.$participant->name.': '.$lotNumber.'.',
+            [
+                'lot_number' => $lotNumber,
+                'created' => (bool) $lotResult['created'],
+            ]
+        );
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -798,6 +924,7 @@ class ParticipantRegistrationController extends Controller
 
     public function maqraDraw(Participant $participant): View
     {
+        $this->authorizeParticipantDrawAccess();
         $participant->loadMissing(['category', 'district', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage']);
         $this->authorizeParticipantAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar maqra hanya tersedia untuk peserta yang sudah terverifikasi.');
@@ -845,7 +972,7 @@ class ParticipantRegistrationController extends Controller
 
     public function assignMaqra(Request $request, Participant $participant): RedirectResponse|JsonResponse
     {
-        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+        $this->authorizeParticipantDrawAccess();
 
         $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage']);
         $this->authorizeParticipantAccess($participant);
@@ -857,7 +984,7 @@ class ParticipantRegistrationController extends Controller
         ]);
 
         $roundLabel = (string) $validated['maqra_round'];
-        $draw = DB::transaction(function () use ($participant, $roundLabel): ParticipantMaqraDraw {
+        $drawResult = DB::transaction(function () use ($participant, $roundLabel): array {
             $lockedParticipant = Participant::query()
                 ->with(['category', 'maqraDraws.maqraPackage'])
                 ->lockForUpdate()
@@ -865,7 +992,10 @@ class ParticipantRegistrationController extends Controller
 
             $existingDraw = $lockedParticipant->maqraDraws->firstWhere('round_label', $roundLabel);
             if ($existingDraw) {
-                return $existingDraw->loadMissing('maqraPackage');
+                return [
+                    'draw' => $existingDraw->loadMissing('maqraPackage'),
+                    'created' => false,
+                ];
             }
 
             $packageQuery = MaqraPackage::query()
@@ -886,13 +1016,33 @@ class ParticipantRegistrationController extends Controller
 
             abort_unless($package, 422, 'Belum ada data maqra untuk golongan dan babak ini.');
 
-            return ParticipantMaqraDraw::query()->create([
+            $draw = ParticipantMaqraDraw::query()->create([
                 'participant_id' => $lockedParticipant->id,
                 'maqra_package_id' => $package->id,
                 'round_label' => $roundLabel,
                 'drawn_at' => now(),
             ])->loadMissing('maqraPackage');
+
+            return [
+                'draw' => $draw,
+                'created' => true,
+            ];
         });
+        /** @var ParticipantMaqraDraw $draw */
+        $draw = $drawResult['draw'];
+
+        $this->logParticipantActivity(
+            $drawResult['created'] ? 'participant.maqra.assigned' : 'participant.maqra.reused',
+            $participant,
+            (auth()->user()?->name ?? 'Panitia').' '.($drawResult['created'] ? 'mengambil' : 'membuka kembali').' maqra peserta '.$participant->name.' pada babak '.$roundLabel.'.',
+            [
+                'maqra_round' => $roundLabel,
+                'maqra_package_id' => $draw->maqra_package_id,
+                'maqra_code' => $draw->maqraPackage?->maqra_code,
+                'maqra_title' => $draw->maqraPackage?->title,
+                'created' => (bool) $drawResult['created'],
+            ]
+        );
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -927,12 +1077,35 @@ class ParticipantRegistrationController extends Controller
         ]);
 
         $roundLabel = (string) $validated['maqra_round'];
+        $drawsToDelete = ParticipantMaqraDraw::query()
+            ->with('maqraPackage')
+            ->where('participant_id', $participant->id)
+            ->where('round_label', $roundLabel)
+            ->get();
         $deletedCount = ParticipantMaqraDraw::query()
             ->where('participant_id', $participant->id)
             ->where('round_label', $roundLabel)
             ->delete();
 
         abort_unless($deletedCount > 0, 422, 'Pengambilan maqra untuk babak ini belum ada.');
+
+        $this->logParticipantActivity(
+            'participant.maqra.reset',
+            $participant,
+            (auth()->user()?->name ?? 'Admin').' menghapus maqra peserta '.$participant->name.' pada babak '.$roundLabel.'.',
+            [
+                'maqra_round' => $roundLabel,
+                'deleted_count' => $deletedCount,
+                'deleted_packages' => $drawsToDelete
+                    ->map(fn (ParticipantMaqraDraw $draw): array => [
+                        'id' => $draw->maqra_package_id,
+                        'code' => $draw->maqraPackage?->maqra_code,
+                        'title' => $draw->maqraPackage?->title,
+                    ])
+                    ->values()
+                    ->all(),
+            ]
+        );
 
         return back()->with('status', 'Pengambilan maqra peserta '.$participant->name.' pada babak '.$roundLabel.' berhasil direset.');
     }
@@ -981,15 +1154,52 @@ class ParticipantRegistrationController extends Controller
 
             $participantPackageId = $participantDraw->maqra_package_id;
             $swapPackageId = $swapDraw->maqra_package_id;
+            $participantOldPackage = $participantDraw->maqraPackage;
+            $swapOldPackage = $swapDraw->maqraPackage;
 
             $participantDraw->update(['maqra_package_id' => $swapPackageId, 'drawn_at' => now()]);
             $swapDraw->update(['maqra_package_id' => $participantPackageId, 'drawn_at' => now()]);
 
             return [
-                'first' => $participantDraw->loadMissing('maqraPackage'),
-                'second' => $swapDraw->loadMissing('maqraPackage'),
+                'first_old' => [
+                    'id' => $participantPackageId,
+                    'code' => $participantOldPackage?->maqra_code,
+                    'title' => $participantOldPackage?->title,
+                ],
+                'second_old' => [
+                    'id' => $swapPackageId,
+                    'code' => $swapOldPackage?->maqra_code,
+                    'title' => $swapOldPackage?->title,
+                ],
+                'first' => $participantDraw->refresh()->load('maqraPackage'),
+                'second' => $swapDraw->refresh()->load('maqraPackage'),
             ];
         });
+
+        $this->logParticipantActivity(
+            'participant.maqra.swapped',
+            $participant,
+            (auth()->user()?->name ?? 'Admin').' menukar maqra babak '.$roundLabel.' peserta '.$participant->name.' dengan '.$swapParticipant->name.'.',
+            [
+                'maqra_round' => $roundLabel,
+                'first_participant_id' => $participant->id,
+                'first_participant_name' => $participant->name,
+                'first_old_package' => $result['first_old'],
+                'first_new_package' => [
+                    'id' => $result['first']->maqra_package_id,
+                    'code' => $result['first']->maqraPackage?->maqra_code,
+                    'title' => $result['first']->maqraPackage?->title,
+                ],
+                'second_participant_id' => $swapParticipant->id,
+                'second_participant_name' => $swapParticipant->name,
+                'second_old_package' => $result['second_old'],
+                'second_new_package' => [
+                    'id' => $result['second']->maqra_package_id,
+                    'code' => $result['second']->maqraPackage?->maqra_code,
+                    'title' => $result['second']->maqraPackage?->title,
+                ],
+            ]
+        );
 
         return back()->with(
             'status',
@@ -1003,10 +1213,19 @@ class ParticipantRegistrationController extends Controller
         $participant->loadMissing(['category', 'district']);
         abort_unless($participant->verification_status === 'verified', 422, 'Hanya peserta terverifikasi yang dapat di-reset nomor lot-nya.');
 
+        $oldLotNumber = (string) $participant->lot_number;
+
         $participant->update([
             'lot_number' => null,
             'lot_assigned_at' => null,
         ]);
+
+        $this->logParticipantActivity(
+            'participant.lot.reset',
+            $participant,
+            (auth()->user()?->name ?? 'Admin').' menghapus nomor lot peserta '.$participant->name.' dari '.$oldLotNumber.'.',
+            ['old_lot_number' => $oldLotNumber]
+        );
 
         return back()->with('status', 'Nomor lot peserta '.$participant->name.' berhasil direset.');
     }
@@ -1036,10 +1255,23 @@ class ParticipantRegistrationController extends Controller
             'Nomor lot tersebut sudah dipakai peserta lain.'
         );
 
+        $oldLotNumber = (string) ($participant->lot_number ?? '');
+
         $participant->update([
             'lot_number' => $lotNumber,
             'lot_assigned_at' => now(),
         ]);
+
+        $this->logParticipantActivity(
+            'participant.lot.updated',
+            $participant,
+            (auth()->user()?->name ?? 'Admin').' mengubah nomor lot peserta '.$participant->name.' dari '.($oldLotNumber ?: '-').' menjadi '.$lotNumber.'.',
+            [
+                'old_lot_number' => $oldLotNumber ?: null,
+                'new_lot_number' => $lotNumber,
+                'lot_sequence' => $sequence,
+            ]
+        );
 
         return back()->with('status', 'Nomor lot peserta '.$participant->name.' berhasil diubah menjadi '.$lotNumber.'.');
     }
@@ -1064,6 +1296,9 @@ class ParticipantRegistrationController extends Controller
         abort_unless(filled($swapParticipant->lot_number), 422, 'Peserta tujuan belum memiliki nomor lot.');
         abort_unless((int) $swapParticipant->competition_category_id === (int) $participant->competition_category_id, 422, 'Tukar nomor lot hanya bisa dalam golongan yang sama.');
         abort_unless((string) $swapParticipant->gender === (string) $participant->gender, 422, 'Tukar nomor lot hanya bisa untuk peserta dengan jenis kelamin yang sama.');
+
+        $participantOldLot = (string) $participant->lot_number;
+        $swapOldLot = (string) $swapParticipant->lot_number;
 
         DB::transaction(function () use ($participant, $swapParticipant): void {
             $firstId = min($participant->id, $swapParticipant->id);
@@ -1102,6 +1337,22 @@ class ParticipantRegistrationController extends Controller
                 'lot_assigned_at' => $secondAssignedAt,
             ]);
         });
+
+        $this->logParticipantActivity(
+            'participant.lot.swapped',
+            $participant,
+            (auth()->user()?->name ?? 'Admin').' menukar nomor lot peserta '.$participant->name.' dengan '.$swapParticipant->name.'.',
+            [
+                'first_participant_id' => $participant->id,
+                'first_participant_name' => $participant->name,
+                'first_old_lot_number' => $participantOldLot,
+                'first_new_lot_number' => $swapOldLot,
+                'second_participant_id' => $swapParticipant->id,
+                'second_participant_name' => $swapParticipant->name,
+                'second_old_lot_number' => $swapOldLot,
+                'second_new_lot_number' => $participantOldLot,
+            ]
+        );
 
         return back()->with('status', 'Nomor lot peserta '.$participant->name.' berhasil ditukar dengan '.$swapParticipant->name.'.');
     }
@@ -1194,6 +1445,17 @@ class ParticipantRegistrationController extends Controller
 
         RealtimeBroadcaster::dispatch(new ParticipantVerificationUpdated($participant));
 
+        $this->logParticipantActivity(
+            'participant.'.$participant->verification_status,
+            $participant,
+            (auth()->user()?->name ?? 'Panitia').' memperbarui status verifikasi peserta '.$participant->name.' menjadi '.$participant->verification_status.'.',
+            [
+                'verification_status' => $participant->verification_status,
+                'verification_notes' => $participant->verification_notes,
+                'document_revision_notes' => $documentRevisionNotes,
+            ]
+        );
+
         if ($districtMandate && filled($validated['mandate_status'] ?? null)) {
             $districtMandate->update([
                 'mandate_status' => $validated['mandate_status'],
@@ -1205,11 +1467,52 @@ class ParticipantRegistrationController extends Controller
                 'mandate_verified_by' => auth()->id(),
                 'mandate_verified_at' => now(),
             ]);
+
+            ActivityLogger::log(
+                'mandate.'.$validated['mandate_status'],
+                (auth()->user()?->name ?? 'Panitia').' memperbarui surat mandat Kecamatan '.$districtMandate->name.' bersamaan dengan verifikasi peserta '.$participant->name.'.',
+                $districtMandate,
+                [
+                    'district_id' => $districtMandate->id,
+                    'district_name' => $districtMandate->name,
+                    'mandate_status' => $validated['mandate_status'],
+                    'notes' => $districtMandate->mandate_verification_notes,
+                    'participant_id' => $participant->id,
+                    'participant_name' => $participant->name,
+                    'registration_number' => $participant->registration_number,
+                ]
+            );
         }
 
         return redirect()
             ->route('participants.list')
             ->with('status', 'Status verifikasi peserta '.$participant->name.' diperbarui menjadi '.ucfirst($validated['verification_status']).'.');
+    }
+
+    protected function logParticipantActivity(string $action, Participant $participant, string $description, array $properties = []): void
+    {
+        $participant->loadMissing(['district', 'category']);
+
+        ActivityLogger::log(
+            $action,
+            $description,
+            $participant,
+            array_merge($this->participantLogContext($participant), $properties)
+        );
+    }
+
+    protected function participantLogContext(Participant $participant): array
+    {
+        return [
+            'participant_id' => $participant->id,
+            'participant_name' => $participant->name,
+            'registration_number' => $participant->registration_number,
+            'district_id' => $participant->district_id,
+            'district_name' => $participant->district?->name,
+            'category_id' => $participant->competition_category_id,
+            'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
+            'verification_status' => $participant->verification_status,
+        ];
     }
 
     protected function authorizeParticipantAccess(Participant $participant): void
@@ -1233,6 +1536,11 @@ class ParticipantRegistrationController extends Controller
     protected function authorizeAdminMaqraManagement(): void
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
+    }
+
+    protected function authorizeParticipantDrawAccess(): void
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
     }
 
     protected function authorizeParticipantCvAccess(Participant $participant): void

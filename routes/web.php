@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminContentController;
+use App\Http\Controllers\ApplicationLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CommitteeRegistrationController;
@@ -30,6 +31,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/dashboard/password', [PageController::class, 'updateDashboardPassword'])->name('dashboard.password.update');
     Route::get('/dashboard/realtime-summary', [PageController::class, 'dashboardRealtimeSummary'])->name('dashboard.realtime-summary');
     Route::get('/leaderboard', [PageController::class, 'leaderboard'])->name('leaderboard.index');
+    Route::get('/admin/log-aplikasi', [ApplicationLogController::class, 'index'])->middleware('role:admin,panitia')->name('application.logs');
     Route::get('/admin/official-kecamatan', [OfficialRegistrationController::class, 'index'])->middleware('role:admin')->name('officials.index');
     Route::post('/admin/official-kecamatan/preview', [OfficialRegistrationController::class, 'preview'])->middleware('role:admin')->name('officials.preview');
     Route::post('/admin/official-kecamatan', [OfficialRegistrationController::class, 'store'])->middleware('role:admin')->name('officials.store');
@@ -89,11 +91,11 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/data-peserta', [ParticipantRegistrationController::class, 'list'])->middleware('role:admin,panitia,official,pendamping')->name('participants.list');
     Route::get('/data-peserta/export/excel', [ParticipantRegistrationController::class, 'exportExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.excel');
     Route::get('/data-peserta/export/pdf', [ParticipantRegistrationController::class, 'exportPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.pdf');
-    Route::get('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'lotDraw'])->middleware('role:admin,panitia,official,pendamping')->name('participants.lot.draw');
-    Route::get('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'maqraDraw'])->middleware('role:admin,panitia,official,pendamping')->name('participants.maqra.draw');
+    Route::get('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'lotDraw'])->middleware('role:admin,panitia')->name('participants.lot.draw');
+    Route::get('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'maqraDraw'])->middleware('role:admin,panitia')->name('participants.maqra.draw');
     Route::get('/data-peserta/{participant}/cv', [ParticipantRegistrationController::class, 'downloadCv'])->name('participants.cv');
-    Route::post('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'assignLotNumber'])->middleware('role:admin,panitia,official,pendamping')->name('participants.lot.assign');
-    Route::post('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'assignMaqra'])->middleware('role:admin,panitia,official,pendamping')->name('participants.maqra.assign');
+    Route::post('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'assignLotNumber'])->middleware('role:admin,panitia')->name('participants.lot.assign');
+    Route::post('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'assignMaqra'])->middleware('role:admin,panitia')->name('participants.maqra.assign');
     Route::post('/data-peserta/{participant}/maqra/reset', [ParticipantRegistrationController::class, 'resetMaqra'])->middleware('role:admin')->name('participants.maqra.reset');
     Route::post('/data-peserta/{participant}/maqra/tukar', [ParticipantRegistrationController::class, 'swapMaqra'])->middleware('role:admin')->name('participants.maqra.swap');
     Route::post('/data-peserta/{participant}/nomor-lot/reset', [ParticipantRegistrationController::class, 'resetLotNumber'])->middleware('role:admin')->name('participants.lot.reset');

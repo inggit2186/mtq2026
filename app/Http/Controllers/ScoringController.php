@@ -7,6 +7,7 @@ use App\Models\CompetitionCategory;
 use App\Models\Participant;
 use App\Models\ScoringSetting;
 use App\Models\ScoreEntry;
+use App\Support\ActivityLogger;
 use App\Support\RealtimeBroadcaster;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -235,7 +236,7 @@ class ScoringController extends Controller
 
         $primaryRoundConfig = $roundSettings['Final'] ?? $roundSettings['Penyisihan'] ?? reset($roundSettings) ?: [];
 
-        ScoringSetting::query()->updateOrCreate(
+        $setting = ScoringSetting::query()->updateOrCreate(
             ['competition_category_id' => $category->id],
             [
                 'judge_count' => (int) ($primaryRoundConfig['judge_count'] ?? 0),
@@ -245,6 +246,18 @@ class ScoringController extends Controller
                 'scoring_priorities' => $primaryRoundConfig['scoring_priorities'] ?? [],
                 'round_settings' => $roundSettings,
                 'configured_by' => auth()->id(),
+            ]
+        );
+
+        ActivityLogger::log(
+            'scoring.settings.updated',
+            (auth()->user()?->name ?? 'Panitia').' memperbarui setting penilaian golongan '.$category->name.'.',
+            $setting,
+            [
+                'category_id' => $category->id,
+                'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
+                'judging_rounds' => $judgingRounds,
+                'judge_total' => (int) ($primaryRoundConfig['judge_count'] ?? 0),
             ]
         );
 
@@ -323,6 +336,22 @@ class ScoringController extends Controller
         foreach ($createdEntries as $scoreEntry) {
             RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
         }
+
+        ActivityLogger::log(
+            'scoring.score.created',
+            (auth()->user()?->name ?? 'Panitia').' menginput nilai '.$validated['judging_round'].' untuk peserta '.$participant->name.'.',
+            $participant,
+            [
+                'participant_id' => $participant->id,
+                'participant_name' => $participant->name,
+                'registration_number' => $participant->registration_number,
+                'category_id' => $participant->competition_category_id,
+                'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
+                'judging_round' => $validated['judging_round'],
+                'judge_total' => count($createdEntries),
+                'average_score' => round(collect($createdEntries)->avg(fn (ScoreEntry $entry): float => (float) $entry->score) ?? 0, 2),
+            ]
+        );
 
         $redirectUrl = route('scoring', [
                 'participant_id' => $participant->id,

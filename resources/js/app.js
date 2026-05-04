@@ -339,10 +339,21 @@ function submitFormWithProgress(form, submitter, message) {
 
     xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
+            let redirectUrl = xhr.responseURL || action;
+            let successMessage = 'Data berhasil diproses.';
+
+            try {
+                const payload = JSON.parse(xhr.responseText || '{}');
+                redirectUrl = payload.redirect_url || redirectUrl;
+                successMessage = payload.message || successMessage;
+            } catch {
+                // Non-JSON success responses are usually followed redirects.
+            }
+
             setLoadingOverlayProgress(100);
             setLoadingOverlayTitle('Selesai');
-            setLoadingOverlayText('Data berhasil diproses.');
-            window.location.href = xhr.responseURL || action;
+            setLoadingOverlayText(successMessage);
+            window.location.href = redirectUrl;
             return;
         }
 
@@ -368,6 +379,7 @@ function submitFormWithProgress(form, submitter, message) {
 function handleSubmitError(xhr, fallbackMessage = 'Koneksi ke server terputus. Silakan coba lagi.') {
     hideLoadingOverlay();
     document.querySelectorAll('form').forEach((item) => resetSubmitButtonLoading(item));
+    window.dispatchEvent(new CustomEvent('mtq-submit-failed'));
 
     let message = fallbackMessage;
 
@@ -577,6 +589,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMultipart = enctype.includes('multipart/form-data');
 
         if (target && target !== '_self') {
+            return;
+        }
+
+        if (form.hasAttribute('data-native-submit')) {
+            activateSubmitLoading(form, submitter, form.dataset.loadingText);
             return;
         }
 

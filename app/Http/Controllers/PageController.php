@@ -13,6 +13,7 @@ use App\Models\ScoringSetting;
 use App\Models\SessionSchedule;
 use App\Models\ScoreEntry;
 use App\Models\User;
+use App\Support\ActivityLogger;
 use App\Support\ScheduleRealtimeNotifier;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -651,6 +652,19 @@ class PageController extends Controller
             'lot_number_max' => $max,
         ]);
 
+        ActivityLogger::log(
+            'category.lot_settings.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui pengaturan nomor lot golongan '.$category->name.'.',
+            $category,
+            [
+                'category_id' => $category->id,
+                'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
+                'lot_code' => $category->lot_code,
+                'lot_number_min' => $category->lot_number_min,
+                'lot_number_max' => $category->lot_number_max,
+            ]
+        );
+
         return back()->with('status', 'Pengaturan nomor lot untuk golongan '.$category->name.' berhasil disimpan.');
     }
 
@@ -816,7 +830,7 @@ class PageController extends Controller
 
         abort_if($exists, 422, 'Kode maqra sudah digunakan pada kategori dan babak yang sama.');
 
-        MaqraPackage::query()->create([
+        $maqraPackage = MaqraPackage::query()->create([
             'competition_category_id' => $data['competition_category_id'],
             'round_label' => $data['round_label'],
             'maqra_code' => $code,
@@ -826,6 +840,19 @@ class PageController extends Controller
             'sort_order' => $sortOrder,
             'is_active' => (bool) ($data['is_active'] ?? false),
         ]);
+
+        ActivityLogger::log(
+            'maqra.package.created',
+            (auth()->user()?->name ?? 'Admin').' menambahkan paket maqra '.$maqraPackage->maqra_code.'.',
+            $maqraPackage,
+            [
+                'competition_category_id' => $maqraPackage->competition_category_id,
+                'round_label' => $maqraPackage->round_label,
+                'maqra_code' => $maqraPackage->maqra_code,
+                'title' => $maqraPackage->title,
+                'is_active' => (bool) $maqraPackage->is_active,
+            ]
+        );
 
         return back()->with('status', 'Paket maqra baru berhasil ditambahkan.');
     }
@@ -916,6 +943,19 @@ class PageController extends Controller
         if ($result['update_existing']) {
             $message .= ' Mode update aktif.';
         }
+
+        ActivityLogger::log(
+            'maqra.package.imported',
+            (auth()->user()?->name ?? 'Admin').' mengimport paket maqra dari CSV.',
+            null,
+            [
+                'created' => $result['created'] ?? 0,
+                'updated' => $result['updated'] ?? 0,
+                'duplicate_count' => $result['duplicate_count'] ?? 0,
+                'invalid_count' => $result['invalid_count'] ?? 0,
+                'update_existing' => (bool) ($result['update_existing'] ?? false),
+            ]
+        );
 
         return back()->with($result['errors'] !== [] ? 'warning' : 'status', $message);
     }
@@ -1272,6 +1312,19 @@ class PageController extends Controller
             'is_active' => (bool) ($data['is_active'] ?? false),
         ]);
 
+        ActivityLogger::log(
+            'maqra.package.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui paket maqra '.$maqraPackage->maqra_code.'.',
+            $maqraPackage,
+            [
+                'competition_category_id' => $maqraPackage->competition_category_id,
+                'round_label' => $maqraPackage->round_label,
+                'maqra_code' => $maqraPackage->maqra_code,
+                'title' => $maqraPackage->title,
+                'is_active' => (bool) $maqraPackage->is_active,
+            ]
+        );
+
         return back()->with('status', 'Paket maqra '.$maqraPackage->maqra_code.' berhasil diperbarui.');
     }
 
@@ -1283,6 +1336,13 @@ class PageController extends Controller
 
         $code = $maqraPackage->maqra_code;
         $maqraPackage->delete();
+
+        ActivityLogger::log(
+            'maqra.package.deleted',
+            (auth()->user()?->name ?? 'Admin').' menghapus paket maqra '.$code.'.',
+            $maqraPackage,
+            ['maqra_code' => $code]
+        );
 
         return back()->with('status', 'Paket maqra '.$code.' berhasil dihapus.');
     }
@@ -1514,6 +1574,7 @@ class PageController extends Controller
             $navigation[] = ['key' => 'scoring', 'label' => 'Penilaian', 'href' => route('scoring'), 'icon' => 'chart'];
             $navigation[] = ['key' => 'admin.content', 'label' => 'Kelola Konten', 'href' => route('admin.content'), 'icon' => 'bell'];
             $navigation[] = ['key' => 'admin.documents', 'label' => 'Dokumen Resmi', 'href' => route('admin.documents'), 'icon' => 'book-open'];
+            $navigation[] = ['key' => 'application.logs', 'label' => 'Log Aplikasi', 'href' => route('application.logs'), 'icon' => 'clock'];
         }
 
         if ($role === 'admin') {
@@ -1856,7 +1917,7 @@ class PageController extends Controller
             $storedImage = $this->storeGalleryImageVariants($photo);
             $storedPaths[] = $storedImage['image_path'];
 
-            ActivityDocumentation::query()->create([
+            $documentation = ActivityDocumentation::query()->create([
                 'caption' => trim((string) $validated['caption']),
                 'image_path' => $storedImage['image_path'],
                 'thumbnail_path' => $storedImage['thumbnail_path'],
@@ -1866,6 +1927,17 @@ class PageController extends Controller
                 'sort_order' => $nextCoverSortOrder,
             ]);
             $uploadedCount++;
+
+            ActivityLogger::log(
+                'gallery.photo.created',
+                (auth()->user()?->name ?? 'Pengguna').' mengupload foto dokumentasi "'.$documentation->caption.'".',
+                $documentation,
+                [
+                    'caption' => $documentation->caption,
+                    'is_active' => (bool) $documentation->is_active,
+                    'is_cover_homepage' => (bool) $documentation->is_cover_homepage,
+                ]
+            );
         }
 
         return redirect()
@@ -2177,7 +2249,15 @@ class PageController extends Controller
             }
         }
 
+        $caption = $activityDocumentation->caption;
         $activityDocumentation->delete();
+
+        ActivityLogger::log(
+            'gallery.photo.deleted',
+            (auth()->user()?->name ?? 'Pengguna').' menghapus dokumentasi galeri "'.$caption.'".',
+            $activityDocumentation,
+            ['caption' => $caption]
+        );
 
         return redirect()
             ->route('gallery.index')

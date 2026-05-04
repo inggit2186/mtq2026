@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\District;
 use App\Models\User;
+use App\Support\ActivityLogger;
 use App\Support\WhatsAppRegistrationSender;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Client\ConnectionException;
@@ -145,6 +146,19 @@ class OfficialRegistrationController extends Controller
             $official = User::query()->create($payload);
             $whatsappSent = WhatsAppRegistrationSender::sendOfficialWelcome($official, $generatedPassword, $district->name);
 
+            ActivityLogger::log(
+                'user.official.created',
+                (auth()->user()?->name ?? 'Admin').' membuat akun official '.$official->name.' untuk Kecamatan '.$district->name.'.',
+                $official,
+                [
+                    'official_id' => $official->id,
+                    'official_name' => $official->name,
+                    'district_id' => $district->id,
+                    'district_name' => $district->name,
+                    'whatsapp_sent' => $whatsappSent,
+                ]
+            );
+
             return redirect()
                 ->route('officials.index')
                 ->with('status', $whatsappSent
@@ -162,6 +176,18 @@ class OfficialRegistrationController extends Controller
 
         $existing->fill($payload)->save();
 
+        ActivityLogger::log(
+            'user.official.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui akun official '.$existing->name.' untuk Kecamatan '.$district->name.'.',
+            $existing,
+            [
+                'official_id' => $existing->id,
+                'official_name' => $existing->name,
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+            ]
+        );
+
         return redirect()
             ->route('officials.index')
             ->with('status', 'Data official berhasil diperbarui dari SILATAR. Password akun lama tetap dipertahankan.');
@@ -177,15 +203,29 @@ class OfficialRegistrationController extends Controller
         }
 
         $profilePhotoPath = (string) ($official->profile_photo_path ?? '');
+        $officialName = $official->name;
+        $officialId = $official->id;
+        $districtName = $official->district?->name;
         $official->delete();
 
         if ($profilePhotoPath !== '') {
             Storage::disk('public')->delete($profilePhotoPath);
         }
 
+        ActivityLogger::log(
+            'user.official.deleted',
+            (auth()->user()?->name ?? 'Admin').' menghapus akun official '.$officialName.'.',
+            $official,
+            [
+                'official_id' => $officialId,
+                'official_name' => $officialName,
+                'district_name' => $districtName,
+            ]
+        );
+
         return redirect()
             ->route('officials.index')
-            ->with('status', 'Akun official '.$official->name.' berhasil dihapus.');
+            ->with('status', 'Akun official '.$officialName.' berhasil dihapus.');
     }
 
     private function fetchSilatarEmployee(string $nip): ?array

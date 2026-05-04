@@ -307,16 +307,42 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             </div>
                         <?php endif; ?>
 
-                        <form method="POST" action="<?= e(route('participants.mandate.upload')) ?>" enctype="multipart/form-data" class="mt-6 rounded-[1.5rem] border border-white/8 bg-slate-950/35 p-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end" data-loading-text="Mengunggah surat mandat kecamatan...">
+                        <form
+                            method="POST"
+                            action="<?= e(route('participants.mandate.upload')) ?>"
+                            enctype="multipart/form-data"
+                            class="mt-6 rounded-[1.5rem] border border-white/8 bg-slate-950/35 p-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+                            data-native-submit
+                            data-loading-text="Mengunggah surat mandat kecamatan..."
+                            data-loading-button-text="Mengunggah..."
+                            x-data="{ uploadingMandate: false, mandateFileName: '', mandateFileSize: '', updateMandateFile(event) { const file = event.target.files?.[0]; this.mandateFileName = file ? file.name : ''; this.mandateFileSize = file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : ''; } }"
+                            x-on:submit="uploadingMandate = true"
+                            x-on:mtq-submit-failed.window="uploadingMandate = false"
+                        >
                             <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                             <div class="min-w-0">
                                 <label class="mb-2 block text-sm font-semibold text-slate-200"><?= ($officialMandate['ready'] ?? false) ? 'Ganti Surat Mandat Kecamatan' : 'Upload Surat Mandat Kecamatan' ?></label>
-                                <input name="mandate_document" type="file" accept="application/pdf,.pdf" required class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-300 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-400/10 file:px-4 file:py-2 file:font-semibold file:text-cyan-200">
+                                <input name="mandate_document" type="file" accept="application/pdf,.pdf" required class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-300 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-400/10 file:px-4 file:py-2 file:font-semibold file:text-cyan-200" x-on:change="updateMandateFile($event)">
+                                <div class="mt-3 rounded-2xl border border-cyan-400/14 bg-cyan-400/8 px-4 py-3 text-sm text-cyan-100" x-show="mandateFileName || uploadingMandate" x-cloak>
+                                    <p x-show="mandateFileName">
+                                        File dipilih: <span class="font-semibold" x-text="mandateFileName"></span>
+                                        <span class="text-cyan-200/75" x-text="mandateFileSize ? `(${mandateFileSize})` : ''"></span>
+                                    </p>
+                                    <p class="mt-1 text-xs leading-5 text-cyan-100/80" x-show="uploadingMandate">
+                                        Sedang mengunggah dan memproses surat mandat. Mohon tunggu sampai halaman selesai memuat ulang.
+                                    </p>
+                                </div>
                             </div>
                             <div class="flex lg:justify-end lg:self-stretch">
-                                <button type="submit" class="primary-button min-h-[52px] w-auto justify-center whitespace-nowrap px-4 py-3 text-sm lg:h-full">
-                                    <?= mtq_icon('upload', 'h-4 w-4') ?>
-                                    <?= ($officialMandate['status'] ?? 'missing') === 'missing' ? 'Upload Surat' : 'Upload Ulang' ?>
+                                <button type="submit" class="primary-button min-h-[52px] w-auto justify-center whitespace-nowrap px-4 py-3 text-sm lg:h-full" x-bind:disabled="uploadingMandate" x-bind:class="uploadingMandate ? 'pointer-events-none opacity-75' : ''">
+                                    <span x-show="!uploadingMandate" class="inline-flex items-center gap-2">
+                                        <?= mtq_icon('upload', 'h-4 w-4') ?>
+                                        <?= ($officialMandate['status'] ?? 'missing') === 'missing' ? 'Upload Surat' : 'Upload Ulang' ?>
+                                    </span>
+                                    <span x-show="uploadingMandate" class="inline-flex items-center gap-2" x-cloak>
+                                        <span class="mtq-submit-button-spinner" aria-hidden="true"></span>
+                                        Mengunggah...
+                                    </span>
                                 </button>
                             </div>
                             <p class="text-xs leading-6 text-slate-400 lg:col-span-2">Pastikan surat mandat memuat kecamatan, official yang ditunjuk, dan pengesahan yang diperlukan.</p>
