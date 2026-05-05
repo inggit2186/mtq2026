@@ -1824,12 +1824,13 @@ class PageController extends Controller
         $user = auth()->user();
         $districtScoped = in_array($user?->role, ['official', 'pendamping'], true);
         $districtId = $districtScoped ? (int) ($user?->district_id ?? 0) : null;
+        $galleryHasDistrictColumn = Schema::hasTable('activity_documentations') && Schema::hasColumn('activity_documentations', 'district_id');
         $galleryQuery = Schema::hasTable('activity_documentations')
             ? ActivityDocumentation::query()->with('uploader')
             : null;
 
         if ($galleryQuery) {
-            if ($districtScoped) {
+            if ($districtScoped && $galleryHasDistrictColumn) {
                 $districtId > 0
                     ? $galleryQuery->where('district_id', $districtId)
                     : $galleryQuery->whereRaw('1 = 0');
@@ -1851,7 +1852,7 @@ class PageController extends Controller
             : null;
 
         if ($galleryStatsQuery) {
-            if ($districtScoped) {
+            if ($districtScoped && $galleryHasDistrictColumn) {
                 $districtId > 0
                     ? $galleryStatsQuery->where('district_id', $districtId)
                     : $galleryStatsQuery->whereRaw('1 = 0');
@@ -1877,6 +1878,7 @@ class PageController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
         abort_unless(Schema::hasTable('activity_documentations'), 503);
+        $galleryHasDistrictColumn = Schema::hasColumn('activity_documentations', 'district_id');
 
         $validated = $request->validate([
             'caption' => ['required', 'string', 'max:255'],
@@ -1932,11 +1934,16 @@ class PageController extends Controller
                 'image_path' => $storedImage['image_path'],
                 'thumbnail_path' => $storedImage['thumbnail_path'],
                 'uploaded_by' => auth()->id(),
-                'district_id' => auth()->user()?->district_id,
                 'is_active' => (bool) ($validated['is_active'] ?? true),
                 'is_cover_homepage' => (bool) ($validated['is_cover_homepage'] ?? false),
                 'sort_order' => $nextCoverSortOrder,
             ]);
+
+            if ($galleryHasDistrictColumn) {
+                $documentation->forceFill([
+                    'district_id' => auth()->user()?->district_id,
+                ])->save();
+            }
             $uploadedCount++;
 
             ActivityLogger::log(
