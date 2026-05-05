@@ -144,7 +144,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <div class="icon-chip"><?= mtq_icon('calendar') ?></div>
                         <div>
                             <p class="section-kicker">Jadwal Resmi</p>
-                            <h3 class="mt-2 text-2xl font-bold text-white">Rangkaian kegiatan MTQ 23 - 27 Juni 2026</h3>
+                            <h3 class="mt-2 text-2xl font-bold text-white">Rangkaian kegiatan MTQ 19 - 23 Juni 2026</h3>
                         </div>
                     </div>
                     <div class="table-shell mt-6">
