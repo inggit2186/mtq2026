@@ -103,7 +103,7 @@ class ParticipantRegistrationController extends Controller
                     'reserve_registered' => $reserveEntries->count(),
                     'reserve_remaining_slots' => max($availableSlots - $reserveEntries->count(), 0),
                     'district_based' => $isDistrictBased,
-                    'quota_multiplier' => $this->districtMatchesHost($currentDistrict) ? 2 : 1,
+                    'quota_multiplier' => 1,
                     'host_district' => $this->districtMatchesHost($currentDistrict),
                     'gender_rule' => $genderRule,
                     'putra_registered' => $mainEntries->where('gender', 'putra')->count(),
@@ -1999,7 +1999,7 @@ class ParticipantRegistrationController extends Controller
             return 1;
         }
 
-        return $this->districtMatchesHost($district) ? 2 : 1;
+        return 1;
     }
 
     protected function categoryAvailableSlotsForDistrict(CompetitionCategory $category, ?int $districtId): int

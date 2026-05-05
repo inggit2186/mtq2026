@@ -607,7 +607,7 @@ class PageController extends Controller
                     ->replaceMatches('/\s+/u', ' ')
                     ->toString();
 
-                return $baseQuota * ($districtName === $hostDistrict ? 2 : 1);
+                return $baseQuota;
             });
         });
 
