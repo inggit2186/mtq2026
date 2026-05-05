@@ -12,7 +12,9 @@ SVG;        return 'data:image/svg+xml;base64,'.base64_encode($svg);    }}if (! 
                                         <tr class="table-row">
                                             <td class="px-5 py-4">
                                                 <div class="flex min-w-[280px] items-center gap-4">
-                                                    <img src="<?= e(mtq_category_visual((string) $category->branch, (string) $category->name)) ?>" alt="<?= e($category->branch.' - '.$category->name) ?>" class="h-20 w-32 rounded-xl border border-slate-700 object-cover">
+                                                    <div class="h-20 w-32 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70">
+                                                        <img src="<?= e(mtq_category_visual((string) $category->branch, (string) $category->name)) ?>" alt="<?= e($category->branch.' - '.$category->name) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-1">
+                                                    </div>
                                                     <div>
                                                         <div class="font-semibold text-white"><?= e($category->name) ?></div>
                                                         <?php if ($category->description): ?>

@@ -263,7 +263,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <div class="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                                     <?php foreach ($categoryBranches as $branchCard): ?>
                                         <button type="button" class="group overflow-hidden rounded-[1.75rem] border border-slate-700/80 bg-slate-900/80 text-left transition duration-200 hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_18px_55px_-28px_rgba(34,211,238,0.55)]" x-on:click="selectBranch('<?= e($branchCard['branch']) ?>')" x-show="matchesBranch('<?= e(mb_strtolower($branchCard['branch'])) ?>')">
-                                            <img src="<?= e($branchCard['image']) ?>" alt="<?= e($branchCard['branch']) ?>" class="h-44 w-full object-cover">
+                                            <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
+                                                <img src="<?= e($branchCard['image']) ?>" alt="<?= e($branchCard['branch']) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
+                                            </div>
                                             <div class="space-y-3 p-5">
                                                 <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">Cabang MTQ</p>
                                                 <h4 class="text-lg font-bold text-white"><?= e($branchCard['branch']) ?></h4>
@@ -280,7 +282,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <div class="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                                         <?php foreach ($standaloneCategories as $categoryCard): ?>
                                             <button type="button" class="group overflow-hidden rounded-[1.75rem] border border-slate-700/80 bg-slate-900/80 text-left transition duration-200 hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_18px_55px_-28px_rgba(34,211,238,0.55)]" x-on:click="selectCategory('<?= e($categoryCard['id']) ?>')" x-show="matchesCategory('<?= e(mb_strtolower($categoryCard['name'].' '.$categoryCard['notes'].' '.$categoryCard['description'])) ?>')">
-                                                <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['name']) ?>" class="h-44 w-full object-cover">
+                                                <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
+                                                    <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['name']) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
+                                                </div>
                                                 <div class="space-y-3 p-5">
                                                     <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">Golongan Mandiri</p>
                                                     <h4 class="text-lg font-bold text-white"><?= e($categoryCard['name']) ?></h4>
@@ -307,7 +311,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <?php foreach ($categoryCards as $categoryCard): ?>
                                     <template x-if="selectedBranch === '<?= e($categoryCard['branch']) ?>' && matchesCategory('<?= e(mb_strtolower($categoryCard['branch'].' '.$categoryCard['name'].' '.$categoryCard['notes'].' '.$categoryCard['description'])) ?>')">
                                         <button type="button" class="group overflow-hidden rounded-[1.75rem] border border-slate-700/80 bg-slate-900/80 text-left transition duration-200 hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_18px_55px_-28px_rgba(34,211,238,0.55)]" x-on:click="selectCategory('<?= e($categoryCard['id']) ?>')" x-bind:class="selectedCategoryId === '<?= e($categoryCard['id']) ?>' ? 'border-cyan-300/70 ring-2 ring-cyan-300/30' : ''">
-                                            <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['name']) ?>" class="h-44 w-full object-cover">
+                                            <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
+                                                <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['name']) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
+                                            </div>
                                             <div class="space-y-3 p-5">
                                                 <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200"><?= e($categoryCard['branch']) ?></p>
                                                 <h4 class="text-lg font-bold text-white"><?= e($categoryCard['name']) ?></h4>
@@ -337,7 +343,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </div>
                                 <template x-if="selectedCategory">
                                     <div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3">
-                                        <img x-bind:src="selectedCategory.image" x-bind:alt="selectedCategory.name" class="h-16 w-24 rounded-xl object-cover">
+                                    <div class="h-16 w-24 overflow-hidden rounded-xl bg-slate-950/70">
+                                        <img x-bind:src="selectedCategory.image" x-bind:alt="selectedCategory.name" loading="lazy" decoding="async" class="h-full w-full object-contain p-1">
+                                    </div>
                                         <div>
                                             <p class="text-xs uppercase tracking-[0.18em] text-cyan-200" x-text="selectedCategory.branch"></p>
                                             <p class="mt-1 font-semibold text-white" x-text="selectedCategory.name"></p>
@@ -444,7 +452,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <div class="lg:col-span-2 rounded-[1.4rem] border border-cyan-400/20 bg-cyan-400/8 px-5 py-4">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Penanda otomatis</p>
                                 <p class="mt-2 text-lg font-bold text-white">Peserta di bawah 17 tahun</p>
-                                <p class="mt-1 text-sm text-slate-300">NIK, Tanggal KTP, upload KTP, dan Ijazah otomatis menjadi opsional. Data bank dan buku tabungan juga tetap opsional.</p>
+                                <p class="mt-1 text-sm text-slate-300">Tanggal KTP, upload KTP, dan Ijazah otomatis menjadi opsional. Data bank dan buku tabungan juga tetap opsional.</p>
                             </div>
                         </template>
                         <?php
@@ -477,7 +485,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <input name="kk_date" type="date" value="<?= e(old('kk_date', optional($participant?->kk_date)->format('Y-m-d'))) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
                         </div>
                         <div x-bind:class="isUnderSeventeen() ? 'rounded-2xl border border-cyan-400/20 bg-cyan-400/6 px-4 py-4' : ''">
-                            <label class="mb-2 block text-sm font-semibold text-slate-200" x-bind:class="isUnderSeventeen() ? 'text-cyan-100' : ''">NIK <span class="text-xs font-medium text-cyan-200" x-show="isUnderSeventeen()">(otomatis opsional)</span></label>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">NIK <span class="text-xs font-medium text-rose-300">(wajib)</span></label>
                             <input name="nik" type="text" value="<?= e(old('nik', $participant?->nik)) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
                         </div>
                         <div x-bind:class="isUnderSeventeen() ? 'rounded-2xl border border-cyan-400/20 bg-cyan-400/6 px-4 py-4' : ''">

@@ -112,6 +112,161 @@ if (! function_exists('mtq_category_visual_variant')) {
     }
 }
 
+if (! function_exists('mtq_category_visual_asset_candidates')) {
+    function mtq_category_visual_asset_candidates(string $branch, string $name): array
+    {
+        $branchKey = mtq_category_visual_key($branch);
+        $nameKey = mtq_category_visual_key($name);
+
+        $candidates = [];
+
+        if (str_contains($branchKey, 'SENI BACA AL QURAN')) {
+            if (str_contains($nameKey, 'KANAK')) {
+                $candidates[] = 'tilawah-kanak-kanak.png';
+            }
+
+            if (str_contains($nameKey, 'ANAK')) {
+                $candidates[] = 'tilawah-anak-anak.png';
+            }
+
+            if (str_contains($nameKey, 'REMAJA')) {
+                $candidates[] = 'tilawah-remaja.png';
+            }
+
+            if (str_contains($nameKey, 'DEWASA') || str_contains($nameKey, 'UMUM')) {
+                $candidates[] = 'tilawah-dewasa.png';
+            }
+
+            $candidates[] = 'tilawah.png';
+        } elseif (str_contains($branchKey, 'HAFALAN AL QURAN')) {
+            if (str_contains($nameKey, '10 JUZ')) {
+                $candidates[] = 'hafalan-10 juz.png';
+            }
+
+            if (str_contains($nameKey, '5 JUZ')) {
+                if (str_contains($nameKey, 'NON TILAWAH')) {
+                    $candidates[] = 'hafalan-5 juz non tilawah.png';
+                } elseif (str_contains($nameKey, 'TILAWAH')) {
+                    $candidates[] = 'hafalan-5 juz tilawah.png';
+                } else {
+                    $candidates[] = 'hafalan-5 juz non tilawah.png';
+                }
+            }
+
+            if (str_contains($nameKey, '1 JUZ')) {
+                if (str_contains($nameKey, 'NON TILAWAH')) {
+                    $candidates[] = 'hafalan-1 juz non tilawah.png';
+                } elseif (str_contains($nameKey, 'TILAWAH')) {
+                    $candidates[] = 'hafalan-1 juz tilawah.png';
+                } else {
+                    $candidates[] = 'hafalan-1 juz non tilawah.png';
+                }
+            }
+
+            $candidates[] = 'hafalan-alqur\'an.png';
+        } elseif (str_contains($branchKey, 'TARTIL AL QURAN')) {
+            if (str_contains($nameKey, 'DASAR')) {
+                $candidates[] = 'taltil-dasar.png';
+            }
+
+            if (str_contains($nameKey, 'MENENGAH')) {
+                $candidates[] = 'tartil-menengah.png';
+            }
+
+            if (str_contains($nameKey, 'UMUM')) {
+                $candidates[] = 'tartil-umum.png';
+            }
+
+            $candidates[] = 'tartil.png';
+        } elseif (str_contains($branchKey, 'TAFSIR AL QURAN')) {
+            if (str_contains($nameKey, 'BAHASA ARAB')) {
+                $candidates[] = 'tafsir-bahasa-arab.png';
+            }
+
+            if (str_contains($nameKey, 'BAHASA INDONESIA')) {
+                $candidates[] = 'tafsir-bahasa-indonesia.png';
+            }
+
+            if (str_contains($nameKey, 'BAHASA INGGRIS')) {
+                $candidates[] = 'tafsir-bahasa-inggris.png';
+            }
+
+            $candidates[] = 'tafsir.png';
+        } elseif (str_contains($branchKey, 'SENI KALIGRAFI AL QURAN')) {
+            if (str_contains($nameKey, 'NASKAH')) {
+                $candidates[] = 'kaligrafi-naskah.png';
+            }
+
+            if (str_contains($nameKey, 'HIASAN')) {
+                $candidates[] = 'kaligrafi-hiasan-mushaf.png';
+            }
+
+            if (str_contains($nameKey, 'DEKORASI')) {
+                $candidates[] = 'kaligrafi-dekorasi.png';
+            }
+
+            if (str_contains($nameKey, 'KONTEMPORER')) {
+                $candidates[] = 'kaligrafi-kontemporer.png';
+            }
+
+            $candidates[] = 'seni-kaligrafi-alquran.png';
+        } elseif (str_contains($branchKey, 'FAHMIL QURAN')) {
+            if (str_contains($nameKey, 'PUTRA')) {
+                $candidates[] = 'fahmil-putra.png';
+            }
+
+            if (str_contains($nameKey, 'PUTRI')) {
+                $candidates[] = 'fahmil-putri.png';
+            }
+
+            $candidates[] = 'fahmil.png';
+        } elseif (str_contains($branchKey, 'SYARHIL QURAN')) {
+            if (str_contains($nameKey, 'PUTRA')) {
+                $candidates[] = 'syarhil-putra.png';
+            }
+
+            if (str_contains($nameKey, 'PUTRI')) {
+                $candidates[] = 'syarhil-putri.png';
+            }
+
+            $candidates[] = 'syarhil.png';
+        } elseif (str_contains($branchKey, 'KHUTBAH JUMAT DAN ADZAN')) {
+            $candidates[] = 'khutbah-adzan.png';
+        } elseif (str_contains($branchKey, 'KITAB STANDAR')) {
+            $candidates[] = 'kitab-standar.png';
+        } elseif (str_contains($branchKey, 'KARYA TULIS ILMIAH AL QURAN')) {
+            $candidates[] = 'karya-tulis-ilmiah-alqur\'an.png';
+        } elseif (str_contains($branchKey, 'HAFALAN HADITS NABI')) {
+            if (str_contains($nameKey, '250')) {
+                $candidates[] = 'hafalan-hadits-250-sanad.png';
+            }
+
+            if (str_contains($nameKey, '50')) {
+                $candidates[] = 'hafalan-hadits-50-sanad.png';
+            }
+
+            $candidates[] = 'hafalan-hadits-50-sanad.png';
+        }
+
+        return array_values(array_unique($candidates));
+    }
+}
+
+if (! function_exists('mtq_category_visual_asset_url')) {
+    function mtq_category_visual_asset_url(string $branch, string $name): ?string
+    {
+        $directory = public_path('images/img');
+
+        foreach (mtq_category_visual_asset_candidates($branch, $name) as $candidate) {
+            if (is_file($directory.DIRECTORY_SEPARATOR.$candidate)) {
+                return asset('images/img/'.$candidate);
+            }
+        }
+
+        return null;
+    }
+}
+
 if (! function_exists('mtq_category_cartoon_prop')) {
     function mtq_category_cartoon_prop(string $branchKey): string
     {
@@ -135,6 +290,11 @@ if (! function_exists('mtq_category_cartoon_prop')) {
 if (! function_exists('mtq_category_visual')) {
     function mtq_category_visual(string $branch, string $name): string
     {
+        $assetUrl = mtq_category_visual_asset_url($branch, $name);
+        if ($assetUrl) {
+            return $assetUrl;
+        }
+
         $branchKey = mtq_category_visual_key($branch);
         $palettes = [
             'SENI BACA AL QURAN' => ['#0f172a', '#0ea5e9', '#22d3ee', '#f8fafc'],

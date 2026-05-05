@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -599,7 +600,7 @@ class ParticipantRegistrationController extends Controller
 
         $user = auth()->user();
         $districtLocked = in_array($user?->role, ['official', 'pendamping'], true);
-        $validated = $this->validateParticipantForm($request, false);
+        $validated = $this->validateParticipantForm($request, false, $participant);
 
         if ($districtLocked) {
             $validated['district_id'] = $user?->district_id;
@@ -1879,8 +1880,15 @@ class ParticipantRegistrationController extends Controller
             ->first();
     }
 
-    protected function validateParticipantForm(Request $request, bool $isCreate): array
+    protected function validateParticipantForm(Request $request, bool $isCreate, ?Participant $participant = null): array
     {
+        $nikRules = ['required', 'string', 'max:32'];
+        if ($participant) {
+            $nikRules[] = Rule::unique('participants', 'nik')->ignore($participant->id)->withoutTrashed();
+        } else {
+            $nikRules[] = Rule::unique('participants', 'nik')->withoutTrashed();
+        }
+
         $underSeventeen = $this->participantIsUnderSeventeen((string) $request->input('date_of_birth'));
 
         return $request->validate([
@@ -1889,7 +1897,7 @@ class ParticipantRegistrationController extends Controller
             'participant_role' => ['required', 'in:main,reserve'],
             'name' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'in:putra,putri'],
-            'nik' => [$underSeventeen ? 'nullable' : 'required', 'string', 'max:32'],
+            'nik' => $nikRules,
             'ktp_date' => [$underSeventeen ? 'nullable' : 'required', 'date'],
             'place_of_birth' => ['required', 'string', 'max:255'],
             'date_of_birth' => ['required', 'date'],

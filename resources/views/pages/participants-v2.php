@@ -432,7 +432,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             x-show="matchesBranch('<?= e(mb_strtolower($branchCard['branch'])) ?>')"
                                             style="<?= ! $branchCard['has_open_slots'] ? 'opacity:.72;' : '' ?>"
                                         >
-                                            <img src="<?= e($branchCard['image']) ?>" alt="<?= e($branchCard['branch']) ?>" class="h-44 w-full object-cover">
+                                            <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
+                                                <img src="<?= e($branchCard['image']) ?>" alt="<?= e($branchCard['branch']) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
+                                            </div>
                                             <div class="space-y-3 p-5">
                                                 <div class="flex items-start justify-between gap-3">
                                                     <div>
@@ -484,7 +486,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 <?= ! $categoryCard['is_selectable'] ? 'disabled' : '' ?>
                                                 style="<?= ! $categoryCard['is_selectable'] ? 'opacity:.72;cursor:not-allowed;' : '' ?>"
                                             >
-                                                <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['name']) ?>" class="h-44 w-full object-cover">
+                                                <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
+                                                    <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['name']) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
+                                                </div>
                                                 <div class="space-y-3 p-5">
                                                 <div class="flex items-start justify-between gap-3">
                                                     <div>
@@ -540,7 +544,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <?= ! $categoryCard['is_selectable'] ? 'disabled' : '' ?>
                                     style="<?= ! $categoryCard['is_selectable'] ? 'opacity:.72;cursor:not-allowed;' : '' ?>"
                                 >
-                                    <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['branch'].' - '.$categoryCard['name']) ?>" class="h-44 w-full object-cover">
+                                    <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
+                                        <img src="<?= e($categoryCard['image']) ?>" alt="<?= e($categoryCard['branch'].' - '.$categoryCard['name']) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
+                                    </div>
                                     <div class="space-y-3 p-5">
                                         <div class="flex items-start justify-between gap-3">
                                             <div>
@@ -685,7 +691,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             </div>
                             <template x-if="selectedCategory">
                                 <div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3">
-                                    <img x-bind:src="selectedCategory.image" x-bind:alt="selectedCategory.name" class="h-16 w-24 rounded-xl object-cover">
+                                    <div class="h-16 w-24 overflow-hidden rounded-xl bg-slate-950/70">
+                                        <img x-bind:src="selectedCategory.image" x-bind:alt="selectedCategory.name" loading="lazy" decoding="async" class="h-full w-full object-contain p-1">
+                                    </div>
                                     <div>
                                         <p class="text-xs uppercase tracking-[0.18em] text-cyan-200" x-text="selectedCategory.branch"></p>
                                         <p class="mt-1 font-semibold text-white" x-text="selectedCategory.name"></p>
@@ -877,7 +885,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <div class="lg:col-span-2 rounded-[1.4rem] border border-cyan-400/20 bg-cyan-400/8 px-5 py-4">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Penanda otomatis</p>
                                 <p class="mt-2 text-lg font-bold text-white">Peserta di bawah 17 tahun</p>
-                                <p class="mt-1 text-sm text-slate-300">NIK, Tanggal KTP, upload KTP, dan Ijazah otomatis menjadi opsional. Data bank dan buku tabungan juga tetap opsional.</p>
+                                <p class="mt-1 text-sm text-slate-300">Tanggal KTP, upload KTP, dan Ijazah otomatis menjadi opsional. Data bank dan buku tabungan juga tetap opsional.</p>
                             </div>
                         </template>
 
@@ -917,7 +925,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         </div>
 
                         <div x-bind:class="isUnderSeventeen() ? 'rounded-2xl border border-cyan-400/20 bg-cyan-400/6 px-4 py-4' : ''">
-                            <label class="mb-2 block text-sm font-semibold text-slate-200" x-bind:class="isUnderSeventeen() ? 'text-cyan-100' : ''">NIK <span class="text-xs font-medium text-cyan-200" x-show="isUnderSeventeen()">(otomatis opsional)</span></label>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">NIK <span class="text-xs font-medium text-rose-300">(wajib)</span></label>
                             <input name="nik" x-model="formValues.nik" type="text" value="<?= e(old('nik')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
                         </div>
 
