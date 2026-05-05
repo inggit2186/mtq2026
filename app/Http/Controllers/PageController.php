@@ -1837,9 +1837,23 @@ class PageController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
 
-        $galleryItems = Schema::hasTable('activity_documentations')
-            ? ActivityDocumentation::query()
-                ->with('uploader')
+        $user = auth()->user();
+        $districtScoped = in_array($user?->role, ['official', 'pendamping'], true);
+        $districtId = $districtScoped ? (int) ($user?->district_id ?? 0) : null;
+        $galleryQuery = Schema::hasTable('activity_documentations')
+            ? ActivityDocumentation::query()->with('uploader')
+            : null;
+
+        if ($galleryQuery) {
+            if ($districtScoped) {
+                $districtId > 0
+                    ? $galleryQuery->where('district_id', $districtId)
+                    : $galleryQuery->whereRaw('1 = 0');
+            }
+        }
+
+        $galleryItems = $galleryQuery
+            ? $galleryQuery
                 ->orderByDesc('is_cover_homepage')
                 ->orderBy('sort_order')
                 ->latest('created_at')
@@ -1848,17 +1862,29 @@ class PageController extends Controller
                 ->withQueryString()
             : null;
 
+        $galleryStatsQuery = Schema::hasTable('activity_documentations')
+            ? ActivityDocumentation::query()
+            : null;
+
+        if ($galleryStatsQuery) {
+            if ($districtScoped) {
+                $districtId > 0
+                    ? $galleryStatsQuery->where('district_id', $districtId)
+                    : $galleryStatsQuery->whereRaw('1 = 0');
+            }
+        }
+
         return view('pages.gallery-v2', [
             'assets' => $this->viteAssets(),
-            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
-            'navigation' => $this->consoleNavigation((string) auth()->user()?->role, 'gallery.index'),
+            'rolePanel' => $this->rolePanel((string) $user?->role),
+            'navigation' => $this->consoleNavigation((string) $user?->role, 'gallery.index'),
             'galleryItems' => $galleryItems,
             'galleryStats' => [
-                'total' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->count() : 0,
-                'active' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->where('is_active', true)->count() : 0,
-                'cover' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->where('is_cover_homepage', true)->count() : 0,
-                'contributors' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->whereNotNull('uploaded_by')->distinct('uploaded_by')->count('uploaded_by') : 0,
-                'this_week' => Schema::hasTable('activity_documentations') ? ActivityDocumentation::query()->where('created_at', '>=', now()->subDays(7))->count() : 0,
+                'total' => $galleryStatsQuery ? $galleryStatsQuery->count() : 0,
+                'active' => $galleryStatsQuery ? (clone $galleryStatsQuery)->where('is_active', true)->count() : 0,
+                'cover' => $galleryStatsQuery ? (clone $galleryStatsQuery)->where('is_cover_homepage', true)->count() : 0,
+                'contributors' => $galleryStatsQuery ? (clone $galleryStatsQuery)->whereNotNull('uploaded_by')->distinct('uploaded_by')->count('uploaded_by') : 0,
+                'this_week' => $galleryStatsQuery ? (clone $galleryStatsQuery)->where('created_at', '>=', now()->subDays(7))->count() : 0,
             ],
         ]);
     }
@@ -1922,6 +1948,7 @@ class PageController extends Controller
                 'image_path' => $storedImage['image_path'],
                 'thumbnail_path' => $storedImage['thumbnail_path'],
                 'uploaded_by' => auth()->id(),
+                'district_id' => auth()->user()?->district_id,
                 'is_active' => (bool) ($validated['is_active'] ?? true),
                 'is_cover_homepage' => (bool) ($validated['is_cover_homepage'] ?? false),
                 'sort_order' => $nextCoverSortOrder,

@@ -16,6 +16,7 @@ class ActivityDocumentation extends Model
         'image_path',
         'thumbnail_path',
         'uploaded_by',
+        'district_id',
         'is_active',
         'is_cover_homepage',
         'sort_order',
@@ -25,6 +26,7 @@ class ActivityDocumentation extends Model
     {
         return [
             'uploaded_by' => 'integer',
+            'district_id' => 'integer',
             'is_active' => 'boolean',
             'is_cover_homepage' => 'boolean',
             'sort_order' => 'integer',
@@ -34,6 +36,11 @@ class ActivityDocumentation extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(District::class);
     }
 
     public function imageUrl(): ?string
