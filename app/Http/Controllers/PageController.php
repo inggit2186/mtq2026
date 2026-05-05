@@ -587,28 +587,12 @@ class PageController extends Controller
 
         $districtBasedCategories = $categories
             ->flatten(1)
-            ->filter(fn (CompetitionCategory $category): bool => str_contains((string) $category->notes, 'Kecamatan'));
+            ->filter(fn (CompetitionCategory $category): bool => str_contains(mb_strtolower((string) $category->notes), 'kk'));
 
-        $hostDistrict = Str::of((string) config('juknis.host', ''))
-            ->lower()
-            ->trim()
-            ->replaceMatches('/^kecamatan\s+/u', '')
-            ->replaceMatches('/\s+/u', ' ')
-            ->toString();
-
-        $districtSlotTotal = $districtBasedCategories->sum(function (CompetitionCategory $category) use ($districts, $hostDistrict): int {
+        $districtSlotTotal = $districtBasedCategories->sum(function (CompetitionCategory $category) use ($districts): int {
             $baseQuota = (int) $category->quota;
 
-            return $districts->sum(function (District $district) use ($baseQuota, $hostDistrict): int {
-                $districtName = Str::of((string) $district->name)
-                    ->lower()
-                    ->trim()
-                    ->replaceMatches('/^kecamatan\s+/u', '')
-                    ->replaceMatches('/\s+/u', ' ')
-                    ->toString();
-
-                return $baseQuota;
-            });
+            return $districts->sum(fn (District $district): int => $baseQuota);
         });
 
         return view('pages/categories-v2', [

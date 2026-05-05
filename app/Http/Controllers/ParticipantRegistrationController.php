@@ -76,7 +76,7 @@ class ParticipantRegistrationController extends Controller
         $currentDistrict = $districtId ? $districts->firstWhere('id', $districtId) : null;
 
         $categoryUsage = $categories->mapWithKeys(function (CompetitionCategory $category) use ($categoryUsageParticipants, $districtId, $districts, $currentDistrict): array {
-            $isDistrictBased = str_contains((string) $category->notes, 'Kecamatan');
+            $isDistrictBased = $this->isDistrictQuotaCategory($category);
             $districtScope = $districtId ? 'kecamatan' : 'kabupaten';
             $availableSlots = $districtId
                 ? $this->categoryAvailableSlotsForDistrict($category, $districtId)
@@ -1984,6 +1984,11 @@ class ParticipantRegistrationController extends Controller
         return $this->normalizeDistrictLabel((string) config('juknis.host', ''));
     }
 
+    protected function isDistrictQuotaCategory(CompetitionCategory $category): bool
+    {
+        return str_contains(mb_strtolower((string) $category->notes), 'kk');
+    }
+
     protected function districtMatchesHost(?District $district): bool
     {
         if (! $district) {
@@ -1995,7 +2000,7 @@ class ParticipantRegistrationController extends Controller
 
     protected function categoryDistrictQuotaMultiplier(CompetitionCategory $category, ?District $district = null): int
     {
-        if (! str_contains((string) $category->notes, 'Kecamatan')) {
+        if (! $this->isDistrictQuotaCategory($category)) {
             return 1;
         }
 
@@ -2015,7 +2020,7 @@ class ParticipantRegistrationController extends Controller
 
     protected function categoryAvailableSlotsAcrossDistricts(CompetitionCategory $category, iterable $districts): int
     {
-        if (! str_contains((string) $category->notes, 'Kecamatan')) {
+        if (! $this->isDistrictQuotaCategory($category)) {
             return (int) $category->quota;
         }
 
@@ -2031,7 +2036,7 @@ class ParticipantRegistrationController extends Controller
     protected function ensureCategoryCapacity(int $categoryId, ?int $districtId = null, string $gender = 'putra', ?int $ignoreParticipantId = null, string $participantRole = 'main'): void
     {
         $category = CompetitionCategory::query()->findOrFail($categoryId);
-        $isDistrictBased = str_contains((string) $category->notes, 'Kecamatan');
+        $isDistrictBased = $this->isDistrictQuotaCategory($category);
         $genderRule = $this->genderQuotaRule($category);
         $district = $districtId ? District::query()->find($districtId) : null;
         $quotaMultiplier = $this->categoryDistrictQuotaMultiplier($category, $district);
