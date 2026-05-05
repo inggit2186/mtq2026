@@ -15,6 +15,9 @@ $districtLocked = $districtLocked ?? false;
 $canVerify = $canVerify ?? false;
 $canManageMaqra = $canManageMaqra ?? false;
 $canDrawParticipant = $canDrawParticipant ?? in_array($user?->role, ['admin', 'panitia'], true);
+$officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
+$isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
+$officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
 $mainParticipants = $participants
     ->filter(fn ($participant) => ($participant->participant_role ?? 'main') !== 'reserve')
@@ -454,6 +457,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     && $participant->verification_status === 'verified')
                                                     || $officialMandateRejected
                                                 );
+                                                $canEditParticipant = $canEditParticipant && (! $isOfficialUser || $officialEditOpen);
                                                 $canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
                                                     || in_array($participant->verification_status, ['submitted', 'rejected'], true);
                                                 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);

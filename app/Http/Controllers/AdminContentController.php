@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Announcement;
 use App\Models\District;
+use App\Models\OfficialAccessSetting;
 use App\Models\SessionSchedule;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class AdminContentController extends Controller
@@ -29,6 +31,8 @@ class AdminContentController extends Controller
             'bigScreenUrl' => $bigScreenUrl,
             'projectorProtocolUrl' => $projectorProtocolUrl,
             'districtCount' => District::query()->count(),
+            'officialAccessReady' => Schema::hasTable('official_access_settings'),
+            'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'announcements' => Announcement::query()
                 ->with('author')
                 ->latest('published_at')
@@ -40,6 +44,49 @@ class AdminContentController extends Controller
                 ->limit(12)
                 ->get(),
         ]);
+    }
+
+    public function updateOfficialAccess(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        if (! Schema::hasTable('official_access_settings')) {
+            return redirect()
+                ->route('admin.content')
+                ->with('status', 'Tabel official_access_settings belum tersedia. Jalankan migrate terlebih dahulu agar pengaturan akses official bisa disimpan.');
+        }
+
+        $request->validate([
+            'participant_registration_open' => ['nullable', 'boolean'],
+            'participant_edit_open' => ['nullable', 'boolean'],
+            'mandate_upload_open' => ['nullable', 'boolean'],
+            'participant_documents_open' => ['nullable', 'boolean'],
+        ]);
+
+        $setting = OfficialAccessSetting::current() ?? new OfficialAccessSetting();
+        $setting->fill([
+            'participant_registration_open' => $request->boolean('participant_registration_open'),
+            'participant_edit_open' => $request->boolean('participant_edit_open'),
+            'mandate_upload_open' => $request->boolean('mandate_upload_open'),
+            'participant_documents_open' => $request->boolean('participant_documents_open'),
+        ]);
+        $setting->save();
+
+        ActivityLogger::log(
+            'official.access.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui pengaturan akses official.',
+            $setting,
+            [
+                'participant_registration_open' => $setting->participant_registration_open,
+                'participant_edit_open' => $setting->participant_edit_open,
+                'mandate_upload_open' => $setting->mandate_upload_open,
+                'participant_documents_open' => $setting->participant_documents_open,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Pengaturan akses official berhasil diperbarui.');
     }
 
     public function syncDistricts(): RedirectResponse

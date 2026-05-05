@@ -6,6 +6,7 @@ use App\Events\ParticipantVerificationUpdated;
 use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraPackage;
+use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
 use App\Models\ParticipantMaqraDraw;
 use App\Models\ParticipantVerificationLog;
@@ -21,6 +22,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -120,6 +122,7 @@ class ParticipantRegistrationController extends Controller
             'categoryUsage' => $categoryUsage,
             'districts' => $districts,
             'districtLocked' => (bool) $districtId,
+            'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
             'filters' => [
                 'district_id' => $districtId ?: ($restrictPanitiaDistricts && count($verificationDistrictIds) === 1 ? (string) $verificationDistrictIds[0] : ''),
@@ -201,6 +204,7 @@ class ParticipantRegistrationController extends Controller
             'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
             'canDrawParticipant' => in_array($user?->role, ['admin', 'panitia'], true),
             'canManageMaqra' => (string) $user?->role === 'admin',
+            'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'maqraSwapCandidatesMap' => $maqraSwapCandidatesMap,
             'filters' => [
                 'district_id' => $districtId ?: ($filters['district_id'] ?? ($restrictPanitiaDistricts && count($verificationDistrictIds) === 1 ? (string) $verificationDistrictIds[0] : '')),
@@ -315,6 +319,7 @@ class ParticipantRegistrationController extends Controller
     {
         $user = auth()->user();
         $districtLocked = in_array($user?->role, ['official', 'pendamping'], true);
+        $this->assertOfficialFeatureEnabled('participant_registration_open', 'Pendaftaran peserta untuk official sedang ditutup oleh admin.');
 
         if ($districtLocked && ! $this->officialMandateContext($user)['ready']) {
             return redirect()
@@ -397,6 +402,7 @@ class ParticipantRegistrationController extends Controller
     {
         $user = auth()->user();
         abort_unless(in_array($user?->role, ['official', 'pendamping'], true), 403);
+        $this->assertOfficialFeatureEnabled('mandate_upload_open', 'Upload surat mandat official sedang ditutup oleh admin.');
         $district = District::query()->find((int) $user?->district_id);
 
         if (! $district) {
@@ -429,20 +435,38 @@ class ParticipantRegistrationController extends Controller
             ]);
         }
 
-        $oldPath = (string) ($district->mandate_document_path ?? '');
+        $mandateState = $this->officialMandateState($user, $district);
+        $oldPath = (string) ($mandateState['path'] ?? '');
+        $scope = (string) ($mandateState['scope'] ?? 'none');
 
         try {
-            DB::transaction(function () use ($district, $newPath): void {
-                District::query()
-                    ->whereKey($district->id)
-                    ->update([
-                        'mandate_document_path' => $newPath,
-                        'mandate_uploaded_at' => now(),
-                        'mandate_status' => 'submitted',
-                        'mandate_verification_notes' => null,
-                        'mandate_verified_by' => null,
-                        'mandate_verified_at' => null,
-                    ]);
+            DB::transaction(function () use ($user, $district, $newPath, $scope): void {
+                $payload = [
+                    'mandate_document_path' => $newPath,
+                    'mandate_uploaded_at' => now(),
+                    'mandate_status' => 'submitted',
+                    'mandate_verification_notes' => null,
+                    'mandate_verified_by' => null,
+                    'mandate_verified_at' => null,
+                ];
+
+                if ($scope === 'district') {
+                    District::query()
+                        ->whereKey($district->id)
+                        ->update($payload);
+
+                    return;
+                }
+
+                if ($scope === 'user') {
+                    User::query()
+                        ->whereKey($user->id)
+                        ->update($payload);
+
+                    return;
+                }
+
+                throw new \RuntimeException('Skema penyimpanan surat mandat tidak tersedia.');
             });
         } catch (\Throwable) {
             Storage::disk('public')->delete($newPath);
@@ -457,6 +481,8 @@ class ParticipantRegistrationController extends Controller
         }
 
         $district->refresh();
+        $user = $user->fresh();
+        $savedMandateState = $this->officialMandateState($user, $district);
         ActivityLogger::log(
             'mandate.uploaded',
             ($user?->name ?? 'Official').' mengupload surat mandat Kecamatan '.$district->name.'.',
@@ -464,8 +490,9 @@ class ParticipantRegistrationController extends Controller
             [
                 'district_id' => $district->id,
                 'district_name' => $district->name,
-                'mandate_status' => $district->mandate_status,
+                'mandate_status' => $savedMandateState['status'] ?? 'submitted',
                 'mandate_document_path' => $newPath,
+                'mandate_scope' => $savedMandateState['scope'] ?? 'district',
             ]
         );
 
@@ -488,10 +515,12 @@ class ParticipantRegistrationController extends Controller
         $user = auth()->user();
         abort_unless(in_array($user?->role, ['official', 'pendamping'], true), 403);
         $district = District::query()->findOrFail((int) $user?->district_id);
-        abort_unless(filled($district->mandate_document_path), 404);
-        abort_unless(Storage::disk('public')->exists($district->mandate_document_path), 404);
+        $mandateState = $this->officialMandateState($user, $district);
+        $path = (string) ($mandateState['path'] ?? '');
+        abort_unless(filled($path), 404);
+        abort_unless(Storage::disk('public')->exists($path), 404);
 
-        return Storage::disk('public')->response($district->mandate_document_path);
+        return Storage::disk('public')->response($path);
     }
 
     public function previewDistrictMandate(District $district): StreamedResponse|BinaryFileResponse
@@ -546,6 +575,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup oleh admin.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -564,6 +594,7 @@ class ParticipantRegistrationController extends Controller
     public function update(Request $request, Participant $participant): RedirectResponse
     {
         $this->authorizeParticipantAccess($participant);
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup oleh admin.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -698,6 +729,7 @@ class ParticipantRegistrationController extends Controller
     public function archive(Participant $participant): RedirectResponse
     {
         $this->authorizeParticipantAccess($participant);
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Arsip peserta untuk official sedang ditutup oleh admin.');
         $this->authorizeParticipantDelete($participant);
 
         $participantName = $participant->name;
@@ -761,6 +793,7 @@ class ParticipantRegistrationController extends Controller
             'documentMap' => $this->documentMap($participant),
             'cvDownloadUrl' => $this->participantCvDownloadUrl($participant),
             'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
+            'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'canDrawParticipant' => $canDrawParticipant,
             'districtMandate' => $this->districtMandateForParticipant($participant),
             'canManageLot' => $canManageLot,
@@ -784,6 +817,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
+        $this->assertOfficialFeatureEnabled('participant_documents_open', 'Akses dokumen peserta untuk official sedang ditutup oleh admin.');
 
         $file = $this->resolveDocumentEntry($this->documentMap($participant), $document, (int) $request->query('index', 0));
         abort_unless($file['path'], 404);
@@ -796,6 +830,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
+        $this->assertOfficialFeatureEnabled('participant_documents_open', 'Akses dokumen peserta untuk official sedang ditutup oleh admin.');
 
         $file = $this->resolveDocumentEntry($this->documentMap($participant), $document, (int) $request->query('index', 0));
         abort_unless($file['path'], 404);
@@ -808,6 +843,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district', 'verificationLogs.verifier']);
         $this->authorizeParticipantCvAccess($participant);
+        $this->assertOfficialFeatureEnabled('participant_documents_open', 'Akses CV peserta untuk official sedang ditutup oleh admin.');
 
         $payload = $this->participantCvPayload($participant);
         $html = view('pdf.participant-cv', $payload)->render();
@@ -1777,8 +1813,9 @@ class ParticipantRegistrationController extends Controller
     {
         $required = in_array($user?->role, ['official', 'pendamping'], true);
         $district = $required ? District::query()->find($user?->district_id) : null;
-        $path = (string) ($district?->mandate_document_path ?? '');
-        $status = $district?->mandate_status ?: (filled($path) ? 'submitted' : 'missing');
+        $mandateState = $this->officialMandateState($user, $district);
+        $path = (string) ($mandateState['path'] ?? '');
+        $status = (string) ($mandateState['status'] ?? (filled($path) ? 'submitted' : 'missing'));
 
         return [
             'required' => $required,
@@ -1787,10 +1824,41 @@ class ParticipantRegistrationController extends Controller
             'path' => $path,
             'status' => $status,
             'district_name' => $district?->name,
-            'notes' => $district?->mandate_verification_notes,
-            'uploaded_at' => $district?->mandate_uploaded_at,
-            'verified_at' => $district?->mandate_verified_at,
+            'notes' => $mandateState['notes'] ?? null,
+            'uploaded_at' => $mandateState['uploaded_at'] ?? null,
+            'verified_at' => $mandateState['verified_at'] ?? null,
             'preview_url' => $required && filled($path) ? route('participants.mandate.preview') : null,
+        ];
+    }
+
+    protected function officialMandateState(?User $user, ?District $district = null): array
+    {
+        $districtHasMandateColumns = Schema::hasTable('districts')
+            && Schema::hasColumn('districts', 'mandate_document_path');
+        $userHasMandateColumns = Schema::hasTable('users')
+            && Schema::hasColumn('users', 'mandate_document_path');
+
+        $scope = 'none';
+        $source = null;
+
+        if ($district && $districtHasMandateColumns) {
+            $scope = 'district';
+            $source = $district;
+        } elseif ($userHasMandateColumns && $user) {
+            $scope = 'user';
+            $source = $user;
+        }
+
+        $path = (string) ($source?->mandate_document_path ?? '');
+        $status = (string) ($source?->mandate_status ?? (filled($path) ? 'submitted' : 'missing'));
+
+        return [
+            'scope' => $scope,
+            'path' => $path,
+            'status' => $status,
+            'notes' => $source?->mandate_verification_notes,
+            'uploaded_at' => $source?->mandate_uploaded_at,
+            'verified_at' => $source?->mandate_verified_at,
         ];
     }
 
@@ -1982,6 +2050,27 @@ class ParticipantRegistrationController extends Controller
     protected function hostDistrictName(): string
     {
         return $this->normalizeDistrictLabel((string) config('juknis.host', ''));
+    }
+
+    protected function officialAccessSetting(): OfficialAccessSetting
+    {
+        return OfficialAccessSetting::currentOrDefault();
+    }
+
+    protected function officialFeatureEnabled(string $feature): bool
+    {
+        if (in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
+            return true;
+        }
+
+        return $this->officialAccessSetting()->isEnabled($feature);
+    }
+
+    protected function assertOfficialFeatureEnabled(string $feature, string $message): void
+    {
+        if (in_array(auth()->user()?->role, ['official', 'pendamping'], true) && ! $this->officialFeatureEnabled($feature)) {
+            abort(403, $message);
+        }
     }
 
     protected function isDistrictQuotaCategory(CompetitionCategory $category): bool

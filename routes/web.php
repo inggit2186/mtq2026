@@ -42,6 +42,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/panitia-cabang/{committee}/akses-cabang', [CommitteeRegistrationController::class, 'updateBranches'])->middleware('role:admin')->name('committees.branches.update');
     Route::post('/admin/panitia-cabang/{committee}/hapus', [CommitteeRegistrationController::class, 'destroy'])->middleware('role:admin')->name('committees.destroy');
     Route::get('/admin/konten', [AdminContentController::class, 'index'])->middleware('role:admin,panitia')->name('admin.content');
+    Route::post('/admin/konten/akses-official', [AdminContentController::class, 'updateOfficialAccess'])->middleware('role:admin')->name('admin.content.official-access.update');
     Route::post('/admin/konten/sinkronisasi-kecamatan', [AdminContentController::class, 'syncDistricts'])->middleware('role:admin')->name('admin.content.districts.sync');
     Route::get('/admin/konten/projector-installer.ps1', [AdminContentController::class, 'projectorInstaller'])->middleware('role:admin,panitia')->name('admin.content.projector-installer');
     Route::post('/admin/konten/pengumuman', [AdminContentController::class, 'storeAnnouncement'])->middleware('role:admin,panitia')->name('admin.content.announcements.store');

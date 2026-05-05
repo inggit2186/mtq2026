@@ -7,6 +7,9 @@ $participant = $participant ?? null;
 $documentMap = $documentMap ?? [];
 $canVerify = $canVerify ?? false;
 $districtMandate = $districtMandate ?? null;
+$officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
+$isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
+$officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
     && $user?->district?->mandate_status === 'rejected';
 $canEditParticipant = ! (
@@ -14,6 +17,7 @@ $canEditParticipant = ! (
     && $participant?->verification_status === 'verified')
     || $officialMandateRejected
 );
+$canEditParticipant = $canEditParticipant && (! $isOfficialUser || $officialEditOpen);
 $canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
     || in_array($participant?->verification_status, ['submitted', 'rejected'], true);
 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
@@ -381,6 +385,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                     </section>
                 <?php endif; ?>
 
+                <?php if (! $isOfficialUser || $officialDocumentsOpen): ?>
                 <section class="glass-card rounded-[2rem] p-6">
                     <div class="flex items-center gap-3">
                         <div class="icon-chip"><?= mtq_icon('upload') ?></div>
@@ -455,6 +460,20 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                         <?php endforeach; ?>
                     </div>
                 </section>
+                <?php else: ?>
+                <section class="glass-card rounded-[2rem] p-6">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('upload') ?></div>
+                        <div>
+                            <p class="section-kicker">Dokumen</p>
+                            <h3 class="mt-2 text-2xl font-bold text-white">Berkas administrasi peserta</h3>
+                        </div>
+                    </div>
+                    <div class="mt-6 rounded-[1.5rem] border border-slate-700/80 bg-slate-950/60 p-5 text-sm leading-6 text-slate-300">
+                        Akses dokumen peserta untuk official sedang ditutup oleh admin. Data dokumen tetap tersimpan, tetapi pratinjau dan unduh sementara tidak tersedia.
+                    </div>
+                </section>
+                <?php endif; ?>
 
                 <section class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                     <div class="glass-card rounded-[2rem] p-6">

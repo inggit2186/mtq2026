@@ -9,6 +9,8 @@ $schedules = $schedules ?? collect();
 $bigScreenUrl = $bigScreenUrl ?? route('big-screen');
 $projectorProtocolUrl = $projectorProtocolUrl ?? ('emtq-launch://bigscreen?url='.rawurlencode($bigScreenUrl));
 $districtCount = $districtCount ?? 0;
+$officialAccessReady = $officialAccessReady ?? false;
+$officialAccessSetting = $officialAccessSetting ?? \App\Models\OfficialAccessSetting::currentOrDefault();
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'admin.content');
 $priorityLabels = [
     'low' => 'Rendah',
@@ -160,6 +162,76 @@ $scheduleStatusClasses = [
                                 </form>
                             </div>
                         </div>
+                    </section>
+
+                    <section class="glass-card rounded-[2rem] p-6">
+                        <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                            <div class="max-w-3xl">
+                                <p class="section-kicker">Akses Official</p>
+                                <h3 class="mt-2 text-2xl font-bold text-white">Buka atau tutup fitur official</h3>
+                                <p class="mt-3 text-sm leading-6 text-slate-300">Gunakan pengaturan ini untuk mengatur kapan official dapat mendaftarkan peserta, mengubah data peserta, mengupload surat mandat, dan membuka dokumen peserta. Admin tetap bisa mengakses semua fitur untuk kebutuhan operasional.</p>
+                            </div>
+                            <div class="status-pill">
+                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                                Konfigurasi Akses
+                            </div>
+                        </div>
+
+                        <?php if (! $officialAccessReady): ?>
+                            <div class="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
+                                Tabel `official_access_settings` belum tersedia. Jalankan `php artisan migrate` agar pengaturan akses official bisa disimpan.
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="POST" action="<?= e(route('admin.content.official-access.update')) ?>" class="mt-6 grid gap-4 lg:grid-cols-2">
+                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+
+                            <?php
+                                $accessCards = [
+                                    [
+                                        'key' => 'participant_registration_open',
+                                        'title' => 'Pendaftaran Peserta',
+                                        'description' => 'Membuka atau menutup form pendaftaran peserta untuk official kecamatan.',
+                                    ],
+                                    [
+                                        'key' => 'participant_edit_open',
+                                        'title' => 'Edit Peserta',
+                                        'description' => 'Mengizinkan official mengubah data peserta yang sudah didaftarkan.',
+                                    ],
+                                    [
+                                        'key' => 'mandate_upload_open',
+                                        'title' => 'Upload Surat Mandat',
+                                        'description' => 'Mengizinkan official mengupload atau mengganti surat mandat kecamatan.',
+                                    ],
+                                    [
+                                        'key' => 'participant_documents_open',
+                                        'title' => 'Dokumen Peserta',
+                                        'description' => 'Mengizinkan official membuka pratinjau dan unduh dokumen peserta.',
+                                    ],
+                                ];
+                            ?>
+
+                            <?php foreach ($accessCards as $card): ?>
+                                <?php $checked = (bool) ($officialAccessSetting->{$card['key']} ?? true); ?>
+                                <label class="rounded-[1.5rem] border border-slate-700/80 bg-slate-950/60 p-5 transition hover:border-cyan-400/30">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-bold text-white"><?= e($card['title']) ?></p>
+                                            <p class="mt-2 text-sm leading-6 text-slate-300"><?= e($card['description']) ?></p>
+                                        </div>
+                                        <input type="checkbox" name="<?= e($card['key']) ?>" value="1" <?= $checked ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-cyan-400 focus:ring-cyan-300/30">
+                                    </div>
+                                </label>
+                            <?php endforeach; ?>
+
+                            <div class="lg:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 px-5 py-4">
+                                <p class="text-sm leading-6 text-slate-200">Kalau pendaftaran ditutup, official masih bisa login ke dashboard tetapi tombol aksi yang terkait akan diblok oleh sistem.</p>
+                                <button type="submit" class="primary-button">
+                                    <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                    Simpan Akses Official
+                                </button>
+                            </div>
+                        </form>
                     </section>
                 <?php endif; ?>
 
