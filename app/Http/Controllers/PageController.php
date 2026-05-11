@@ -654,6 +654,8 @@ class PageController extends Controller
 
     public function leaderboard(Request $request): View
     {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
         $filters = $request->validate([
             'competition_category_id' => ['nullable', 'integer'],
         ]);
@@ -1545,10 +1547,13 @@ class PageController extends Controller
             ['key' => 'participants.list', 'label' => 'Data Peserta', 'href' => route('participants.list'), 'icon' => 'users'],
             ['key' => 'categories', 'label' => 'Kategori MTQ', 'href' => route('categories.index'), 'icon' => 'book-open'],
             ['key' => 'results', 'label' => 'Hasil Nilai', 'href' => route('results.index'), 'icon' => 'chart'],
-            ['key' => 'leaderboard', 'label' => 'Leaderboard', 'href' => route('leaderboard.index'), 'icon' => 'trophy'],
             ['key' => 'schedule', 'label' => 'Jadwal', 'href' => route('dashboard').'#jadwal', 'icon' => 'calendar'],
             ['key' => 'announcements', 'label' => 'Pengumuman', 'href' => route('dashboard').'#pengumuman', 'icon' => 'bell'],
         ];
+
+        if (in_array($role, ['admin', 'panitia'], true)) {
+            $navigation[] = ['key' => 'leaderboard', 'label' => 'Leaderboard', 'href' => route('leaderboard.index'), 'icon' => 'trophy'];
+        }
 
         if (in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)) {
             $navigation[] = ['key' => 'gallery.index', 'label' => 'Galeri MTQ', 'href' => route('gallery.index'), 'icon' => 'image'];

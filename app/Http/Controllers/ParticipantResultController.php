@@ -254,12 +254,13 @@ class ParticipantResultController extends Controller
         return $this->renderRoundWinnersPdf($request, 'Final');
     }
 
-    protected function loadParticipant(int $participantId): ?Participant
+    protected function loadParticipant(int $participantId, ?int $districtId = null): ?Participant
     {
         return Participant::query()
             ->with(['category', 'district', 'scores' => fn ($query) => $query->orderByDesc('submitted_at')])
             ->whereKey($participantId)
             ->where('verification_status', 'verified')
+            ->when($districtId !== null, fn ($query) => $query->where('district_id', $districtId))
             ->first();
     }
 
@@ -277,6 +278,10 @@ class ParticipantResultController extends Controller
 
     protected function resultContext(Request $request, bool $isParticipant): array
     {
+        $user = auth()->user();
+        $districtScoped = in_array($user?->role, ['official', 'pendamping'], true);
+        $districtId = $districtScoped ? (int) ($user?->district_id ?? -1) : null;
+
         $filters = $request->validate([
             'participant_id' => ['nullable', 'integer'],
             'competition_category_id' => ['nullable', 'integer'],
@@ -286,6 +291,7 @@ class ParticipantResultController extends Controller
         $participants = Participant::query()
             ->with('category')
             ->where('verification_status', 'verified')
+            ->when($districtScoped, fn ($query) => $query->where('district_id', $districtId))
             ->when(filled($filters['competition_category_id'] ?? null), fn ($query) => $query->where('competition_category_id', $filters['competition_category_id']))
             ->when(filled($filters['keyword'] ?? null), function ($query) use ($filters): void {
                 $keyword = trim((string) $filters['keyword']);
@@ -305,11 +311,11 @@ class ParticipantResultController extends Controller
             : null;
 
         if (! $isParticipant && filled($filters['participant_id'] ?? null)) {
-            $selectedParticipant = $this->loadParticipant((int) $filters['participant_id']);
+            $selectedParticipant = $this->loadParticipant((int) $filters['participant_id'], $districtId);
         }
 
         if (! $selectedParticipant && ! $isParticipant && $participants->isNotEmpty()) {
-            $selectedParticipant = $this->loadParticipant((int) $participants->first()->id);
+            $selectedParticipant = $this->loadParticipant((int) $participants->first()->id, $districtId);
         }
 
         $scores = $selectedParticipant?->scores ?? collect();
