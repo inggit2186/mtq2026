@@ -150,8 +150,12 @@ class ParticipantRegistrationController extends Controller
         $restrictPanitiaDistricts = $user?->role === 'panitia';
         $filters = $this->participantListFilters($request);
         $participants = $this->participantListQuery($filters, $districtId, $restrictPanitiaDistricts ? $verificationDistrictIds : [])
-            ->orderByDesc('created_at')
             ->get();
+        $participants = $this->participantListSortParticipants(
+            $participants,
+            $this->participantListSortColumn($filters['sort'] ?? 'created_at'),
+            $this->participantListSortDirection($filters['direction'] ?? 'desc')
+        );
         $participantPerPage = 12;
         $participantCurrentPage = max(1, $request->integer('page', 1));
         $participantPageItems = $participants->forPage($participantCurrentPage, $participantPerPage)->values();
@@ -214,6 +218,8 @@ class ParticipantRegistrationController extends Controller
                 'competition_category_id' => $filters['competition_category_id'] ?? '',
                 'verification_status' => $filters['verification_status'] ?? '',
                 'keyword' => $filters['keyword'] ?? '',
+                'sort' => $filters['sort'] ?? 'created_at',
+                'direction' => $filters['direction'] ?? 'desc',
             ],
             'registrationStats' => [
                 'total' => $participants->count(),
@@ -2543,6 +2549,8 @@ class ParticipantRegistrationController extends Controller
             'competition_category_id' => ['nullable', 'integer'],
             'verification_status' => ['nullable', 'in:draft,submitted,verified,rejected'],
             'keyword' => ['nullable', 'string', 'max:255'],
+            'sort' => ['nullable', 'in:name,registration_number,district,category,verification_status,nik,lot_number,created_at'],
+            'direction' => ['nullable', 'in:asc,desc'],
         ]);
     }
 
@@ -2566,6 +2574,57 @@ class ParticipantRegistrationController extends Controller
                         ->orWhere('institution', 'like', '%'.$keyword.'%');
                 });
             });
+    }
+
+    protected function participantListSortColumn(string $sort): string
+    {
+        return match ($sort) {
+            'name' => 'name',
+            'registration_number' => 'registration_number',
+            'district' => 'district',
+            'category' => 'category',
+            'verification_status' => 'verification_status',
+            'nik' => 'nik',
+            'lot_number' => 'lot_number',
+            'created_at' => 'created_at',
+            default => 'created_at',
+        };
+    }
+
+    protected function participantListSortDirection(string $direction): string
+    {
+        return $direction === 'asc' ? 'asc' : 'desc';
+    }
+
+    protected function participantListSortParticipants(\Illuminate\Support\Collection $participants, string $sortColumn, string $direction): \Illuminate\Support\Collection
+    {
+        $descending = $direction === 'desc';
+
+        return $participants->sortBy(function (Participant $participant) use ($sortColumn) {
+            return match ($sortColumn) {
+                'registration_number' => Str::lower((string) ($participant->registration_number ?? '')),
+                'district' => Str::lower((string) ($participant->district?->name ?? '')),
+                'category' => (function () use ($participant): string {
+                    $categoryLabel = trim((string) ($participant->category?->branch ?? ''));
+                    $categoryLabel = $categoryLabel !== ''
+                        ? trim($categoryLabel.' '.(string) ($participant->category?->name ?? ''))
+                        : (string) ($participant->category?->name ?? '');
+
+                    return Str::lower($categoryLabel);
+                })(),
+                'verification_status' => match ((string) ($participant->verification_status ?? 'draft')) {
+                    'draft' => 1,
+                    'submitted' => 2,
+                    'verified' => 3,
+                    'rejected' => 4,
+                    default => 5,
+                },
+                'nik' => Str::lower((string) ($participant->nik ?? '')),
+                'lot_number' => (int) ($participant->lot_number ?? PHP_INT_MAX),
+                'created_at' => $participant->created_at?->timestamp ?? 0,
+                default => Str::lower((string) ($participant->name ?? '')),
+            };
+        }, SORT_NATURAL | SORT_FLAG_CASE, $descending)->values();
     }
 
     protected function participantExportContext(Request $request): array

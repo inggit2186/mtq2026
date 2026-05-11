@@ -94,6 +94,30 @@ $exportQuery = array_filter([
     'verification_status' => $filters['verification_status'] ?? '',
     'keyword' => $filters['keyword'] ?? '',
 ], fn ($value) => filled($value));
+$activeSort = (string) ($filters['sort'] ?? 'created_at');
+$activeDirection = (string) ($filters['direction'] ?? 'desc');
+$sortDefaultDirection = [
+    'created_at' => 'desc',
+    'verification_status' => 'asc',
+    'lot_number' => 'asc',
+];
+$buildSortedListUrl = function (string $sortKey) use ($filters, $activeSort, $activeDirection, $sortDefaultDirection): string {
+    $preferredDirection = $sortDefaultDirection[$sortKey] ?? 'asc';
+    $nextDirection = $activeSort === $sortKey
+        ? ($activeDirection === 'asc' ? 'desc' : 'asc')
+        : $preferredDirection;
+
+    $query = array_filter([
+        'district_id' => $filters['district_id'] ?? '',
+        'competition_category_id' => $filters['competition_category_id'] ?? '',
+        'verification_status' => $filters['verification_status'] ?? '',
+        'keyword' => $filters['keyword'] ?? '',
+        'sort' => $sortKey,
+        'direction' => $nextDirection,
+    ], fn ($value) => filled($value));
+
+    return route('participants.list', $query);
+};
 $verificationScopeLabel = 'Semua kecamatan';
 
 if ($districtLocked && filled($user?->district?->name)) {
@@ -257,6 +281,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     </div>
 
                     <form method="GET" action="<?= e(route('participants.list')) ?>" class="mt-6 grid gap-4 lg:grid-cols-4">
+                        <input type="hidden" name="sort" value="<?= e($activeSort) ?>">
+                        <input type="hidden" name="direction" value="<?= e($activeDirection) ?>">
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-200">Kata kunci</label>
                             <input name="keyword" type="text" value="<?= e($filters['keyword'] ?? '') ?>" placeholder="Nama / NIK / registrasi" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
@@ -415,6 +441,30 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </div>
                             </div>
 
+                            <div class="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-700/70 bg-slate-950/50 px-4 py-3 text-xs text-slate-300">
+                                <span class="mr-1 font-semibold uppercase tracking-[0.18em] text-slate-500">Urutkan cepat</span>
+                                <?php foreach ([
+                                    'created_at' => 'Terbaru',
+                                    'name' => 'Nama',
+                                    'registration_number' => 'No. Reg',
+                                    'district' => 'Kecamatan',
+                                    'category' => 'Kategori',
+                                    'verification_status' => 'Status',
+                                    'nik' => 'NIK',
+                                    'lot_number' => 'Lot',
+                                ] as $sortKey => $label): ?>
+                                    <a
+                                        href="<?= e($buildSortedListUrl($sortKey)) ?>"
+                                        class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 font-semibold transition <?= $activeSort === $sortKey ? 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:border-cyan-400/20 hover:text-cyan-100' ?>"
+                                    >
+                                        <?= e($label) ?>
+                                        <?php if ($activeSort === $sortKey): ?>
+                                            <?= mtq_icon($activeDirection === 'asc' ? 'arrow-up' : 'arrow-down', 'h-3.5 w-3.5') ?>
+                                        <?php endif; ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+
                             <div class="table-shell mt-6">
                             <table class="min-w-full">
                                 <colgroup>
@@ -437,11 +487,46 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </colgroup>
                                 <thead class="table-head">
                                     <tr>
-                                        <th class="px-3 py-3 text-center">No. Registrasi</th>
-                                        <th class="px-3 py-3 text-center">Peserta</th>
-                                        <th class="px-3 py-3 text-center">Kecamatan</th>
-                                        <th class="px-3 py-3 text-center">Kategori</th>
-                                        <th class="px-3 py-3 text-center">Status</th>
+                                        <th class="px-3 py-3 text-center" aria-sort="<?= e($activeSort === 'registration_number' ? ($activeDirection === 'asc' ? 'ascending' : 'descending') : 'none') ?>">
+                                            <a href="<?= e($buildSortedListUrl('registration_number')) ?>" class="inline-flex items-center justify-center gap-1 rounded-md transition hover:text-cyan-200">
+                                                No. Registrasi
+                                                <?php if ($activeSort === 'registration_number'): ?>
+                                                    <?= mtq_icon($activeDirection === 'asc' ? 'arrow-up' : 'arrow-down', 'h-3.5 w-3.5') ?>
+                                                <?php endif; ?>
+                                            </a>
+                                        </th>
+                                        <th class="px-3 py-3 text-center" aria-sort="<?= e($activeSort === 'name' ? ($activeDirection === 'asc' ? 'ascending' : 'descending') : 'none') ?>">
+                                            <a href="<?= e($buildSortedListUrl('name')) ?>" class="inline-flex items-center justify-center gap-1 rounded-md transition hover:text-cyan-200">
+                                                Peserta
+                                                <?php if ($activeSort === 'name'): ?>
+                                                    <?= mtq_icon($activeDirection === 'asc' ? 'arrow-up' : 'arrow-down', 'h-3.5 w-3.5') ?>
+                                                <?php endif; ?>
+                                            </a>
+                                        </th>
+                                        <th class="px-3 py-3 text-center" aria-sort="<?= e($activeSort === 'district' ? ($activeDirection === 'asc' ? 'ascending' : 'descending') : 'none') ?>">
+                                            <a href="<?= e($buildSortedListUrl('district')) ?>" class="inline-flex items-center justify-center gap-1 rounded-md transition hover:text-cyan-200">
+                                                Kecamatan
+                                                <?php if ($activeSort === 'district'): ?>
+                                                    <?= mtq_icon($activeDirection === 'asc' ? 'arrow-up' : 'arrow-down', 'h-3.5 w-3.5') ?>
+                                                <?php endif; ?>
+                                            </a>
+                                        </th>
+                                        <th class="px-3 py-3 text-center" aria-sort="<?= e($activeSort === 'category' ? ($activeDirection === 'asc' ? 'ascending' : 'descending') : 'none') ?>">
+                                            <a href="<?= e($buildSortedListUrl('category')) ?>" class="inline-flex items-center justify-center gap-1 rounded-md transition hover:text-cyan-200">
+                                                Kategori
+                                                <?php if ($activeSort === 'category'): ?>
+                                                    <?= mtq_icon($activeDirection === 'asc' ? 'arrow-up' : 'arrow-down', 'h-3.5 w-3.5') ?>
+                                                <?php endif; ?>
+                                            </a>
+                                        </th>
+                                        <th class="px-3 py-3 text-center" aria-sort="<?= e($activeSort === 'verification_status' ? ($activeDirection === 'asc' ? 'ascending' : 'descending') : 'none') ?>">
+                                            <a href="<?= e($buildSortedListUrl('verification_status')) ?>" class="inline-flex items-center justify-center gap-1 rounded-md transition hover:text-cyan-200">
+                                                Status
+                                                <?php if ($activeSort === 'verification_status'): ?>
+                                                    <?= mtq_icon($activeDirection === 'asc' ? 'arrow-up' : 'arrow-down', 'h-3.5 w-3.5') ?>
+                                                <?php endif; ?>
+                                            </a>
+                                        </th>
                                         <th class="px-3 py-3 text-center">Aksi</th>
                                         <?php if ($canVerify): ?>
                                             <th class="px-3 py-3 text-center">Verifikasi</th>
