@@ -7,6 +7,7 @@ $rolePanel = $rolePanel ?? [];
 $adminDashboard = $adminDashboard ?? ['enabled' => false, 'branch_recap' => collect(), 'quick_exports' => [], 'ops_stats' => []];
 $officialDashboard = $officialDashboard ?? ['enabled' => false, 'district' => null, 'mandate_alert' => null, 'participant_alerts' => collect(), 'status_breakdown' => [], 'needs_attention' => collect()];
 $participantDashboard = $participantDashboard ?? ['enabled' => false, 'profile' => null, 'latest_score' => '0.00', 'average_score' => '0.00', 'next_schedule' => null];
+$dashboardNotices = collect($dashboardNotices ?? [])->values();
 $leaders = $leaders ?? [];
 $userProfilePhotoUrl = $user?->profilePhotoUrl();
 $userInitials = $user?->profileInitials() ?? 'U';
@@ -183,6 +184,43 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('clock') ?></div><p class="mt-4 text-sm text-slate-400">Sesi Hari Ini</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['today_sessions']) ?></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('chart') ?></div><p class="mt-4 text-sm text-slate-400">Rata-rata Nilai</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['average_score']) ?></p></div>
                 </section>
+
+                <?php if ($dashboardNotices->isNotEmpty()): ?>
+                    <section class="glass-card rounded-[2rem] p-6 sm:p-8">
+                        <div class="flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                                <p class="section-kicker">Notifikasi Dashboard</p>
+                                <h2 class="mt-2 text-2xl font-bold text-white">Pesan kecil untuk ruang kerja ini</h2>
+                                <p class="mt-2 text-sm leading-6 text-slate-300">Notifikasi ini hanya tampil untuk dashboard yang memang dituju oleh admin.</p>
+                            </div>
+                            <div class="status-pill">
+                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                                Tersaring per role
+                            </div>
+                        </div>
+
+                        <div class="mt-5 grid gap-3 lg:grid-cols-3">
+                            <?php foreach ($dashboardNotices as $notice): ?>
+                                <?php
+                                $priority = (string) ($notice->priority ?? 'normal');
+                                $toneClass = match ($priority) {
+                                    'high' => 'border-amber-400/20 bg-amber-400/10 text-amber-100',
+                                    'low' => 'border-slate-500/30 bg-slate-500/10 text-slate-200',
+                                    default => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100',
+                                };
+                                ?>
+                                <article class="rounded-[1.5rem] border px-4 py-4 <?= e($toneClass) ?>">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <p class="text-sm font-semibold"><?= e($notice->title) ?></p>
+                                        <span class="rounded-full border border-current/20 bg-slate-950/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"><?= e($notice->audienceLabel()) ?></span>
+                                    </div>
+                                    <p class="mt-2 text-sm leading-6 opacity-90"><?= e($notice->body) ?></p>
+                                    <p class="mt-3 text-xs opacity-70"><?= e(optional($notice->published_at)->translatedFormat('d M Y H:i') ?? '-') ?></p>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </section>
+                <?php endif; ?>
 
                 <?php if ($adminDashboard['enabled']): ?>
                     <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">

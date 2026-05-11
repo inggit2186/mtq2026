@@ -117,6 +117,7 @@ class PageController extends Controller
             ->orderBy('name')
             ->get();
         $announcements = Announcement::query()
+            ->visibleToRole(null)
             ->latest('published_at')
             ->limit(3)
             ->get();
@@ -162,7 +163,7 @@ class PageController extends Controller
                 'branches' => $categories->pluck('branch')->filter()->unique()->count(),
                 'categories' => $categories->count(),
                 'participants' => Participant::query()->count(),
-                'announcements' => Announcement::query()->count(),
+                'announcements' => Announcement::query()->visibleToRole(null)->count(),
             ],
             'featuredBranches' => $categories
             ->groupBy('branch')
@@ -209,6 +210,7 @@ class PageController extends Controller
             ->orderBy('name')
             ->get();
         $announcements = Announcement::query()
+            ->visibleToRole(null)
             ->with('author')
             ->latest('published_at')
             ->latest('created_at')
@@ -320,6 +322,14 @@ class PageController extends Controller
                 ->take(5)
                 ->values()
             : collect();
+        $dashboardNotices = $isOfficial || $isAdminOps
+            ? Announcement::query()
+                ->visibleToRole((string) $user?->role)
+                ->latest('published_at')
+                ->latest('created_at')
+                ->limit(3)
+                ->get()
+            : collect();
         $statusBreakdown = [
             'draft' => $participants->where('verification_status', 'draft')->count(),
             'submitted' => $participants->where('verification_status', 'submitted')->count(),
@@ -390,6 +400,7 @@ class PageController extends Controller
                 ->limit(5)
                 ->get(),
             'announcements' => Announcement::query()
+                ->visibleToRole($user?->role)
                 ->latest('published_at')
                 ->limit(4)
                 ->get(),
@@ -401,6 +412,7 @@ class PageController extends Controller
                 'status_breakdown' => $statusBreakdown,
                 'needs_attention' => $needsAttentionParticipants,
             ],
+            'dashboardNotices' => $dashboardNotices,
             'mustChangePassword' => $mustChangePassword,
             'participantDashboard' => [
                 'enabled' => $isParticipant,
@@ -424,7 +436,7 @@ class PageController extends Controller
                     ['label' => 'Pendaftaran Peserta', 'href' => route('participants.index')],
                 ],
                 'ops_stats' => [
-                    'announcements' => Announcement::query()->count(),
+                    'announcements' => Announcement::query()->visibleToRole(null)->count(),
                     'schedules' => SessionSchedule::query()->count(),
                     'verified_participants' => Participant::query()->where('verification_status', 'verified')->count(),
                     'score_entries' => ScoreEntry::query()->count(),

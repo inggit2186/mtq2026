@@ -862,6 +862,16 @@ window.addEventListener('mtq-participant-verification-updated', (event) => {
 
 window.addEventListener('mtq-announcement-published', (event) => {
     const detail = event.detail ?? {};
+    const audience = detail.audience ?? 'all';
+    const currentRole = window.MTQ_USER_ROLE ?? '';
+    const matchesRole = audience === 'all'
+        || (audience === 'official' && ['official', 'pendamping'].includes(currentRole))
+        || (audience === 'panitia' && currentRole === 'panitia')
+        || (audience === 'official_panitia' && ['official', 'pendamping', 'panitia'].includes(currentRole));
+
+    if (!matchesRole) {
+        return;
+    }
 
     Alpine.store('ui').pushNotification({
         tone: detail.priority === 'high' ? 'warning' : 'info',

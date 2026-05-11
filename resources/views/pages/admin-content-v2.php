@@ -17,6 +17,12 @@ $priorityLabels = [
     'normal' => 'Normal',
     'high' => 'Tinggi',
 ];
+$announcementAudienceLabels = $announcementAudienceLabels ?? [
+    'all' => 'Semua Dashboard',
+    'official' => 'Official',
+    'panitia' => 'Panitia',
+    'official_panitia' => 'Official + Panitia',
+];
 $priorityClasses = [
     'low' => 'border-slate-500/30 bg-slate-500/10 text-slate-200',
     'normal' => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
@@ -76,7 +82,7 @@ $impersonation = session('impersonation', []);
                 <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
                     <p class="section-kicker">Pusat Siaran</p>
                     <h2 class="mt-3 text-xl font-bold text-white"><?= e($user?->name) ?></h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-300">Kelola pengumuman dan jadwal dari satu halaman, lalu siarkan pembaruan penting ke semua pengguna yang sedang online.</p>
+                    <p class="mt-2 text-sm leading-6 text-slate-300">Kelola pengumuman, notif dashboard kecil, dan jadwal dari satu halaman, lalu siarkan pembaruan penting ke target yang sesuai.</p>
                     <div class="mt-4 status-pill">
                         <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
                         Admin Broadcast Ready
@@ -336,7 +342,7 @@ $impersonation = session('impersonation', []);
                             <div class="icon-chip"><?= mtq_icon('bell') ?></div>
                             <div>
                                 <p class="section-kicker">Pengumuman Baru</p>
-                                <h3 class="mt-1 text-2xl font-bold text-white">Tulis pengumuman resmi</h3>
+                                <h3 class="mt-1 text-2xl font-bold text-white">Tulis pengumuman atau notif dashboard</h3>
                             </div>
                         </div>
 
@@ -360,6 +366,14 @@ $impersonation = session('impersonation', []);
                                     </select>
                                 </div>
                                 <div>
+                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Target dashboard</label>
+                                    <select name="audience" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                        <?php foreach ($announcementAudienceLabels as $audience => $label): ?>
+                                            <option value="<?= e($audience) ?>" <?= old('audience', 'all') === $audience ? 'selected' : '' ?>><?= e($label) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2">
                                     <label class="mb-2 block text-sm font-semibold text-slate-200">Waktu publikasi</label>
                                     <input name="published_at" type="datetime-local" value="<?= e(old('published_at')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
                                 </div>
@@ -455,6 +469,7 @@ $impersonation = session('impersonation', []);
                                     $priority = (string) ($announcement->priority ?? 'normal');
                                     $priorityClass = $priorityClasses[$priority] ?? $priorityClasses['normal'];
                                     $priorityLabel = $priorityLabels[$priority] ?? ucfirst($priority);
+                                    $audienceLabel = $announcement->audienceLabel();
                                     ?>
                                     <div class="data-card">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -462,6 +477,7 @@ $impersonation = session('impersonation', []);
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     <p class="font-semibold text-white"><?= e($announcement->title) ?></p>
                                                     <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($priorityClass) ?>"><?= e($priorityLabel) ?></span>
+                                                    <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200"><?= e($audienceLabel) ?></span>
                                                 </div>
                                                 <p class="mt-2 text-sm leading-6 text-slate-300"><?= e($announcement->body) ?></p>
                                                 <p class="mt-3 text-xs text-slate-500">

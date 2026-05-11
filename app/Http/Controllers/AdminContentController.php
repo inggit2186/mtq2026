@@ -39,6 +39,12 @@ class AdminContentController extends Controller
                 ->latest('created_at')
                 ->limit(12)
                 ->get(),
+            'announcementAudienceLabels' => [
+                'all' => 'Semua Dashboard',
+                'official' => 'Official',
+                'panitia' => 'Panitia',
+                'official_panitia' => 'Official + Panitia',
+            ],
             'schedules' => SessionSchedule::query()
                 ->orderBy('starts_at')
                 ->limit(12)
@@ -234,6 +240,7 @@ POWERSHELL;
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:2000'],
             'priority' => ['required', 'in:low,normal,high'],
+            'audience' => ['required', 'in:all,official,panitia,official_panitia'],
             'published_at' => ['nullable', 'date'],
         ]);
 
@@ -241,6 +248,7 @@ POWERSHELL;
             'title' => $validated['title'],
             'body' => $validated['body'],
             'priority' => $validated['priority'],
+            'audience' => $validated['audience'],
             'published_by' => auth()->id(),
             'published_at' => $validated['published_at'] ?? now(),
         ]);
@@ -251,6 +259,7 @@ POWERSHELL;
             $announcement,
             [
                 'priority' => $announcement->priority,
+                'audience' => $announcement->audience,
                 'published_at' => optional($announcement->published_at)->toDateTimeString(),
             ]
         );

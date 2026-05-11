@@ -80,6 +80,7 @@ class DashboardPage extends Component
             ->all();
 
         $this->announcements = Announcement::query()
+            ->visibleToRole(auth()->user()?->role)
             ->latest('published_at')
             ->limit(4)
             ->get()
@@ -87,6 +88,7 @@ class DashboardPage extends Component
                 'title' => $announcement->title,
                 'body' => $announcement->body,
                 'priority' => $announcement->priority,
+                'audience' => $announcement->audience,
                 'published_at' => $announcement->published_at?->diffForHumans(),
             ])
             ->all();

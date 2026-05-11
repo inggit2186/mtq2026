@@ -36,6 +36,7 @@ class AnnouncementPublished implements ShouldBroadcastNow
             'title' => $this->announcement->title,
             'body' => $this->announcement->body,
             'priority' => $this->announcement->priority,
+            'audience' => $this->announcement->audience ?? 'all',
             'published_at' => $this->announcement->published_at?->toIso8601String(),
         ];
     }

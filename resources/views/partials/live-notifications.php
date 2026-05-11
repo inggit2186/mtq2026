@@ -24,6 +24,9 @@
         </div>
     </div>
 <?php endif; ?>
+<script>
+    window.MTQ_USER_ROLE = <?= json_encode((string) auth()->user()?->role) ?>;
+</script>
 <div
     id="mtq-live-notifications"
     x-data

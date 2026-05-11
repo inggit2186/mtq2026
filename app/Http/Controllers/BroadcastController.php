@@ -22,7 +22,10 @@ class BroadcastController extends Controller
             'announcement.broadcasted',
             (auth()->user()?->name ?? 'Panitia').' menyiarkan pengumuman "'.$announcement->title.'" secara realtime.',
             $announcement,
-            ['priority' => $announcement->priority]
+            [
+                'priority' => $announcement->priority,
+                'audience' => $announcement->audience ?? 'all',
+            ]
         );
 
         return back()->with('status', 'Pengumuman "'.$announcement->title.'" berhasil disiarkan realtime.');
