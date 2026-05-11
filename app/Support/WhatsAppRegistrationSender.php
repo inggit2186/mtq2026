@@ -34,6 +34,11 @@ class WhatsAppRegistrationSender
         return self::sendMessage((string) ($user->phone ?? ''), $message);
     }
 
+    public static function sendCustomMessage(string $number, string $message): bool
+    {
+        return self::sendMessage($number, $message);
+    }
+
     private static function buildOfficialWelcomeMessage(User $user, string $password, string $districtName): string
     {
         $websiteUrl = rtrim((string) config('app.url'), '/');

@@ -12,6 +12,7 @@ use App\Models\Participant;
 use App\Models\ParticipantMaqraDraw;
 use App\Models\ParticipantVerificationLog;
 use App\Models\User;
+use App\Support\WhatsAppRegistrationSender;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use App\Support\ActivityLogger;
@@ -1618,6 +1619,10 @@ class ParticipantRegistrationController extends Controller
 
         RealtimeBroadcaster::dispatch(new ParticipantVerificationUpdated($participant));
 
+        if ($participant->verification_status !== 'verified') {
+            $this->notifyDistrictOfficialsAboutParticipantVerification($participant);
+        }
+
         $this->logParticipantActivity(
             'participant.'.$participant->verification_status,
             $participant,
@@ -2740,13 +2745,128 @@ class ParticipantRegistrationController extends Controller
         };
     }
 
+    protected function notifyDistrictOfficialsAboutParticipantVerification(Participant $participant): void
+    {
+        $participant->loadMissing(['district', 'category']);
+
+        $district = District::query()
+            ->with(['users' => fn ($query) => $query->whereIn('role', ['official', 'pendamping'])->orderBy('name')])
+            ->find($participant->district_id);
+
+        if (! $district) {
+            return;
+        }
+
+        $recipients = $district->users
+            ->filter(fn (User $user): bool => filled($user->phone))
+            ->unique(fn (User $user): string => preg_replace('/\D+/', '', (string) $user->phone))
+            ->values();
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        $statusLabel = $this->participantVerificationStatusLabel((string) $participant->verification_status);
+        $categoryLabel = trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? ''));
+        $verificationNotes = filled($participant->verification_notes)
+            ? (string) $participant->verification_notes
+            : 'Tidak ada catatan tambahan.';
+
+        $message = match ((string) $participant->verification_status) {
+            'submitted' => $this->buildParticipantVerificationPendingMessage($participant, $district, $statusLabel, $categoryLabel, $verificationNotes),
+            'rejected' => $this->buildParticipantVerificationRejectedMessage($participant, $district, $statusLabel, $categoryLabel, $verificationNotes),
+            default => $this->buildParticipantVerificationGenericMessage($participant, $district, $statusLabel, $categoryLabel, $verificationNotes),
+        };
+
+        $recipients->each(function (User $recipient) use ($message): void {
+            WhatsAppRegistrationSender::sendCustomMessage((string) $recipient->phone, $message);
+        });
+    }
+
+    protected function buildParticipantVerificationPendingMessage(Participant $participant, District $district, string $statusLabel, string $categoryLabel, string $verificationNotes): string
+    {
+        return implode("\n", [
+            "\u{1F7E1} *Info Verifikasi Peserta e-MTQ*",
+            '',
+            'Peserta berikut masih memerlukan tindak lanjut berkas.',
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F464} *Data Peserta*",
+            '• Nama: '.($participant->name ?: '-'),
+            '• No. Registrasi: '.($participant->registration_number ?: '-'),
+            '• Kecamatan: '.($participant->district?->name ?: $district->name ?: '-'),
+            '• Kategori: '.($categoryLabel !== '' ? $categoryLabel : '-'),
+            '',
+            '━━━━━━━━━━━━',
+            "\u{23F3} *Status Saat Ini*",
+            '• Status: *'.$statusLabel.'*',
+            '• Catatan: '.$verificationNotes,
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F9ED} *Tindak Lanjut*",
+            'Mohon cek berkas peserta dan lengkapi/perbaiki data yang masih perlu diproses.',
+            '',
+            'Terima kasih.',
+        ]);
+    }
+
+    protected function buildParticipantVerificationRejectedMessage(Participant $participant, District $district, string $statusLabel, string $categoryLabel, string $verificationNotes): string
+    {
+        return implode("\n", [
+            "\u{1F534} *Pemberitahuan Verifikasi Peserta e-MTQ*",
+            '',
+            'Berkas peserta berikut ditandai perlu perbaikan.',
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F464} *Data Peserta*",
+            '• Nama: '.($participant->name ?: '-'),
+            '• No. Registrasi: '.($participant->registration_number ?: '-'),
+            '• Kecamatan: '.($participant->district?->name ?: $district->name ?: '-'),
+            '• Kategori: '.($categoryLabel !== '' ? $categoryLabel : '-'),
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F4C4} *Status Verifikasi*",
+            '• Status: *'.$statusLabel.'*',
+            '• Catatan: '.$verificationNotes,
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F6E0}\u{FE0F} *Tindak Lanjut*",
+            'Mohon koordinasikan perbaikan berkas kepada pihak terkait sebelum peserta diajukan kembali.',
+            '',
+            'Terima kasih.',
+        ]);
+    }
+
+    protected function buildParticipantVerificationGenericMessage(Participant $participant, District $district, string $statusLabel, string $categoryLabel, string $verificationNotes): string
+    {
+        return implode("\n", [
+            "\u{1F4E3} *Notifikasi Verifikasi Peserta e-MTQ*",
+            '',
+            'Ada pembaruan status verifikasi yang perlu ditindaklanjuti.',
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F464} *Data Peserta*",
+            '• Nama: '.($participant->name ?: '-'),
+            '• No. Registrasi: '.($participant->registration_number ?: '-'),
+            '• Kecamatan: '.($participant->district?->name ?: $district->name ?: '-'),
+            '• Kategori: '.($categoryLabel !== '' ? $categoryLabel : '-'),
+            '',
+            '━━━━━━━━━━━━',
+            "\u{1F4C4} *Status Verifikasi*",
+            '• Status: *'.$statusLabel.'*',
+            '• Catatan: '.$verificationNotes,
+            '',
+            'Silakan cek detail peserta di aplikasi e-MTQ.',
+        ]);
+    }
+
     protected function documentChecklistMark(array|string|null $value): string
     {
         if (is_array($value)) {
-            return collect($value)->filter()->isNotEmpty() ? '✓' : '-';
+            return collect($value)->filter()->isNotEmpty() ? 'âœ“' : '-';
         }
 
-        return filled($value) ? '✓' : '-';
+        return filled($value) ? 'âœ“' : '-';
     }
 
     protected function archivedParticipantPayload(Participant $participant): array
@@ -2940,3 +3060,5 @@ class ParticipantRegistrationController extends Controller
         ];
     }
 }
+
+
