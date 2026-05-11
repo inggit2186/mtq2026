@@ -9,6 +9,8 @@ $canVerify = $canVerify ?? false;
 $districtMandate = $districtMandate ?? null;
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
+$isPanitiaUser = $user?->role === 'panitia';
+$verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
     && $user?->district?->mandate_status === 'rejected';
@@ -691,6 +693,11 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                             Simpan Verifikasi
                                         </button>
                                     </form>
+                                </div>
+                            <?php elseif ($isPanitiaUser && ! $verificationOpenForPanitia): ?>
+                                <div class="data-card border-amber-400/20 bg-amber-400/10 text-amber-100">
+                                    <p class="text-xs uppercase tracking-[0.2em] text-amber-200">Verifikasi Ditutup</p>
+                                    <p class="mt-2 text-sm leading-6">Masa verifikasi peserta untuk panitia sedang ditutup oleh admin. Kamu masih bisa melihat data peserta, tetapi form verifikasi tidak tersedia.</p>
                                 </div>
                             <?php endif; ?>
                         </div>

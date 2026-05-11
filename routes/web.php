@@ -23,6 +23,9 @@ Route::get('/panduan/pendaftaran-peserta/snapshot', [PageController::class, 'par
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->name('login.store');
+    Route::post('/lupa-password', [AuthController::class, 'requestPasswordReset'])
+        ->middleware('throttle:5,1')
+        ->name('password.reset.request');
 });
 
 Route::middleware(['auth', 'password.change'])->group(function (): void {
@@ -117,4 +120,6 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/setting', [ScoringController::class, 'storeSettings'])->middleware('role:admin,panitia')->name('scoring.settings.store');
     Route::post('/penilaian', [ScoringController::class, 'store'])->middleware('role:admin,panitia')->name('scoring.store');
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
+    Route::post('/admin/login-sebagai', [AuthController::class, 'impersonate'])->middleware('role:admin')->name('admin.impersonate.store');
+    Route::post('/admin/login-sebagai/keluar', [AuthController::class, 'stopImpersonation'])->name('admin.impersonate.stop');
 });

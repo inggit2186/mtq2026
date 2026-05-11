@@ -21,6 +21,23 @@
         <div class="absolute right-0 top-24 h-96 w-96 rounded-full bg-violet-500/10 blur-3xl"></div>
     </div>
 
+    @if (filled(session('impersonation.original_user_id')))
+        <div class="fixed right-4 top-4 z-[90] w-full max-w-sm">
+            <div class="rounded-[1.5rem] border border-amber-400/25 bg-amber-400/10 px-4 py-4 text-amber-50 shadow-[0_20px_45px_-28px_rgba(245,158,11,0.55)] backdrop-blur">
+                <p class="text-sm font-semibold">Mode login sebagai user lain aktif</p>
+                <p class="mt-1 text-sm leading-6 opacity-90">
+                    Admin {{ session('impersonation.original_user_name', '-') }} sedang masuk sebagai {{ auth()->user()?->name ?? '-' }}.
+                </p>
+                <form method="POST" action="{{ route('admin.impersonate.stop') }}" class="mt-3">
+                    @csrf
+                    <button type="submit" class="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/20">
+                        Kembali ke akun admin
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
+
     <header class="sticky top-0 z-40 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <a href="{{ route('home') }}" class="flex items-center gap-3">
@@ -93,4 +110,3 @@
     @livewireScripts
 </body>
 </html>
-

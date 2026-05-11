@@ -124,7 +124,7 @@ class ParticipantRegistrationController extends Controller
             'districts' => $districts,
             'districtLocked' => (bool) $districtId,
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
-            'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
+            'canVerify' => $this->canUserVerifyParticipants(),
             'filters' => [
                 'district_id' => $districtId ?: ($restrictPanitiaDistricts && count($verificationDistrictIds) === 1 ? (string) $verificationDistrictIds[0] : ''),
                 'competition_category_id' => '',
@@ -202,7 +202,7 @@ class ParticipantRegistrationController extends Controller
             'districtLocked' => (bool) $districtId,
             'restrictPanitiaDistricts' => $restrictPanitiaDistricts,
             'verificationDistrictIds' => $verificationDistrictIds,
-            'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
+            'canVerify' => $this->canUserVerifyParticipants(),
             'canDrawParticipant' => in_array($user?->role, ['admin', 'panitia'], true),
             'canManageMaqra' => (string) $user?->role === 'admin',
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
@@ -793,7 +793,7 @@ class ParticipantRegistrationController extends Controller
             'participant' => $participant,
             'documentMap' => $this->documentMap($participant),
             'cvDownloadUrl' => $this->participantCvDownloadUrl($participant),
-            'canVerify' => in_array($user?->role, ['admin', 'panitia'], true),
+            'canVerify' => $this->canUserVerifyParticipants(),
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'canDrawParticipant' => $canDrawParticipant,
             'districtMandate' => $this->districtMandateForParticipant($participant),
@@ -1421,6 +1421,9 @@ class ParticipantRegistrationController extends Controller
     public function verify(Request $request, Participant $participant): RedirectResponse
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+        if (auth()->user()?->role === 'panitia' && ! $this->participantVerificationOpen()) {
+            abort(403, 'Masa verifikasi peserta untuk panitia sedang ditutup oleh admin.');
+        }
         $this->authorizeDistrictVerificationAccess($participant->district);
 
         $validated = $request->validate([
@@ -2065,6 +2068,11 @@ class ParticipantRegistrationController extends Controller
         return OfficialAccessSetting::currentOrDefault();
     }
 
+    protected function participantVerificationOpen(): bool
+    {
+        return $this->officialAccessSetting()->isEnabled('participant_verification_open');
+    }
+
     protected function officialFeatureEnabled(string $feature): bool
     {
         if (in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
@@ -2079,6 +2087,13 @@ class ParticipantRegistrationController extends Controller
         if (in_array(auth()->user()?->role, ['official', 'pendamping'], true) && ! $this->officialFeatureEnabled($feature)) {
             abort(403, $message);
         }
+    }
+
+    protected function canUserVerifyParticipants(): bool
+    {
+        $role = auth()->user()?->role;
+
+        return $role === 'admin' || ($role === 'panitia' && $this->participantVerificationOpen());
     }
 
     protected function isDistrictQuotaCategory(CompetitionCategory $category): bool

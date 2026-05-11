@@ -27,6 +27,13 @@ class WhatsAppRegistrationSender
         return self::sendMessage((string) ($user->phone ?? ''), $message);
     }
 
+    public static function sendPasswordReset(User $user, string $password): bool
+    {
+        $message = self::buildPasswordResetMessage($user, $password);
+
+        return self::sendMessage((string) ($user->phone ?? ''), $message);
+    }
+
     private static function buildOfficialWelcomeMessage(User $user, string $password, string $districtName): string
     {
         $websiteUrl = rtrim((string) config('app.url'), '/');
@@ -82,6 +89,28 @@ class WhatsAppRegistrationSender
             $districts !== [] ? implode(', ', $districts) : '-',
             '',
             'Silakan login ke e-MTQ dengan data di atas dan mohon jaga kerahasiaan akun.',
+        ]);
+    }
+
+    private static function buildPasswordResetMessage(User $user, string $password): string
+    {
+        $websiteUrl = rtrim((string) config('app.url'), '/');
+
+        return implode("\n", [
+            '*Assalamu\'alaikum warahmatullahi wabarakatuh.*',
+            '',
+            'Password e-MTQ Anda telah direset dari halaman login.',
+            '',
+            '*Website e-MTQ*',
+            $websiteUrl !== '' ? $websiteUrl : '-',
+            '',
+            '*Data Akun*',
+            '- Nama: '.($user->name ?: '-'),
+            '- Role: '.($user->roleLabel() ?: '-'),
+            '- NIP/Nomor Induk: '.($user->nomor_induk ?: '-'),
+            '- Password Baru: *'.$password.'*',
+            '',
+            'Silakan login kembali dengan password baru ini, lalu segera ganti password setelah masuk ke dashboard.',
         ]);
     }
 

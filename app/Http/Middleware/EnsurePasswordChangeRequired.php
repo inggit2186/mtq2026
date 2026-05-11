@@ -28,6 +28,7 @@ class EnsurePasswordChangeRequired
             'dashboard.password.update',
             'dashboard.realtime-summary',
             'dashboard.user-sync',
+            'admin.impersonate.stop',
             'logout',
         ];
 

@@ -11,6 +11,7 @@ $jsAssets = $assets['js'] ?? [];
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <title><?= e(config('app.name', 'e-MTQ').' - '.$title) ?></title>
+    <style>[x-cloak]{display:none!important;}</style>
     <?php foreach ($cssAssets as $href): ?>
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
@@ -46,7 +47,7 @@ $jsAssets = $assets['js'] ?? [];
                 </div>
             </section>
 
-            <section class="glass-card rounded-[2rem] p-6 sm:p-8" x-data="{ showPassword: false }">
+            <section class="glass-card rounded-[2rem] p-6 sm:p-8" x-data="{ showPassword: false, showForgotPasswordModal: <?= $errors->has('nip') ? 'true' : 'false' ?> }" x-on:keydown.escape.window="showForgotPasswordModal = false">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <p class="section-kicker">Masuk Sekarang</p>
@@ -85,11 +86,78 @@ $jsAssets = $assets['js'] ?? [];
                         Ingat saya di perangkat ini
                     </label>
 
+                    <div class="flex items-center justify-between gap-3">
+                        <button type="button" class="text-sm font-semibold text-cyan-200 transition hover:text-cyan-100" x-on:click="showForgotPasswordModal = true">
+                            Lupa Password
+                        </button>
+                    </div>
+
                     <button type="submit" class="primary-button w-full">
                         <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                         Masuk
                     </button>
                 </form>
+
+                <div
+                    x-cloak
+                    x-show="showForgotPasswordModal"
+                    x-transition.opacity.duration.150ms
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 py-6"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="forgot-password-title"
+                >
+                    <div class="absolute inset-0" x-on:click="showForgotPasswordModal = false"></div>
+                    <div class="relative z-10 w-full max-w-md rounded-[1.75rem] border border-cyan-400/20 bg-slate-950 p-6 shadow-[0_24px_70px_-28px_rgba(15,23,42,0.95)]">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="section-kicker">Reset Password</p>
+                                <h3 id="forgot-password-title" class="mt-1 text-2xl font-bold text-white">Lupa Password</h3>
+                            </div>
+                            <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="showForgotPasswordModal = false" aria-label="Tutup modal">
+                                <?= mtq_icon('x', 'h-4 w-4') ?>
+                            </button>
+                        </div>
+
+                        <p class="mt-3 text-sm leading-6 text-slate-300">
+                            Masukkan NIP pegawai yang terdaftar. Jika cocok, password baru akan dibuat dan dikirim ke nomor WhatsApp yang tersimpan di akun.
+                        </p>
+
+                        <form method="POST" action="<?= e(route('password.reset.request')) ?>" class="mt-5 space-y-4">
+                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+
+                            <div>
+                                <label for="reset-nip" class="mb-2 block text-sm font-semibold text-slate-200">NIP Pegawai</label>
+                                <input
+                                    id="reset-nip"
+                                    name="nip"
+                                    type="text"
+                                    value="<?= e(old('nip')) ?>"
+                                    autocomplete="off"
+                                    inputmode="numeric"
+                                    placeholder="Masukkan NIP pegawai"
+                                    class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
+                                >
+                                <?php if ($errors->has('nip')): ?>
+                                    <p class="mt-2 text-sm leading-6 text-rose-200"><?= e($errors->first('nip')) ?></p>
+                                <?php else: ?>
+                                    <p class="mt-2 text-xs leading-6 text-slate-500">Pastikan nomor WhatsApp di akun masih aktif agar password baru bisa diterima.</p>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="flex flex-wrap gap-3">
+                                <button type="button" class="secondary-button" x-on:click="showForgotPasswordModal = false">
+                                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                                    Batal
+                                </button>
+                                <button type="submit" class="primary-button">
+                                    <?= mtq_icon('key', 'h-4 w-4') ?>
+                                    Kirim Password Baru
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </section>
         </div>
     </main>

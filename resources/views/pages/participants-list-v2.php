@@ -17,6 +17,8 @@ $canManageMaqra = $canManageMaqra ?? false;
 $canDrawParticipant = $canDrawParticipant ?? in_array($user?->role, ['admin', 'panitia'], true);
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
+$isPanitiaUser = $user?->role === 'panitia';
+$verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
 $mainParticipants = $participants
@@ -196,6 +198,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <?= mtq_icon('shield-check', 'h-3.5 w-3.5') ?>
                                 <span class="truncate">Anda sedang melihat kecamatan verifikasi: <?= e($verificationScopeLabel) ?></span>
                             </div>
+                            <?php if ($isPanitiaUser && ! $verificationOpenForPanitia): ?>
+                                <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                    Masa verifikasi peserta untuk panitia sedang ditutup oleh admin.
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-3">

@@ -38,6 +38,7 @@ $scheduleStatusClasses = [
     'completed' => 'border-slate-500/30 bg-slate-500/10 text-slate-200',
     'postponed' => 'border-rose-400/20 bg-rose-400/10 text-rose-100',
 ];
+$impersonation = session('impersonation', []);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -143,6 +144,42 @@ $scheduleStatusClasses = [
                     <section class="glass-card rounded-[2rem] p-6">
                         <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                             <div class="max-w-3xl">
+                                <p class="section-kicker">Login Sebagai User</p>
+                                <h3 class="mt-2 text-2xl font-bold text-white">Masuk ke akun lain berdasarkan ID</h3>
+                                <p class="mt-3 text-sm leading-6 text-slate-300">Gunakan fitur ini untuk melihat langsung tampilan dan akses user lain. Admin tetap menyimpan sesi asal supaya bisa kembali kapan saja.</p>
+                            </div>
+                            <div class="status-pill">
+                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-amber-300"></span>
+                                Hanya Admin
+                            </div>
+                        </div>
+
+                        <?php if (filled($impersonation['original_user_id'] ?? null)): ?>
+                            <div class="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-100">
+                                Saat ini sedang masuk sebagai <span class="font-semibold text-white"><?= e((string) ($impersonation['target_user_name'] ?? auth()->user()?->name ?? '-')) ?></span>.
+                                Gunakan tombol kembali di banner atas untuk pulang ke akun admin.
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="POST" action="<?= e(route('admin.impersonate.store')) ?>" class="mt-6 flex flex-wrap items-end gap-3">
+                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                            <div class="min-w-0 flex-1">
+                                <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">ID User / NIP</label>
+                                <input type="text" name="identifier" value="<?= e(old('identifier')) ?>" placeholder="Masukkan ID user atau NIP" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                <?php if ($errors->has('identifier')): ?>
+                                    <p class="mt-2 text-sm text-rose-300"><?= e($errors->first('identifier')) ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <button type="submit" class="primary-button">
+                                <?= mtq_icon('key', 'h-4 w-4') ?>
+                                Login Sebagai User
+                            </button>
+                        </form>
+                    </section>
+
+                    <section class="glass-card rounded-[2rem] p-6">
+                        <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                            <div class="max-w-3xl">
                                 <p class="section-kicker">Sinkronisasi Master Data</p>
                                 <h3 class="mt-2 text-2xl font-bold text-white">Sinkronkan kecamatan dari SILATAR</h3>
                                 <p class="mt-3 text-sm leading-6 text-slate-300">Gunakan tombol ini untuk memperbarui daftar kecamatan e-MTQ agar mengikuti data KUA terbaru dari API SILATAR tanpa harus membuka terminal.</p>
@@ -169,7 +206,7 @@ $scheduleStatusClasses = [
                             <div class="max-w-3xl">
                                 <p class="section-kicker">Akses Official</p>
                                 <h3 class="mt-2 text-2xl font-bold text-white">Buka atau tutup fitur official</h3>
-                                <p class="mt-3 text-sm leading-6 text-slate-300">Gunakan pengaturan ini untuk mengatur kapan official dapat mendaftarkan peserta, mengubah data peserta, mengupload surat mandat, dan membuka dokumen peserta. Admin tetap bisa mengakses semua fitur untuk kebutuhan operasional.</p>
+                                <p class="mt-3 text-sm leading-6 text-slate-300">Gunakan pengaturan ini untuk mengatur kapan official dapat mendaftarkan peserta, mengubah data peserta, mengupload surat mandat, membuka dokumen peserta, dan membuka masa verifikasi untuk panitia. Admin tetap bisa mengakses semua fitur untuk kebutuhan operasional.</p>
                             </div>
                             <div class="status-pill">
                                 <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
@@ -208,6 +245,11 @@ $scheduleStatusClasses = [
                                         'title' => 'Dokumen Peserta',
                                         'description' => 'Mengizinkan official membuka pratinjau dan unduh dokumen peserta.',
                                     ],
+                                    [
+                                        'key' => 'participant_verification_open',
+                                        'title' => 'Verifikasi Peserta',
+                                        'description' => 'Membuka atau menutup form verifikasi peserta bagi panitia.',
+                                    ],
                                 ];
                             ?>
 
@@ -225,7 +267,7 @@ $scheduleStatusClasses = [
                             <?php endforeach; ?>
 
                             <div class="lg:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 px-5 py-4">
-                                <p class="text-sm leading-6 text-slate-200">Kalau pendaftaran ditutup, official masih bisa login ke dashboard tetapi tombol aksi yang terkait akan diblok oleh sistem.</p>
+                                <p class="text-sm leading-6 text-slate-200">Kalau pendaftaran atau verifikasi ditutup, user yang terdampak masih bisa login ke dashboard tetapi tombol aksi yang terkait akan diblok oleh sistem.</p>
                                 <button type="submit" class="primary-button">
                                     <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                     Simpan Akses Official

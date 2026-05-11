@@ -12,6 +12,7 @@ class OfficialAccessSetting extends Model
         'participant_edit_open',
         'mandate_upload_open',
         'participant_documents_open',
+        'participant_verification_open',
     ];
 
     protected function casts(): array
@@ -21,6 +22,7 @@ class OfficialAccessSetting extends Model
             'participant_edit_open' => 'boolean',
             'mandate_upload_open' => 'boolean',
             'participant_documents_open' => 'boolean',
+            'participant_verification_open' => 'boolean',
         ];
     }
 
@@ -31,6 +33,7 @@ class OfficialAccessSetting extends Model
             'participant_edit_open' => true,
             'mandate_upload_open' => true,
             'participant_documents_open' => true,
+            'participant_verification_open' => true,
         ];
     }
 
