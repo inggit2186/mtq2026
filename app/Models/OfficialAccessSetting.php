@@ -13,6 +13,8 @@ class OfficialAccessSetting extends Model
         'mandate_upload_open',
         'participant_documents_open',
         'participant_verification_open',
+        'participant_lot_open',
+        'participant_maqra_open',
     ];
 
     protected function casts(): array
@@ -23,6 +25,8 @@ class OfficialAccessSetting extends Model
             'mandate_upload_open' => 'boolean',
             'participant_documents_open' => 'boolean',
             'participant_verification_open' => 'boolean',
+            'participant_lot_open' => 'boolean',
+            'participant_maqra_open' => 'boolean',
         ];
     }
 
@@ -34,6 +38,8 @@ class OfficialAccessSetting extends Model
             'mandate_upload_open' => true,
             'participant_documents_open' => true,
             'participant_verification_open' => true,
+            'participant_lot_open' => true,
+            'participant_maqra_open' => true,
         ];
     }
 

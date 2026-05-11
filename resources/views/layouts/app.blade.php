@@ -89,20 +89,22 @@
 
         <div x-show="$store.ui.mobileMenuOpen" x-transition class="border-t border-white/10 bg-slate-950/95 px-4 py-4 md:hidden">
             <div class="mx-auto flex max-w-7xl flex-col gap-2">
-                <a href="{{ route('home') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Beranda</a>
-                <a href="{{ route('dashboard') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Dashboard</a>
-                @if (auth()->user()?->role === 'admin' || auth()->user()?->role === 'panitia')
-                    <a href="{{ route('scoring') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Penilaian</a>
-                @endif
-                <div class="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-300">
-                    {{ auth()->user()?->name }} / {{ auth()->user()?->roleLabel() }}
+                <div class="max-h-[calc(100dvh-10rem)] space-y-2 overflow-y-auto pr-1 overscroll-contain">
+                    <a href="{{ route('home') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Beranda</a>
+                    <a href="{{ route('dashboard') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Dashboard</a>
+                    @if (auth()->user()?->role === 'admin' || auth()->user()?->role === 'panitia')
+                        <a href="{{ route('scoring') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Penilaian</a>
+                    @endif
+                    <div class="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-300">
+                        {{ auth()->user()?->name }} / {{ auth()->user()?->roleLabel() }}
+                    </div>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-left text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">
+                            Keluar
+                        </button>
+                    </form>
                 </div>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-left text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">
-                        Keluar
-                    </button>
-                </form>
             </div>
         </div>
     </header>

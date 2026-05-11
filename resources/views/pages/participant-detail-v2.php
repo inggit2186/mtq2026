@@ -11,6 +11,8 @@ $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAcces
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
+$lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
+$maqraOpenForPanitia = (bool) ($officialAccessSetting->participant_maqra_open ?? true);
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
@@ -26,7 +28,8 @@ $canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
 $cvDownloadUrl = $cvDownloadUrl ?? null;
 $canManageMaqra = $canManageMaqra ?? false;
-$canDrawParticipant = $canDrawParticipant ?? in_array($user?->role, ['admin', 'panitia'], true);
+$canDrawParticipant = $canDrawParticipant ?? ($user?->role === 'admin' || ($isPanitiaUser && $lotOpenForPanitia));
+$canDrawMaqra = $canDrawMaqra ?? ($user?->role === 'admin' || ($isPanitiaUser && $maqraOpenForPanitia));
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'participants.list');
 $usesMaqra = $participant?->category ? app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category) : false;
 $latestMaqraDraw = $participant?->latestMaqraDraw;
@@ -103,6 +106,9 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                     Ambil Nomor Lot
                                 </a>
                             <?php endif; ?>
+                            <?php if ($isPanitiaUser && ! $lotOpenForPanitia): ?>
+                                <p class="mt-2 text-xs text-amber-300">Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.</p>
+                            <?php endif; ?>
                             <?php if ($canManageLot): ?>
                                 <details class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
                                     <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
@@ -169,6 +175,9 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                     Ambil Nomor Lot
                                 </a>
                             <?php endif; ?>
+                            <?php if ($isPanitiaUser && ! $lotOpenForPanitia): ?>
+                                <p class="mt-2 text-xs text-amber-300">Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.</p>
+                            <?php endif; ?>
                             <p class="mt-2 text-xs text-slate-400">Format: kode golongan - nomor. Putra genap, putri ganjil.</p>
                             <?php if ($canManageLot): ?>
                                 <details class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
@@ -210,11 +219,14 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 <p class="mt-2 text-lg font-bold text-white"><?= e($maqraLabel) ?></p>
                                 <p class="mt-1 text-xs text-emerald-300">Diambil pada <?= e(optional($latestMaqraDraw?->drawn_at)->format('d M Y H:i') ?: '-') ?> • <?= e($latestMaqraDraw->round_label ?? 'Penyisihan') ?></p>
                                 <p class="mt-2 text-sm text-slate-300">QS resmi untuk pengambilan maqra ini.</p>
-                                <?php if ($canDrawParticipant): ?>
+                                <?php if ($canDrawMaqra): ?>
                                     <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.urlencode($latestMaqraRound)) ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                         Ambil Maqra
                                     </a>
+                                <?php endif; ?>
+                                <?php if ($isPanitiaUser && ! $maqraOpenForPanitia): ?>
+                                    <p class="mt-2 text-xs text-amber-300">Masa ambil maqra untuk panitia sedang ditutup oleh admin.</p>
                                 <?php endif; ?>
                                 <?php if ($canManageMaqra): ?>
                                     <details class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
@@ -269,11 +281,14 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 <?php endif; ?>
                             <?php elseif ($participant?->verification_status === 'verified'): ?>
                                 <p class="mt-2 text-sm text-slate-300">Peserta sudah terverifikasi dan siap diambil maqra-nya.</p>
-                                <?php if ($canDrawParticipant): ?>
+                                <?php if ($canDrawMaqra): ?>
                                     <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                         Ambil Maqra
                                     </a>
+                                <?php endif; ?>
+                                <?php if ($isPanitiaUser && ! $maqraOpenForPanitia): ?>
+                                    <p class="mt-2 text-xs text-amber-300">Masa ambil maqra untuk panitia sedang ditutup oleh admin.</p>
                                 <?php endif; ?>
                                 <p class="mt-2 text-xs text-slate-400">Babak default dimulai dari Penyisihan.</p>
                                 <?php if ($canManageMaqra): ?>

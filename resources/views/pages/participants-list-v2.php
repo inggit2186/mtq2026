@@ -14,11 +14,14 @@ $registrationStats = $registrationStats ?? ['total' => 0, 'verified' => 0, 'pend
 $districtLocked = $districtLocked ?? false;
 $canVerify = $canVerify ?? false;
 $canManageMaqra = $canManageMaqra ?? false;
-$canDrawParticipant = $canDrawParticipant ?? in_array($user?->role, ['admin', 'panitia'], true);
+$canDrawParticipant = $canDrawParticipant ?? false;
+$canDrawMaqra = $canDrawMaqra ?? false;
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
+$lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
+$maqraOpenForPanitia = (bool) ($officialAccessSetting->participant_maqra_open ?? true);
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
 $mainParticipants = $participants
@@ -201,6 +204,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?php if ($isPanitiaUser && ! $verificationOpenForPanitia): ?>
                                 <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
                                     Masa verifikasi peserta untuk panitia sedang ditutup oleh admin.
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($isPanitiaUser && ! $lotOpenForPanitia): ?>
+                                <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                    Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($isPanitiaUser && ! $maqraOpenForPanitia): ?>
+                                <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                    Masa ambil maqra untuk panitia sedang ditutup oleh admin.
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -495,7 +508,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     <div class="mt-2 inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
                                                         <?= e($maqraLabel) ?>
                                                     </div>
-                                                <?php elseif ($usesMaqra && $participant->verification_status === 'verified' && $canDrawParticipant): ?>
+                                                <?php elseif ($usesMaqra && $participant->verification_status === 'verified' && $canDrawMaqra): ?>
                                                     <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-2 rounded-xl border-fuchsia-300/30 bg-fuchsia-400/10 px-3 py-2 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
                                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                         Ambil Maqra

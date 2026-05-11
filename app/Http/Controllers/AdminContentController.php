@@ -62,6 +62,8 @@ class AdminContentController extends Controller
             'mandate_upload_open' => ['nullable', 'boolean'],
             'participant_documents_open' => ['nullable', 'boolean'],
             'participant_verification_open' => ['nullable', 'boolean'],
+            'participant_lot_open' => ['nullable', 'boolean'],
+            'participant_maqra_open' => ['nullable', 'boolean'],
         ]);
 
         $setting = OfficialAccessSetting::current() ?? new OfficialAccessSetting();
@@ -71,6 +73,8 @@ class AdminContentController extends Controller
             'mandate_upload_open' => $request->boolean('mandate_upload_open'),
             'participant_documents_open' => $request->boolean('participant_documents_open'),
             'participant_verification_open' => $request->boolean('participant_verification_open'),
+            'participant_lot_open' => $request->boolean('participant_lot_open'),
+            'participant_maqra_open' => $request->boolean('participant_maqra_open'),
         ]);
         $setting->save();
 
@@ -84,6 +88,8 @@ class AdminContentController extends Controller
                 'mandate_upload_open' => $setting->mandate_upload_open,
                 'participant_documents_open' => $setting->participant_documents_open,
                 'participant_verification_open' => $setting->participant_verification_open,
+                'participant_lot_open' => $setting->participant_lot_open,
+                'participant_maqra_open' => $setting->participant_maqra_open,
             ]
         );
 

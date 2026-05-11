@@ -153,11 +153,18 @@
     }
 
     .table-shell {
-        @apply overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950/92 shadow-[0_18px_50px_-28px_rgba(2,6,23,0.95)];
+        @apply overflow-x-auto overflow-y-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950/92 shadow-[0_18px_50px_-28px_rgba(2,6,23,0.95)];
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
     }
 
     body[data-theme='light'] .table-shell {
         @apply border-slate-200 bg-white/90 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.08)];
+    }
+
+    .table-shell > table {
+        width: max-content !important;
+        min-width: 100% !important;
     }
 
     .table-head {
@@ -186,10 +193,23 @@
 
     .sidebar-shell {
         @apply border border-cyan-400/12 bg-slate-950/72 backdrop-blur-2xl shadow-[0_30px_90px_-40px_rgba(14,165,233,0.35)];
+        height: calc(100dvh - 2rem);
+        overflow-y: scroll;
+        overscroll-behavior: contain;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
     }
 
     body[data-theme='light'] .sidebar-shell {
         @apply border-slate-200 bg-white/85 shadow-[0_30px_90px_-40px_rgba(15,23,42,0.08)] backdrop-blur-2xl;
+    }
+
+    @media (max-width: 767px) {
+        .table-shell > table {
+            width: max-content !important;
+            min-width: 720px !important;
+        }
     }
 
     .sidebar-link {

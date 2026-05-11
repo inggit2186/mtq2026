@@ -250,6 +250,16 @@ $impersonation = session('impersonation', []);
                                         'title' => 'Verifikasi Peserta',
                                         'description' => 'Membuka atau menutup form verifikasi peserta bagi panitia.',
                                     ],
+                                    [
+                                        'key' => 'participant_lot_open',
+                                        'title' => 'Ambil Nomor Lot',
+                                        'description' => 'Membuka atau menutup pengambilan nomor lot peserta bagi panitia.',
+                                    ],
+                                    [
+                                        'key' => 'participant_maqra_open',
+                                        'title' => 'Ambil Maqra',
+                                        'description' => 'Membuka atau menutup pengambilan maqra peserta bagi panitia.',
+                                    ],
                                 ];
                             ?>
 

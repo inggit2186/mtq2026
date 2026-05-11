@@ -203,7 +203,8 @@ class ParticipantRegistrationController extends Controller
             'restrictPanitiaDistricts' => $restrictPanitiaDistricts,
             'verificationDistrictIds' => $verificationDistrictIds,
             'canVerify' => $this->canUserVerifyParticipants(),
-            'canDrawParticipant' => in_array($user?->role, ['admin', 'panitia'], true),
+            'canDrawParticipant' => $this->canUserDrawLot(),
+            'canDrawMaqra' => $this->canUserDrawMaqra(),
             'canManageMaqra' => (string) $user?->role === 'admin',
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'maqraSwapCandidatesMap' => $maqraSwapCandidatesMap,
@@ -772,7 +773,8 @@ class ParticipantRegistrationController extends Controller
         $participant->load(['category', 'district', 'verificationLogs.verifier', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage']);
         $this->authorizeParticipantAccess($participant);
         $user = auth()->user();
-        $canDrawParticipant = in_array($user?->role, ['admin', 'panitia'], true);
+        $canDrawParticipant = $this->canUserDrawLot();
+        $canDrawMaqra = $this->canUserDrawMaqra($participant);
         $canManageLot = $user?->role === 'admin';
         $canManageMaqra = $user?->role === 'admin' && $this->participantUsesMaqra($participant);
         $maqraSwapCandidates = $canManageMaqra && $participant->latestMaqraDraw?->maqraPackage
@@ -796,6 +798,7 @@ class ParticipantRegistrationController extends Controller
             'canVerify' => $this->canUserVerifyParticipants(),
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'canDrawParticipant' => $canDrawParticipant,
+            'canDrawMaqra' => $canDrawMaqra,
             'districtMandate' => $this->districtMandateForParticipant($participant),
             'canManageLot' => $canManageLot,
             'canManageMaqra' => $canManageMaqra,
@@ -869,7 +872,7 @@ class ParticipantRegistrationController extends Controller
 
     public function lotDraw(Participant $participant): View
     {
-        $this->authorizeParticipantDrawAccess();
+        $this->authorizeParticipantDrawAccess('participant_lot_open', 'Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.');
         $participant->loadMissing(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar undian hanya tersedia untuk peserta yang sudah terverifikasi.');
@@ -888,7 +891,7 @@ class ParticipantRegistrationController extends Controller
 
     public function assignLotNumber(Request $request, Participant $participant): RedirectResponse|JsonResponse
     {
-        $this->authorizeParticipantDrawAccess();
+        $this->authorizeParticipantDrawAccess('participant_lot_open', 'Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.');
 
         $participant->loadMissing(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
@@ -961,7 +964,7 @@ class ParticipantRegistrationController extends Controller
 
     public function maqraDraw(Participant $participant): View
     {
-        $this->authorizeParticipantDrawAccess();
+        $this->authorizeParticipantDrawAccess('participant_maqra_open', 'Masa ambil maqra untuk panitia sedang ditutup oleh admin.');
         $participant->loadMissing(['category', 'district', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage']);
         $this->authorizeParticipantAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar maqra hanya tersedia untuk peserta yang sudah terverifikasi.');
@@ -1009,7 +1012,7 @@ class ParticipantRegistrationController extends Controller
 
     public function assignMaqra(Request $request, Participant $participant): RedirectResponse|JsonResponse
     {
-        $this->authorizeParticipantDrawAccess();
+        $this->authorizeParticipantDrawAccess('participant_maqra_open', 'Masa ambil maqra untuk panitia sedang ditutup oleh admin.');
 
         $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage']);
         $this->authorizeParticipantAccess($participant);
@@ -1578,9 +1581,15 @@ class ParticipantRegistrationController extends Controller
         abort_unless(auth()->user()?->role === 'admin', 403);
     }
 
-    protected function authorizeParticipantDrawAccess(): void
+    protected function authorizeParticipantDrawAccess(string $feature, string $message): void
     {
-        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+        $user = auth()->user();
+
+        abort_unless(in_array($user?->role, ['admin', 'panitia'], true), 403);
+
+        if ($user?->role === 'panitia' && ! $this->officialFeatureEnabled($feature)) {
+            abort(403, $message);
+        }
     }
 
     protected function authorizeParticipantCvAccess(Participant $participant): void
@@ -1621,6 +1630,28 @@ class ParticipantRegistrationController extends Controller
     protected function participantUsesMaqra(?Participant $participant): bool
     {
         return $participant?->category ? app(PageController::class)->categoryUsesMaqra($participant->category) : false;
+    }
+
+    protected function canUserDrawLot(): bool
+    {
+        $role = (string) auth()->user()?->role;
+
+        return $role === 'admin' || ($role === 'panitia' && $this->officialAccessSetting()->isEnabled('participant_lot_open'));
+    }
+
+    protected function canUserDrawMaqra(?Participant $participant = null): bool
+    {
+        $role = (string) auth()->user()?->role;
+
+        if ($role === 'admin') {
+            return $participant ? $this->participantUsesMaqra($participant) : true;
+        }
+
+        if ($role !== 'panitia' || ! $this->officialAccessSetting()->isEnabled('participant_maqra_open')) {
+            return false;
+        }
+
+        return $participant ? $this->participantUsesMaqra($participant) : true;
     }
 
     protected function maqraRoundFromRequest(Request $request): string
