@@ -75,7 +75,12 @@ $latestParticipantPhoto = $resolveParticipantPhoto($latestScoredEntry?->particip
                 <header class="glass-card rounded-[2.15rem] border-white/8 bg-gradient-to-r from-slate-950/88 via-slate-900/80 to-cyan-950/35 px-5 py-4">
                     <div class="flex items-start justify-between gap-6">
                         <div class="min-w-0">
-                            <div class="badge-live w-fit"><?= mtq_icon('spark', 'h-4 w-4') ?> Big Screen Operator</div>
+                            <div class="badge-live w-fit">
+                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-200/30 bg-slate-50 p-0.5">
+                                    <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
+                                </span>
+                                Big Screen Operator
+                            </div>
                             <h1 class="mt-3 max-w-5xl text-3xl font-black tracking-tight text-white 2xl:text-4xl"><?= e($eventTitle) ?></h1>
                             <p class="mt-2 text-base text-slate-300"><?= e($organizationName) ?> | <?= e($location) ?></p>
                             <p class="mt-3 text-sm font-semibold text-cyan-100/90"><?= e($categoryLabel) ?></p>

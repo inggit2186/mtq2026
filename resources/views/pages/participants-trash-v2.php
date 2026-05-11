@@ -155,6 +155,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     </form>
                 </section>
 
+                <?php if ($errors->any()): ?>
+                    <section class="space-y-3">
+                        <div class="rounded-[1.5rem] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-sm leading-6 text-rose-100">
+                            <?= e($errors->first()) ?>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
                 <section class="glass-card rounded-[2rem] p-6">
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
@@ -164,10 +172,24 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <h3 class="mt-2 text-2xl font-bold text-white">Data dan berkas peserta diarsipkan</h3>
                             </div>
                         </div>
-                        <span class="status-pill">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                            <?= e($participants->count()) ?> data
-                        </span>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span class="status-pill">
+                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                                <?= e($participants->count()) ?> data
+                            </span>
+                            <?php if (($legacyTrashCount ?? 0) > 0): ?>
+                                <form method="POST" action="<?= e(route('participants.trash.import-legacy')) ?>" data-swal-confirm data-swal-title="Tarik arsip lama?" data-swal-text="Data soft delete lama dari tabel peserta akan dipindahkan ke arsip baru. Data yang sudah pernah dipindah akan dilewati." data-swal-confirm="Ya, tarik" data-swal-cancel="Batal">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                        <?= mtq_icon('upload', 'h-4 w-4') ?>
+                                        Tarik Arsip Lama
+                                        <span class="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
+                                            <?= e($legacyTrashCount) ?>
+                                        </span>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <div class="table-shell mt-6">
@@ -212,7 +234,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 </span>
                                             </div>
                                             <div class="text-xs text-slate-400"><?= e($participant->registration_number) ?> | <?= e($participant->nik ?: '-') ?></div>
-                                            <div class="mt-1 text-xs text-rose-100">Diarsipkan: <?= e(optional($participant->deleted_at)->format('d M Y H:i')) ?></div>
+                                            <div class="mt-1 text-xs text-rose-100">Diarsipkan: <?= e(optional($participant->archived_at)->format('d M Y H:i')) ?></div>
                                         </td>
                                         <td class="px-5 py-4 text-sm text-slate-300"><?= e($participant->district?->name ?? '-') ?></td>
                                         <td class="px-5 py-4 text-sm text-slate-300"><?= e(($participant->category?->branch ?? '-').' - '.($participant->category?->name ?? '-')) ?></td>
@@ -229,13 +251,22 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             </div>
                                         </td>
                                         <td class="px-5 py-4">
-                                            <form method="POST" action="<?= e(route('participants.restore', ['participant' => $participant->id])) ?>">
-                                                <?= csrf_field() ?>
-                                                <button type="submit" class="primary-button rounded-xl px-3 py-2 text-xs">
-                                                    <?= mtq_icon('upload', 'h-4 w-4') ?>
-                                                    Pulihkan
-                                                </button>
-                                            </form>
+                                            <div class="flex flex-col gap-2">
+                                                <form method="POST" action="<?= e(route('participants.restore', ['participant' => $participant->id])) ?>">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="primary-button rounded-xl px-3 py-2 text-xs">
+                                                        <?= mtq_icon('upload', 'h-4 w-4') ?>
+                                                        Pulihkan
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="<?= e(route('participants.trash.destroy', ['participant' => $participant->id])) ?>" data-swal-confirm data-swal-title="Hapus permanen data peserta?" data-swal-text="Data peserta, berkas arsip, dan riwayat arsip akan dihapus permanen. Aksi ini tidak bisa dibatalkan." data-swal-confirm="Ya, hapus permanen" data-swal-cancel="Batal">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="secondary-button rounded-xl border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs text-rose-100 hover:border-rose-300/40">
+                                                        <?= mtq_icon('trash', 'h-4 w-4') ?>
+                                                        Hapus Permanen
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

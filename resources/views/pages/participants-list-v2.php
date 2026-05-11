@@ -423,7 +423,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         <th class="px-5 py-4">Peserta</th>
                                         <th class="px-5 py-4">Kecamatan</th>
                                         <th class="px-5 py-4">Kategori</th>
-                                        <th class="px-5 py-4">Status</th>
+                                        <th class="w-[11rem] px-5 py-4">Status</th>
                                         <th class="px-5 py-4">Aksi</th>
                                         <?php if ($canVerify): ?>
                                             <th class="px-5 py-4">Verifikasi</th>
@@ -443,7 +443,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <?php foreach ($pageGroupItems as $participant): ?>
                                         <tr class="table-row">
                                             <td class="px-5 py-4 text-sm text-cyan-200"><?= e($participant->registration_number) ?></td>
-                                            <td class="px-5 py-4">
+                                            <td class="w-[11rem] px-5 py-4 align-top">
                                                 <div class="font-semibold text-white"><?= e($participant->name) ?></div>
                                                 <?php if (filled($participant->lot_number)): ?>
                                                     <div class="mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
@@ -482,7 +482,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     || in_array($participant->verification_status, ['submitted', 'rejected'], true);
                                                 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
                                                 ?>
-                                                <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($statusClass) ?>">
+                                                <span class="inline-flex w-fit max-w-full items-center justify-center rounded-full border px-2.5 py-1.5 text-[11px] font-semibold uppercase leading-none tracking-[0.12em] whitespace-nowrap <?= e($statusClass) ?>">
                                                     <?= e($statusLabel) ?>
                                                 </span>
                                                 <?php if ($participant->verification_notes): ?>

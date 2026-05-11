@@ -23,7 +23,12 @@ $jsAssets = $assets['js'] ?? [];
         <div class="hero-orb hero-orb-blue right-[-6rem] bottom-10 h-72 w-72"></div>
         <div class="grid w-full gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
             <section class="glass-card rounded-[2rem] p-6 sm:p-8">
-                <div class="badge-live w-fit"><?= mtq_icon('spark', 'h-4 w-4') ?> Portal Masuk e-MTQ</div>
+                <div class="badge-live w-fit">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-200/30 bg-slate-50 p-0.5">
+                        <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
+                    </span>
+                    Portal Masuk e-MTQ
+                </div>
                 <h1 class="mt-4 text-3xl font-black tracking-tight text-white sm:text-5xl">
                     Satu pintu masuk untuk admin, panitia, official, dan peserta.
                 </h1>

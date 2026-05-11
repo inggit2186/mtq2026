@@ -23,6 +23,7 @@ $actionLabels = [
     'participant.updated' => 'Update Peserta',
     'participant.archived' => 'Arsip Peserta',
     'participant.restored' => 'Pulihkan Peserta',
+    'participant.permanently_deleted' => 'Hapus Permanen Arsip',
     'participant.verified' => 'Verifikasi Peserta',
     'participant.rejected' => 'Tolak Peserta',
     'participant.submitted' => 'Kembalikan Menunggu',

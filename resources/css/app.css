@@ -163,8 +163,17 @@
     }
 
     .table-shell > table {
-        width: max-content !important;
+        width: 100% !important;
         min-width: 100% !important;
+        table-layout: fixed;
+    }
+
+    .table-shell th,
+    .table-shell td {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        vertical-align: top;
     }
 
     .table-head {
@@ -200,27 +209,45 @@
     }
 
     @media (max-width: 767px) {
-        .sidebar-shell {
-            position: relative !important;
-            inset: auto !important;
-            left: auto !important;
-            right: auto !important;
-            top: auto !important;
-            bottom: auto !important;
-            width: 100% !important;
-            height: calc(100dvh - 2rem) !important;
-            max-height: calc(100dvh - 2rem) !important;
-            overflow-y: auto !important;
-            overscroll-behavior: contain;
-            overscroll-behavior-y: contain;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-gutter: stable;
-        }
-
         .table-shell > table {
             width: max-content !important;
             min-width: 720px !important;
+            table-layout: auto;
         }
+
+        .sidebar-shell {
+            position: fixed !important;
+            inset: 0 !important;
+            width: auto !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: 100dvh !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            transform: translateX(-115%) !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            z-index: 70 !important;
+            scrollbar-gutter: stable both-edges;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
+            border-radius: 0 !important;
+            padding: 1rem 1rem calc(6.5rem + env(safe-area-inset-bottom)) 1rem !important;
+        }
+
+        .sidebar-shell.translate-x-0.opacity-100 {
+            transform: translateX(0) !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        main:has(.sidebar-shell.translate-x-0.opacity-100) > .min-w-0.space-y-6 {
+            display: none !important;
+        }
+
     }
 
     .sidebar-link {

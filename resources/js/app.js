@@ -584,11 +584,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!target.closest('[data-gallery-pagination] a')) {
+        const galleryLink = target.closest('[data-gallery-pagination] a');
+        if (galleryLink) {
+            storeGalleryPaginationScrollPosition();
+        }
+
+        const sidebarLink = target.closest('.sidebar-shell a[href]');
+        if (!sidebarLink) {
             return;
         }
 
-        storeGalleryPaginationScrollPosition();
+        const sidebar = sidebarLink.closest('.sidebar-shell');
+        const main = sidebar?.closest('main');
+        if (!(main instanceof HTMLElement) || !window.Alpine?.$data) {
+            return;
+        }
+
+        try {
+            const data = window.Alpine.$data(main);
+            if (data && typeof data === 'object' && 'mobileNavOpen' in data) {
+                data.mobileNavOpen = false;
+            }
+        } catch {
+            // Ignore Alpine lookup failures and let normal navigation continue.
+        }
     });
 
     if (window.location.search.includes('gallery_page=')) {

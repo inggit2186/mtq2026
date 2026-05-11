@@ -87,7 +87,9 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/siaran/pengumuman/{announcement}', [BroadcastController::class, 'announcement'])->middleware('role:admin,panitia')->name('broadcast.announcement');
     Route::post('/siaran/jadwal/{schedule}', [BroadcastController::class, 'schedule'])->middleware('role:admin,panitia')->name('broadcast.schedule');
     Route::get('/admin/arsip-peserta', [ParticipantRegistrationController::class, 'trash'])->middleware('role:admin')->name('participants.trash');
+    Route::post('/admin/arsip-peserta/impor-arsip-lama', [ParticipantRegistrationController::class, 'importLegacyTrash'])->middleware('role:admin')->name('participants.trash.import-legacy');
     Route::post('/admin/arsip-peserta/{participant}/pulihkan', [ParticipantRegistrationController::class, 'restore'])->middleware('role:admin')->name('participants.restore');
+    Route::post('/admin/arsip-peserta/{participant}/hapus-permanen', [ParticipantRegistrationController::class, 'destroyArchived'])->middleware('role:admin')->name('participants.trash.destroy');
     Route::get('/admin/arsip-peserta/{participant}/dokumen/{document}/preview', [ParticipantRegistrationController::class, 'previewTrashedDocument'])->middleware('role:admin')->name('participants.trash.documents.preview');
     Route::get('/admin/arsip-peserta/{participant}/dokumen/{document}', [ParticipantRegistrationController::class, 'downloadTrashedDocument'])->middleware('role:admin')->name('participants.trash.documents.download');
     Route::get('/pendaftaran-peserta', [ParticipantRegistrationController::class, 'index'])->middleware('role:admin,panitia,official,pendamping')->name('participants.index');

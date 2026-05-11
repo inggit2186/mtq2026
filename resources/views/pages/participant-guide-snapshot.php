@@ -25,7 +25,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     <tr>
                         <td width="54" valign="top">
                             <div style="width:54px; height:54px; border-radius:16px; background:#11253a; border:1px solid #1f3b57; overflow:hidden;">
-                                <img src="<?= e(asset('images/favicon.png')) ?>" alt="Logo" style="width:100%; height:100%; object-fit:cover; display:block;">
+                                <img src="<?= e(asset('images/favicon.webp')) ?>" alt="Logo" style="width:100%; height:100%; object-fit:cover; display:block;">
                             </div>
                         </td>
                         <td valign="top" style="padding-left:14px;">

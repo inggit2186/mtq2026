@@ -44,7 +44,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="icon-chip"><?= mtq_icon('spark') ?></div>
+                        <div class="flex h-11 w-11 items-center justify-center rounded-[1.15rem] border border-cyan-200/30 bg-slate-50 p-2 shadow-[0_14px_30px_-18px_rgba(125,211,252,0.45)]">
+                            <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
+                        </div>
                         <div>
                             <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
                             <h1 class="mt-1 text-lg font-bold text-white"><?= e($user?->roleLabel()) ?> Workspace</h1>
@@ -479,7 +481,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     <div class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)]">
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <div>
-                                <div class="icon-chip"><?= mtq_icon('spark') ?></div>
+                                <div class="flex h-11 w-11 items-center justify-center rounded-[1.15rem] border border-cyan-200/30 bg-slate-50 p-2 shadow-[0_14px_30px_-18px_rgba(125,211,252,0.45)]">
+                                    <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
+                                </div>
                                 <p class="mt-5 section-kicker">Fokus Peran</p>
                                 <h2 class="mt-2 text-2xl font-bold text-white"><?= e($rolePanel['headline'] ?? '') ?></h2>
                                 <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300"><?= e($rolePanel['description'] ?? '') ?></p>

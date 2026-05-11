@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\ParticipantVerificationUpdated;
+use App\Models\ArchivedParticipant;
 use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraPackage;
@@ -277,7 +278,7 @@ class ParticipantRegistrationController extends Controller
             'keyword' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $participants = Participant::onlyTrashed()
+        $participants = ArchivedParticipant::query()
             ->with(['category', 'district'])
             ->when(filled($filters['district_id'] ?? null), fn ($query) => $query->where('district_id', $filters['district_id']))
             ->when(filled($filters['competition_category_id'] ?? null), fn ($query) => $query->where('competition_category_id', $filters['competition_category_id']))
@@ -293,8 +294,9 @@ class ParticipantRegistrationController extends Controller
                         ->orWhere('institution', 'like', '%'.$keyword.'%');
                 });
             })
-            ->orderByDesc('deleted_at')
+            ->orderByDesc('archived_at')
             ->get();
+        $legacyTrashCount = Participant::onlyTrashed()->count();
 
         return view('pages/participants-trash-v2', [
             'assets' => app(PageController::class)->viteAssets(),
@@ -314,7 +316,65 @@ class ParticipantRegistrationController extends Controller
                 'pending' => $participants->where('verification_status', 'submitted')->count(),
                 'rejected' => $participants->where('verification_status', 'rejected')->count(),
             ],
+            'legacyTrashCount' => $legacyTrashCount,
         ]);
+    }
+
+    public function importLegacyTrash(): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $legacyParticipants = Participant::onlyTrashed()
+            ->with(['category', 'district'])
+            ->orderByDesc('deleted_at')
+            ->get();
+
+        if ($legacyParticipants->isEmpty()) {
+            return redirect()
+                ->route('participants.trash')
+                ->with('status', 'Tidak ada data soft delete lama yang perlu dipindahkan ke arsip baru.');
+        }
+
+        $imported = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($legacyParticipants, &$imported, &$skipped): void {
+            foreach ($legacyParticipants as $legacyParticipant) {
+                $alreadyArchived = ArchivedParticipant::query()
+                    ->where('source_participant_id', $legacyParticipant->id)
+                    ->orWhere('registration_number', $legacyParticipant->registration_number)
+                    ->exists();
+
+                if ($alreadyArchived) {
+                    $legacyParticipant->forceDelete();
+                    $skipped++;
+                    continue;
+                }
+
+                ArchivedParticipant::query()->create(array_merge(
+                    $this->archivedParticipantPayload($legacyParticipant),
+                    ['source_participant_id' => $legacyParticipant->id]
+                ));
+
+                $legacyParticipant->forceDelete();
+                $imported++;
+            }
+        });
+
+        ActivityLogger::log(
+            'participant.legacy_archived_imported',
+            'Admin memindahkan arsip lama peserta ke tabel arsip baru.',
+            null,
+            [
+                'imported_count' => $imported,
+                'skipped_count' => $skipped,
+                'legacy_total' => $legacyParticipants->count(),
+            ]
+        );
+
+        return redirect()
+            ->route('participants.trash')
+            ->with('status', 'Pemindahan arsip lama selesai. '.$imported.' data dipindahkan'.($skipped > 0 ? ', '.$skipped.' data dilewati karena sudah ada di arsip baru.' : '.'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -736,36 +796,100 @@ class ParticipantRegistrationController extends Controller
 
         $participantName = $participant->name;
 
-        $participant->delete();
-
-        $this->logParticipantActivity(
-            'participant.archived',
-            $participant,
-            (auth()->user()?->name ?? 'Pengguna').' mengarsipkan peserta '.$participantName.'.',
-        );
+        DB::transaction(function () use ($participant, $participantName): void {
+            ArchivedParticipant::query()->create($this->archivedParticipantPayload($participant));
+            $this->logParticipantActivity(
+                'participant.archived',
+                $participant,
+                (auth()->user()?->name ?? 'Pengguna').' mengarsipkan peserta '.$participantName.'.',
+            );
+            $participant->forceDelete();
+        });
 
         return redirect()
             ->route('participants.list')
             ->with('status', 'Data peserta '.$participantName.' dipindahkan ke arsip admin.');
     }
 
-    public function restore(int $participant): RedirectResponse
+    public function restore(ArchivedParticipant $participant): RedirectResponse
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
 
-        $participantModel = Participant::onlyTrashed()->findOrFail($participant);
-        $participantName = $participantModel->name;
-        $participantModel->restore();
+        if (! CompetitionCategory::query()->whereKey($participant->competition_category_id)->exists()) {
+            return redirect()
+                ->route('participants.trash')
+                ->withErrors([
+                    'participant' => 'Pemulihan gagal. Golongan asal arsip sudah tidak tersedia.',
+                ]);
+        }
 
-        $this->logParticipantActivity(
-            'participant.restored',
-            $participantModel,
-            (auth()->user()?->name ?? 'Admin').' memulihkan peserta '.$participantName.' dari arsip.',
-        );
+        if (filled($participant->district_id) && ! District::query()->whereKey($participant->district_id)->exists()) {
+            return redirect()
+                ->route('participants.trash')
+                ->withErrors([
+                    'participant' => 'Pemulihan gagal. Kecamatan asal arsip sudah tidak tersedia.',
+                ]);
+        }
+
+        $participantName = $participant->name;
+        $activeNikExists = filled($participant->nik)
+            && Participant::query()->where('nik', $participant->nik)->exists();
+
+        if ($activeNikExists) {
+            return redirect()
+                ->route('participants.trash')
+                ->withErrors([
+                    'participant' => 'Pemulihan gagal. NIK '.$participant->nik.' sudah digunakan oleh peserta aktif.',
+                ]);
+        }
+
+        $activeRegistrationExists = Participant::query()
+            ->where('registration_number', $participant->registration_number)
+            ->exists();
+
+        if ($activeRegistrationExists) {
+            return redirect()
+                ->route('participants.trash')
+                ->withErrors([
+                    'participant' => 'Pemulihan gagal. Nomor registrasi '.$participant->registration_number.' sudah digunakan oleh peserta aktif.',
+                ]);
+        }
+
+        DB::transaction(function () use ($participant, $participantName): void {
+            $restored = Participant::query()->create($this->archivedParticipantPayloadToActive($participant));
+            $participant->delete();
+
+            $this->logParticipantActivity(
+                'participant.restored',
+                $restored,
+                (auth()->user()?->name ?? 'Admin').' memulihkan peserta '.$participantName.' dari arsip.',
+            );
+        });
 
         return redirect()
             ->route('participants.trash')
             ->with('status', 'Data peserta '.$participantName.' berhasil dipulihkan ke daftar peserta.');
+    }
+
+    public function destroyArchived(ArchivedParticipant $participant): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $participantName = $participant->name;
+
+        DB::transaction(function () use ($participant, $participantName): void {
+            $this->deleteArchivedParticipantFiles($participant);
+            $this->logParticipantActivity(
+                'participant.permanently_deleted',
+                $participant,
+                (auth()->user()?->name ?? 'Admin').' menghapus permanen arsip peserta '.$participantName.'.',
+            );
+            $participant->delete();
+        });
+
+        return redirect()
+            ->route('participants.trash')
+            ->with('status', 'Data peserta '.$participantName.' dihapus permanen dari arsip.');
     }
 
     public function show(Participant $participant): View
@@ -1397,24 +1521,24 @@ class ParticipantRegistrationController extends Controller
         return back()->with('status', 'Nomor lot peserta '.$participant->name.' berhasil ditukar dengan '.$swapParticipant->name.'.');
     }
 
-    public function previewTrashedDocument(Request $request, int $participant, string $document): StreamedResponse|BinaryFileResponse
+    public function previewTrashedDocument(Request $request, ArchivedParticipant $participant, string $document): StreamedResponse|BinaryFileResponse
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
 
-        $participantModel = Participant::onlyTrashed()->with(['category', 'district'])->findOrFail($participant);
-        $file = $this->resolveDocumentEntry($this->documentMap($participantModel), $document, (int) $request->query('index', 0));
+        $participant->loadMissing(['category', 'district']);
+        $file = $this->resolveDocumentEntry($this->documentMap($participant), $document, (int) $request->query('index', 0));
         abort_unless($file['path'], 404);
         abort_unless(Storage::disk('public')->exists($file['path']), 404);
 
         return Storage::disk('public')->response($file['path']);
     }
 
-    public function downloadTrashedDocument(Request $request, int $participant, string $document): StreamedResponse
+    public function downloadTrashedDocument(Request $request, ArchivedParticipant $participant, string $document): StreamedResponse
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
 
-        $participantModel = Participant::onlyTrashed()->with(['category', 'district'])->findOrFail($participant);
-        $file = $this->resolveDocumentEntry($this->documentMap($participantModel), $document, (int) $request->query('index', 0));
+        $participant->loadMissing(['category', 'district']);
+        $file = $this->resolveDocumentEntry($this->documentMap($participant), $document, (int) $request->query('index', 0));
         abort_unless($file['path'], 404);
         abort_unless(Storage::disk('public')->exists($file['path']), 404);
 
@@ -1532,7 +1656,7 @@ class ParticipantRegistrationController extends Controller
             ->with('status', 'Status verifikasi peserta '.$participant->name.' diperbarui menjadi '.ucfirst($validated['verification_status']).'.');
     }
 
-    protected function logParticipantActivity(string $action, Participant $participant, string $description, array $properties = []): void
+    protected function logParticipantActivity(string $action, Participant|ArchivedParticipant $participant, string $description, array $properties = []): void
     {
         $participant->loadMissing(['district', 'category']);
 
@@ -1544,7 +1668,7 @@ class ParticipantRegistrationController extends Controller
         );
     }
 
-    protected function participantLogContext(Participant $participant): array
+    protected function participantLogContext(Participant|ArchivedParticipant $participant): array
     {
         return [
             'participant_id' => $participant->id,
@@ -2566,7 +2690,83 @@ class ParticipantRegistrationController extends Controller
         return filled($value) ? '✓' : '-';
     }
 
-    protected function documentMap(Participant $participant): array
+    protected function archivedParticipantPayload(Participant $participant): array
+    {
+        return array_merge($this->participantBasePayload($participant), [
+            'source_participant_id' => $participant->id,
+            'archived_by' => auth()->id(),
+            'archived_at' => now(),
+        ]);
+    }
+
+    protected function archivedParticipantPayloadToActive(ArchivedParticipant $participant): array
+    {
+        return array_merge($this->participantBasePayload($participant), [
+            'status' => 'active',
+        ]);
+    }
+
+    protected function participantBasePayload(Participant|ArchivedParticipant $participant): array
+    {
+        return [
+            'district_id' => $participant->district_id ?: null,
+            'competition_category_id' => $participant->competition_category_id,
+            'registration_number' => $participant->registration_number,
+            'participant_role' => $participant->participant_role,
+            'name' => $participant->name,
+            'gender' => $participant->gender,
+            'nik' => $participant->nik,
+            'ktp_date' => $participant->ktp_date,
+            'place_of_birth' => $participant->place_of_birth,
+            'date_of_birth' => $participant->date_of_birth,
+            'kk_number' => $participant->kk_number,
+            'kk_date' => $participant->kk_date,
+            'phone' => $participant->phone,
+            'institution' => $participant->institution,
+            'last_education' => $participant->last_education,
+            'bank_name' => $participant->bank_name,
+            'bank_account_number' => $participant->bank_account_number,
+            'bank_account_name' => $participant->bank_account_name,
+            'current_address' => $participant->current_address,
+            'ktp_address' => $participant->ktp_address,
+            'ktp_district' => $participant->ktp_district,
+            'ktp_regency' => $participant->ktp_regency,
+            'region' => $participant->region,
+            'avatar' => $participant->avatar,
+            'document_kk' => $participant->document_kk,
+            'document_ktp' => $participant->document_ktp,
+            'document_birth_certificate' => $participant->document_birth_certificate,
+            'document_photo' => $participant->document_photo,
+            'document_last_diploma' => $participant->document_last_diploma,
+            'document_bank_book' => $participant->document_bank_book,
+            'document_certificates' => $participant->document_certificates ?? [],
+            'document_other_files' => $participant->document_other_files ?? [],
+            'status' => $participant->status ?? 'active',
+            'verification_status' => $participant->verification_status ?? 'draft',
+            'lot_number' => $participant->lot_number,
+            'lot_assigned_at' => $participant->lot_assigned_at,
+            'verification_notes' => $participant->verification_notes,
+            'document_revision_notes' => $participant->document_revision_notes ?? [],
+        ];
+    }
+
+    protected function deleteArchivedParticipantFiles(ArchivedParticipant $participant): void
+    {
+        $this->deleteStoredFile($participant->avatar);
+
+        $documentMap = $this->documentMap($participant);
+
+        foreach ($documentMap as $entry) {
+            if ($entry['multiple'] ?? false) {
+                $this->deleteStoredFiles($entry['files'] ?? []);
+                continue;
+            }
+
+            $this->deleteStoredFile($entry['path'] ?? null);
+        }
+    }
+
+    protected function documentMap(Participant|ArchivedParticipant $participant): array
     {
         $revisionNotes = $participant->document_revision_notes ?? [];
 
