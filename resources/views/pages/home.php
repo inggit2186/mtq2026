@@ -44,7 +44,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
             <header class="glass-card rounded-[2rem] px-5 py-4 sm:px-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div class="flex items-center gap-4">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-200/30 bg-slate-50 p-2 shadow-[0_18px_40px_-24px_rgba(125,211,252,0.45)]">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-200/30 bg-transparent p-2 shadow-[0_18px_40px_-24px_rgba(125,211,252,0.45)]">
                             <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
                         </div>
                         <div>

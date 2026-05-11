@@ -24,7 +24,7 @@ $jsAssets = $assets['js'] ?? [];
         <div class="grid w-full gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
             <section class="glass-card rounded-[2rem] p-6 sm:p-8">
                 <div class="badge-live w-fit">
-                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-200/30 bg-slate-50 p-0.5">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-200/30 bg-transparent p-0.5">
                         <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
                     </span>
                     Portal Masuk e-MTQ

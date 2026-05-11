@@ -153,9 +153,7 @@
     }
 
     .table-shell {
-        @apply overflow-x-auto overflow-y-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950/92 shadow-[0_18px_50px_-28px_rgba(2,6,23,0.95)];
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-x: contain;
+        @apply overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950/92 shadow-[0_18px_50px_-28px_rgba(2,6,23,0.95)];
     }
 
     body[data-theme='light'] .table-shell {
@@ -177,7 +175,14 @@
     }
 
     .table-head {
-        @apply bg-slate-900 text-left text-xs uppercase tracking-[0.24em] text-slate-400;
+        @apply bg-slate-900 text-left text-[11px] uppercase tracking-[0.18em] text-slate-400;
+    }
+
+    .table-head th {
+        white-space: nowrap;
+        overflow-wrap: normal;
+        word-break: normal;
+        line-height: 1.15;
     }
 
     body[data-theme='light'] .table-head {
@@ -210,9 +215,9 @@
 
     @media (max-width: 767px) {
         .table-shell > table {
-            width: max-content !important;
-            min-width: 720px !important;
-            table-layout: auto;
+            width: 100% !important;
+            min-width: 100% !important;
+            table-layout: fixed;
         }
 
         .sidebar-shell {

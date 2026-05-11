@@ -3,7 +3,7 @@
         <div class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_320px] xl:items-start">
             <div class="space-y-4">
                 <div class="flex items-center gap-3">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-[1.15rem] border border-cyan-200/30 bg-slate-50 p-1.5 shadow-[0_14px_30px_-18px_rgba(125,211,252,0.45)]">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-[1.15rem] border border-cyan-200/30 bg-transparent p-1.5 shadow-[0_14px_30px_-18px_rgba(125,211,252,0.45)]">
                         <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
                     </div>
                     <div>
@@ -16,7 +16,7 @@
                     <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-white/10 bg-slate-950/35 p-3 shadow-[0_18px_45px_-30px_rgba(34,211,238,0.35)] sm:h-24">
                         <img src="<?= e(asset('images/favicon.webp')) ?>" alt="Logo Kementerian Agama" class="max-h-full w-full object-contain">
                     </div>
-                    <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-cyan-200/30 bg-slate-50 p-2.5 shadow-[0_18px_45px_-30px_rgba(125,211,252,0.45)] sm:h-24">
+                    <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-cyan-200/30 bg-transparent p-2.5 shadow-[0_18px_45px_-30px_rgba(125,211,252,0.45)] sm:h-24">
                         <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="max-h-full w-full object-contain">
                     </div>
                     <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-emerald-300/20 bg-slate-950/35 p-2.5 shadow-[0_18px_45px_-30px_rgba(74,222,128,0.25)] sm:h-24">

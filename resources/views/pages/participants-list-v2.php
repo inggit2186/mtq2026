@@ -417,16 +417,34 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                             <div class="table-shell mt-6">
                             <table class="min-w-full">
+                                <colgroup>
+                                    <?php if ($canVerify): ?>
+                                        <col style="width: 14%;">
+                                        <col style="width: 23%;">
+                                        <col style="width: 12%;">
+                                        <col style="width: 12%;">
+                                        <col style="width: 13%;">
+                                        <col style="width: 16%;">
+                                        <col style="width: 10%;">
+                                    <?php else: ?>
+                                        <col style="width: 14%;">
+                                        <col style="width: 29%;">
+                                        <col style="width: 13%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 12%;">
+                                        <col style="width: 18%;">
+                                    <?php endif; ?>
+                                </colgroup>
                                 <thead class="table-head">
                                     <tr>
-                                        <th class="px-5 py-4">No. Registrasi</th>
-                                        <th class="px-5 py-4">Peserta</th>
-                                        <th class="px-5 py-4">Kecamatan</th>
-                                        <th class="px-5 py-4">Kategori</th>
-                                        <th class="w-[11rem] px-5 py-4">Status</th>
-                                        <th class="px-5 py-4">Aksi</th>
+                                        <th class="px-3 py-3 text-center">No. Registrasi</th>
+                                        <th class="px-3 py-3 text-center">Peserta</th>
+                                        <th class="px-3 py-3 text-center">Kecamatan</th>
+                                        <th class="px-3 py-3 text-center">Kategori</th>
+                                        <th class="px-3 py-3 text-center">Status</th>
+                                        <th class="px-3 py-3 text-center">Aksi</th>
                                         <?php if ($canVerify): ?>
-                                            <th class="px-5 py-4">Verifikasi</th>
+                                            <th class="px-3 py-3 text-center">Verifikasi</th>
                                         <?php endif; ?>
                                     </tr>
                                 </thead>
@@ -442,9 +460,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <?php endif; ?>
                                     <?php foreach ($pageGroupItems as $participant): ?>
                                         <tr class="table-row">
-                                            <td class="px-5 py-4 text-sm text-cyan-200"><?= e($participant->registration_number) ?></td>
-                                            <td class="w-[11rem] px-5 py-4 align-top">
-                                                <div class="font-semibold text-white"><?= e($participant->name) ?></div>
+                                            <td class="px-3 py-3 text-sm leading-tight text-cyan-200">
+                                                <span class="break-all"><?= e($participant->registration_number) ?></span>
+                                            </td>
+                                            <td class="px-3 py-3 align-top">
+                                                <div class="break-normal font-semibold leading-snug text-white"><?= e($participant->name) ?></div>
                                                 <?php if (filled($participant->lot_number)): ?>
                                                     <div class="mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
                                                         Lot <?= e($participant->lot_number) ?>
@@ -454,9 +474,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 <?php endif; ?>
                                                 <div class="mt-1 text-xs text-slate-400"><?= e($participant->nik ?: '-') ?></div>
                                             </td>
-                                            <td class="px-5 py-4 text-sm text-slate-300"><?= e($participant->district?->name ?? '-') ?></td>
-                                            <td class="px-5 py-4 text-sm text-slate-300"><?= e($participant->category?->name ?? '-') ?></td>
-                                            <td class="px-5 py-4">
+                                            <td class="px-3 py-3 text-sm text-slate-300">
+                                                <span class="break-normal"><?= e($participant->district?->name ?? '-') ?></span>
+                                            </td>
+                                            <td class="px-3 py-3 text-sm text-slate-300">
+                                                <span class="break-normal"><?= e($participant->category?->name ?? '-') ?></span>
+                                            </td>
+                                            <td class="px-3 py-3">
                                                 <?php
                                                 $statusLabel = match ($participant->verification_status) {
                                                     'verified' => 'Terverifikasi',
@@ -493,7 +517,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         Lot <?= e($participant->lot_number) ?>
                                                     </div>
                                                 <?php elseif ($participant->verification_status === 'verified' && $canDrawParticipant): ?>
-                                                    <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-2 rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] text-cyan-100 hover:border-cyan-200/50">
+                                                    <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-2 rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] leading-tight text-cyan-100 hover:border-cyan-200/50">
                                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                         Ambil Nomor Lot
                                                     </a>
@@ -509,32 +533,32 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <?= e($maqraLabel) ?>
                                                     </div>
                                                 <?php elseif ($usesMaqra && $participant->verification_status === 'verified' && $canDrawMaqra): ?>
-                                                    <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-2 rounded-xl border-fuchsia-300/30 bg-fuchsia-400/10 px-3 py-2 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
+                                                    <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-2 rounded-xl border-fuchsia-300/30 bg-fuchsia-400/10 px-3 py-2 text-[11px] leading-tight text-fuchsia-100 hover:border-fuchsia-200/50">
                                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                         Ambil Maqra
                                                     </a>
                                                 <?php endif; ?>
                                             </td>
-                                            <td class="px-5 py-4">
-                                                <div class="flex flex-wrap gap-2">
-                                                    <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                            <td class="px-3 py-3">
+                                                <div class="grid gap-1.5">
+                                                    <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                         <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                                         Lihat Detail
                                                     </a>
                                                     <?php if ($canEditParticipant): ?>
-                                                        <a href="<?= e(route('participants.edit', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
+                                                        <a href="<?= e(route('participants.edit', $participant)) ?>" class="secondary-button rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                             <?= mtq_icon('id-card', 'h-4 w-4') ?>
                                                             Edit
                                                         </a>
                                                     <?php else: ?>
-                                                        <span class="inline-flex rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100">
+                                                        <span class="inline-flex rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-2 text-[11px] font-semibold text-emerald-100">
                                                             <?= e($officialMandateRejected ? 'Mandat Ditolak' : 'Terkunci') ?>
                                                         </span>
                                                     <?php endif; ?>
                                                     <?php if ($canDeleteParticipant): ?>
                                                         <form method="POST" action="<?= e(route('participants.archive', $participant)) ?>" <?= $usesOfficialDeleteCopy ? 'data-swal-confirm data-swal-title="Hapus data peserta?" data-swal-text="Data akan dipindahkan ke arsip admin dan dapat dipanggil kembali jika diperlukan." data-swal-confirm="Ya, hapus" data-swal-cancel="Batal"' : '' ?>>
                                                             <?= csrf_field() ?>
-                                                            <button type="submit" class="secondary-button rounded-xl border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs text-rose-100 hover:border-rose-300/40">
+                                                            <button type="submit" class="secondary-button rounded-xl border-rose-400/20 bg-rose-400/10 px-2.5 py-2 text-[11px] leading-tight text-center text-rose-100 hover:border-rose-300/40">
                                                                 <?= mtq_icon('trash', 'h-4 w-4') ?>
                                                                 <?= e($usesOfficialDeleteCopy ? 'Hapus' : 'Arsipkan') ?>
                                                             </button>
@@ -543,14 +567,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 </div>
                                             </td>
                                             <?php if ($canVerify): ?>
-                                                <td class="px-5 py-4">
-                                                    <div class="grid gap-2">
-                                                        <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-3 py-2 text-[11px] leading-tight text-center">
+                                                <td class="px-3 py-3">
+                                                    <div class="grid gap-1.5">
+                                                        <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                             <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                                             Cek Berkas
                                                         </a>
                                                         <?php if ($participant->verification_status === 'verified'): ?>
-                                                            <a href="<?= e(route('participants.cv', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-3 py-2 text-[11px] leading-tight text-center">
+                                                            <a href="<?= e(route('participants.cv', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                                 <?= mtq_icon('download', 'h-4 w-4') ?>
                                                                 Download CV
                                                             </a>
