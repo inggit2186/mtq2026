@@ -1794,9 +1794,9 @@ class ParticipantRegistrationController extends Controller
 
         if (
             in_array($user?->role, ['official', 'pendamping'], true)
-            && $participant->verification_status === 'verified'
+            && in_array($participant->verification_status, ['submitted', 'verified'], true)
         ) {
-            abort(403, 'Data peserta yang sudah terverifikasi tidak dapat diedit lagi oleh official.');
+            abort(403, 'Data peserta yang sudah dikirim ke verifikasi tidak dapat diedit lagi oleh official.');
         }
     }
 

@@ -22,8 +22,8 @@
     </div>
 
     @if (filled(session('impersonation.original_user_id')))
-        <div class="fixed right-4 top-4 z-[90] w-full max-w-sm">
-            <div class="rounded-[1.5rem] border border-amber-400/25 bg-amber-400/10 px-4 py-4 text-amber-50 shadow-[0_20px_45px_-28px_rgba(245,158,11,0.55)] backdrop-blur">
+        <div class="fixed left-1/2 top-4 z-[120] w-[calc(100vw-2rem)] max-w-3xl -translate-x-1/2">
+            <div class="rounded-[1.25rem] border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-amber-50 shadow-[0_20px_45px_-28px_rgba(245,158,11,0.55)] backdrop-blur">
                 <p class="text-sm font-semibold">Mode login sebagai user lain aktif</p>
                 <p class="mt-1 text-sm leading-6 opacity-90">
                     Admin {{ session('impersonation.original_user_name', '-') }} sedang masuk sebagai {{ auth()->user()?->name ?? '-' }}.

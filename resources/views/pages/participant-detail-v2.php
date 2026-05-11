@@ -12,11 +12,12 @@ $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
+$officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
     && $user?->district?->mandate_status === 'rejected';
 $canEditParticipant = ! (
     (in_array($user?->role, ['official', 'pendamping'], true)
-    && $participant?->verification_status === 'verified')
+    && in_array($participant?->verification_status, ['submitted', 'verified'], true))
     || $officialMandateRejected
 );
 $canEditParticipant = $canEditParticipant && (! $isOfficialUser || $officialEditOpen);
