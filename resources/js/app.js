@@ -400,12 +400,39 @@ function handleSubmitError(xhr, fallbackMessage = 'Koneksi ke server terputus. S
         }
     }
 
+    message = normalizeSubmitErrorMessage(message || fallbackMessage);
+
     Swal.fire({
         ...swalTheme,
         icon: 'error',
-        title: 'Gagal mengirim data',
+        title: 'Permohonan tidak dapat diproses',
         text: message || fallbackMessage,
     });
+}
+
+function normalizeSubmitErrorMessage(message) {
+    const text = String(message || '').trim();
+
+    if (!text) {
+        return 'Permintaan Anda tidak dapat diproses saat ini. Silakan periksa kembali data yang diisi lalu coba lagi.';
+    }
+
+    const replacements = [
+        [/^the nik has already been taken\.?$/i, 'NIK tersebut sudah terdaftar pada data peserta lain.'],
+        [/^the email has already been taken\.?$/i, 'Alamat email tersebut sudah digunakan pada akun lain.'],
+        [/^the .* has already been taken\.?$/i, 'Data yang dimasukkan sudah terdaftar pada sistem.'],
+        [/^the .* field is required\.?$/i, 'Masih ada isian wajib yang belum lengkap.'],
+        [/^koneksi ke server terputus\. silakan coba lagi\.?$/i, 'Koneksi ke server terputus. Silakan periksa jaringan Anda lalu coba lagi.'],
+        [/^terjadi kesalahan saat menyimpan data\.?$/i, 'Data tidak dapat disimpan saat ini. Silakan periksa kembali isian Anda.'],
+    ];
+
+    for (const [pattern, replacement] of replacements) {
+        if (pattern.test(text)) {
+            return replacement;
+        }
+    }
+
+    return text;
 }
 
 function showQueuedSweetAlerts() {
