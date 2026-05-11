@@ -2086,7 +2086,7 @@ class ParticipantRegistrationController extends Controller
             'ktp_document' => [$isCreate && ! $underSeventeen ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'birth_certificate_document' => [$isCreate ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'photo_document' => [$isCreate ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
-            'last_diploma_document' => [$isCreate && ! $underSeventeen ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'last_diploma_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'bank_book_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'certificate_documents' => ['nullable', 'array'],
             'certificate_documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
@@ -2130,7 +2130,6 @@ class ParticipantRegistrationController extends Controller
             'photo_document.mimes' => 'Pas foto harus berformat JPG, JPEG, atau PNG.',
             'photo_document.max' => 'Pas foto maksimal berukuran 2 MB.',
             'photo_document.dimensions' => 'Pas foto harus memiliki rasio 3:4 dengan ukuran minimal 300 x 400 piksel.',
-            'last_diploma_document.required' => 'Ijazah terakhir wajib diunggah.',
             'last_diploma_document.file' => 'Ijazah terakhir harus berupa file yang sah.',
             'last_diploma_document.mimes' => 'Ijazah terakhir harus berformat PDF, JPG, JPEG, atau PNG.',
             'bank_book_document.file' => 'Buku tabungan harus berupa file yang sah.',
@@ -3060,5 +3059,4 @@ class ParticipantRegistrationController extends Controller
         ];
     }
 }
-
 

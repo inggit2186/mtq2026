@@ -1051,8 +1051,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             </template>
                         </div>
 
-                        <div x-bind:class="isUnderSeventeen() ? 'rounded-2xl border border-cyan-400/20 bg-cyan-400/6 px-4 py-4' : ''">
-                            <label class="mb-2 block text-sm font-semibold text-slate-200" x-bind:class="isUnderSeventeen() ? 'text-cyan-100' : ''">Upload Ijazah Terakhir <span class="text-xs font-medium text-cyan-200" x-show="isUnderSeventeen()">(otomatis opsional)</span></label>
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Upload Ijazah Terakhir <span class="text-xs font-medium text-cyan-200">(opsional)</span></label>
                             <input name="last_diploma_document" type="file" accept="image/*,.pdf" x-on:change="trackDocumentFile($event, 'last_diploma_document')" class="w-full rounded-2xl border border-emerald-400/18 bg-slate-950/80 px-4 py-3 text-slate-300 outline-none file:mr-4 file:rounded-xl file:border-0 file:bg-emerald-400/10 file:px-4 file:py-2 file:text-emerald-200">
                             <p class="mt-2 text-xs text-slate-400" x-text="'File terpilih: ' + displayFileName('last_diploma_document', 'Belum ada file dipilih')"></p>
                             <template x-if="documentPreviewUrl('last_diploma_document')">
@@ -1137,7 +1137,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         <p x-bind:class="hasFile('kk_document') ? 'text-emerald-200' : 'text-amber-100'" x-text="'KK: ' + displayFileName('kk_document', 'belum dipilih')"></p>
                                         <p x-text="'KTP: ' + displayFileName('ktp_document', 'opsional / belum dipilih')"></p>
                                         <p x-show="photoPreviewUrl" x-bind:class="photoRatioValid() ? 'text-emerald-200' : 'text-rose-200'" x-text="'Rasio pas foto: ' + photoRatioStatusLabel()"></p>
-                                        <p x-bind:class="hasFile('last_diploma_document') ? 'text-emerald-200' : 'text-amber-100'" x-text="'Ijazah terakhir: ' + displayFileName('last_diploma_document', 'belum dipilih')"></p>
+                                        <p x-text="'Ijazah terakhir (opsional): ' + displayFileName('last_diploma_document', 'belum dipilih')"></p>
                                         <p x-bind:class="hasFile('bank_book_document') ? 'text-emerald-200' : 'text-amber-100'" x-text="'Buku tabungan: ' + displayFileName('bank_book_document', 'belum dipilih')"></p>
                                         <p x-text="'Piagam: ' + displayMultipleFileNames('certificate_documents', 'opsional / belum dipilih')"></p>
                                         <p x-text="'Dokumen lainnya: ' + displayMultipleFileNames('other_documents', 'opsional / belum dipilih')"></p>
@@ -1752,10 +1752,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                         if (!this.hasFile('ktp_document')) {
                             missing.push('Dokumen KTP');
-                        }
-
-                        if (!this.hasFile('last_diploma_document')) {
-                            missing.push('Ijazah terakhir');
                         }
                     }
 
