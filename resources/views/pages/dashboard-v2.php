@@ -186,38 +186,31 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 </section>
 
                 <?php if ($dashboardNotices->isNotEmpty()): ?>
-                    <section class="glass-card rounded-[2rem] p-6 sm:p-8">
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <p class="section-kicker">Notifikasi Dashboard</p>
-                                <h2 class="mt-2 text-2xl font-bold text-white">Pesan kecil untuk ruang kerja ini</h2>
-                                <p class="mt-2 text-sm leading-6 text-slate-300">Notifikasi ini hanya tampil untuk dashboard yang memang dituju oleh admin.</p>
+                    <?php
+                    $dashboardNotice = $dashboardNotices->first();
+                    $dashboardPriority = (string) ($dashboardNotice->priority ?? 'normal');
+                    $dashboardNoticeClass = match ($dashboardPriority) {
+                        'high' => 'border-amber-300/50 bg-gradient-to-r from-amber-400/20 via-orange-500/18 to-slate-950/70 text-amber-50 shadow-[0_22px_55px_-30px_rgba(251,191,36,0.55)]',
+                        'low' => 'border-slate-300/25 bg-gradient-to-r from-slate-700/35 via-slate-800/45 to-slate-950/70 text-slate-100 shadow-[0_22px_55px_-30px_rgba(148,163,184,0.25)]',
+                        default => 'border-cyan-300/50 bg-gradient-to-r from-cyan-400/20 via-sky-500/18 to-slate-950/70 text-cyan-50 shadow-[0_22px_55px_-30px_rgba(34,211,238,0.5)]',
+                    };
+                    ?>
+                    <section class="rounded-[2rem] border px-5 py-5 sm:px-6 sm:py-6 <?= e($dashboardNoticeClass) ?>">
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Area Pengguna</p>
+                                <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">Notifikasi dashboard</p>
+                                <h2 class="mt-2 text-xl font-bold text-white sm:text-2xl"><?= e($dashboardNotice->title) ?></h2>
+                                <p class="mt-3 max-w-4xl text-sm leading-6 text-white/90 sm:text-base"><?= e($dashboardNotice->body) ?></p>
                             </div>
-                            <div class="status-pill">
-                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                                Tersaring per role
+                            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                <span class="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                                    <?= e($dashboardNotice->audienceLabel()) ?>
+                                </span>
+                                <span class="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
+                                    <?= e(optional($dashboardNotice->published_at)->translatedFormat('d M Y H:i') ?? '-') ?>
+                                </span>
                             </div>
-                        </div>
-
-                        <div class="mt-5 grid gap-3 lg:grid-cols-3">
-                            <?php foreach ($dashboardNotices as $notice): ?>
-                                <?php
-                                $priority = (string) ($notice->priority ?? 'normal');
-                                $toneClass = match ($priority) {
-                                    'high' => 'border-amber-400/20 bg-amber-400/10 text-amber-100',
-                                    'low' => 'border-slate-500/30 bg-slate-500/10 text-slate-200',
-                                    default => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100',
-                                };
-                                ?>
-                                <article class="rounded-[1.5rem] border px-4 py-4 <?= e($toneClass) ?>">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <p class="text-sm font-semibold"><?= e($notice->title) ?></p>
-                                        <span class="rounded-full border border-current/20 bg-slate-950/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"><?= e($notice->audienceLabel()) ?></span>
-                                    </div>
-                                    <p class="mt-2 text-sm leading-6 opacity-90"><?= e($notice->body) ?></p>
-                                    <p class="mt-3 text-xs opacity-70"><?= e(optional($notice->published_at)->translatedFormat('d M Y H:i') ?? '-') ?></p>
-                                </article>
-                            <?php endforeach; ?>
                         </div>
                     </section>
                 <?php endif; ?>
