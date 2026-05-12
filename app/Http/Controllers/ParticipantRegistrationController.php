@@ -2245,12 +2245,8 @@ class ParticipantRegistrationController extends Controller
 
     protected function districtMandateForParticipant(Participant $participant): ?District
     {
-        if (! in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
+        if (auth()->user()?->role !== 'admin') {
             return null;
-        }
-
-        if (auth()->user()?->role === 'panitia') {
-            $this->authorizeDistrictVerificationAccess($participant->district);
         }
 
         return District::query()
