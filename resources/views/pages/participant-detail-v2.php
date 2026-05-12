@@ -561,12 +561,35 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                     </div>
                                     <p class="mt-2 text-sm text-white"><?= e(ucfirst((string) $participant?->gender)) ?></p>
                                 </div>
-                                <div class="data-card">
+                                <div class="data-card sm:col-span-2">
                                     <div class="flex items-center gap-2 text-slate-500">
                                         <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-300/14 bg-cyan-400/10 text-cyan-200"><?= mtq_icon('clock', 'h-4 w-4') ?></span>
                                         <p class="text-xs uppercase tracking-[0.2em]">Umur</p>
                                     </div>
-                                    <p class="mt-2 text-sm text-white"><?php if ($participant?->date_of_birth): ?><?php $age = $participant->date_of_birth->diff(now()); ?><?= e($age->y.' tahun '.$age->m.' bulan '.$age->d.' hari') ?><?php else: ?>-<?php endif; ?></p>
+                                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                        <div class="rounded-2xl border border-slate-700/70 bg-slate-950/50 px-4 py-3">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Per 1 Juli 2026</p>
+                                            <p class="mt-2 text-sm text-white">
+                                                <?php if ($participant?->date_of_birth): ?>
+                                                    <?php $ageAtReference = $participant->date_of_birth->diff(\Illuminate\Support\Carbon::create(2026, 7, 1)->startOfDay()); ?>
+                                                    <?= e($ageAtReference->y.' tahun '.$ageAtReference->m.' bulan '.$ageAtReference->d.' hari') ?>
+                                                <?php else: ?>
+                                                    -
+                                                <?php endif; ?>
+                                            </p>
+                                        </div>
+                                        <div class="rounded-2xl border border-slate-700/70 bg-slate-950/50 px-4 py-3">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Saat pendaftaran</p>
+                                            <p class="mt-2 text-sm text-white">
+                                                <?php if ($participant?->date_of_birth && $participant?->created_at): ?>
+                                                    <?php $ageAtRegistration = $participant->date_of_birth->diff($participant->created_at); ?>
+                                                    <?= e($ageAtRegistration->y.' tahun '.$ageAtRegistration->m.' bulan '.$ageAtRegistration->d.' hari') ?>
+                                                <?php else: ?>
+                                                    -
+                                                <?php endif; ?>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="data-card md:col-span-2">
                                     <div class="flex items-center gap-2 text-slate-500">
