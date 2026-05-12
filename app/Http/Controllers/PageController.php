@@ -1554,53 +1554,109 @@ class PageController extends Controller
 
     public function consoleNavigation(string $role, string $active): array
     {
-        $navigation = [
-            ['key' => 'dashboard', 'label' => 'Overview', 'href' => route('dashboard'), 'icon' => 'home'],
-            ['key' => 'juknis', 'label' => 'Juknis MTQ', 'href' => route('juknis.index'), 'icon' => 'book-open'],
-            ['key' => 'participants.index', 'label' => 'Pendaftaran', 'href' => route('participants.index'), 'icon' => 'id-card'],
-            ['key' => 'participants.list', 'label' => 'Data Peserta', 'href' => route('participants.list'), 'icon' => 'users'],
-            ['key' => 'categories', 'label' => 'Kategori MTQ', 'href' => route('categories.index'), 'icon' => 'book-open'],
-            ['key' => 'results', 'label' => 'Hasil Nilai', 'href' => route('results.index'), 'icon' => 'chart'],
-            ['key' => 'schedule', 'label' => 'Jadwal', 'href' => route('dashboard').'#jadwal', 'icon' => 'calendar'],
-            ['key' => 'announcements', 'label' => 'Pengumuman', 'href' => route('dashboard').'#pengumuman', 'icon' => 'bell'],
+        $navigation = array_values(array_filter([
+            $this->consoleNavigationLink('dashboard', 'Overview', route('dashboard'), 'home'),
+            $this->consoleNavigationGroup('referensi', 'Referensi', 'book-open', array_values(array_filter([
+                $this->consoleNavigationLink('juknis', 'Juknis MTQ', route('juknis.index'), 'book-open'),
+                $this->consoleNavigationLink('categories', 'Kategori MTQ', route('categories.index'), 'book-open'),
+                $this->consoleNavigationLink('schedule', 'Jadwal', route('dashboard').'#jadwal', 'calendar'),
+                $this->consoleNavigationLink('announcements', 'Pengumuman', route('dashboard').'#pengumuman', 'bell'),
+                in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)
+                    ? $this->consoleNavigationLink('gallery.index', 'Galeri MTQ', route('gallery.index'), 'image')
+                    : null,
+            ]))),
+            $this->consoleNavigationGroup('peserta', 'Peserta', 'users', array_values(array_filter([
+                $this->consoleNavigationLink('participants.index', 'Pendaftaran', route('participants.index'), 'id-card'),
+                $this->consoleNavigationLink('participants.list', 'Data Peserta', route('participants.list'), 'users'),
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('participants.lot.menu', 'Pengambilan Lot', route('participants.lot.menu'), 'sparkles')
+                    : null,
+                in_array($role, ['admin', 'official', 'pendamping'], true)
+                    ? $this->consoleNavigationLink('participants.maqra.menu', 'Pengambilan Maqra', route('participants.maqra.menu'), 'sparkles')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('participants.trash', 'Arsip Peserta', route('participants.trash'), 'trash')
+                    : null,
+            ]))),
+            $this->consoleNavigationGroup('penilaian', 'Penilaian', 'chart', array_values(array_filter([
+                $this->consoleNavigationLink('results', 'Hasil Nilai', route('results.index'), 'chart'),
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('leaderboard', 'Leaderboard', route('leaderboard.index'), 'trophy')
+                    : null,
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('scoring', 'Penilaian', route('scoring'), 'chart')
+                    : null,
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('scoring.mfq', 'Penilaian MFQ', route('scoring.mfq'), 'chart')
+                    : null,
+            ]))),
+            $this->consoleNavigationGroup('administrasi', 'Administrasi', 'shield', array_values(array_filter([
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('admin.content', 'Kelola Konten', route('admin.content'), 'bell')
+                    : null,
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('admin.documents', 'Dokumen Resmi', route('admin.documents'), 'book-open')
+                    : null,
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('application.logs', 'Log Aplikasi', route('application.logs'), 'clock')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('maqra', 'Kelola Maqra', route('maqra.index'), 'book-open')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('officials.index', 'Official Kecamatan', route('officials.index'), 'users')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('committees.index', 'Panitia Golongan', route('committees.index'), 'shield')
+                    : null,
+            ]))),
+        ]));
+
+        return $this->consoleNavigationApplyActive($navigation, $active);
+    }
+
+    protected function consoleNavigationLink(string $key, string $label, string $href, string $icon): array
+    {
+        return [
+            'type' => 'link',
+            'key' => $key,
+            'label' => $label,
+            'href' => $href,
+            'icon' => $icon,
         ];
+    }
 
-        if (in_array($role, ['admin', 'panitia'], true)) {
-            $navigation[] = ['key' => 'leaderboard', 'label' => 'Leaderboard', 'href' => route('leaderboard.index'), 'icon' => 'trophy'];
+    protected function consoleNavigationGroup(string $key, string $label, string $icon, array $children): ?array
+    {
+        $children = array_values(array_filter($children));
+
+        if ($children === []) {
+            return null;
         }
 
-        if (in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)) {
-            $navigation[] = ['key' => 'gallery.index', 'label' => 'Galeri MTQ', 'href' => route('gallery.index'), 'icon' => 'image'];
-        }
+        return [
+            'type' => 'group',
+            'key' => $key,
+            'label' => $label,
+            'icon' => $icon,
+            'children' => $children,
+        ];
+    }
 
-        if (in_array($role, ['admin', 'panitia'], true)) {
-            $navigation[] = ['key' => 'participants.lot.menu', 'label' => 'Pengambilan Lot', 'href' => route('participants.lot.menu'), 'icon' => 'sparkles'];
-        }
+    protected function consoleNavigationApplyActive(array $navigation, string $active): array
+    {
+        return array_values(array_map(function (array $item) use ($active): array {
+            if (($item['type'] ?? 'link') === 'group') {
+                $item['children'] = $this->consoleNavigationApplyActive($item['children'] ?? [], $active);
+                $item['active'] = collect($item['children'])->contains(fn (array $child): bool => (bool) ($child['active'] ?? false));
 
-        if (in_array($role, ['admin', 'official', 'pendamping'], true)) {
-            $navigation[] = ['key' => 'participants.maqra.menu', 'label' => 'Pengambilan Maqra', 'href' => route('participants.maqra.menu'), 'icon' => 'sparkles'];
-        }
+                return $item;
+            }
 
-        if (in_array($role, ['admin', 'panitia'], true)) {
-            $navigation[] = ['key' => 'scoring', 'label' => 'Penilaian', 'href' => route('scoring'), 'icon' => 'chart'];
-            $navigation[] = ['key' => 'scoring.mfq', 'label' => 'Penilaian MFQ', 'href' => route('scoring.mfq'), 'icon' => 'chart'];
-            $navigation[] = ['key' => 'admin.content', 'label' => 'Kelola Konten', 'href' => route('admin.content'), 'icon' => 'bell'];
-            $navigation[] = ['key' => 'admin.documents', 'label' => 'Dokumen Resmi', 'href' => route('admin.documents'), 'icon' => 'book-open'];
-            $navigation[] = ['key' => 'application.logs', 'label' => 'Log Aplikasi', 'href' => route('application.logs'), 'icon' => 'clock'];
-        }
-
-        if ($role === 'admin') {
-            $navigation[] = ['key' => 'maqra', 'label' => 'Kelola Maqra', 'href' => route('maqra.index'), 'icon' => 'book-open'];
-            $navigation[] = ['key' => 'officials.index', 'label' => 'Official Kecamatan', 'href' => route('officials.index'), 'icon' => 'users'];
-            $navigation[] = ['key' => 'committees.index', 'label' => 'Panitia Golongan', 'href' => route('committees.index'), 'icon' => 'shield'];
-            $navigation[] = ['key' => 'participants.trash', 'label' => 'Arsip Peserta', 'href' => route('participants.trash'), 'icon' => 'trash'];
-        }
-
-        return array_map(function (array $item) use ($active): array {
             $item['active'] = $item['key'] === $active;
 
             return $item;
-        }, $navigation);
+        }, $navigation));
     }
 
     public function documentConfig(): array

@@ -82,6 +82,10 @@ $user = auth()->user();
 $participant = $participant ?? null;
 $documentMap = $documentMap ?? [];
 $districtLocked = $districtLocked ?? false;
+$existingPhotoPath = (string) ($documentMap['photo']['path'] ?? '');
+$existingPhotoPreviewUrl = filled($existingPhotoPath) && \Illuminate\Support\Facades\Storage::disk('public')->exists($existingPhotoPath)
+    ? \Illuminate\Support\Facades\Storage::disk('public')->url($existingPhotoPath)
+    : '';
 if (! function_exists('mtq_gender_quota_rule')) {
     function mtq_gender_quota_rule(object $category): ?string
     {
@@ -174,12 +178,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                 <nav class="mt-8 space-y-2">
                     <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
-                    <?php foreach ($navigation as $item): ?>
-                        <a href="<?= e($item['href']) ?>" class="sidebar-link <?= $item['active'] ? 'sidebar-link-active' : '' ?>">
-                            <span class="icon-chip h-10 w-10 rounded-xl"><?= mtq_icon($item['icon'], 'h-4 w-4') ?></span>
-                            <span><?= e($item['label']) ?></span>
-                        </a>
-                    <?php endforeach; ?>
+                    <?php require __DIR__.'/../partials/console-navigation.php'; ?>
                 </nav>
 
                 <div class="mt-8 grid gap-3">
@@ -224,6 +223,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     'selectedBranch' => $selectedCategory['branch'] ?? '',
                     'categories' => $categoryCards,
                     'branches' => $categoryBranches,
+                    'existingPhotoPreviewUrl' => $existingPhotoPreviewUrl,
                 ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>)">
                     <div class="flex items-center gap-3">
                         <div class="icon-chip"><?= mtq_icon('upload') ?></div>
@@ -580,6 +580,24 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     : "displayFileName('".$config['input']."', 'Belum ada file baru dipilih')" ?>"></p>
                                 <?php if ($key === 'photo'): ?>
                                     <p class="mt-1 text-xs text-slate-500">Gunakan JPG/PNG, rasio 3:4, minimal 300 x 400 px, maksimal 2 MB.</p>
+                                    <template x-if="photoPreviewUrl">
+                                        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                                            <span class="rounded-full border px-3 py-1 font-semibold uppercase tracking-[0.18em]"
+                                                x-bind:class="photoRatioValid() ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100' : 'border-rose-300/20 bg-rose-400/10 text-rose-100'"
+                                                x-text="photoRatioValid() ? 'Rasio 3:4 sesuai' : 'Rasio belum sesuai'"></span>
+                                            <span class="text-slate-400" x-text="photoDimensionText()"></span>
+                                        </div>
+                                    </template>
+                                    <div class="mt-3 flex flex-wrap items-center gap-3" x-show="photoPreviewUrl">
+                                        <button type="button" class="secondary-button px-4 py-2 text-sm" x-bind:disabled="photoProcessing || !photoPreviewUrl" x-bind:class="photoProcessing ? 'pointer-events-none opacity-60' : ''" x-on:click="convertPhotoToStandard()">
+                                            <?= mtq_icon('spark', 'h-4 w-4') ?>
+                                            <span x-text="photoProcessing ? 'Memproses 300 x 400...' : 'Sesuaikan otomatis ke 300 x 400'"></span>
+                                        </button>
+                                        <span class="text-xs text-emerald-200" x-show="photoAdjusted">Foto sudah disesuaikan ke 300 x 400 px.</span>
+                                    </div>
+                                    <template x-if="photoPreviewUrl && !photoRatioValid()">
+                                        <p class="mt-2 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100">Pas foto harus memakai rasio 3:4 sebelum bisa dikirim untuk verifikasi.</p>
+                                    </template>
                                 <?php endif; ?>
                                 <?php if ($config['preview'] === 'photo'): ?>
                                     <template x-if="photoPreviewUrl">
@@ -741,7 +759,20 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 fileNames: {},
                 multipleFileNames: {},
                 documentPreviewUrls: {},
-                photoPreviewUrl: '',
+                photoPreviewUrl: initialState.existingPhotoPreviewUrl ?? '',
+                photoProcessing: false,
+                photoAdjusted: false,
+                photoMeta: {
+                    width: 0,
+                    height: 0,
+                    ratioValid: false,
+                    measured: false,
+                },
+                init() {
+                    if (this.photoPreviewUrl) {
+                        this.readPhotoMeta(this.photoPreviewUrl);
+                    }
+                },
                 get selectedCategory() {
                     return this.categories.find((category) => category.id === this.selectedCategoryId) ?? null;
                 },
@@ -794,6 +825,18 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     const field = form.querySelector(`[name="${name}"]`);
                     return field ? field.value : '';
                 },
+                hasFile(name) {
+                    if (this.fileNames[name]) {
+                        return true;
+                    }
+
+                    const form = this.$refs.editForm;
+                    if (!form) {
+                        return false;
+                    }
+                    const field = form.querySelector(`[name="${name}"]`);
+                    return !!(field && field.files && field.files.length > 0);
+                },
                 trackFileName(event, name) {
                     const file = event?.target?.files?.[0] ?? null;
                     this.fileNames[name] = file ? file.name : '';
@@ -818,7 +861,153 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     if (this.photoPreviewUrl) {
                         URL.revokeObjectURL(this.photoPreviewUrl);
                     }
-                    this.photoPreviewUrl = file ? URL.createObjectURL(file) : '';
+                    this.photoProcessing = false;
+                    this.photoAdjusted = false;
+                    this.photoMeta = {
+                        width: 0,
+                        height: 0,
+                        ratioValid: false,
+                        measured: false,
+                    };
+
+                    if (!file) {
+                        this.photoPreviewUrl = '';
+                        return;
+                    }
+
+                    this.setPhotoPreviewFromFile(file);
+                },
+                setPhotoPreviewFromFile(file) {
+                    if (this.photoPreviewUrl) {
+                        URL.revokeObjectURL(this.photoPreviewUrl);
+                    }
+
+                    const previewUrl = URL.createObjectURL(file);
+                    this.photoPreviewUrl = previewUrl;
+                    this.readPhotoMeta(previewUrl);
+                },
+                readPhotoMeta(previewUrl) {
+                    const image = new Image();
+                    image.onload = () => {
+                        const width = Number(image.naturalWidth || 0);
+                        const height = Number(image.naturalHeight || 0);
+                        this.photoMeta = {
+                            width,
+                            height,
+                            ratioValid: width > 0 && height > 0 && (width * 4 === height * 3),
+                            measured: true,
+                        };
+                    };
+                    image.onerror = () => {
+                        this.photoMeta = {
+                            width: 0,
+                            height: 0,
+                            ratioValid: false,
+                            measured: false,
+                        };
+                    };
+                    image.src = previewUrl;
+                },
+                convertPhotoToStandard() {
+                    const form = this.$refs.editForm;
+                    const field = form ? form.querySelector('[name="photo_document"]') : null;
+                    const file = field?.files?.[0] ?? null;
+
+                    if (!file || this.photoProcessing) {
+                        return;
+                    }
+
+                    this.photoProcessing = true;
+                    this.photoAdjusted = false;
+
+                    const sourceUrl = URL.createObjectURL(file);
+                    const image = new Image();
+                    image.onload = () => {
+                        const sourceWidth = Number(image.naturalWidth || 0);
+                        const sourceHeight = Number(image.naturalHeight || 0);
+                        const targetWidth = 300;
+                        const targetHeight = 400;
+                        const targetRatio = targetWidth / targetHeight;
+
+                        if (!sourceWidth || !sourceHeight) {
+                            this.photoProcessing = false;
+                            URL.revokeObjectURL(sourceUrl);
+                            return;
+                        }
+
+                        let cropWidth = sourceWidth;
+                        let cropHeight = sourceHeight;
+                        let cropX = 0;
+                        let cropY = 0;
+                        const sourceRatio = sourceWidth / sourceHeight;
+
+                        if (sourceRatio > targetRatio) {
+                            cropWidth = Math.round(sourceHeight * targetRatio);
+                            cropX = Math.max(0, Math.round((sourceWidth - cropWidth) / 2));
+                        } else if (sourceRatio < targetRatio) {
+                            cropHeight = Math.round(sourceWidth / targetRatio);
+                            cropY = Math.max(0, Math.round((sourceHeight - cropHeight) / 2));
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = targetWidth;
+                        canvas.height = targetHeight;
+                        const context = canvas.getContext('2d');
+
+                        if (!context) {
+                            this.photoProcessing = false;
+                            URL.revokeObjectURL(sourceUrl);
+                            return;
+                        }
+
+                        context.drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+
+                        canvas.toBlob((blob) => {
+                            this.photoProcessing = false;
+                            URL.revokeObjectURL(sourceUrl);
+
+                            if (!blob || !field) {
+                                return;
+                            }
+
+                            const baseName = (file.name || 'pas-foto').replace(/\.[^.]+$/, '');
+                            const convertedFile = new File([blob], `${baseName}-300x400.jpg`, { type: 'image/jpeg' });
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(convertedFile);
+                            field.files = dataTransfer.files;
+                            this.fileNames.photo_document = convertedFile.name;
+                            this.photoAdjusted = true;
+                            this.setPhotoPreviewFromFile(convertedFile);
+                        }, 'image/jpeg', 0.92);
+                    };
+                    image.onerror = () => {
+                        this.photoProcessing = false;
+                        URL.revokeObjectURL(sourceUrl);
+                    };
+                    image.src = sourceUrl;
+                },
+                photoDimensionText() {
+                    if (!this.photoMeta.measured || !this.photoMeta.width || !this.photoMeta.height) {
+                        return 'Dimensi foto belum terbaca.';
+                    }
+
+                    return `${this.photoMeta.width} x ${this.photoMeta.height} px`;
+                },
+                photoRatioValid() {
+                    return this.photoMeta.measured && this.photoMeta.ratioValid;
+                },
+                photoRatioStatusLabel() {
+                    if (!this.photoPreviewUrl && !this.hasFile('photo_document')) {
+                        return 'belum dicek';
+                    }
+
+                    if (!this.photoMeta.measured) {
+                        return 'sedang membaca dimensi foto';
+                    }
+
+                    return this.photoRatioValid()
+                        ? `sesuai 3:4 (${this.photoDimensionText()})`
+                        : `belum sesuai 3:4 (${this.photoDimensionText()})`;
                 },
                 displayFileName(name, fallback = '-') {
                     return this.fileNames[name] || fallback;

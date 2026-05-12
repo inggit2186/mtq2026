@@ -85,12 +85,7 @@ $canDeleteAny = (string) $user?->role === 'admin';
 
                 <nav class="mt-8 space-y-2">
                     <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
-                    <?php foreach ($navigation as $item): ?>
-                        <a href="<?= e($item['href']) ?>" class="sidebar-link <?= $item['active'] ? 'sidebar-link-active' : '' ?>">
-                            <span class="icon-chip h-10 w-10 rounded-xl"><?= mtq_icon($item['icon'], 'h-4 w-4') ?></span>
-                            <span><?= e($item['label']) ?></span>
-                        </a>
-                    <?php endforeach; ?>
+                    <?php require __DIR__.'/../partials/console-navigation.php'; ?>
                 </nav>
 
                 <div class="mt-8 grid gap-3">
