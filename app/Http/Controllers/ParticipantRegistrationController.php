@@ -1916,14 +1916,6 @@ class ParticipantRegistrationController extends Controller
         }
 
         if ($user?->role === 'panitia') {
-            $allowedCategoryIds = $this->accessibleCategoryIdsForLotUser($user);
-
-            if (is_array($allowedCategoryIds) && in_array((int) $participant->competition_category_id, $allowedCategoryIds, true)) {
-                return;
-            }
-
-            $this->authorizeDistrictVerificationAccess($participant->district);
-
             return;
         }
 
