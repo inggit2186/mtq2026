@@ -913,7 +913,7 @@ class ParticipantRegistrationController extends Controller
     public function show(Participant $participant): View
     {
         $participant->load(['category', 'district', 'verificationLogs.verifier', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage']);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantDetailAccess($participant);
         $user = auth()->user();
         $canDrawParticipant = $this->canUserDrawLot();
         $canDrawMaqra = $this->canUserDrawMaqra($participant);
@@ -937,7 +937,7 @@ class ParticipantRegistrationController extends Controller
             'participant' => $participant,
             'documentMap' => $this->documentMap($participant),
             'cvDownloadUrl' => $this->participantCvDownloadUrl($participant),
-            'canVerify' => $this->canUserVerifyParticipants(),
+            'canVerify' => $this->canUserVerifyParticipant($participant),
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'canDrawParticipant' => $canDrawParticipant,
             'canDrawMaqra' => $canDrawMaqra,
@@ -962,7 +962,7 @@ class ParticipantRegistrationController extends Controller
     public function previewDocument(Request $request, Participant $participant, string $document): StreamedResponse|BinaryFileResponse
     {
         $participant->load(['category', 'district']);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantDetailAccess($participant);
         $this->assertOfficialFeatureEnabled('participant_documents_open', 'Akses dokumen peserta untuk official sedang ditutup oleh admin.');
 
         $file = $this->resolveDocumentEntry($this->documentMap($participant), $document, (int) $request->query('index', 0));
@@ -975,7 +975,7 @@ class ParticipantRegistrationController extends Controller
     public function downloadDocument(Request $request, Participant $participant, string $document): StreamedResponse
     {
         $participant->load(['category', 'district']);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantDetailAccess($participant);
         $this->assertOfficialFeatureEnabled('participant_documents_open', 'Akses dokumen peserta untuk official sedang ditutup oleh admin.');
 
         $file = $this->resolveDocumentEntry($this->documentMap($participant), $document, (int) $request->query('index', 0));
@@ -1901,6 +1901,35 @@ class ParticipantRegistrationController extends Controller
         );
     }
 
+    protected function authorizeParticipantDetailAccess(Participant $participant): void
+    {
+        $user = auth()->user();
+
+        if (in_array($user?->role, ['admin'], true)) {
+            return;
+        }
+
+        if (in_array($user?->role, ['official', 'pendamping'], true)) {
+            abort_unless((int) $user?->district_id === (int) $participant->district_id, 403);
+
+            return;
+        }
+
+        if ($user?->role === 'panitia') {
+            $allowedCategoryIds = $this->accessibleCategoryIdsForLotUser($user);
+
+            if (is_array($allowedCategoryIds) && in_array((int) $participant->competition_category_id, $allowedCategoryIds, true)) {
+                return;
+            }
+
+            $this->authorizeDistrictVerificationAccess($participant->district);
+
+            return;
+        }
+
+        abort(403);
+    }
+
     protected function authorizeOfficialMaqraAccess(Participant $participant): void
     {
         $user = auth()->user();
@@ -2500,6 +2529,25 @@ class ParticipantRegistrationController extends Controller
         return $role === 'admin' || ($role === 'panitia' && $this->participantVerificationOpen());
     }
 
+    protected function canUserVerifyParticipant(Participant $participant): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if ($user->role !== 'panitia' || ! $this->participantVerificationOpen()) {
+            return false;
+        }
+
+        return $this->districtVerificationAccessAllowed($participant->district, $user);
+    }
+
     protected function isDistrictQuotaCategory(CompetitionCategory $category): bool
     {
         return str_contains(mb_strtolower((string) $category->notes), 'kk');
@@ -2867,6 +2915,19 @@ class ParticipantRegistrationController extends Controller
         if (! $district || ! in_array((int) $district->id, $allowedDistrictIds, true)) {
             abort(403, 'Akun panitia ini tidak memiliki hak akses verifikator untuk kecamatan tersebut.');
         }
+    }
+
+    protected function districtVerificationAccessAllowed(?District $district, $user = null): bool
+    {
+        $user = $user ?? auth()->user();
+
+        if (! $user || $user->role !== 'panitia' || ! $district) {
+            return false;
+        }
+
+        $allowedDistrictIds = $this->verificationDistrictIdsForUser($user);
+
+        return in_array((int) $district->id, $allowedDistrictIds, true);
     }
 
     protected function participantExportRows($participants): array
