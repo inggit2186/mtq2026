@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/../partials/icon.php';
 
 $user = auth()->user();
 $rolePanel = $rolePanel ?? [];
