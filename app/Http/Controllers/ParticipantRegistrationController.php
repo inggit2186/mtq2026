@@ -1035,12 +1035,6 @@ class ParticipantRegistrationController extends Controller
         $accessibleCategoryIds = $this->accessibleCategoryIdsForUser($user);
 
         $categoriesQuery = CompetitionCategory::query()
-            ->where(function ($query): void {
-                $query
-                    ->whereRaw('LOWER(branch) like ?', ['%fahmil%'])
-                    ->orWhereRaw('LOWER(name) like ?', ['%fahmil%'])
-                    ->orWhereRaw('LOWER(slug) like ?', ['%fahmil%']);
-            })
             ->orderBy('sort_order')
             ->orderBy('branch')
             ->orderBy('name');

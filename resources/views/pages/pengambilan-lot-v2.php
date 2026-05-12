@@ -89,8 +89,8 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <p class="section-kicker">Golongan Aktif</p>
-                            <h3 class="mt-2 text-2xl font-bold text-white"><?= e($selectedCategory ? trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name) : 'Belum dipilih') ?></h3>
-                            <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-300">Kategori yang tampil di sini disaring berdasarkan golongan MFQ yang tersedia pada data peserta terverifikasi.</p>
+                            <h3 class="mt-2 text-2xl font-bold text-white"><?= e($selectedCategory ? trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name) : 'Semua Golongan') ?></h3>
+                            <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-300">Kategori yang tampil di sini mengikuti golongan yang tersedia untuk pengambilan lot pada data peserta terverifikasi.</p>
                         </div>
                     </div>
 
