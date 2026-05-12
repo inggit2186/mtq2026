@@ -6,6 +6,7 @@ $rolePanel = $rolePanel ?? [];
 $navigation = $navigation ?? app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'participants.lot.menu');
 $categories = $categories ?? collect();
 $participants = $participants ?? collect();
+$participantsByCategory = $participantsByCategory ?? $participants->groupBy(fn ($participant) => (int) $participant->competition_category_id);
 $selectedCategory = $selectedCategory ?? null;
 $selectedParticipant = $selectedParticipant ?? null;
 $summaryStats = $summaryStats ?? ['category_total' => 0, 'participant_total' => 0, 'verified_total' => 0];
@@ -95,52 +96,79 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
 
                     <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         <?php foreach ($categories as $category): ?>
-                            <a href="<?= e(route('participants.lot.menu', ['competition_category_id' => $category->id])) ?>" class="rounded-[1.5rem] border px-4 py-4 transition <?= (int) ($selectedCategory?->id ?? 0) === (int) $category->id ? 'border-cyan-300 bg-cyan-400/10' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30' ?>">
+                            <a href="#golongan-<?= e($category->id) ?>" class="rounded-[1.5rem] border px-4 py-4 transition <?= (int) ($selectedCategory?->id ?? 0) === (int) $category->id ? 'border-cyan-300 bg-cyan-400/10' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30' ?>">
                                 <p class="text-xs uppercase tracking-[0.18em] text-slate-400"><?= e($category->branch) ?></p>
                                 <p class="mt-2 text-base font-bold text-white"><?= e($category->name) ?></p>
-                                <p class="mt-2 text-xs text-slate-400"><?= e((string) ($category->quota ?? 0)) ?> kuota dasar</p>
+                                <p class="mt-2 text-xs text-slate-400"><?= e((string) ($participantsByCategory->get($category->id, collect())->count())) ?> peserta terverifikasi</p>
                             </a>
                         <?php endforeach; ?>
                     </div>
                 </section>
 
-                <section class="glass-card rounded-[2rem] p-6">
-                    <div class="flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                            <p class="section-kicker">Peserta Terverifikasi</p>
-                            <h3 class="mt-2 text-2xl font-bold text-white"><?= e($selectedParticipant?->name ?? 'Belum dipilih') ?></h3>
-                            <p class="mt-2 text-sm text-slate-300"><?= e($selectedParticipant?->registration_number ?? '-') ?></p>
+                <?php foreach ($categories as $category): ?>
+                    <?php
+                        $categoryParticipants = $participantsByCategory->get($category->id, collect())->values();
+                        $isActiveCategory = (int) ($selectedCategory?->id ?? 0) === (int) $category->id;
+                    ?>
+                    <section id="golongan-<?= e($category->id) ?>" class="glass-card rounded-[2rem] p-6 <?= $isActiveCategory ? 'ring-2 ring-cyan-300/20' : '' ?>">
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <p class="section-kicker">Golongan</p>
+                                <h3 class="mt-2 text-2xl font-bold text-white"><?= e($category->branch.' - '.$category->name) ?></h3>
+                                <p class="mt-2 text-sm text-slate-300"><?= e($categoryParticipants->count()) ?> peserta terverifikasi siap diambil nomor lot</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                    <?= mtq_icon('users', 'h-4 w-4') ?>
+                                    <?= e($categoryParticipants->count()) ?> peserta
+                                </span>
+                                <a href="<?= e(route('participants.lot.menu', ['competition_category_id' => $category->id])) ?>" class="secondary-button rounded-xl px-4 py-2 text-sm">
+                                    <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                    Fokus Golongan
+                                </a>
+                            </div>
                         </div>
-                        <?php if ($selectedParticipant): ?>
-                            <a href="<?= e(route('participants.show', $selectedParticipant)) ?>" class="secondary-button rounded-xl px-4 py-2 text-sm">Lihat Detail</a>
-                        <?php endif; ?>
-                    </div>
 
-                    <div class="mt-6 overflow-hidden rounded-[1.75rem] border border-cyan-400/14 bg-slate-950/50">
-                        <table class="min-w-full">
-                            <thead class="table-head">
-                                <tr>
-                                    <th class="px-5 py-4 text-left">Nama</th>
-                                    <th class="px-5 py-4 text-left">Registrasi</th>
-                                    <th class="px-5 py-4 text-left">Golongan</th>
-                                    <th class="px-5 py-4 text-left">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($participants as $participant): ?>
-                                    <tr class="border-t border-slate-800/80">
-                                        <td class="px-5 py-4"><?= e($participant->name) ?></td>
-                                        <td class="px-5 py-4 text-slate-300"><?= e($participant->registration_number) ?></td>
-                                        <td class="px-5 py-4 text-slate-300"><?= e(trim((string) $participant->category?->branch.' - '.(string) $participant->category?->name)) ?></td>
-                                        <td class="px-5 py-4">
-                                            <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-[11px]">Detail</a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                        <?php if ($categoryParticipants->isEmpty()): ?>
+                            <div class="mt-6 rounded-[1.5rem] border border-dashed border-slate-700 bg-slate-950/50 p-6 text-sm text-slate-400">
+                                Belum ada peserta terverifikasi pada golongan ini.
+                            </div>
+                        <?php else: ?>
+                            <div class="mt-6 overflow-hidden rounded-[1.75rem] border border-cyan-400/14 bg-slate-950/50">
+                                <table class="min-w-full">
+                                    <thead class="table-head">
+                                        <tr>
+                                            <th class="px-5 py-4 text-left">Nama</th>
+                                            <th class="px-5 py-4 text-left">Registrasi</th>
+                                            <th class="px-5 py-4 text-left">Kecamatan</th>
+                                            <th class="px-5 py-4 text-left">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($categoryParticipants as $participant): ?>
+                                            <tr class="border-t border-slate-800/80">
+                                                <td class="px-5 py-4"><?= e($participant->name) ?></td>
+                                                <td class="px-5 py-4 text-slate-300"><?= e($participant->registration_number) ?></td>
+                                                <td class="px-5 py-4 text-slate-300"><?= e($participant->district?->name ?? '-') ?></td>
+                                                <td class="px-5 py-4">
+                                                    <div class="flex flex-wrap gap-2">
+                                                        <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-[11px]">Detail</a>
+                                                        <?php if ($participant->verification_status === 'verified' && $user?->role === 'panitia'): ?>
+                                                            <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" class="secondary-button rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] text-cyan-100 hover:border-cyan-200/50">
+                                                                <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                                                Ambil Nomor Lot
+                                                            </a>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                <?php endforeach; ?>
             </div>
         </div>
     </main>
