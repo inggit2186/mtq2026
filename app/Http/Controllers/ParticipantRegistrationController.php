@@ -1200,6 +1200,8 @@ class ParticipantRegistrationController extends Controller
             'participant' => $participant,
             'lotPrefix' => $this->participantLotPrefix($participant),
             'lotRangeLabel' => app(PageController::class)->categoryLotRangeLabel($participant->category),
+            'lotRuleLabel' => app(PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender),
+            'lotGroupSize' => app(PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender),
             'lotParity' => $participant->gender === 'putra' ? 'even' : 'odd',
             'photoDataUri' => $this->participantPhotoDataUri((string) ($participant->document_photo ?? '')),
             'initials' => $this->participantInitials($participant),
@@ -1235,6 +1237,24 @@ class ParticipantRegistrationController extends Controller
                 ->firstOrFail();
 
             $prefix = $this->participantLotPrefix($lockedParticipant);
+            $groupSize = $this->participantLotGroupSize($lockedParticipant);
+            $sharedLotNumber = $groupSize > 1
+                ? $this->existingSharedParticipantLotNumber($lockedParticipant, $groupSize)
+                : null;
+
+            if (filled($sharedLotNumber)) {
+                $lockedParticipant->update([
+                    'lot_number' => $sharedLotNumber,
+                    'lot_assigned_at' => now(),
+                ]);
+
+                return [
+                    'lot_number' => (string) $sharedLotNumber,
+                    'created' => false,
+                    'shared' => true,
+                ];
+            }
+
             [$minSequence, $maxSequence] = app(PageController::class)->categoryLotRange($lockedParticipant->category);
             $nextSequence = $this->nextParticipantLotSequence($lockedParticipant, $prefix, $minSequence, $maxSequence);
             $candidate = sprintf('%s-%03d', $prefix, $nextSequence);
@@ -1254,10 +1274,11 @@ class ParticipantRegistrationController extends Controller
         $this->logParticipantActivity(
             $lotResult['created'] ? 'participant.lot.assigned' : 'participant.lot.reused',
             $participant,
-            (auth()->user()?->name ?? 'Panitia').' '.($lotResult['created'] ? 'mengambil' : 'membuka kembali').' nomor lot peserta '.$participant->name.': '.$lotNumber.'.',
+            (auth()->user()?->name ?? 'Panitia').' '.(($lotResult['created'] ?? false) ? 'mengambil' : 'membuka kembali').' nomor lot peserta '.$participant->name.': '.$lotNumber.'.',
             [
                 'lot_number' => $lotNumber,
                 'created' => (bool) $lotResult['created'],
+                'shared' => (bool) ($lotResult['shared'] ?? false),
             ]
         );
 
@@ -1270,6 +1291,7 @@ class ParticipantRegistrationController extends Controller
                 'lot_number' => $lotNumber,
                 'lot_prefix' => $this->participantLotPrefix($participant),
                 'lot_range' => app(PageController::class)->categoryLotRangeLabel($participant->category),
+                'lot_rule' => app(PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender),
                 'gender' => $participant->gender,
             ]);
         }
@@ -2086,6 +2108,45 @@ class ParticipantRegistrationController extends Controller
     protected function participantLotPrefix(Participant $participant): string
     {
         return app(PageController::class)->categoryLotPrefix($participant->category);
+    }
+
+    protected function participantLotGroupSize(Participant $participant): int
+    {
+        if (! $participant->category) {
+            return 1;
+        }
+
+        return app(PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender);
+    }
+
+    protected function existingSharedParticipantLotNumber(Participant $participant, int $groupSize): ?string
+    {
+        if ($groupSize <= 1 || ! $participant->category || ! filled($participant->district_id) || ! filled($participant->gender)) {
+            return null;
+        }
+
+        $sharedParticipants = Participant::query()
+            ->where('competition_category_id', $participant->competition_category_id)
+            ->where('district_id', $participant->district_id)
+            ->where('gender', $participant->gender)
+            ->whereNotNull('lot_number')
+            ->where('id', '!=', $participant->id)
+            ->orderBy('lot_assigned_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get(['id', 'lot_number', 'lot_assigned_at']);
+
+        if ($sharedParticipants->isEmpty()) {
+            return null;
+        }
+
+        $currentChunk = $sharedParticipants->chunk($groupSize)->last();
+
+        if (! $currentChunk || $currentChunk->count() >= $groupSize) {
+            return null;
+        }
+
+        return (string) ($currentChunk->first()->lot_number ?? '');
     }
 
     protected function nextParticipantLotSequence(Participant $participant, string $prefix, int $minSequence, int $maxSequence): int

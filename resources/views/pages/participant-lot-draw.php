@@ -15,6 +15,8 @@ $lotSuffix = $lotAssigned && str_contains($lotNumber, '-')
 $lotLabel = $lotAssigned ? $lotNumber : $lotPrefix.'-___';
 $parityLabel = $lotParity === 'even' ? 'Putra / Genap' : 'Putri / Ganjil';
 $parityColor = $lotParity === 'even' ? 'from-cyan-400 to-sky-500' : 'from-fuchsia-400 to-pink-500';
+$lotRuleLabel = (string) ($lotRuleLabel ?? '1 peserta = 1 nomor lot');
+$lotGroupSize = (int) ($lotGroupSize ?? 1);
 $photoDataUri = (string) ($photoDataUri ?? '');
 $initials = (string) ($initials ?? 'P');
 $assignUrl = route('participants.lot.assign', $participant);
@@ -120,6 +122,8 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                         <p class="mt-1 text-xl font-black tracking-[0.24em] text-cyan-200"><?= e($lotPrefix) ?></p>
                         <p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Range Nomor</p>
                         <p class="mt-1 text-sm font-semibold text-white"><?= e($lotRangeLabel) ?></p>
+                        <p class="mt-3 text-[11px] uppercase tracking-[0.18em] text-slate-400">Aturan Khusus</p>
+                        <p class="mt-1 text-sm font-semibold text-white"><?= e($lotRuleLabel) ?></p>
                     </div>
                 </div>
 
@@ -192,6 +196,9 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                             <div>
                                 <p class="section-kicker">Ketentuan</p>
                                 <p class="mt-2 text-sm text-slate-300">Format kode-golongan-nomor, putra genap, putri ganjil.</p>
+                                <?php if ($lotGroupSize > 1): ?>
+                                    <p class="mt-2 text-sm text-cyan-100">Setiap grup dibagi per <?= e($lotGroupSize) ?> peserta sesuai aturan khusus golongan ini.</p>
+                                <?php endif; ?>
                             </div>
                             <div class="flex flex-wrap gap-2 text-xs">
                                 <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-slate-200">Kode Golongan</span>

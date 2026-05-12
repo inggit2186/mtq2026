@@ -12,6 +12,7 @@ $selectedParticipant = $selectedParticipant ?? null;
 $summaryStats = $summaryStats ?? ['category_total' => 0, 'participant_total' => 0, 'verified_total' => 0];
 $filters = $filters ?? ['competition_category_id' => '', 'participant_id' => ''];
 $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
+$pageController = app(\App\Http\Controllers\PageController::class);
 
 ?>
 <!DOCTYPE html>
@@ -95,6 +96,7 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
                                 <p class="text-xs uppercase tracking-[0.18em] text-slate-400"><?= e($category->branch) ?></p>
                                 <p class="mt-2 text-base font-bold text-white"><?= e($category->name) ?></p>
                                 <p class="mt-2 text-xs text-slate-400"><?= e((string) ($participantsByCategory->get($category->id, collect())->count())) ?> peserta terverifikasi</p>
+                                <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100"><?= e($pageController->categoryLotRuleLabel($category)) ?></p>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -111,6 +113,7 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
                                 <p class="section-kicker">Golongan</p>
                                 <h3 class="mt-2 text-2xl font-bold text-white"><?= e($category->branch.' - '.$category->name) ?></h3>
                                 <p class="mt-2 text-sm text-slate-300"><?= e($categoryParticipants->count()) ?> peserta terverifikasi siap diambil nomor lot</p>
+                                <p class="mt-2 text-sm font-semibold text-cyan-100"><?= e($pageController->categoryLotRuleLabel($category)) ?></p>
                             </div>
                             <div class="flex flex-wrap gap-2">
                                 <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">

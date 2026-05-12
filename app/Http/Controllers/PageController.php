@@ -2496,6 +2496,43 @@ class PageController extends Controller
         return sprintf('%03d - %03d', $min, $max);
     }
 
+    public function categoryLotGroupSize(CompetitionCategory $category, ?string $gender = null): int
+    {
+        $branch = mb_strtolower((string) ($category->branch ?? ''));
+        $normalizedGender = mb_strtolower((string) $gender);
+
+        if (str_contains($branch, 'fahmil') || str_contains($branch, 'syarhil')) {
+            return 3;
+        }
+
+        if (str_contains($branch, 'khutbah') && str_contains($branch, 'adzan')) {
+            return $normalizedGender === 'putra' || $normalizedGender === '' ? 2 : 1;
+        }
+
+        return 1;
+    }
+
+    public function categoryLotRuleLabel(CompetitionCategory $category, ?string $gender = null): string
+    {
+        $groupSize = $this->categoryLotGroupSize($category, $gender);
+        $branch = mb_strtolower((string) ($category->branch ?? ''));
+        $normalizedGender = mb_strtolower((string) $gender);
+
+        if ($groupSize === 3) {
+            $genderLabel = $normalizedGender === 'putri'
+                ? '3 putri'
+                : ($normalizedGender === 'putra' ? '3 putra' : '3 putra / 3 putri');
+
+            return '1 kecamatan = '.$genderLabel.' = 1 nomor lot';
+        }
+
+        if ($groupSize === 2) {
+            return '1 kecamatan = 2 putra = 1 nomor lot';
+        }
+
+        return '1 peserta = 1 nomor lot';
+    }
+
     public function categoryUsesMaqra(CompetitionCategory $category): bool
     {
         $branch = mb_strtolower((string) ($category->branch ?? ''));
