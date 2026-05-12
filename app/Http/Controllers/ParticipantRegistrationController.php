@@ -1012,6 +1012,15 @@ class ParticipantRegistrationController extends Controller
         ]);
     }
 
+    protected function accessibleCategoryIdsForUser($user): array
+    {
+        if (! $user || $user->role !== 'panitia') {
+            return [];
+        }
+
+        return $user->accessibleCategoryIds();
+    }
+
     public function lotMenu(Request $request): View
     {
         $user = auth()->user();
