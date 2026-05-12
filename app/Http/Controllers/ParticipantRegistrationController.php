@@ -1109,7 +1109,7 @@ class ParticipantRegistrationController extends Controller
     public function maqraMenu(Request $request): View
     {
         $user = auth()->user();
-        abort_unless(in_array($user?->role, ['admin', 'official', 'pendamping'], true), 403);
+        abort_unless(in_array($user?->role, ['admin', 'official', 'pendamping', 'panitia'], true), 403);
         abort_unless($this->officialAccessSetting()->isEnabled('participant_maqra_open'), 403, 'Masa ambil maqra untuk official sedang ditutup oleh admin.');
 
         $filters = $request->validate([
@@ -1121,32 +1121,61 @@ class ParticipantRegistrationController extends Controller
             ? (string) $filters['round']
             : 'Penyisihan';
 
-        $participants = Participant::query()
+        $district = in_array($user?->role, ['official', 'pendamping'], true)
+            ? District::query()->find($user?->district_id)
+            : null;
+        $allowedCategoryIds = $this->allowedMaqraCategoryIdsForUser($user);
+
+        $participantsQuery = Participant::query()
             ->with(['category', 'district', 'latestMaqraDraw.maqraPackage'])
             ->where('verification_status', 'verified')
-            ->when(in_array($user?->role, ['official', 'pendamping'], true), fn ($query) => $query->where('district_id', $user?->district_id))
+            ->when($district, fn ($query) => $query->where('district_id', $district->id))
+            ->when(is_array($allowedCategoryIds), fn ($query) => $query->whereIn('competition_category_id', $allowedCategoryIds))
             ->orderBy('competition_category_id')
-            ->orderBy('name')
+            ->orderBy('name');
+        $participants = $participantsQuery
             ->get()
             ->filter(fn (Participant $participant): bool => $this->participantUsesMaqra($participant))
             ->values();
+
+        $categoryIds = $participants->pluck('competition_category_id')->filter()->unique()->values();
+        $categories = CompetitionCategory::query()
+            ->when($categoryIds->isNotEmpty(), fn ($query) => $query->whereIn('id', $categoryIds))
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        $participantsByCategory = $participants->groupBy(fn (Participant $participant) => (int) $participant->competition_category_id);
 
         $selectedParticipantId = filled($filters['participant_id'] ?? null)
             ? (int) $filters['participant_id']
             : (int) ($participants->first()?->id ?? 0);
         $selectedParticipant = $participants->firstWhere('id', $selectedParticipantId) ?? $participants->first();
+        $selectedCategory = $selectedParticipant?->category
+            ? $categories->firstWhere('id', $selectedParticipant->competition_category_id)
+            : $categories->first();
+
+        $scopeLabel = match ((string) ($user?->role ?? '')) {
+            'admin' => 'Semua Golongan',
+            'panitia' => 'Golongan sesuai hak akses',
+            default => $district?->name ?? 'Semua Kecamatan',
+        };
 
         return view('pages.pengambilan-maqra-v2', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
             'navigation' => app(PageController::class)->consoleNavigation((string) auth()->user()?->role, 'participants.maqra.menu'),
-            'district' => in_array($user?->role, ['official', 'pendamping'], true)
-                ? District::query()->find($user?->district_id)
-                : null,
+            'district' => $district,
+            'scopeLabel' => $scopeLabel,
+            'categories' => $categories,
+            'participantsByCategory' => $participantsByCategory,
             'participants' => $participants,
+            'selectedCategory' => $selectedCategory,
             'selectedParticipant' => $selectedParticipant,
             'roundLabel' => $roundLabel,
             'summaryStats' => [
+                'category_total' => $categories->count(),
                 'participant_total' => $participants->count(),
                 'maqra_total' => $participants->sum(fn (Participant $participant): int => $participant->maqraDraws->count()),
             ],
@@ -1932,6 +1961,12 @@ class ParticipantRegistrationController extends Controller
         if (! $this->officialFeatureEnabled('participant_maqra_open')) {
             abort(403, 'Masa ambil maqra untuk official sedang ditutup oleh admin.');
         }
+
+        $allowedCategoryIds = $this->allowedMaqraCategoryIdsForUser($user);
+
+        if (! is_array($allowedCategoryIds) || ! in_array((int) $participant->competition_category_id, $allowedCategoryIds, true)) {
+            abort(403, 'Golongan peserta ini belum dibuka untuk pengambilan maqra oleh admin.');
+        }
     }
 
     protected function authorizeParticipantCvAccess(Participant $participant): void
@@ -1974,6 +2009,35 @@ class ParticipantRegistrationController extends Controller
         return $participant?->category ? app(PageController::class)->categoryUsesMaqra($participant->category) : false;
     }
 
+    protected function allowedMaqraCategoryIdsForUser($user): ?array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        if ($user->role === 'admin') {
+            return null;
+        }
+
+        $openCategoryIds = $this->officialAccessSetting()->maqraOpenCategoryIds();
+
+        if (in_array($user->role, ['official', 'pendamping'], true)) {
+            return $openCategoryIds;
+        }
+
+        if ($user->role === 'panitia') {
+            $accessibleCategoryIds = $this->accessibleCategoryIdsForUser($user);
+
+            if ($accessibleCategoryIds === [] || $openCategoryIds === []) {
+                return [];
+            }
+
+            return array_values(array_intersect($accessibleCategoryIds, $openCategoryIds));
+        }
+
+        return [];
+    }
+
     protected function canUserDrawLot(): bool
     {
         $role = (string) auth()->user()?->role;
@@ -1993,11 +2057,15 @@ class ParticipantRegistrationController extends Controller
             return false;
         }
 
+        $allowedCategoryIds = $this->allowedMaqraCategoryIdsForUser(auth()->user());
+
         if ($participant) {
-            return (int) (auth()->user()?->district_id ?? 0) === (int) $participant->district_id && $this->participantUsesMaqra($participant);
+            return (int) (auth()->user()?->district_id ?? 0) === (int) $participant->district_id
+                && $this->participantUsesMaqra($participant)
+                && in_array((int) $participant->competition_category_id, is_array($allowedCategoryIds) ? $allowedCategoryIds : [], true);
         }
 
-        return (bool) auth()->user()?->district_id;
+        return is_array($allowedCategoryIds) && $allowedCategoryIds !== [] && (bool) auth()->user()?->district_id;
     }
 
     protected function maqraRoundFromRequest(Request $request): string

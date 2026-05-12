@@ -15,6 +15,7 @@ class OfficialAccessSetting extends Model
         'participant_verification_open',
         'participant_lot_open',
         'participant_maqra_open',
+        'participant_maqra_category_ids',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class OfficialAccessSetting extends Model
             'participant_verification_open' => 'boolean',
             'participant_lot_open' => 'boolean',
             'participant_maqra_open' => 'boolean',
+            'participant_maqra_category_ids' => 'array',
         ];
     }
 
@@ -40,6 +42,7 @@ class OfficialAccessSetting extends Model
             'participant_verification_open' => true,
             'participant_lot_open' => true,
             'participant_maqra_open' => true,
+            'participant_maqra_category_ids' => [],
         ];
     }
 
@@ -62,5 +65,22 @@ class OfficialAccessSetting extends Model
         $defaults = static::defaults();
 
         return (bool) ($this->{$feature} ?? ($defaults[$feature] ?? true));
+    }
+
+    public function maqraOpenCategoryIds(): array
+    {
+        $ids = $this->participant_maqra_category_ids ?? [];
+
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return collect($ids)
+            ->filter(fn ($value): bool => filled($value))
+            ->map(fn ($value): int => (int) $value)
+            ->filter(fn (int $value): bool => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

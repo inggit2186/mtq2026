@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Announcement;
+use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\OfficialAccessSetting;
 use App\Models\SessionSchedule;
@@ -33,6 +34,11 @@ class AdminContentController extends Controller
             'districtCount' => District::query()->count(),
             'officialAccessReady' => Schema::hasTable('official_access_settings'),
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
+            'maqraCategories' => CompetitionCategory::query()
+                ->orderBy('sort_order')
+                ->orderBy('branch')
+                ->orderBy('name')
+                ->get(),
             'announcements' => Announcement::query()
                 ->with('author')
                 ->latest('published_at')
@@ -70,9 +76,18 @@ class AdminContentController extends Controller
             'participant_verification_open' => ['nullable', 'boolean'],
             'participant_lot_open' => ['nullable', 'boolean'],
             'participant_maqra_open' => ['nullable', 'boolean'],
+            'participant_maqra_category_ids' => ['nullable', 'array'],
+            'participant_maqra_category_ids.*' => ['integer', 'exists:competition_categories,id'],
         ]);
 
         $setting = OfficialAccessSetting::current() ?? new OfficialAccessSetting();
+        $selectedMaqraCategoryIds = collect($request->input('participant_maqra_category_ids', []))
+            ->filter(fn ($value): bool => filled($value))
+            ->map(fn ($value): int => (int) $value)
+            ->filter(fn (int $value): bool => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
         $setting->fill([
             'participant_registration_open' => $request->boolean('participant_registration_open'),
             'participant_edit_open' => $request->boolean('participant_edit_open'),
@@ -81,6 +96,7 @@ class AdminContentController extends Controller
             'participant_verification_open' => $request->boolean('participant_verification_open'),
             'participant_lot_open' => $request->boolean('participant_lot_open'),
             'participant_maqra_open' => $request->boolean('participant_maqra_open'),
+            'participant_maqra_category_ids' => $selectedMaqraCategoryIds,
         ]);
         $setting->save();
 
@@ -96,6 +112,7 @@ class AdminContentController extends Controller
                 'participant_verification_open' => $setting->participant_verification_open,
                 'participant_lot_open' => $setting->participant_lot_open,
                 'participant_maqra_open' => $setting->participant_maqra_open,
+                'participant_maqra_category_ids' => $setting->maqraOpenCategoryIds(),
             ]
         );
 

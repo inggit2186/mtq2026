@@ -1561,9 +1561,6 @@ class PageController extends Controller
                 $this->consoleNavigationLink('categories', 'Kategori MTQ', route('categories.index'), 'book-open'),
                 $this->consoleNavigationLink('schedule', 'Jadwal', route('dashboard').'#jadwal', 'calendar'),
                 $this->consoleNavigationLink('announcements', 'Pengumuman', route('dashboard').'#pengumuman', 'bell'),
-                in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)
-                    ? $this->consoleNavigationLink('gallery.index', 'Galeri MTQ', route('gallery.index'), 'image')
-                    : null,
             ]))),
             $this->consoleNavigationGroup('peserta', 'Peserta', 'users', array_values(array_filter([
                 $this->consoleNavigationLink('participants.index', 'Pendaftaran', route('participants.index'), 'id-card'),
@@ -1571,7 +1568,7 @@ class PageController extends Controller
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('participants.lot.menu', 'Pengambilan Lot', route('participants.lot.menu'), 'sparkles')
                     : null,
-                in_array($role, ['admin', 'official', 'pendamping'], true)
+                in_array($role, ['admin', 'official', 'pendamping', 'panitia'], true)
                     ? $this->consoleNavigationLink('participants.maqra.menu', 'Pengambilan Maqra', route('participants.maqra.menu'), 'sparkles')
                     : null,
                 $role === 'admin'
@@ -1610,6 +1607,9 @@ class PageController extends Controller
                     ? $this->consoleNavigationLink('committees.index', 'Panitia Golongan', route('committees.index'), 'shield')
                     : null,
             ]))),
+            in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)
+                ? $this->consoleNavigationLink('gallery.index', 'Galeri MTQ', route('gallery.index'), 'image')
+                : null,
         ]));
 
         return $this->consoleNavigationApplyActive($navigation, $active);

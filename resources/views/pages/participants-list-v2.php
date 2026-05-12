@@ -21,7 +21,8 @@ $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
-$maqraOpenForPanitia = (bool) ($officialAccessSetting->participant_maqra_open ?? true);
+$maqraOpenForPanitia = (bool) ($officialAccessSetting->participant_maqra_open ?? true)
+    && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
 $mainParticipants = $participants

@@ -11,6 +11,10 @@ $projectorProtocolUrl = $projectorProtocolUrl ?? ('emtq-launch://bigscreen?url='
 $districtCount = $districtCount ?? 0;
 $officialAccessReady = $officialAccessReady ?? false;
 $officialAccessSetting = $officialAccessSetting ?? \App\Models\OfficialAccessSetting::currentOrDefault();
+$maqraCategories = $maqraCategories ?? collect();
+$selectedMaqraCategoryIds = collect($officialAccessSetting->maqraOpenCategoryIds())
+    ->map(fn (int $id): string => (string) $id)
+    ->all();
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'admin.content');
 $priorityLabels = [
     'low' => 'Rendah',
@@ -276,6 +280,40 @@ $impersonation = session('impersonation', []);
                                     </div>
                                 </label>
                             <?php endforeach; ?>
+
+                            <div class="lg:col-span-2 rounded-[1.5rem] border border-fuchsia-400/14 bg-slate-950/60 p-5">
+                                <div class="flex flex-wrap items-start justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-bold text-white">Golongan Maqra untuk Official</p>
+                                        <p class="mt-2 text-sm leading-6 text-slate-300">Centang golongan yang boleh tampil di menu Pengambilan Maqra untuk official. Panitia tetap mengikuti hak akses golongan, lalu hasilnya disaring lagi dengan daftar ini.</p>
+                                    </div>
+                                    <div class="status-pill border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100">
+                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                        <?= e($maqraCategories->count()) ?> golongan
+                                    </div>
+                                </div>
+
+                                <?php if ($maqraCategories->isEmpty()): ?>
+                                    <div class="mt-4 rounded-[1.25rem] border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">
+                                        Belum ada golongan yang bisa diatur untuk maqra.
+                                    </div>
+                                <?php else: ?>
+                                    <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                        <?php foreach ($maqraCategories as $category): ?>
+                                            <?php $isChecked = in_array((string) $category->id, $selectedMaqraCategoryIds, true); ?>
+                                            <label class="rounded-[1.25rem] border border-slate-700/80 bg-slate-950/50 p-4 transition hover:border-fuchsia-300/40">
+                                                <div class="flex items-start gap-3">
+                                                    <input type="checkbox" name="participant_maqra_category_ids[]" value="<?= e($category->id) ?>" <?= $isChecked ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-fuchsia-400 focus:ring-fuchsia-300/30">
+                                                    <div class="min-w-0">
+                                                        <p class="text-sm font-semibold text-white"><?= e(trim((string) $category->branch.' - '.(string) $category->name)) ?></p>
+                                                        <p class="mt-1 text-xs text-slate-400"><?= e((string) $category->quota) ?> peserta | <?= e((string) $category->slug) ?></p>
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
 
                             <div class="lg:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 px-5 py-4">
                                 <p class="text-sm leading-6 text-slate-200">Kalau pendaftaran atau verifikasi ditutup, user yang terdampak masih bisa login ke dashboard tetapi tombol aksi yang terkait akan diblok oleh sistem.</p>

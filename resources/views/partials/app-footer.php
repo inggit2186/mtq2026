@@ -13,17 +13,17 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
+                    <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-amber-300/20 bg-slate-950/35 p-2.5 shadow-[0_18px_45px_-30px_rgba(251,191,36,0.25)] sm:h-24">
+                        <img src="<?= e(asset('images/logo-kabupaten.webp')) ?>" alt="Logo Kabupaten Tanah Datar" class="max-h-full w-full object-contain">
+                    </div>
                     <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-white/10 bg-slate-950/35 p-3 shadow-[0_18px_45px_-30px_rgba(34,211,238,0.35)] sm:h-24">
                         <img src="<?= e(asset('images/favicon.webp')) ?>" alt="Logo Kementerian Agama" class="max-h-full w-full object-contain">
-                    </div>
-                    <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-cyan-200/30 bg-transparent p-2.5 shadow-[0_18px_45px_-30px_rgba(125,211,252,0.45)] sm:h-24">
-                        <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="max-h-full w-full object-contain">
                     </div>
                     <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-emerald-300/20 bg-slate-950/35 p-2.5 shadow-[0_18px_45px_-30px_rgba(74,222,128,0.25)] sm:h-24">
                         <img src="<?= e(asset('images/logo-lptq.webp')) ?>" alt="Logo LPTQ" class="max-h-full w-full object-contain">
                     </div>
-                    <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-amber-300/20 bg-slate-950/35 p-2.5 shadow-[0_18px_45px_-30px_rgba(251,191,36,0.25)] sm:h-24">
-                        <img src="<?= e(asset('images/logo-kabupaten.webp')) ?>" alt="Logo Kabupaten Tanah Datar" class="max-h-full w-full object-contain">
+                    <div class="flex h-20 items-center justify-center rounded-[1.35rem] border border-cyan-200/30 bg-transparent p-2.5 shadow-[0_18px_45px_-30px_rgba(125,211,252,0.45)] sm:h-24">
+                        <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="max-h-full w-full object-contain">
                     </div>
                 </div>
             </div>
