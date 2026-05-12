@@ -1015,7 +1015,7 @@ class ParticipantRegistrationController extends Controller
     public function lotMenu(Request $request): View
     {
         $user = auth()->user();
-        abort_unless($user?->role === 'panitia', 403);
+        abort_unless(in_array($user?->role, ['admin', 'panitia'], true), 403);
         abort_unless($this->officialAccessSetting()->isEnabled('participant_lot_open'), 403, 'Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.');
 
         $filters = $request->validate([
@@ -1089,16 +1089,14 @@ class ParticipantRegistrationController extends Controller
     public function maqraMenu(Request $request): View
     {
         $user = auth()->user();
-        abort_unless(in_array($user?->role, ['official', 'pendamping'], true), 403);
+        abort_unless(in_array($user?->role, ['admin', 'official', 'pendamping'], true), 403);
         abort_unless($this->officialAccessSetting()->isEnabled('participant_maqra_open'), 403, 'Masa ambil maqra untuk official sedang ditutup oleh admin.');
-        abort_unless($user?->district_id, 403, 'Akun official ini belum terhubung ke kecamatan.');
 
         $filters = $request->validate([
             'round' => ['nullable', 'string'],
             'participant_id' => ['nullable', 'integer'],
         ]);
 
-        $district = District::query()->findOrFail((int) $user->district_id);
         $roundLabel = in_array((string) ($filters['round'] ?? null), ['Penyisihan', 'Final'], true)
             ? (string) $filters['round']
             : 'Penyisihan';
@@ -1106,7 +1104,7 @@ class ParticipantRegistrationController extends Controller
         $participants = Participant::query()
             ->with(['category', 'district', 'latestMaqraDraw.maqraPackage'])
             ->where('verification_status', 'verified')
-            ->where('district_id', $district->id)
+            ->when(in_array($user?->role, ['official', 'pendamping'], true), fn ($query) => $query->where('district_id', $user?->district_id))
             ->orderBy('competition_category_id')
             ->orderBy('name')
             ->get()
@@ -1122,7 +1120,9 @@ class ParticipantRegistrationController extends Controller
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
             'navigation' => app(PageController::class)->consoleNavigation((string) auth()->user()?->role, 'participants.maqra.menu'),
-            'district' => $district,
+            'district' => in_array($user?->role, ['official', 'pendamping'], true)
+                ? District::query()->find($user?->district_id)
+                : null,
             'participants' => $participants,
             'selectedParticipant' => $selectedParticipant,
             'roundLabel' => $roundLabel,

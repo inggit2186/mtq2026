@@ -98,8 +98,8 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/data-peserta', [ParticipantRegistrationController::class, 'list'])->middleware('role:admin,panitia,official,pendamping')->name('participants.list');
     Route::get('/data-peserta/export/excel', [ParticipantRegistrationController::class, 'exportExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.excel');
     Route::get('/data-peserta/export/pdf', [ParticipantRegistrationController::class, 'exportPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.pdf');
-    Route::get('/pengambilan/lot', [ParticipantRegistrationController::class, 'lotMenu'])->middleware('role:panitia')->name('participants.lot.menu');
-    Route::get('/pengambilan/maqra', [ParticipantRegistrationController::class, 'maqraMenu'])->middleware('role:official,pendamping')->name('participants.maqra.menu');
+    Route::get('/pengambilan/lot', [ParticipantRegistrationController::class, 'lotMenu'])->middleware('role:admin,panitia')->name('participants.lot.menu');
+    Route::get('/pengambilan/maqra', [ParticipantRegistrationController::class, 'maqraMenu'])->middleware('role:admin,official,pendamping')->name('participants.maqra.menu');
     Route::get('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'lotDraw'])->middleware('role:panitia')->name('participants.lot.draw');
     Route::get('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'maqraDraw'])->middleware('role:official,pendamping')->name('participants.maqra.draw');
     Route::get('/data-peserta/{participant}/cv', [ParticipantRegistrationController::class, 'downloadCv'])->name('participants.cv');

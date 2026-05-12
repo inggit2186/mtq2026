@@ -1573,11 +1573,11 @@ class PageController extends Controller
             $navigation[] = ['key' => 'gallery.index', 'label' => 'Galeri MTQ', 'href' => route('gallery.index'), 'icon' => 'image'];
         }
 
-        if ($role === 'panitia') {
+        if (in_array($role, ['admin', 'panitia'], true)) {
             $navigation[] = ['key' => 'participants.lot.menu', 'label' => 'Pengambilan Lot', 'href' => route('participants.lot.menu'), 'icon' => 'sparkles'];
         }
 
-        if (in_array($role, ['official', 'pendamping'], true)) {
+        if (in_array($role, ['admin', 'official', 'pendamping'], true)) {
             $navigation[] = ['key' => 'participants.maqra.menu', 'label' => 'Pengambilan Maqra', 'href' => route('participants.maqra.menu'), 'icon' => 'sparkles'];
         }
 
