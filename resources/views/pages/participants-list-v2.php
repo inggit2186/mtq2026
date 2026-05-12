@@ -601,10 +601,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     <div class="mt-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
                                                         Lot <?= e($participant->lot_number) ?>
                                                     </div>
-                                                <?php elseif ($participant->verification_status === 'verified' && $canDrawParticipant): ?>
-                                                    <div class="mt-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
-                                                        Siap diambil nomor lot
-                                                    </div>
                                                 <?php endif; ?>
                                                 <?php $usesMaqra = $participant->category ? app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category) : false; ?>
                                                 <?php if ($usesMaqra && filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null)): ?>
@@ -615,10 +611,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     ?>
                                                     <div class="mt-2 inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
                                                         <?= e($maqraLabel) ?>
-                                                    </div>
-                                                <?php elseif ($usesMaqra && $participant->verification_status === 'verified' && $canDrawMaqra): ?>
-                                                    <div class="mt-2 rounded-xl border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
-                                                        Siap diambil maqra
                                                     </div>
                                                 <?php endif; ?>
                                             </td>
