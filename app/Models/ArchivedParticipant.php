@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class ArchivedParticipant extends Model
 {
@@ -68,6 +69,13 @@ class ArchivedParticipant extends Model
             'document_other_files' => 'array',
             'document_revision_notes' => 'array',
         ];
+    }
+
+    public function getNameAttribute($value): ?string
+    {
+        $name = trim((string) $value);
+
+        return $name === '' ? null : Str::upper($name);
     }
 
     public function category(): BelongsTo

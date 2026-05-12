@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Participant extends Model
 {
@@ -66,6 +67,13 @@ class Participant extends Model
             'document_other_files' => 'array',
             'document_revision_notes' => 'array',
         ];
+    }
+
+    public function getNameAttribute($value): ?string
+    {
+        $name = trim((string) $value);
+
+        return $name === '' ? null : Str::upper($name);
     }
 
     public function category(): BelongsTo

@@ -70,7 +70,7 @@ class MfqScoringTest extends TestCase
             'participant_id' => $activeParticipant->id,
             'competition_category_id' => $activeParticipant->competition_category_id,
             'judging_round' => 'Penyisihan',
-        ]));
+        ]).'#form-penilaian');
 
         $scoreEntry = ScoreEntry::query()->latest('id')->first();
 
