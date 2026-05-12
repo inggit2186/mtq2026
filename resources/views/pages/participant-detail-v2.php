@@ -88,6 +88,14 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             <p class="text-xs uppercase tracking-[0.24em]">Nomor Lot</p>
                         </div>
                         <?php
+                            $lotGroupSize = $participant?->category
+                                ? app(\App\Http\Controllers\PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender)
+                                : 1;
+                            $lotRuleLabel = $participant?->category
+                                ? app(\App\Http\Controllers\PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender)
+                                : '1 peserta = 1 nomor lot';
+                        ?>
+                        <?php
                             $lotSequenceValue = null;
                             if (filled($participant?->lot_number) && preg_match('/-(\d+)$/', (string) $participant?->lot_number, $matches)) {
                                 $lotSequenceValue = (int) $matches[1];
@@ -95,6 +103,11 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                         ?>
                         <?php if (filled($participant?->lot_number)): ?>
                             <p class="mt-2 text-lg font-bold text-white"><?= e($participant?->lot_number) ?></p>
+                            <?php if ($lotGroupSize > 1): ?>
+                                <p class="mt-1 text-xs text-cyan-200">Lot kelompok untuk <?= e($lotGroupSize) ?> peserta. <?= e($lotRuleLabel) ?></p>
+                            <?php else: ?>
+                                <p class="mt-1 text-xs text-cyan-200"><?= e($lotRuleLabel) ?></p>
+                            <?php endif; ?>
                             <p class="mt-1 text-xs text-emerald-300">Diambil pada <?= e(optional($participant?->lot_assigned_at)->format('d M Y H:i') ?: '-') ?></p>
                             <?php if ($canDrawParticipant): ?>
                                 <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
@@ -165,6 +178,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             <?php endif; ?>
                         <?php elseif ($participant?->verification_status === 'verified'): ?>
                             <p class="mt-2 text-sm text-slate-300">Peserta sudah terverifikasi dan siap diambil nomor lot-nya.</p>
+                            <p class="mt-2 text-xs text-cyan-200"><?= e($lotRuleLabel) ?></p>
                             <?php if ($canDrawParticipant): ?>
                                 <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
                                     <?= mtq_icon('sparkles', 'h-4 w-4') ?>

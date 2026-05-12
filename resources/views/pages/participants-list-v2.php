@@ -547,8 +547,19 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             <td class="px-3 py-3 align-top">
                                                 <div class="break-normal font-semibold leading-snug text-white"><?= e($participant->name) ?></div>
                                                 <?php if (filled($participant->lot_number)): ?>
+                                                    <?php
+                                                        $lotGroupSize = $participant->category
+                                                            ? app(\App\Http\Controllers\PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender)
+                                                            : 1;
+                                                        $lotRuleLabel = $participant->category
+                                                            ? app(\App\Http\Controllers\PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender)
+                                                            : '1 peserta = 1 nomor lot';
+                                                    ?>
                                                     <div class="mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
                                                         Lot <?= e($participant->lot_number) ?>
+                                                    </div>
+                                                    <div class="mt-1 text-[11px] text-cyan-100/90">
+                                                        <?= e($lotGroupSize > 1 ? 'Lot kelompok · '.$lotRuleLabel : $lotRuleLabel) ?>
                                                     </div>
                                                 <?php elseif ($participant->verification_status === 'verified'): ?>
                                                     <div class="mt-1 text-xs text-slate-400">Nomor lot belum diambil</div>
@@ -594,8 +605,19 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     <div class="mt-2 text-xs text-slate-400"><?= e($participant->verification_notes) ?></div>
                                                 <?php endif; ?>
                                                 <?php if (filled($participant->lot_number)): ?>
+                                                    <?php
+                                                        $lotGroupSize = $participant->category
+                                                            ? app(\App\Http\Controllers\PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender)
+                                                            : 1;
+                                                        $lotRuleLabel = $participant->category
+                                                            ? app(\App\Http\Controllers\PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender)
+                                                            : '1 peserta = 1 nomor lot';
+                                                    ?>
                                                     <div class="mt-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
                                                         Lot <?= e($participant->lot_number) ?>
+                                                    </div>
+                                                    <div class="mt-2 text-[11px] text-cyan-100/90">
+                                                        <?= e($lotGroupSize > 1 ? 'Lot kelompok · '.$lotRuleLabel : $lotRuleLabel) ?>
                                                     </div>
                                                 <?php endif; ?>
                                                 <?php $usesMaqra = $participant->category ? app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category) : false; ?>

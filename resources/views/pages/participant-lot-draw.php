@@ -196,8 +196,9 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                             <div>
                                 <p class="section-kicker">Ketentuan</p>
                                 <p class="mt-2 text-sm text-slate-300">Format kode-golongan-nomor, putra genap, putri ganjil.</p>
+                                <p class="mt-2 text-sm text-cyan-100">Aturan khusus: <?= e($lotRuleLabel) ?></p>
                                 <?php if ($lotGroupSize > 1): ?>
-                                    <p class="mt-2 text-sm text-cyan-100">Setiap grup dibagi per <?= e($lotGroupSize) ?> peserta sesuai aturan khusus golongan ini.</p>
+                                    <p class="mt-2 text-sm text-cyan-100">Setiap grup dibagi per <?= e($lotGroupSize) ?> peserta dan memakai satu nomor lot yang sama.</p>
                                 <?php endif; ?>
                             </div>
                             <div class="flex flex-wrap gap-2 text-xs">
