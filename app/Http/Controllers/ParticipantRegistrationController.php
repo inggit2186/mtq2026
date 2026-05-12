@@ -1021,6 +1021,23 @@ class ParticipantRegistrationController extends Controller
         return $user->accessibleCategoryIds();
     }
 
+    protected function accessibleCategoryIdsForLotUser($user): ?array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        if ($user->role === 'admin') {
+            return null;
+        }
+
+        if ($user->role !== 'panitia') {
+            return [];
+        }
+
+        return $user->accessibleCategoryIds();
+    }
+
     public function lotMenu(Request $request): View
     {
         $user = auth()->user();
@@ -1032,14 +1049,14 @@ class ParticipantRegistrationController extends Controller
             'participant_id' => ['nullable', 'integer'],
         ]);
 
-        $accessibleCategoryIds = $this->accessibleCategoryIdsForUser($user);
+        $accessibleCategoryIds = $this->accessibleCategoryIdsForLotUser($user);
 
         $categoriesQuery = CompetitionCategory::query()
             ->orderBy('sort_order')
             ->orderBy('branch')
             ->orderBy('name');
 
-        if ($accessibleCategoryIds !== []) {
+        if (is_array($accessibleCategoryIds)) {
             $categoriesQuery->whereIn('id', $accessibleCategoryIds);
         }
 
@@ -1054,7 +1071,7 @@ class ParticipantRegistrationController extends Controller
         $participantsQuery = Participant::query()
             ->with(['category', 'district'])
             ->where('verification_status', 'verified')
-            ->when($accessibleCategoryIds !== [], fn ($query) => $query->whereIn('competition_category_id', $accessibleCategoryIds))
+            ->when(is_array($accessibleCategoryIds), fn ($query) => $query->whereIn('competition_category_id', $accessibleCategoryIds))
             ->when($selectedCategoryId > 0, fn ($query) => $query->where('competition_category_id', $selectedCategoryId))
             ->orderBy('name');
 
@@ -1078,7 +1095,7 @@ class ParticipantRegistrationController extends Controller
                 'participant_total' => $participants->count(),
                 'verified_total' => Participant::query()
                     ->where('verification_status', 'verified')
-                    ->when($accessibleCategoryIds !== [], fn ($query) => $query->whereIn('competition_category_id', $accessibleCategoryIds))
+                    ->when(is_array($accessibleCategoryIds), fn ($query) => $query->whereIn('competition_category_id', $accessibleCategoryIds))
                     ->count(),
             ],
             'filters' => [
@@ -1145,7 +1162,7 @@ class ParticipantRegistrationController extends Controller
     {
         $this->authorizePanitiaLotAccess();
         $participant->loadMissing(['category', 'district']);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantLotAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar undian hanya tersedia untuk peserta yang sudah terverifikasi.');
 
         return view('pages.participant-lot-draw', [
@@ -1165,7 +1182,7 @@ class ParticipantRegistrationController extends Controller
         $this->authorizePanitiaLotAccess();
 
         $participant->loadMissing(['category', 'district']);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantLotAccess($participant);
         abort_unless($participant->category, 422, 'Kategori peserta belum tersedia untuk mengambil nomor lot.');
         abort_unless(in_array($participant->gender, ['putra', 'putri'], true), 422, 'Jenis kelamin peserta harus putra atau putri untuk mengambil nomor lot.');
         abort_unless($participant->verification_status === 'verified', 403, 'Nomor lot hanya dapat diambil untuk peserta yang sudah terverifikasi.');
@@ -1865,6 +1882,23 @@ class ParticipantRegistrationController extends Controller
         if (! $this->officialFeatureEnabled('participant_lot_open')) {
             abort(403, 'Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.');
         }
+    }
+
+    protected function authorizeParticipantLotAccess(Participant $participant): void
+    {
+        $user = auth()->user();
+
+        if ($user?->role !== 'panitia') {
+            return;
+        }
+
+        $accessibleCategoryIds = $this->accessibleCategoryIdsForLotUser($user) ?? [];
+
+        abort_unless(
+            in_array((int) $participant->competition_category_id, $accessibleCategoryIds, true),
+            403,
+            'Akun panitia ini tidak memiliki hak akses golongan untuk pengambilan lot pada peserta tersebut.'
+        );
     }
 
     protected function authorizeOfficialMaqraAccess(Participant $participant): void
