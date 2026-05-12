@@ -1486,6 +1486,7 @@ class PageController extends Controller
                     ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
                     ['label' => 'Hasil Nilai', 'href' => route('results.index')],
                     ['label' => 'Buka Penilaian', 'href' => route('scoring')],
+                    ['label' => 'Buka Penilaian MFQ', 'href' => route('scoring.mfq')],
                     ['label' => 'Muat Ulang Dashboard', 'href' => route('dashboard')],
                 ],
             ],
@@ -1507,6 +1508,7 @@ class PageController extends Controller
                     ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
                     ['label' => 'Hasil Nilai', 'href' => route('results.index')],
                     ['label' => 'Input Nilai', 'href' => route('scoring')],
+                    ['label' => 'Penilaian MFQ', 'href' => route('scoring.mfq')],
                     ['label' => 'Lihat Ringkasan', 'href' => route('dashboard')],
                 ],
             ],
@@ -1571,8 +1573,17 @@ class PageController extends Controller
             $navigation[] = ['key' => 'gallery.index', 'label' => 'Galeri MTQ', 'href' => route('gallery.index'), 'icon' => 'image'];
         }
 
+        if ($role === 'panitia') {
+            $navigation[] = ['key' => 'participants.lot.menu', 'label' => 'Pengambilan Lot', 'href' => route('participants.lot.menu'), 'icon' => 'sparkles'];
+        }
+
+        if (in_array($role, ['official', 'pendamping'], true)) {
+            $navigation[] = ['key' => 'participants.maqra.menu', 'label' => 'Pengambilan Maqra', 'href' => route('participants.maqra.menu'), 'icon' => 'sparkles'];
+        }
+
         if (in_array($role, ['admin', 'panitia'], true)) {
             $navigation[] = ['key' => 'scoring', 'label' => 'Penilaian', 'href' => route('scoring'), 'icon' => 'chart'];
+            $navigation[] = ['key' => 'scoring.mfq', 'label' => 'Penilaian MFQ', 'href' => route('scoring.mfq'), 'icon' => 'chart'];
             $navigation[] = ['key' => 'admin.content', 'label' => 'Kelola Konten', 'href' => route('admin.content'), 'icon' => 'bell'];
             $navigation[] = ['key' => 'admin.documents', 'label' => 'Dokumen Resmi', 'href' => route('admin.documents'), 'icon' => 'book-open'];
             $navigation[] = ['key' => 'application.logs', 'label' => 'Log Aplikasi', 'href' => route('application.logs'), 'icon' => 'clock'];

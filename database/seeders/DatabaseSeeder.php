@@ -392,6 +392,29 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
+        $mfqPutraCategory = $categories->get(Str::slug('Fahmil Qur`an Golongan Putra'));
+        $mfqPutriCategory = $categories->get(Str::slug('Fahmil Qur`an Golongan Putri'));
+        $mfqDistricts = $districts->values();
+
+        $mfqTeams = collect([
+            ['name' => 'Regu Harmoni Putra', 'institution' => 'Kafilah Kecamatan X Koto', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(0), 'reg' => 'MFQ-P-001', 'gender' => 'putra', 'nik' => '1305000000010001', 'birth_place' => 'X Koto', 'birth_date' => '2006-01-01', 'phone' => '081300000001', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Cendekia Putra', 'institution' => 'Kafilah Kecamatan Batipuh', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(1), 'reg' => 'MFQ-P-002', 'gender' => 'putra', 'nik' => '1305000000020002', 'birth_place' => 'Batipuh', 'birth_date' => '2006-02-02', 'phone' => '081300000002', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Bintang Putra', 'institution' => 'Kafilah Kecamatan Pariangan', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(2), 'reg' => 'MFQ-P-003', 'gender' => 'putra', 'nik' => '1305000000030003', 'birth_place' => 'Pariangan', 'birth_date' => '2006-03-03', 'phone' => '081300000003', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Mutiara Putra', 'institution' => 'Kafilah Kecamatan Lima Kaum', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(3), 'reg' => 'MFQ-P-004', 'gender' => 'putra', 'nik' => '1305000000040004', 'birth_place' => 'Lima Kaum', 'birth_date' => '2006-04-04', 'phone' => '081300000004', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Fikrah Putra', 'institution' => 'Kafilah Kecamatan Rambatan', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(4), 'reg' => 'MFQ-P-005', 'gender' => 'putra', 'nik' => '1305000000050005', 'birth_place' => 'Rambatan', 'birth_date' => '2006-05-05', 'phone' => '081300000005', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Hikmah Putra', 'institution' => 'Kafilah Kecamatan Sungai Tarab', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(5), 'reg' => 'MFQ-P-006', 'gender' => 'putra', 'nik' => '1305000000060006', 'birth_place' => 'Sungai Tarab', 'birth_date' => '2006-06-06', 'phone' => '081300000006', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Nur Putra', 'institution' => 'Kafilah Kecamatan Tanjung Emas', 'category' => $mfqPutraCategory, 'district' => $mfqDistricts->get(6), 'reg' => 'MFQ-P-007', 'gender' => 'putra', 'nik' => '1305000000070007', 'birth_place' => 'Tanjung Emas', 'birth_date' => '2006-07-07', 'phone' => '081300000007', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Cakrawala Putri', 'institution' => 'Kafilah Kecamatan Salimpaung', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(7), 'reg' => 'MFQ-T-001', 'gender' => 'putri', 'nik' => '1305000000080008', 'birth_place' => 'Salimpaung', 'birth_date' => '2006-08-08', 'phone' => '081300000008', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Inspirasi Putri', 'institution' => 'Kafilah Kecamatan Batipuh Selatan', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(8), 'reg' => 'MFQ-T-002', 'gender' => 'putri', 'nik' => '1305000000090009', 'birth_place' => 'Batipuh Selatan', 'birth_date' => '2006-09-09', 'phone' => '081300000009', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Lentera Putri', 'institution' => 'Kafilah Kecamatan Sungayang', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(9), 'reg' => 'MFQ-T-003', 'gender' => 'putri', 'nik' => '1305000000100010', 'birth_place' => 'Sungayang', 'birth_date' => '2006-10-10', 'phone' => '081300000010', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Taqwa Putri', 'institution' => 'Kafilah Kecamatan Tanjung Baru', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(10), 'reg' => 'MFQ-T-004', 'gender' => 'putri', 'nik' => '1305000000110011', 'birth_place' => 'Tanjung Baru', 'birth_date' => '2006-11-11', 'phone' => '081300000011', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Cakra Putri', 'institution' => 'Kafilah Kecamatan Padang Ganting', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(11), 'reg' => 'MFQ-T-005', 'gender' => 'putri', 'nik' => '1305000000120012', 'birth_place' => 'Padang Ganting', 'birth_date' => '2006-12-12', 'phone' => '081300000012', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Cahaya Putri', 'institution' => 'Kafilah Kecamatan Lintau Buo', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(12), 'reg' => 'MFQ-T-006', 'gender' => 'putri', 'nik' => '1305000000130013', 'birth_place' => 'Lintau Buo', 'birth_date' => '2007-01-13', 'phone' => '081300000013', 'region' => 'Sumatera Barat'],
+            ['name' => 'Regu Ilmu Putri', 'institution' => 'Kafilah Kecamatan Lintau Buo Utara', 'category' => $mfqPutriCategory, 'district' => $mfqDistricts->get(13), 'reg' => 'MFQ-T-007', 'gender' => 'putri', 'nik' => '1305000000140014', 'birth_place' => 'Lintau Buo Utara', 'birth_date' => '2007-02-14', 'phone' => '081300000014', 'region' => 'Sumatera Barat'],
+        ]);
+
+        $participants = array_merge($participants, $mfqTeams->all());
+
         $participantFirstNames = [
             'Miftah', 'Nadia', 'Rafli', 'Salsa', 'Aldo', 'Nabila', 'Faris', 'Zahra',
             'Ridwan', 'Aisyah', 'Fikri', 'Salwa', 'Hilmi', 'Khadijah', 'Ilham', 'Aulia',
