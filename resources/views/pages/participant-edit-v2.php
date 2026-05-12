@@ -627,8 +627,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <div class="space-y-5" x-show="currentStep === 3">
                             <div class="rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/70 to-blue-950/60 p-5">
                                 <p class="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">Langkah 3</p>
-                                    <h4 class="mt-2 text-xl font-bold text-white">Tinjau revisi peserta</h4>
-                                <p class="mt-2 text-sm text-slate-300">Pastikan perubahan siap disimpan atau dikirim ulang untuk verifikasi.</p>
+                                <h4 class="mt-2 text-xl font-bold text-white">Tinjau revisi peserta</h4>
+                                <p class="mt-2 text-sm text-slate-300">Simpan draft jika belum lengkap, atau kirim ulang untuk verifikasi bila semua data dan berkas sudah siap.</p>
                             </div>
 
                             <div class="grid gap-4 lg:grid-cols-2">
@@ -710,7 +710,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </button>
                                 <button type="submit" name="submit_action" value="draft" class="secondary-button">
                                     <?= mtq_icon('upload', 'h-4 w-4') ?>
-                                    Simpan Perubahan
+                                    Simpan Draft
                                 </button>
                                 <button type="submit" name="submit_action" value="submitted" class="primary-button">
                                     <?= mtq_icon('check-circle', 'h-4 w-4') ?>

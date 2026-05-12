@@ -1091,6 +1091,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                                     Ganti Kategori
                                 </button>
+                                <button type="submit" name="submit_action" value="draft" class="secondary-button">
+                                    <?= mtq_icon('upload', 'h-4 w-4') ?>
+                                    Simpan Draft
+                                </button>
                                 <button type="button" class="primary-button" x-bind:disabled="!canProceedToReview()" x-bind:class="!canProceedToReview() ? 'pointer-events-none opacity-50' : ''" x-on:click="goToStep(3)">
                                     <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                     Lanjut ke Review

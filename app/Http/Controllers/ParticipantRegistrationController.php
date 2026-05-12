@@ -402,18 +402,22 @@ class ParticipantRegistrationController extends Controller
             $validated['district_id'] = $user?->district_id;
         }
 
-        $this->ensureParticipantAgeMatchesCategory(
-            (int) $validated['competition_category_id'],
-            (string) $validated['date_of_birth'],
-        );
+        $isDraft = ($validated['submit_action'] ?? '') === 'draft';
 
-        $this->ensureCategoryCapacity(
-            (int) $validated['competition_category_id'],
-            $validated['district_id'] ? (int) $validated['district_id'] : null,
-            $validated['gender'],
-            null,
-            $validated['participant_role'],
-        );
+        if (! $isDraft) {
+            $this->ensureParticipantAgeMatchesCategory(
+                (int) $validated['competition_category_id'],
+                (string) $validated['date_of_birth'],
+            );
+
+            $this->ensureCategoryCapacity(
+                (int) $validated['competition_category_id'],
+                $validated['district_id'] ? (int) $validated['district_id'] : null,
+                $validated['gender'],
+                null,
+                $validated['participant_role'],
+            );
+        }
 
         $registrationNumber = 'REG-'.now()->format('ymd').'-'.Str::upper(Str::random(5));
 
@@ -422,24 +426,24 @@ class ParticipantRegistrationController extends Controller
             'competition_category_id' => $validated['competition_category_id'],
             'registration_number' => $registrationNumber,
             'participant_role' => $validated['participant_role'],
-            'name' => $validated['name'],
-            'gender' => $validated['gender'],
-            'nik' => $validated['nik'],
-            'ktp_date' => $validated['ktp_date'],
-            'place_of_birth' => $validated['place_of_birth'],
-            'date_of_birth' => $validated['date_of_birth'],
-            'kk_number' => $validated['kk_number'],
-            'kk_date' => $validated['kk_date'],
-            'phone' => $validated['phone'],
-            'institution' => $validated['institution'],
-            'last_education' => $validated['last_education'],
-            'bank_name' => $validated['bank_name'],
-            'bank_account_number' => $validated['bank_account_number'],
-            'bank_account_name' => $validated['bank_account_name'],
-            'current_address' => $validated['current_address'],
-            'ktp_address' => $validated['ktp_address'],
-            'ktp_district' => $validated['ktp_district'],
-            'ktp_regency' => $validated['ktp_regency'],
+            'name' => $validated['name'] ?? null,
+            'gender' => $validated['gender'] ?? null,
+            'nik' => $validated['nik'] ?? null,
+            'ktp_date' => $validated['ktp_date'] ?? null,
+            'place_of_birth' => $validated['place_of_birth'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'kk_number' => $validated['kk_number'] ?? null,
+            'kk_date' => $validated['kk_date'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'institution' => $validated['institution'] ?? null,
+            'last_education' => $validated['last_education'] ?? null,
+            'bank_name' => $validated['bank_name'] ?? null,
+            'bank_account_number' => $validated['bank_account_number'] ?? null,
+            'bank_account_name' => $validated['bank_account_name'] ?? null,
+            'current_address' => $validated['current_address'] ?? null,
+            'ktp_address' => $validated['ktp_address'] ?? null,
+            'ktp_district' => $validated['ktp_district'] ?? null,
+            'ktp_regency' => $validated['ktp_regency'] ?? null,
             'document_kk' => $this->storeUploadedFile($request, 'kk_document', 'participants/documents/kk'),
             'document_ktp' => $this->storeUploadedFile($request, 'ktp_document', 'participants/documents/ktp'),
             'document_birth_certificate' => $this->storeUploadedFile($request, 'birth_certificate_document', 'participants/documents/akta'),
@@ -669,46 +673,49 @@ class ParticipantRegistrationController extends Controller
         $user = auth()->user();
         $districtLocked = in_array($user?->role, ['official', 'pendamping'], true);
         $validated = $this->validateParticipantForm($request, false, $participant);
+        $isDraft = ($validated['submit_action'] ?? '') === 'draft';
 
         if ($districtLocked) {
             $validated['district_id'] = $user?->district_id;
         }
 
-        $this->ensureParticipantAgeMatchesCategory(
-            (int) $validated['competition_category_id'],
-            (string) $validated['date_of_birth'],
-        );
+        if (! $isDraft) {
+            $this->ensureParticipantAgeMatchesCategory(
+                (int) $validated['competition_category_id'],
+                (string) $validated['date_of_birth'],
+            );
 
-        $this->ensureCategoryCapacity(
-            (int) $validated['competition_category_id'],
-            $validated['district_id'] ? (int) $validated['district_id'] : null,
-            $validated['gender'],
-            $participant->id,
-            $validated['participant_role'],
-        );
+            $this->ensureCategoryCapacity(
+                (int) $validated['competition_category_id'],
+                $validated['district_id'] ? (int) $validated['district_id'] : null,
+                $validated['gender'],
+                $participant->id,
+                $validated['participant_role'],
+            );
+        }
 
         $attributes = [
             'district_id' => $validated['district_id'] ?: null,
             'competition_category_id' => $validated['competition_category_id'],
             'participant_role' => $validated['participant_role'],
-            'name' => $validated['name'],
-            'gender' => $validated['gender'],
-            'nik' => $validated['nik'],
-            'ktp_date' => $validated['ktp_date'],
-            'place_of_birth' => $validated['place_of_birth'],
-            'date_of_birth' => $validated['date_of_birth'],
-            'kk_number' => $validated['kk_number'],
-            'kk_date' => $validated['kk_date'],
-            'phone' => $validated['phone'],
-            'institution' => $validated['institution'],
-            'last_education' => $validated['last_education'],
-            'bank_name' => $validated['bank_name'],
-            'bank_account_number' => $validated['bank_account_number'],
-            'bank_account_name' => $validated['bank_account_name'],
-            'current_address' => $validated['current_address'],
-            'ktp_address' => $validated['ktp_address'],
-            'ktp_district' => $validated['ktp_district'],
-            'ktp_regency' => $validated['ktp_regency'],
+            'name' => $validated['name'] ?? null,
+            'gender' => $validated['gender'] ?? null,
+            'nik' => $validated['nik'] ?? null,
+            'ktp_date' => $validated['ktp_date'] ?? null,
+            'place_of_birth' => $validated['place_of_birth'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'kk_number' => $validated['kk_number'] ?? null,
+            'kk_date' => $validated['kk_date'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'institution' => $validated['institution'] ?? null,
+            'last_education' => $validated['last_education'] ?? null,
+            'bank_name' => $validated['bank_name'] ?? null,
+            'bank_account_number' => $validated['bank_account_number'] ?? null,
+            'bank_account_name' => $validated['bank_account_name'] ?? null,
+            'current_address' => $validated['current_address'] ?? null,
+            'ktp_address' => $validated['ktp_address'] ?? null,
+            'ktp_district' => $validated['ktp_district'] ?? null,
+            'ktp_regency' => $validated['ktp_regency'] ?? null,
             'verification_status' => $validated['submit_action'],
             'verification_notes' => $validated['submit_action'] === 'submitted'
                 ? 'Peserta mengirim ulang data untuk verifikasi.'
@@ -773,7 +780,9 @@ class ParticipantRegistrationController extends Controller
             'participant_id' => $participant->id,
             'verified_by' => auth()->id(),
             'status' => 'updated',
-            'notes' => 'Data peserta diperbarui dan dikirim ulang oleh '.($user?->name ?? 'pengguna').'.',
+            'notes' => $isDraft
+                ? 'Data peserta diperbarui dan disimpan sebagai draft oleh '.($user?->name ?? 'pengguna').'.'
+                : 'Data peserta diperbarui dan dikirim ulang oleh '.($user?->name ?? 'pengguna').'.',
         ]);
 
         $this->logParticipantActivity(
@@ -792,7 +801,9 @@ class ParticipantRegistrationController extends Controller
 
         return redirect()
             ->route('participants.show', $participant)
-            ->with('status', 'Data peserta '.$participant->name.' berhasil diperbarui.');
+            ->with('status', $isDraft
+                ? 'Draft peserta '.$participant->name.' berhasil disimpan.'
+                : 'Data peserta '.$participant->name.' berhasil diperbarui.');
     }
 
     public function archive(Participant $participant): RedirectResponse
@@ -2051,7 +2062,8 @@ class ParticipantRegistrationController extends Controller
 
     protected function validateParticipantForm(Request $request, bool $isCreate, ?Participant $participant = null): array
     {
-        $nikRules = ['required', 'string', 'max:32'];
+        $isDraft = (string) $request->input('submit_action') === 'draft';
+        $nikRules = [$isDraft ? 'nullable' : 'required', 'string', 'max:32'];
         if ($participant) {
             $nikRules[] = Rule::unique('participants', 'nik')->ignore($participant->id)->withoutTrashed();
         } else {
@@ -2059,33 +2071,35 @@ class ParticipantRegistrationController extends Controller
         }
 
         $underSeventeen = $this->participantIsUnderSeventeen((string) $request->input('date_of_birth'));
+        $requiredOrNullable = $isDraft ? 'nullable' : 'required';
+        $requiredOrNullableWhenAdult = $isDraft ? 'nullable' : ($underSeventeen ? 'nullable' : 'required');
 
         return $request->validate([
             'district_id' => ['nullable', 'exists:districts,id'],
             'competition_category_id' => ['required', 'exists:competition_categories,id'],
             'participant_role' => ['required', 'in:main,reserve'],
-            'name' => ['required', 'string', 'max:255'],
-            'gender' => ['required', 'in:putra,putri'],
+            'name' => [$requiredOrNullable, 'string', 'max:255'],
+            'gender' => [$requiredOrNullable, 'in:putra,putri'],
             'nik' => $nikRules,
-            'ktp_date' => [$underSeventeen ? 'nullable' : 'required', 'date'],
-            'place_of_birth' => ['required', 'string', 'max:255'],
-            'date_of_birth' => ['required', 'date'],
-            'kk_number' => ['required', 'string', 'max:32'],
-            'kk_date' => ['required', 'date'],
-            'phone' => ['required', 'string', 'max:30'],
-            'institution' => ['required', 'string', 'max:255'],
-            'last_education' => ['required', 'string', 'max:255'],
+            'ktp_date' => [$requiredOrNullableWhenAdult, 'date'],
+            'place_of_birth' => [$requiredOrNullable, 'string', 'max:255'],
+            'date_of_birth' => [$requiredOrNullable, 'date'],
+            'kk_number' => [$requiredOrNullable, 'string', 'max:32'],
+            'kk_date' => [$requiredOrNullable, 'date'],
+            'phone' => [$requiredOrNullable, 'string', 'max:30'],
+            'institution' => [$requiredOrNullable, 'string', 'max:255'],
+            'last_education' => [$requiredOrNullable, 'string', 'max:255'],
             'bank_name' => ['nullable', 'string', 'max:255'],
             'bank_account_number' => ['nullable', 'string', 'max:60'],
             'bank_account_name' => ['nullable', 'string', 'max:255'],
-            'current_address' => ['required', 'string', 'max:1000'],
-            'ktp_address' => ['required', 'string', 'max:1000'],
-            'ktp_district' => ['required', 'string', 'max:255'],
-            'ktp_regency' => ['required', 'string', 'max:255'],
-            'kk_document' => [$isCreate ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'ktp_document' => [$isCreate && ! $underSeventeen ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'birth_certificate_document' => [$isCreate ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'photo_document' => [$isCreate ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
+            'current_address' => [$requiredOrNullable, 'string', 'max:1000'],
+            'ktp_address' => [$requiredOrNullable, 'string', 'max:1000'],
+            'ktp_district' => [$requiredOrNullable, 'string', 'max:255'],
+            'ktp_regency' => [$requiredOrNullable, 'string', 'max:255'],
+            'kk_document' => [$requiredOrNullable, 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'ktp_document' => [$requiredOrNullableWhenAdult, 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'birth_certificate_document' => [$requiredOrNullable, 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'photo_document' => [$requiredOrNullable, 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
             'last_diploma_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'bank_book_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'certificate_documents' => ['nullable', 'array'],
@@ -3059,4 +3073,3 @@ class ParticipantRegistrationController extends Controller
         ];
     }
 }
-
