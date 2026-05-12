@@ -602,10 +602,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         Lot <?= e($participant->lot_number) ?>
                                                     </div>
                                                 <?php elseif ($participant->verification_status === 'verified' && $canDrawParticipant): ?>
-                                                    <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-2 rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] leading-tight text-cyan-100 hover:border-cyan-200/50">
-                                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                                        Ambil Nomor Lot
-                                                    </a>
+                                                    <div class="mt-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                                        Siap diambil nomor lot
+                                                    </div>
                                                 <?php endif; ?>
                                                 <?php $usesMaqra = $participant->category ? app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category) : false; ?>
                                                 <?php if ($usesMaqra && filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null)): ?>
@@ -618,10 +617,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <?= e($maqraLabel) ?>
                                                     </div>
                                                 <?php elseif ($usesMaqra && $participant->verification_status === 'verified' && $canDrawMaqra): ?>
-                                                    <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-2 rounded-xl border-fuchsia-300/30 bg-fuchsia-400/10 px-3 py-2 text-[11px] leading-tight text-fuchsia-100 hover:border-fuchsia-200/50">
-                                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                                        Ambil Maqra
-                                                    </a>
+                                                    <div class="mt-2 rounded-xl border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
+                                                        Siap diambil maqra
+                                                    </div>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-3">
@@ -722,39 +720,5 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
     <?php foreach ($jsAssets as $src): ?>
         <script type="module" src="<?= e($src) ?>"></script>
     <?php endforeach; ?>
-    <script>
-        (function () {
-            const launchers = document.querySelectorAll('[data-lot-launcher], [data-maqra-launcher]');
-            launchers.forEach((launcher) => {
-                launcher.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    const url = launcher.getAttribute('href');
-                    if (!url) {
-                        return;
-                    }
-
-                    const windowName = launcher.hasAttribute('data-maqra-launcher') ? 'mtq-maqra-draw' : 'mtq-lot-draw';
-
-                    const popup = window.open(
-                        url,
-                        windowName,
-                        `popup=yes,width=${screen.availWidth},height=${screen.availHeight},left=0,top=0,noopener=no`
-                    );
-
-                    if (popup) {
-                        try {
-                            popup.moveTo(0, 0);
-                            popup.resizeTo(screen.availWidth, screen.availHeight);
-                            popup.focus();
-                        } catch (error) {
-                            popup.focus();
-                        }
-                    } else {
-                        window.location.href = url;
-                    }
-                });
-            });
-        })();
-    </script>
 </body>
 </html>
