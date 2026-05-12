@@ -154,7 +154,7 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
                                                     <div class="flex flex-wrap gap-2">
                                                         <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-[11px]">Detail</a>
                                                         <?php if ($participant->verification_status === 'verified' && $user?->role === 'panitia'): ?>
-                                                            <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" class="secondary-button rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] text-cyan-100 hover:border-cyan-200/50">
+                                                            <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button rounded-xl border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] text-cyan-100 hover:border-cyan-200/50">
                                                                 <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                                 Ambil Nomor Lot
                                                             </a>
@@ -176,5 +176,37 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
     <?php foreach (($assets['js'] ?? []) as $src): ?>
         <script src="<?= e($src) ?>" defer></script>
     <?php endforeach; ?>
+    <script>
+        (function () {
+            const launchers = document.querySelectorAll('[data-lot-launcher]');
+            launchers.forEach((launcher) => {
+                launcher.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const url = launcher.getAttribute('href');
+                    if (!url) {
+                        return;
+                    }
+
+                    const popup = window.open(
+                        url,
+                        'mtq-lot-draw',
+                        `popup=yes,width=${screen.availWidth},height=${screen.availHeight},left=0,top=0,noopener=no`
+                    );
+
+                    if (popup) {
+                        try {
+                            popup.moveTo(0, 0);
+                            popup.resizeTo(screen.availWidth, screen.availHeight);
+                            popup.focus();
+                        } catch (error) {
+                            popup.focus();
+                        }
+                    } else {
+                        window.location.href = url;
+                    }
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
