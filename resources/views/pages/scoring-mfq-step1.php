@@ -10,11 +10,23 @@ $participants = $participants ?? collect();
 $mfqCategories = $mfqCategories ?? collect();
 $selectedCategory = $selectedCategory ?? null;
 $selectedParticipants = $selectedParticipants ?? collect();
+$participantsByDistrict = $participantsByDistrict ?? $participants->groupBy(fn ($participant) => (int) ($participant->district_id ?? 0));
+$districtCards = $districtCards ?? $participantsByDistrict->map(function ($districtParticipants, $districtId): array {
+    $districtParticipants = collect($districtParticipants)->values();
+
+    return [
+        'district_id' => (int) $districtId,
+        'district_name' => (string) ($districtParticipants->first()?->district?->name ?? 'Tanpa Kecamatan'),
+        'participant_count' => $districtParticipants->count(),
+    ];
+})->values()->all();
 $summaryStats = $summaryStats ?? ['participant_total' => 0, 'category_total' => 0, 'verified_total' => 0, 'selected_average' => '0.00', 'selected_latest' => '0.00'];
 $filters = $filters ?? [];
-$selectionState = $selectionState ?? ['competition_category_id' => null, 'participant_ids' => []];
+$selectionState = $selectionState ?? ['competition_category_id' => null, 'district_ids' => []];
+$selectionSessionName = $selectionSessionName ?? '';
 $categoryId = (string) old('competition_category_id', $selectionState['competition_category_id'] ?? ($filters['competition_category_id'] ?? ''));
-$selectedIds = collect(old('participant_ids', $selectionState['participant_ids'] ?? []))
+$sessionName = (string) old('session_name', $selectionSessionName);
+$selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []))
     ->map(fn ($id) => (string) $id)
     ->filter()
     ->values()
@@ -36,6 +48,8 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
 
     <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8" x-data="mfqSelectionPage({
         initialSelectedIds: <?= e(json_encode($selectedIds, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+        initialSessionName: <?= e(json_encode($sessionName, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+        districtCards: <?= e(json_encode($districtCards, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
     })">
         <div class="hero-orb hero-orb-cyan right-[-7rem] top-10 h-72 w-72"></div>
         <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
@@ -107,7 +121,7 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
                 <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Peserta MFQ</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('book-open') ?></div><p class="mt-4 text-sm text-slate-400">Golongan Aktif</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['category_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Regu Terpilih</p><p class="mt-2 text-3xl font-extrabold text-cyan-200" x-text="selectedIds.length"></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Kecamatan Terpilih</p><p class="mt-2 text-3xl font-extrabold text-cyan-200" x-text="selectedIds.length"></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('spark') ?></div><p class="mt-4 text-sm text-slate-400">Batas Pemilihan</p><p class="mt-2 text-3xl font-extrabold text-emerald-300">2-5</p></div>
                 </section>
 
@@ -118,9 +132,9 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
                                 <div class="flex items-center gap-3">
                                     <div class="icon-chip"><?= mtq_icon('fingerprint') ?></div>
                                     <div>
-                                        <p class="section-kicker">Filter Golongan</p>
-                                        <h3 class="mt-2 text-2xl font-bold text-white">Tentukan golongan MFQ dulu</h3>
-                                        <p class="mt-2 text-sm text-slate-300">Setelah golongan dipilih, daftar regu yang tampil akan disesuaikan agar panitia lebih mudah memilih peserta tanding.</p>
+                                        <p class="section-kicker">Nama Sesi</p>
+                                        <h3 class="mt-2 text-2xl font-bold text-white">Beri nama sesi penilaian</h3>
+                                        <p class="mt-2 text-sm text-slate-300">Contoh: Sesi Penyisihan MFQ Putra 1. Nama ini akan terbawa sampai tahap penilaian.</p>
                                     </div>
                                 </div>
                                 <?php if ($selectedCategory): ?>
@@ -146,7 +160,7 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
                                 <div class="flex items-end">
                                     <button type="submit" class="primary-button rounded-2xl px-5 py-3">
                                         <?= mtq_icon('check-circle', 'h-4 w-4') ?>
-                                        Tampilkan Regu
+                                        Lihat Peserta
                                     </button>
                                 </div>
                             </form>
@@ -156,12 +170,12 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
                             <div class="flex flex-wrap items-start justify-between gap-4">
                                 <div>
                                     <p class="section-kicker">Pilih Regu</p>
-                                    <h3 class="mt-2 text-2xl font-bold text-white">Centang 2 sampai 5 regu yang akan bertanding</h3>
-                                    <p class="mt-2 text-sm text-slate-300">Kalau belum memilih golongan, kita belum bisa membatasi daftar regunya. Setelah golongan dipilih, pilih regu yang akan masuk ke arena.</p>
+                                    <h3 class="mt-2 text-2xl font-bold text-white">Pilih 2 sampai 5 kecamatan yang akan bertanding</h3>
+                                    <p class="mt-2 text-sm text-slate-300">MFQ di sini berjalan kecamatan vs kecamatan. Satu kecamatan = satu regu, jadi yang dipilih adalah wilayahnya, bukan orang per orang.</p>
                                 </div>
                                 <div class="status-pill">
                                     <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                                    <span x-text="`${selectedIds.length} regu dipilih`"></span>
+                                    <span x-text="`${selectedIds.length} kecamatan dipilih`"></span>
                                 </div>
                             </div>
 
@@ -178,22 +192,59 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
                                     <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                                     <input type="hidden" name="competition_category_id" value="<?= e($selectedCategory->id) ?>">
 
-                                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                        <?php foreach ($participants as $participant): ?>
-                                            <label class="relative block cursor-pointer rounded-[1.4rem] border px-4 py-4 transition"
-                                                :class="selectedIds.includes('<?= e($participant->id) ?>') ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_12px_35px_-20px_rgba(34,211,238,0.75)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30'">
-                                                <div class="flex items-start gap-3">
+                                    <div class="rounded-[1.4rem] border <?= filled($sessionName) ? 'border-cyan-400/16 bg-cyan-400/10' : 'border-amber-400/20 bg-amber-400/10' ?> px-4 py-4">
+                                        <p class="text-xs uppercase tracking-[0.18em] <?= filled($sessionName) ? 'text-cyan-100/70' : 'text-amber-100/80' ?>">Nama Sesi</p>
+                                        <div class="mt-3">
+                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Isi nama sesi setelah peserta tampil</label>
+                                            <input
+                                                type="text"
+                                                name="session_name"
+                                                value="<?= e($sessionName) ?>"
+                                                x-model="sessionName"
+                                                placeholder="Contoh: Sesi Penyisihan MFQ Putra 1"
+                                                class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20"
+                                            >
+                                        </div>
+                                        <p class="mt-2 text-xs text-slate-300">Nama sesi diisi setelah golongan dan peserta tampil, lalu wajib ada sebelum lanjut ke tahap 2.</p>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        <?php foreach ($participantsByDistrict as $districtId => $districtParticipants): ?>
+                                            <?php
+                                                $districtParticipants = $districtParticipants->values();
+                                                $districtName = (string) ($districtParticipants->first()?->district?->name ?? 'Tanpa Kecamatan');
+                                                $memberCount = $districtParticipants->count();
+                                            ?>
+                                            <label class="block cursor-pointer rounded-[1.5rem] border px-4 py-4 transition"
+                                                :class="selectedIds.includes('<?= e($districtId) ?>') ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_12px_35px_-20px_rgba(34,211,238,0.75)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30'">
+                                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                                    <div>
+                                                        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">Kecamatan</p>
+                                                        <h4 class="mt-1 text-xl font-bold text-white"><?= e($districtName) ?></h4>
+                                                        <p class="mt-1 text-sm text-slate-400">1 kecamatan = 1 regu. Pilih kecamatan ini sebagai satu tim.</p>
+                                                    </div>
+                                                    <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                                        <?= e($memberCount) ?> peserta regu
+                                                    </span>
+                                                </div>
+
+                                                <div class="mt-4 flex items-start gap-3">
                                                     <input
                                                         type="checkbox"
-                                                        name="participant_ids[]"
-                                                        value="<?= e($participant->id) ?>"
+                                                        name="district_ids[]"
+                                                        value="<?= e($districtId) ?>"
                                                         x-model="selectedIds"
                                                         class="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-400 focus:ring-cyan-300">
-                                                    <div class="min-w-0">
-                                                        <p class="font-semibold text-white"><?= e($participant->name) ?></p>
-                                                        <p class="mt-1 text-xs text-slate-400"><?= e($participant->registration_number) ?></p>
-                                                        <p class="mt-1 text-xs text-cyan-200"><?= e($participant->category?->branch.' - '.$participant->category?->name) ?></p>
-                                                        <p class="mt-1 text-xs text-slate-500"><?= e($participant->district?->name ?? '-') ?></p>
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Anggota Regu</p>
+                                                        <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                                            <?php foreach ($districtParticipants as $participant): ?>
+                                                                <div class="rounded-[1.1rem] border border-slate-800 bg-slate-900/60 px-3 py-3">
+                                                                    <p class="font-semibold text-white"><?= e($participant->name) ?></p>
+                                                                    <p class="mt-1 text-xs text-slate-400"><?= e($participant->registration_number) ?></p>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </label>
@@ -203,19 +254,25 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
                                     <?php if ($errors->has('competition_category_id')): ?>
                                         <p class="text-sm text-rose-300"><?= e($errors->first('competition_category_id')) ?></p>
                                     <?php endif; ?>
-                                    <?php if ($errors->has('participant_ids')): ?>
-                                        <p class="text-sm text-rose-300"><?= e($errors->first('participant_ids')) ?></p>
+                                    <?php if ($errors->has('session_name')): ?>
+                                        <p class="text-sm text-rose-300"><?= e($errors->first('session_name')) ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($errors->has('district_ids')): ?>
+                                        <p class="text-sm text-rose-300"><?= e($errors->first('district_ids')) ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($errors->has('session_name')): ?>
+                                        <p class="text-sm text-rose-300"><?= e($errors->first('session_name')) ?></p>
                                     <?php endif; ?>
 
                                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-slate-800 bg-slate-950/45 px-4 py-3">
                                         <div>
-                                            <p class="text-sm text-slate-300">Jumlah pilihan harus di antara 2 dan 5 regu.</p>
-                                            <p class="mt-1 text-xs text-slate-500">Setelah disimpan, daftar ini menjadi dasar untuk tahap penilaian MFQ berikutnya.</p>
+                                            <p class="text-sm text-slate-300">Jumlah pilihan harus di antara 2 dan 5 kecamatan. Setiap kecamatan otomatis mewakili 1 regu.</p>
+                                            <p class="mt-1 text-xs text-slate-500">Setelah disimpan, nama sesi dan daftar kecamatan ini menjadi dasar untuk tahap penilaian MFQ berikutnya.</p>
                                         </div>
                                         <div class="flex flex-wrap gap-3">
-                                            <button type="submit" class="primary-button px-5 py-3" :disabled="selectedIds.length < 2 || selectedIds.length > 5" :class="selectedIds.length < 2 || selectedIds.length > 5 ? 'cursor-not-allowed opacity-50' : ''">
+                                            <button type="submit" class="primary-button px-5 py-3" :disabled="!canContinue" :class="!canContinue ? 'cursor-not-allowed opacity-50' : ''">
                                                 <?= mtq_icon('check-circle', 'h-4 w-4') ?>
-                                                Simpan Pilihan Regu
+                                                Lanjut ke Tahap 2
                                             </button>
                                             <button type="submit" form="mfq-reset-form" class="secondary-button px-5 py-3">
                                                 <?= mtq_icon('trash', 'h-4 w-4') ?>
@@ -233,16 +290,40 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
 
                     <div class="space-y-6">
                         <div class="glass-card rounded-[2rem] p-6">
-                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Regu Terpilih</p>
+                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Kecamatan Terpilih</p>
+                            <?php if (filled($selectionSessionName)): ?>
+                                <div class="mt-4 rounded-[1.25rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3">
+                                    <p class="text-xs uppercase tracking-[0.18em] text-cyan-100/70">Nama Sesi</p>
+                                    <p class="mt-1 font-semibold text-white"><?= e($selectionSessionName) ?></p>
+                                </div>
+                            <?php endif; ?>
+                            <div class="mt-4 rounded-[1.25rem] border border-slate-800 bg-slate-950/55 px-4 py-3" x-show="selectedIds.length > 0" x-cloak>
+                                <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Status Pilihan</p>
+                                <p class="mt-1 text-sm font-semibold text-white" x-text="selectionStatusLabel()"></p>
+                                <p class="mt-1 text-xs text-slate-500" x-text="selectionDistrictLabel()"></p>
+                            </div>
                             <div class="mt-5 space-y-3">
                                 <?php if ($selectedParticipants->isEmpty()): ?>
-                                    <div class="data-card text-sm text-slate-300">Belum ada regu yang dipilih.</div>
+                                    <div class="data-card text-sm text-slate-300">Belum ada kecamatan yang dipilih.</div>
                                 <?php else: ?>
                                     <?php foreach ($selectedParticipants as $participant): ?>
+                                        <?php $districtParticipantCount = $participantsByDistrict->get((int) $participant->district_id, collect())->count(); ?>
                                         <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                                            <p class="font-semibold text-white"><?= e($participant->name) ?></p>
-                                            <p class="mt-1 text-xs text-slate-400"><?= e($participant->registration_number) ?></p>
-                                            <p class="mt-1 text-xs text-cyan-200"><?= e($participant->category?->branch.' - '.$participant->category?->name) ?></p>
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">Kecamatan</p>
+                                                    <p class="mt-1 text-lg font-bold text-white"><?= e($participant->district?->name ?? '-') ?></p>
+                                                    <p class="mt-1 text-xs text-slate-400"><?= e($districtParticipantCount) ?> peserta regu</p>
+                                                </div>
+                                                <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                                    <?= e($districtParticipantCount) ?> orang
+                                                </span>
+                                            </div>
+                                            <div class="mt-3 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-3">
+                                                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Perwakilan Regu</p>
+                                                <p class="mt-1 font-semibold text-white"><?= e($participant->name) ?></p>
+                                                <p class="mt-1 text-xs text-slate-400"><?= e($participant->registration_number) ?></p>
+                                            </div>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -275,8 +356,51 @@ $selectedIds = collect(old('participant_ids', $selectionState['participant_ids']
 
     <script>
         function mfqSelectionPage(initialState) {
+            const districtCards = Array.isArray(initialState.districtCards) ? initialState.districtCards : [];
+            const districtCardMap = Object.fromEntries(districtCards.map((card) => [String(card.district_id), card]));
+
             return {
                 selectedIds: Array.isArray(initialState.initialSelectedIds) ? initialState.initialSelectedIds.map((value) => String(value)) : [],
+                sessionName: String(initialState.initialSessionName || ''),
+                districtCardMap,
+                get canContinue() {
+                    return this.sessionName.trim().length > 0
+                        && this.selectedIds.length >= 2
+                        && this.selectedIds.length <= 5;
+                },
+                selectionStatusLabel() {
+                    const count = this.selectedIds.length;
+                    if (count === 0) {
+                        return 'Belum ada kecamatan dipilih';
+                    }
+
+                    if (count < 2) {
+                        return 'Minimal pilih 2 kecamatan';
+                    }
+
+                    if (count > 5) {
+                        return 'Maksimal 5 kecamatan';
+                    }
+
+                    return this.sessionName.trim().length > 0 ? `${count} kecamatan siap lanjut` : 'Isi nama sesi terlebih dahulu';
+                },
+                selectionDistrictLabel() {
+                    const selectedDistricts = this.selectedIds
+                        .map((id) => districtCardMap[String(id)])
+                        .filter((card) => Boolean(card));
+
+                    if (selectedDistricts.length === 0) {
+                        return 'Pilih 2 sampai 5 kecamatan untuk membentuk regu.';
+                    }
+
+                    const districtNames = selectedDistricts
+                        .map((card) => card.district_name)
+                        .filter((value) => Boolean(value));
+
+                    return districtNames.length > 0
+                        ? `Kecamatan terpilih: ${districtNames.join(', ')}`
+                        : 'Kecamatan sudah dipilih.';
+                },
             };
         }
     </script>

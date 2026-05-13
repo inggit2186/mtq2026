@@ -12,7 +12,10 @@ $recentScores = $recentScores ?? collect();
 $summaryStats = $summaryStats ?? ['participant_total' => 0, 'category_total' => 0, 'verified_total' => 0, 'selected_average' => '0.00', 'selected_latest' => '0.00'];
 $filters = $filters ?? [];
 $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
-$selectionState = $selectionState ?? ['competition_category_id' => null, 'participant_ids' => []];
+$selectionState = $selectionState ?? ['competition_category_id' => null, 'district_ids' => []];
+$selectionSessionName = $selectionSessionName ?? '';
+$selectedDistrict = $selectedDistrict ?? null;
+$selectedDistrictCards = $selectedDistrictCards ?? [];
 $scoringColumns = $scoringColumns ?? ['active' => ['id' => null, 'name' => '-', 'registration_number' => '-'], 'opponents' => collect()];
 $opponents = collect($scoringColumns['opponents'] ?? []);
 $selectedParticipantCategory = $selectedParticipant?->category ? trim((string) $selectedParticipant->category->branch.' - '.(string) $selectedParticipant->category->name) : '-';
@@ -100,12 +103,21 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
 
                 <div class="mt-8 grid gap-3">
                     <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Regu Dipilih</p>
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Nama Sesi</p>
+                        <p class="mt-2 text-lg font-bold text-white"><?= e($selectionSessionName !== '' ? $selectionSessionName : '-') ?></p>
+                    </div>
+                    <div class="data-card">
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Kecamatan Dipilih</p>
                         <p class="mt-2 text-3xl font-extrabold text-white"><?= e($selectedParticipants->count()) ?></p>
                     </div>
                     <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Regu Aktif</p>
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Kecamatan Aktif</p>
+                        <p class="mt-2 text-sm font-bold text-white"><?= e($selectedDistrict?->name ?? '-') ?></p>
+                    </div>
+                    <div class="data-card">
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Perwakilan Aktif</p>
                         <p class="mt-2 text-sm font-bold text-white"><?= e($selectedParticipant?->name ?? '-') ?></p>
+                        <p class="mt-1 text-xs text-slate-400"><?= e($selectedParticipant?->registration_number ?? '-') ?></p>
                     </div>
                     <form method="POST" action="<?= e(route('logout')) ?>">
                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
@@ -157,9 +169,9 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                 <?php endif; ?>
 
                 <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Regu Sesi</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Kecamatan Sesi</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('book-open') ?></div><p class="mt-4 text-sm text-slate-400">Kolom Lontaran</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($opponents->count()) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Regu Aktif</p><p class="mt-2 text-xl font-extrabold text-cyan-200"><?= e($selectedParticipant?->name ?? '-') ?></p></div>
+                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Kecamatan Aktif</p><p class="mt-2 text-xl font-extrabold text-cyan-200"><?= e($selectedDistrict?->name ?? '-') ?></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('spark') ?></div><p class="mt-4 text-sm text-slate-400">Skor Terakhir</p><p class="mt-2 text-3xl font-extrabold text-emerald-300"><?= e($summaryStats['selected_latest']) ?></p></div>
                 </section>
 
@@ -170,9 +182,12 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                 <div class="flex items-center gap-3">
                                     <div class="icon-chip"><?= mtq_icon('fingerprint') ?></div>
                                     <div>
-                                        <p class="section-kicker">Regu Aktif</p>
-                                        <h3 class="mt-2 text-2xl font-bold text-white"><?= e($selectedParticipant?->name ?? 'Belum dipilih') ?></h3>
+                                        <p class="section-kicker">Kecamatan Aktif</p>
+                                        <h3 class="mt-2 text-2xl font-bold text-white"><?= e($selectedDistrict?->name ?? 'Belum dipilih') ?></h3>
                                         <p class="mt-2 text-sm text-slate-300"><?= e($selectedParticipantCategory) ?></p>
+                                        <?php if (filled($selectionSessionName)): ?>
+                                            <p class="mt-2 text-xs uppercase tracking-[0.18em] text-cyan-200/80">Sesi: <?= e($selectionSessionName) ?></p>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="status-pill">
@@ -182,20 +197,35 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                             </div>
 
                             <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                <?php foreach ($selectedParticipants as $participant): ?>
+                                <?php foreach ($selectedDistrictCards as $districtCard): ?>
                                     <?php
                                         $activeLink = route('scoring.mfq', array_filter([
                                             'competition_category_id' => $selectedCategory?->id,
-                                            'participant_id' => $participant->id,
+                                            'participant_id' => $districtCard['representative_id'],
                                             'judging_round' => $filters['judging_round'] ?? 'Penyisihan',
                                         ]));
                                     ?>
-                                    <a href="<?= e($activeLink) ?>" class="rounded-[1.35rem] border px-4 py-4 transition <?= (int) ($selectedParticipant?->id ?? 0) === (int) $participant->id ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_12px_35px_-20px_rgba(34,211,238,0.75)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30' ?>">
-                                        <p class="font-semibold text-white"><?= e($participant->name) ?></p>
-                                        <p class="mt-1 text-xs text-slate-400"><?= e($participant->registration_number) ?></p>
-                                        <p class="mt-1 text-xs text-cyan-200"><?= e($participant->district?->name ?? '-') ?></p>
+                                    <a href="<?= e($activeLink) ?>" class="rounded-[1.35rem] border px-4 py-4 transition <?= (int) ($selectedDistrict?->id ?? 0) === (int) $districtCard['district_id'] ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_12px_35px_-20px_rgba(34,211,238,0.75)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30' ?>">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">Kecamatan</p>
+                                                <p class="mt-1 font-semibold text-white"><?= e($districtCard['district_name']) ?></p>
+                                                <p class="mt-1 text-xs text-slate-400"><?= e($districtCard['participant_count']) ?> peserta regu</p>
+                                            </div>
+                                            <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">Klik</span>
+                                        </div>
+                                        <div class="mt-3 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-3">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Perwakilan</p>
+                                            <p class="mt-1 font-semibold text-white"><?= e($districtCard['representative_name']) ?></p>
+                                            <p class="mt-1 text-xs text-slate-400"><?= e($districtCard['representative_registration_number']) ?></p>
+                                        </div>
                                     </a>
                                 <?php endforeach; ?>
+                            </div>
+                            <div class="mt-6 rounded-[1.5rem] border border-slate-800 bg-slate-950/55 px-4 py-4">
+                                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Fokus Penilaian</p>
+                                <p class="mt-1 text-lg font-bold text-white"><?= e($selectedDistrict?->name ?? '-') ?></p>
+                                <p class="mt-1 text-sm text-slate-300"><?= e($selectedParticipant?->name ?? '-') ?> sebagai perwakilan yang sedang dibuka.</p>
                             </div>
                         </div>
 
@@ -339,7 +369,7 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
 
                     <div class="space-y-6">
                         <div class="glass-card rounded-[2rem] p-6">
-                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Regu Sesi</p>
+                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Kecamatan Sesi</p>
                             <div class="mt-5 space-y-3">
                                 <?php foreach ($selectedParticipants as $participant): ?>
                                     <a href="<?= e(route('scoring.mfq', [

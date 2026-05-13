@@ -28,15 +28,21 @@ class MfqScoringController extends Controller
         $user = auth()->user();
         $restrictedCategoryIds = $this->accessibleCategoryIdsForUser($user);
         $filters = $request->validate([
+            'session_name' => ['nullable', 'string', 'max:120'],
             'competition_category_id' => ['nullable', 'integer'],
             'participant_id' => ['nullable', 'integer'],
             'judging_round' => ['nullable', 'string', Rule::in(self::JUDGING_ROUNDS)],
         ]);
         $selection = $this->currentSelection();
+        $sessionNameDraft = trim((string) ($filters['session_name'] ?? ''));
+        if ($sessionNameDraft !== '') {
+            session()->put('mfq.session_name_draft', $sessionNameDraft);
+        }
+        $selectionSessionName = trim((string) ($selection['session_name'] ?? ($sessionNameDraft !== '' ? $sessionNameDraft : session('mfq.session_name_draft', ''))));
         $selectedCategoryId = filled($filters['competition_category_id'] ?? null)
             ? (int) $filters['competition_category_id']
             : (int) ($selection['competition_category_id'] ?? 0);
-        $selectedParticipantIds = collect($selection['participant_ids'] ?? [])
+        $selectedDistrictIds = collect($selection['district_ids'] ?? [])
             ->map(fn ($id): int => (int) $id)
             ->filter()
             ->unique()
@@ -72,6 +78,7 @@ class MfqScoringController extends Controller
         }
 
         $participants = $participantsQuery->get();
+        $participantsByDistrict = $participants->groupBy(fn (Participant $participant) => (int) ($participant->district_id ?? 0));
 
         $selectedCategory = $selectedCategoryId > 0
             ? CompetitionCategory::query()
@@ -80,15 +87,39 @@ class MfqScoringController extends Controller
                 ->find($selectedCategoryId)
             : null;
 
-        $selectedParticipants = $selectedParticipantIds->isNotEmpty()
-            ? Participant::query()
-                ->with(['category', 'district', 'scores' => fn ($query) => $query->orderByDesc('submitted_at')])
-                ->whereIn('id', $selectedParticipantIds->all())
-                ->orderBy('name')
-                ->get()
+        $selectedParticipants = $selectedDistrictIds->isNotEmpty()
+            ? $selectedDistrictIds
+                ->map(function (int $districtId) use ($participantsByDistrict) {
+                    return $participantsByDistrict->get($districtId, collect())->first();
+                })
+                ->filter()
+                ->values()
             : collect();
+        $selectedDistrictCards = $selectedDistrictIds->isNotEmpty()
+            ? $selectedDistrictIds
+                ->map(function (int $districtId) use ($participantsByDistrict) {
+                    $districtParticipants = $participantsByDistrict->get($districtId, collect())->values();
+                    $representative = $districtParticipants->first();
 
-        if ($selectedParticipants->count() >= 2) {
+                    if (! $representative) {
+                        return null;
+                    }
+
+                    return [
+                        'district_id' => $districtId,
+                        'district_name' => (string) ($representative->district?->name ?? 'Tanpa Kecamatan'),
+                        'participant_count' => $districtParticipants->count(),
+                        'representative_id' => $representative->id,
+                        'representative_name' => $representative->name,
+                        'representative_registration_number' => $representative->registration_number,
+                    ];
+                })
+                ->filter()
+                ->values()
+            : collect();
+        $selectedDistrict = $selectedParticipants->first()?->district;
+
+        if ($selectedParticipants->count() >= 2 && filled($selectionSessionName)) {
             $selectedParticipantId = filled($filters['participant_id'] ?? null)
                 ? (int) $filters['participant_id']
                 : (int) ($selectedParticipants->first()?->id ?? 0);
@@ -127,12 +158,17 @@ class MfqScoringController extends Controller
                     'selected_latest' => number_format((float) ($selectedParticipant?->scores?->first()?->score ?? 0), 2),
                 ],
                 'filters' => [
+                    'session_name' => $selectionSessionName,
                     'competition_category_id' => $selectedCategoryId > 0 ? $selectedCategoryId : '',
                     'participant_id' => $selectedParticipant?->id ?? '',
                     'judging_round' => $selectedJudgingRound,
                 ],
                 'judgeNameDefault' => (string) auth()->user()?->name,
                 'selectionState' => $selection,
+                'selectionSessionName' => $selectionSessionName,
+                'selectedDistrict' => $selectedDistrict,
+                'selectedDistrictCards' => $selectedDistrictCards->all(),
+                'selectedDistrictIds' => $selectedDistrictIds->all(),
                 'mfqSheetSummary' => 'Format ini mengikuti lembar Excel MFQ: 15 baris soal dengan kolom paket, lontaran, rebutan, dan jumlah per regu aktif.',
                 'activeTeam' => $selectedParticipant,
             ]);
@@ -146,6 +182,7 @@ class MfqScoringController extends Controller
             'mfqCategories' => $mfqCategories,
             'selectedParticipants' => $selectedParticipants,
             'selectedCategory' => $selectedCategory,
+            'participantsByDistrict' => $participantsByDistrict,
             'summaryStats' => [
                 'participant_total' => $participants->count(),
                 'category_total' => $mfqCategories->count(),
@@ -158,19 +195,23 @@ class MfqScoringController extends Controller
                 'selected_latest' => number_format((float) ($selectedParticipants->first()?->scores?->first()?->score ?? 0), 2),
             ],
             'filters' => [
+                'session_name' => $selectionSessionName,
                 'competition_category_id' => $filters['competition_category_id'] ?? '',
             ],
             'judgeNameDefault' => (string) auth()->user()?->name,
             'selectionState' => $selection,
+            'selectionSessionName' => $selectionSessionName,
+            'selectedDistrictIds' => $selectedDistrictIds->all(),
         ]);
     }
 
     public function storeSelection(Request $request): RedirectResponse
     {
         $validated = $request->validate([
+            'session_name' => ['required', 'string', 'max:120'],
             'competition_category_id' => ['required', 'integer'],
-            'participant_ids' => ['required', 'array', 'min:2', 'max:5'],
-            'participant_ids.*' => ['required', 'integer', 'distinct'],
+            'district_ids' => ['required', 'array', 'min:2', 'max:5'],
+            'district_ids.*' => ['required', 'integer', 'distinct'],
         ]);
 
         $category = CompetitionCategory::query()
@@ -179,48 +220,50 @@ class MfqScoringController extends Controller
         $this->ensureCategoryAccess((int) $category->id, 'competition_category_id');
         $this->ensureMfqCategoryByCategory($category);
 
-        $participantIds = collect($validated['participant_ids'])
+        $districtIds = collect($validated['district_ids'])
             ->map(fn ($id): int => (int) $id)
             ->unique()
             ->values();
 
         $participants = Participant::query()
             ->with('category')
-            ->whereIn('id', $participantIds->all())
+            ->whereIn('district_id', $districtIds->all())
+            ->where('competition_category_id', (int) $category->id)
             ->get();
 
-        if ($participants->count() !== $participantIds->count()) {
+        if ($participants->isEmpty()) {
             throw ValidationException::withMessages([
-                'participant_ids' => 'Ada regu yang dipilih tidak ditemukan.',
-            ]);
-        }
-
-        if ($participants->contains(fn (Participant $participant): bool => (int) $participant->competition_category_id !== (int) $category->id)) {
-            throw ValidationException::withMessages([
-                'participant_ids' => 'Semua regu harus berasal dari golongan yang sama.',
+                'district_ids' => 'Ada kecamatan yang dipilih tidak ditemukan.',
             ]);
         }
 
         if ($participants->contains(fn (Participant $participant): bool => $participant->verification_status !== 'verified')) {
             throw ValidationException::withMessages([
-                'participant_ids' => 'Semua regu harus berstatus terverifikasi.',
+                'district_ids' => 'Semua kecamatan harus berstatus terverifikasi.',
             ]);
         }
 
         if ($participants->contains(fn (Participant $participant): bool => ! $this->isMfqParticipant($participant))) {
             throw ValidationException::withMessages([
-                'participant_ids' => 'Semua regu harus berasal dari cabang MFQ.',
+                'district_ids' => 'Semua kecamatan harus berasal dari cabang MFQ.',
             ]);
         }
 
+        $districtIds = $participants->pluck('district_id')
+            ->filter()
+            ->unique()
+            ->values();
+
         session()->put('mfq.selection', [
+            'session_name' => trim((string) $validated['session_name']),
             'competition_category_id' => (int) $category->id,
-            'participant_ids' => $participantIds->all(),
+            'district_ids' => $districtIds->all(),
         ]);
+        session()->put('mfq.session_name_draft', trim((string) $validated['session_name']));
 
         return redirect()
             ->route('scoring.mfq', ['competition_category_id' => $category->id])
-            ->with('status', 'Regu MFQ berhasil dipilih. Berikutnya kita lanjut ke tahap penilaian per soal.');
+            ->with('status', 'Kecamatan MFQ berhasil dipilih. Berikutnya kita lanjut ke tahap penilaian per soal.');
     }
 
     public function clearSelection(): RedirectResponse
@@ -229,7 +272,7 @@ class MfqScoringController extends Controller
 
         return redirect()
             ->route('scoring.mfq')
-            ->with('status', 'Pilihan regu MFQ sudah dihapus.');
+            ->with('status', 'Pilihan kecamatan MFQ sudah dihapus.');
     }
 
     public function store(Request $request): RedirectResponse
@@ -249,34 +292,42 @@ class MfqScoringController extends Controller
             ->firstOrFail();
 
         $selection = $this->currentSelection();
-        $selectedParticipantIds = collect($selection['participant_ids'] ?? [])
+        $sessionName = trim((string) ($selection['session_name'] ?? ''));
+        $selectedDistrictIds = collect($selection['district_ids'] ?? [])
             ->map(fn ($id): int => (int) $id)
             ->filter()
             ->unique()
             ->values();
 
-        if ($selectedParticipantIds->count() < 2) {
+        if ($selectedDistrictIds->count() < 2) {
             throw ValidationException::withMessages([
-                'participant_id' => 'Pilih regu MFQ terlebih dahulu pada tahap awal.',
+                'participant_id' => 'Pilih kecamatan MFQ terlebih dahulu pada tahap awal.',
             ]);
         }
 
-        if (! $selectedParticipantIds->contains((int) $participant->id)) {
+        if (! $selectedDistrictIds->contains((int) $participant->district_id)) {
             throw ValidationException::withMessages([
-                'participant_id' => 'Peserta yang dinilai harus berasal dari regu yang sudah dipilih pada tahap awal.',
+                'participant_id' => 'Peserta yang dinilai harus berasal dari kecamatan yang sudah dipilih pada tahap awal.',
             ]);
         }
 
         $this->ensureCategoryAccess((int) $participant->competition_category_id, 'participant_id');
         $this->ensureMfqCategory($participant);
 
+        $selectedParticipants = Participant::query()
+            ->with('category')
+            ->whereIn('district_id', $selectedDistrictIds->all())
+            ->where('competition_category_id', (int) $participant->competition_category_id)
+            ->where('verification_status', 'verified')
+            ->orderBy('district_id')
+            ->orderBy('name')
+            ->get()
+            ->groupBy(fn (Participant $selectedParticipant): int => (int) ($selectedParticipant->district_id ?? 0))
+            ->map(fn ($districtParticipants) => $districtParticipants->first())
+            ->values();
+
         $scoringColumns = $this->buildScoringColumns(
-            collect($selection['participant_ids'] ?? [])
-                ->map(fn ($id): int => (int) $id)
-                ->filter()
-                ->unique()
-                ->values()
-                ->pipe(fn ($ids) => Participant::query()->with('category')->whereIn('id', $ids->all())->orderBy('name')->get()),
+            $selectedParticipants,
             $participant
         );
 
@@ -332,14 +383,15 @@ class MfqScoringController extends Controller
             'judge_name' => $validated['judge_name'],
             'judging_round' => $validated['judging_round'],
             'score' => (int) $totalScore,
-            'score_breakdown' => [
-                'type' => 'MFQ',
-                'judge_name' => $validated['judge_name'],
-                'judging_round' => $validated['judging_round'],
-                'participant_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
+                'score_breakdown' => [
+                    'type' => 'MFQ',
+                    'session_name' => $sessionName !== '' ? $sessionName : null,
+                    'judge_name' => $validated['judge_name'],
+                    'judging_round' => $validated['judging_round'],
+                    'participant_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
                 'sheet_style' => [
                     'question_count' => self::QUESTION_COUNT,
-                    'selected_regu_count' => $selectedParticipantIds->count(),
+                    'selected_regu_count' => $selectedDistrictIds->count(),
                     'active_regu_id' => $participant->id,
                     'active_regu_name' => $participant->name,
                     'opponents' => $scoringColumns['opponents']->map(fn ($item) => [
@@ -502,10 +554,12 @@ class MfqScoringController extends Controller
     protected function currentSelection(): array
     {
         $selection = session('mfq.selection', []);
+        $districtIds = array_values(array_filter(array_map('intval', $selection['district_ids'] ?? [])));
 
         return [
+            'session_name' => (string) ($selection['session_name'] ?? ''),
             'competition_category_id' => (int) ($selection['competition_category_id'] ?? 0),
-            'participant_ids' => array_values(array_filter(array_map('intval', $selection['participant_ids'] ?? []))),
+            'district_ids' => $districtIds,
         ];
     }
 }
