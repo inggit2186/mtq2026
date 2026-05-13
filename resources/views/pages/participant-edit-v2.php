@@ -549,13 +549,15 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         ?>
                         <?php foreach ($editDocumentInputs as $key => $config): ?>
                             <?php $document = $documentMap[$key] ?? ['label' => '-', 'path' => null, 'files' => [], 'revision_note' => null]; ?>
-                            <?php $ageOptionalDocument = in_array($key, ['ktp', 'last_diploma'], true); ?>
+                            <?php $ageOptionalDocument = $key === 'ktp'; ?>
+                            <?php $alwaysOptionalDocument = in_array($key, ['last_diploma', 'bank_book'], true); ?>
+                            <?php $documentOptional = $ageOptionalDocument || $alwaysOptionalDocument; ?>
                             <?php $hasExistingDocument = $config['multiple'] ? ! empty($document['files']) : filled($document['path']); ?>
                             <?php $existingDocumentLabel = $config['multiple']
                                 ? count($document['files'] ?? []).' file sudah diupload sebelumnya'
                                 : 'Dokumen sudah diupload sebelumnya'; ?>
                             <div x-bind:class="<?= $ageOptionalDocument ? 'isUnderSeventeen() ? \'rounded-2xl border border-cyan-400/20 bg-cyan-400/6 px-4 py-4\' : \'\' ' : '\'\' ' ?>">
-                                <label class="mb-2 block text-sm font-semibold text-slate-200" x-bind:class="<?= $ageOptionalDocument ? 'isUnderSeventeen() ? \'text-cyan-100\' : \'\' ' : '\'\' ' ?>"><?= e('Upload ulang '.$document['label']) ?><?php if ($ageOptionalDocument): ?> <span class="text-xs font-medium text-cyan-200" x-show="isUnderSeventeen()">(otomatis opsional)</span><?php endif; ?></label>
+                                <label class="mb-2 block text-sm font-semibold text-slate-200" x-bind:class="<?= $ageOptionalDocument ? 'isUnderSeventeen() ? \'text-cyan-100\' : \'\' ' : '\'\' ' ?>"><?= e('Upload ulang '.$document['label']) ?><?php if ($documentOptional): ?> <span class="text-xs font-medium text-cyan-200"><?= e($ageOptionalDocument ? '(otomatis opsional)' : '(opsional)') ?></span><?php endif; ?></label>
                                 <div class="mb-3 flex flex-wrap items-center gap-2">
                                     <span class="inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] <?= $hasExistingDocument ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-slate-600 bg-slate-900/70 text-slate-300' ?>">
                                         <?= e($hasExistingDocument ? 'Sudah ada dokumen' : 'Belum ada dokumen') ?>
