@@ -24,6 +24,9 @@ $summaryStats = $summaryStats ?? ['participant_total' => 0, 'category_total' => 
 $filters = $filters ?? [];
 $selectionState = $selectionState ?? ['competition_category_id' => null, 'district_ids' => []];
 $selectionSessionName = $selectionSessionName ?? '';
+$selectionJudgeName = $selectionJudgeName ?? (string) $user?->name;
+$selectionJudgingRound = $selectionJudgingRound ?? 'Penyisihan';
+$selectionRemarks = $selectionRemarks ?? '';
 $categoryId = (string) old('competition_category_id', $selectionState['competition_category_id'] ?? ($filters['competition_category_id'] ?? ''));
 $sessionName = (string) old('session_name', $selectionSessionName);
 $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []))
@@ -208,6 +211,35 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                                         <p class="mt-2 text-xs text-slate-300">Nama sesi diisi setelah golongan dan peserta tampil, lalu wajib ada sebelum lanjut ke tahap 2.</p>
                                     </div>
 
+                                    <div class="grid gap-4 md:grid-cols-3">
+                                        <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/55 px-4 py-4">
+                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Nama Hakim</label>
+                                            <input
+                                                type="text"
+                                                name="judge_name"
+                                                value="<?= e($selectionJudgeName) ?>"
+                                                placeholder="Contoh: Ust. Ahmad"
+                                                class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20"
+                                            >
+                                        </div>
+
+                                        <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/55 px-4 py-4">
+                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Babak Penilaian</label>
+                                            <select name="judging_round" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20">
+                                                <?php foreach (['Penyisihan', 'Final'] as $roundLabel): ?>
+                                                    <option value="<?= e($roundLabel) ?>" <?= $selectionJudgingRound === $roundLabel ? 'selected' : '' ?>>
+                                                        <?= e($roundLabel) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+
+                                        <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/55 px-4 py-4">
+                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan Umum</label>
+                                            <textarea name="remarks" rows="3" placeholder="Catatan umum penilaian..." class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20"><?= e($selectionRemarks) ?></textarea>
+                                        </div>
+                                    </div>
+
                                     <div class="space-y-4">
                                         <?php foreach ($participantsByDistrict as $districtId => $districtParticipants): ?>
                                             <?php
@@ -288,9 +320,19 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                         </div>
                     </div>
 
-                    <div class="space-y-6">
+                    <div class="space-y-6 xl:sticky xl:top-6">
                         <div class="glass-card rounded-[2rem] p-6">
-                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Kecamatan Terpilih</p>
+                            <div class="flex flex-wrap items-start justify-between gap-4">
+                                <div>
+                                    <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Kecamatan Terpilih</p>
+                                    <h3 class="mt-2 text-2xl font-bold text-white">Pilihan regu yang sudah masuk</h3>
+                                    <p class="mt-2 text-sm text-slate-300">Panel ini merangkum semua kecamatan yang dipilih untuk sesi MFQ.</p>
+                                </div>
+                                <div class="rounded-[1rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-right">
+                                    <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-100/70">Regu Dipilih</p>
+                                    <p class="mt-1 text-3xl font-black text-cyan-100" x-text="selectedIds.length"></p>
+                                </div>
+                            </div>
                             <?php if (filled($selectionSessionName)): ?>
                                 <div class="mt-4 rounded-[1.25rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3">
                                     <p class="text-xs uppercase tracking-[0.18em] text-cyan-100/70">Nama Sesi</p>
@@ -302,9 +344,9 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                                 <p class="mt-1 text-sm font-semibold text-white" x-text="selectionStatusLabel()"></p>
                                 <p class="mt-1 text-xs text-slate-500" x-text="selectionDistrictLabel()"></p>
                             </div>
-                            <div class="mt-5 space-y-3">
+                            <div class="mt-5 grid gap-3 sm:grid-cols-2">
                                 <?php if ($selectedParticipants->isEmpty()): ?>
-                                    <div class="data-card text-sm text-slate-300">Belum ada kecamatan yang dipilih.</div>
+                                    <div class="data-card text-sm text-slate-300 sm:col-span-2">Belum ada kecamatan yang dipilih.</div>
                                 <?php else: ?>
                                     <?php foreach ($selectedParticipants as $participant): ?>
                                         <?php $districtParticipantCount = $participantsByDistrict->get((int) $participant->district_id, collect())->count(); ?>
@@ -332,7 +374,7 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
 
                         <div class="glass-card rounded-[2rem] p-6">
                             <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Tahap Berikutnya</p>
-                            <div class="mt-5 space-y-4">
+                            <div class="mt-5 grid gap-4 sm:grid-cols-2">
                                 <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
                                     <p class="font-semibold text-white">Tahap 2: susun form penilaian</p>
                                     <p class="mt-2 text-sm leading-6 text-slate-300">Setelah regu final, kita lanjut bikin alur soal regu, soal rebutan, dan pembagian nilai per babak.</p>

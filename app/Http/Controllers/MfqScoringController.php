@@ -19,7 +19,6 @@ use Illuminate\View\View;
 class MfqScoringController extends Controller
 {
     protected const JUDGING_ROUNDS = ['Penyisihan', 'Final'];
-    protected const QUESTION_COUNT = 15;
     protected const SCORE_MIN = 1;
     protected const SCORE_MAX = 100;
 
@@ -39,6 +38,11 @@ class MfqScoringController extends Controller
             session()->put('mfq.session_name_draft', $sessionNameDraft);
         }
         $selectionSessionName = trim((string) ($selection['session_name'] ?? ($sessionNameDraft !== '' ? $sessionNameDraft : session('mfq.session_name_draft', ''))));
+        $selectionJudgeName = trim((string) ($selection['judge_name'] ?? ($filters['judge_name'] ?? (string) $user?->name)));
+        $selectionJudgingRound = in_array((string) ($selection['judging_round'] ?? ($filters['judging_round'] ?? self::JUDGING_ROUNDS[0])), self::JUDGING_ROUNDS, true)
+            ? (string) ($selection['judging_round'] ?? ($filters['judging_round'] ?? self::JUDGING_ROUNDS[0]))
+            : self::JUDGING_ROUNDS[0];
+        $selectionRemarks = trim((string) ($selection['remarks'] ?? ($filters['remarks'] ?? '')));
         $selectedCategoryId = filled($filters['competition_category_id'] ?? null)
             ? (int) $filters['competition_category_id']
             : (int) ($selection['competition_category_id'] ?? 0);
@@ -112,6 +116,7 @@ class MfqScoringController extends Controller
                         'representative_id' => $representative->id,
                         'representative_name' => $representative->name,
                         'representative_registration_number' => $representative->registration_number,
+                        'representative_lot_number' => $representative->lot_number ?? null,
                     ];
                 })
                 ->filter()
@@ -124,6 +129,7 @@ class MfqScoringController extends Controller
                 ? (int) $filters['participant_id']
                 : (int) ($selectedParticipants->first()?->id ?? 0);
             $selectedParticipant = $selectedParticipants->firstWhere('id', $selectedParticipantId) ?? $selectedParticipants->first();
+            $selectedDistrict = $selectedParticipant?->district ?? $selectedDistrict;
             $selectedJudgingRound = in_array(($filters['judging_round'] ?? null), self::JUDGING_ROUNDS, true)
                 ? $filters['judging_round']
                 : self::JUDGING_ROUNDS[0];
@@ -166,10 +172,13 @@ class MfqScoringController extends Controller
                 'judgeNameDefault' => (string) auth()->user()?->name,
                 'selectionState' => $selection,
                 'selectionSessionName' => $selectionSessionName,
+                'selectionJudgeName' => $selectionJudgeName,
+                'selectionJudgingRound' => $selectionJudgingRound,
+                'selectionRemarks' => $selectionRemarks,
                 'selectedDistrict' => $selectedDistrict,
                 'selectedDistrictCards' => $selectedDistrictCards->all(),
                 'selectedDistrictIds' => $selectedDistrictIds->all(),
-                'mfqSheetSummary' => 'Format ini mengikuti lembar Excel MFQ: 15 baris soal dengan kolom paket, lontaran, rebutan, dan jumlah per regu aktif.',
+                'mfqSheetSummary' => 'Format ini mengikuti lembar Excel MFQ: satu soal per kartu modal dengan kolom paket, lontaran, rebutan, dan jumlah per regu aktif.',
                 'activeTeam' => $selectedParticipant,
             ]);
         }
@@ -201,6 +210,9 @@ class MfqScoringController extends Controller
             'judgeNameDefault' => (string) auth()->user()?->name,
             'selectionState' => $selection,
             'selectionSessionName' => $selectionSessionName,
+            'selectionJudgeName' => $selectionJudgeName,
+            'selectionJudgingRound' => $selectionJudgingRound,
+            'selectionRemarks' => $selectionRemarks,
             'selectedDistrictIds' => $selectedDistrictIds->all(),
         ]);
     }
@@ -210,6 +222,9 @@ class MfqScoringController extends Controller
         $validated = $request->validate([
             'session_name' => ['required', 'string', 'max:120'],
             'competition_category_id' => ['required', 'integer'],
+            'judge_name' => ['required', 'string', 'max:120'],
+            'judging_round' => ['required', 'string', Rule::in(self::JUDGING_ROUNDS)],
+            'remarks' => ['nullable', 'string', 'max:1000'],
             'district_ids' => ['required', 'array', 'min:2', 'max:5'],
             'district_ids.*' => ['required', 'integer', 'distinct'],
         ]);
@@ -258,6 +273,9 @@ class MfqScoringController extends Controller
             'session_name' => trim((string) $validated['session_name']),
             'competition_category_id' => (int) $category->id,
             'district_ids' => $districtIds->all(),
+            'judge_name' => trim((string) $validated['judge_name']),
+            'judging_round' => (string) $validated['judging_round'],
+            'remarks' => filled($validated['remarks'] ?? null) ? trim((string) $validated['remarks']) : '',
         ]);
         session()->put('mfq.session_name_draft', trim((string) $validated['session_name']));
 
@@ -282,7 +300,7 @@ class MfqScoringController extends Controller
             'judge_name' => ['required', 'string', 'max:120'],
             'judging_round' => ['required', 'string', Rule::in(self::JUDGING_ROUNDS)],
             'remarks' => ['nullable', 'string', 'max:1000'],
-            'questions' => ['required', 'array', 'size:15'],
+            'questions' => ['required', 'array', 'min:1'],
         ]);
 
         $participant = Participant::query()
@@ -390,7 +408,7 @@ class MfqScoringController extends Controller
                     'judging_round' => $validated['judging_round'],
                     'participant_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
                 'sheet_style' => [
-                    'question_count' => self::QUESTION_COUNT,
+                    'question_count' => count($questionRows),
                     'selected_regu_count' => $selectedDistrictIds->count(),
                     'active_regu_id' => $participant->id,
                     'active_regu_name' => $participant->name,
@@ -449,7 +467,9 @@ class MfqScoringController extends Controller
             ->map(fn (Participant $participant, int $index): array => [
                 'index' => $index,
                 'id' => $participant->id,
-                'name' => $participant->name,
+                'name' => (string) ($participant->district?->name ?? $participant->name),
+                'district_name' => (string) ($participant->district?->name ?? $participant->name),
+                'representative_name' => $participant->name,
                 'registration_number' => $participant->registration_number,
             ]);
 
@@ -474,19 +494,17 @@ class MfqScoringController extends Controller
 
     protected function defaultQuestionRows(int $opponentCount = 0): array
     {
-        return collect(range(1, self::QUESTION_COUNT))
-            ->map(function (int $number) use ($opponentCount): array {
-                return [
-                    'id' => Str::uuid()->toString(),
-                    'label' => 'Soal '.$number,
-                    'package_score' => '',
-                    'throw_scores' => array_fill(0, max(0, $opponentCount), ''),
-                    'rebuttal_score' => '',
-                    'notes' => '',
-                ];
-            })
-            ->values()
-            ->all();
+        return array_map(
+            fn (int $index): array => [
+                'id' => Str::uuid()->toString(),
+                'label' => 'Soal '.($index + 1),
+                'package_score' => '',
+                'throw_scores' => array_fill(0, max(0, $opponentCount), ''),
+                'rebuttal_score' => '',
+                'notes' => '',
+            ],
+            range(0, 2)
+        );
     }
 
     protected function accessibleCategoryIdsForUser($user): array
@@ -560,6 +578,9 @@ class MfqScoringController extends Controller
             'session_name' => (string) ($selection['session_name'] ?? ''),
             'competition_category_id' => (int) ($selection['competition_category_id'] ?? 0),
             'district_ids' => $districtIds,
+            'judge_name' => (string) ($selection['judge_name'] ?? ''),
+            'judging_round' => (string) ($selection['judging_round'] ?? ''),
+            'remarks' => (string) ($selection['remarks'] ?? ''),
         ];
     }
 }
