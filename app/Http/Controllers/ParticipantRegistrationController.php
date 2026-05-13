@@ -2602,6 +2602,23 @@ class ParticipantRegistrationController extends Controller
         $underSeventeen = $this->participantIsUnderSeventeen((string) $request->input('date_of_birth'));
         $requiredOrNullable = $isDraft ? 'nullable' : 'required';
         $requiredOrNullableWhenAdult = $isDraft ? 'nullable' : ($underSeventeen ? 'nullable' : 'required');
+        $existingDocumentExists = static function (?Participant $participant, string $column): bool {
+            return filled($participant?->{$column});
+        };
+        $requiredOrNullableForFile = static function (string $column) use ($isDraft, $participant, $existingDocumentExists): string {
+            if ($isDraft || $existingDocumentExists($participant, $column)) {
+                return 'nullable';
+            }
+
+            return 'required';
+        };
+        $requiredOrNullableForAdultFile = static function (string $column) use ($isDraft, $underSeventeen, $participant, $existingDocumentExists): string {
+            if ($isDraft || $underSeventeen || $existingDocumentExists($participant, $column)) {
+                return 'nullable';
+            }
+
+            return 'required';
+        };
 
         return $request->validate([
             'district_id' => ['nullable', 'exists:districts,id'],
@@ -2625,12 +2642,12 @@ class ParticipantRegistrationController extends Controller
             'ktp_address' => [$requiredOrNullable, 'string', 'max:1000'],
             'ktp_district' => [$requiredOrNullable, 'string', 'max:255'],
             'ktp_regency' => [$requiredOrNullable, 'string', 'max:255'],
-            'kk_document' => [$requiredOrNullable, 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'ktp_document' => [$requiredOrNullableWhenAdult, 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'birth_certificate_document' => [$requiredOrNullable, 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'photo_document' => [$requiredOrNullable, 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
-            'last_diploma_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'bank_book_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'kk_document' => [$requiredOrNullableForFile('document_kk'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'ktp_document' => [$requiredOrNullableForAdultFile('document_ktp'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'birth_certificate_document' => [$requiredOrNullableForFile('document_birth_certificate'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'photo_document' => [$requiredOrNullableForFile('document_photo'), 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
+            'last_diploma_document' => [$requiredOrNullableForFile('document_last_diploma'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'bank_book_document' => [$requiredOrNullableForFile('document_bank_book'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'certificate_documents' => ['nullable', 'array'],
             'certificate_documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'other_documents' => ['nullable', 'array'],
