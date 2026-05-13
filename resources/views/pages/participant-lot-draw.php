@@ -411,7 +411,13 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                 setTimeout(() => playTone(990, 0.18, 'sine', 0.05), 220);
             }
 
-            function finalizeDisplay(lotNumber, withEffects = true) {
+            function finalizeDisplay(lotData, withEffects = true) {
+                const lotNumber = typeof lotData === 'object' && lotData
+                    ? String(lotData.lot_number || assignedValue || '')
+                    : String(lotData || assignedValue || '');
+                const lotAssignedAt = typeof lotData === 'object' && lotData
+                    ? String(lotData.lot_assigned_at || '')
+                    : '';
                 const pieces = lotNumber.split('-');
                 suffixDisplay.textContent = pieces[1] || '---';
                 finalDisplay.textContent = lotNumber;
@@ -426,6 +432,28 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                 button.disabled = true;
                 button.classList.add('opacity-60', 'cursor-not-allowed');
                 button.innerHTML = 'Nomor Sudah Terkunci';
+
+                if (window.opener && !window.opener.closed) {
+                    try {
+                        window.opener.postMessage({
+                            type: 'participant.lot.updated',
+                            participant_id: <?= json_encode((int) ($participant?->id ?? 0)) ?>,
+                            participant_name: <?= json_encode((string) ($participant?->name ?? '')) ?>,
+                            registration_number: <?= json_encode((string) ($participant?->registration_number ?? '')) ?>,
+                            lot_number: lotNumber,
+                            lot_assigned_at: lotAssignedAt,
+                            lot_prefix: prefix,
+                            lot_rule_label: <?= json_encode((string) $lotRuleLabel) ?>,
+                            category_id: <?= json_encode((int) ($participant?->competition_category_id ?? 0)) ?>,
+                            district_id: <?= json_encode((int) ($participant?->district_id ?? 0)) ?>,
+                            district_shared: <?= json_encode($lotGroupSize > 1) ?>,
+                            gender: <?= json_encode((string) ($participant?->gender ?? '')) ?>,
+                            verification_status: 'verified',
+                        }, window.location.origin);
+                    } catch (error) {
+                        console.warn('Gagal mengirim update lot ke opener:', error);
+                    }
+                }
             }
 
             function clearSpinTimers() {
@@ -520,7 +548,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                                     throw new Error(payload?.message || 'Gagal mengambil nomor lot.');
                                 }
 
-                                finalizeDisplay(payload.lot_number || assignedValue);
+                                finalizeDisplay(payload, true);
                             } catch (error) {
                                 statusDisplay.textContent = error.message || 'Terjadi kesalahan saat mengunci nomor lot.';
                                 rollingLabel.textContent = 'Gagal';

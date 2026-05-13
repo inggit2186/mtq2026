@@ -15,6 +15,14 @@ $maqraCategories = $maqraCategories ?? collect();
 $selectedMaqraCategoryIds = collect($officialAccessSetting->maqraOpenCategoryIds())
     ->map(fn (int $id): string => (string) $id)
     ->all();
+$maqraLotMin = old('participant_maqra_lot_min', $officialAccessSetting->participant_maqra_lot_min ?? '');
+$maqraLotMax = old('participant_maqra_lot_max', $officialAccessSetting->participant_maqra_lot_max ?? '');
+$maqraLotRangesByCategory = old('participant_maqra_lot_ranges', $officialAccessSetting->maqraOpenLotRanges());
+if (! is_array($maqraLotRangesByCategory)) {
+    $maqraLotRangesByCategory = [];
+}
+$maqraPenyisihanOpen = old('participant_maqra_penyisihan_open', $officialAccessSetting->participant_maqra_penyisihan_open ?? true);
+$maqraFinalOpen = old('participant_maqra_final_open', $officialAccessSetting->participant_maqra_final_open ?? true);
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'admin.content');
 $priorityLabels = [
     'low' => 'Rendah',
@@ -260,11 +268,6 @@ $impersonation = session('impersonation', []);
                                         'title' => 'Ambil Nomor Lot',
                                         'description' => 'Membuka atau menutup pengambilan nomor lot peserta bagi panitia.',
                                     ],
-                                    [
-                                        'key' => 'participant_maqra_open',
-                                        'title' => 'Ambil Maqra',
-                                        'description' => 'Membuka atau menutup pengambilan maqra peserta bagi panitia.',
-                                    ],
                                 ];
                             ?>
 
@@ -280,6 +283,42 @@ $impersonation = session('impersonation', []);
                                     </div>
                                 </label>
                             <?php endforeach; ?>
+
+                            <div class="lg:col-span-2 rounded-[1.5rem] border border-fuchsia-400/14 bg-slate-950/60 p-5">
+                                <div class="flex flex-wrap items-start justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-bold text-white">Akses Maqra per Babak</p>
+                                        <p class="mt-2 text-sm leading-6 text-slate-300">Pisahkan buka/tutup pengambilan maqra untuk Penyisihan dan Final. Pengaturan global lama tetap dipertahankan sebagai lapisan fallback, namun akses operasional mengikuti masing-masing babak.</p>
+                                    </div>
+                                    <div class="status-pill border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100">
+                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                        Per Babak
+                                    </div>
+                                </div>
+                                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                                    <label class="rounded-[1.25rem] border border-fuchsia-400/14 bg-slate-950/50 p-4 transition hover:border-fuchsia-300/40">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-white">Penyisihan</p>
+                                                <p class="mt-2 text-sm leading-6 text-slate-300">Mengaktifkan pengambilan maqra untuk babak penyisihan.</p>
+                                            </div>
+                                            <input type="checkbox" name="participant_maqra_penyisihan_open" value="1" <?= $maqraPenyisihanOpen ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-fuchsia-400 focus:ring-fuchsia-300/30">
+                                        </div>
+                                    </label>
+                                    <label class="rounded-[1.25rem] border border-violet-400/14 bg-slate-950/50 p-4 transition hover:border-violet-300/40">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-white">Final</p>
+                                                <p class="mt-2 text-sm leading-6 text-slate-300">Mengaktifkan pengambilan maqra untuk babak final.</p>
+                                            </div>
+                                            <input type="checkbox" name="participant_maqra_final_open" value="1" <?= $maqraFinalOpen ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-violet-400 focus:ring-violet-300/30">
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="mt-4 rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-xs leading-6 text-slate-300">
+                                    Status global maqra akan mengikuti gabungan kedua babak ini. Jika salah satu babak dibuka, akses maqra global tetap dianggap aktif.
+                                </div>
+                            </div>
 
                             <div class="lg:col-span-2 rounded-[1.5rem] border border-fuchsia-400/14 bg-slate-950/60 p-5">
                                 <div class="flex flex-wrap items-start justify-between gap-4">
@@ -300,19 +339,72 @@ $impersonation = session('impersonation', []);
                                 <?php else: ?>
                                     <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                         <?php foreach ($maqraCategories as $category): ?>
-                                            <?php $isChecked = in_array((string) $category->id, $selectedMaqraCategoryIds, true); ?>
+                                            <?php
+                                                $isChecked = in_array((string) $category->id, $selectedMaqraCategoryIds, true);
+                                                $categoryRange = $maqraLotRangesByCategory[(string) $category->id] ?? $maqraLotRangesByCategory[$category->id] ?? ['min' => '', 'max' => ''];
+                                            ?>
                                             <label class="rounded-[1.25rem] border border-slate-700/80 bg-slate-950/50 p-4 transition hover:border-fuchsia-300/40">
                                                 <div class="flex items-start gap-3">
                                                     <input type="checkbox" name="participant_maqra_category_ids[]" value="<?= e($category->id) ?>" <?= $isChecked ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-fuchsia-400 focus:ring-fuchsia-300/30">
-                                                    <div class="min-w-0">
+                                                    <div class="min-w-0 flex-1">
                                                         <p class="text-sm font-semibold text-white"><?= e(trim((string) $category->branch.' - '.(string) $category->name)) ?></p>
                                                         <p class="mt-1 text-xs text-slate-400"><?= e((string) $category->quota) ?> peserta | <?= e((string) $category->slug) ?></p>
+                                                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                                            <div>
+                                                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Nomor Lot Awal</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    step="1"
+                                                                    name="participant_maqra_lot_ranges[<?= e($category->id) ?>][min]"
+                                                                    value="<?= e((string) ($categoryRange['min'] ?? '')) ?>"
+                                                                    placeholder="001"
+                                                                    class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-400/20"
+                                                                >
+                                                            </div>
+                                                            <div>
+                                                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Nomor Lot Akhir</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    step="1"
+                                                                    name="participant_maqra_lot_ranges[<?= e($category->id) ?>][max]"
+                                                                    value="<?= e((string) ($categoryRange['max'] ?? '')) ?>"
+                                                                    placeholder="100"
+                                                                    class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-400/20"
+                                                                >
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </label>
                                         <?php endforeach; ?>
                                     </div>
                                 <?php endif; ?>
+                            </div>
+
+                            <div class="mt-4 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 p-5">
+                                <div class="flex flex-wrap items-start justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-bold text-white">Fallback Rentang Nomor Lot Maqra</p>
+                                        <p class="mt-2 text-sm leading-6 text-slate-300">Ini dipakai hanya jika sebuah golongan belum diisi rentang khusus. Jika rentang sudah diisi per golongan di atas, nilai ini akan diabaikan untuk golongan tersebut.</p>
+                                    </div>
+                                    <div class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                        <?= mtq_icon('hash', 'h-4 w-4') ?>
+                                        Fallback
+                                    </div>
+                                </div>
+                                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Awal</label>
+                                        <input name="participant_maqra_lot_min" type="number" min="1" step="1" value="<?= e((string) $maqraLotMin) ?>" placeholder="001" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                    </div>
+                                    <div>
+                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Akhir</label>
+                                        <input name="participant_maqra_lot_max" type="number" min="1" step="1" value="<?= e((string) $maqraLotMax) ?>" placeholder="100" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                    </div>
+                                </div>
+                                <p class="mt-3 text-xs text-slate-400">Jika diisi, peserta tanpa nomor lot atau di luar rentang ini tidak bisa membuka pengambilan maqra untuk official/pendamping.</p>
                             </div>
 
                             <div class="lg:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 px-5 py-4">

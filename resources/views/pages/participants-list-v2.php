@@ -21,7 +21,7 @@ $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
-$maqraOpenForPanitia = (bool) ($officialAccessSetting->participant_maqra_open ?? true)
+$maqraOpenForPanitia = (bool) ($officialAccessSetting->maqraAnyRoundEnabled())
     && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
@@ -531,11 +531,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </thead>
                                 <tbody>
                                     <?php if ($group['items']->isEmpty()): ?>
-                                        <tr class="table-row">
+                                        <tr class="table-row" data-participant-row data-participant-id="<?= e($participant->id) ?>" data-category-id="<?= e((string) ($participant->competition_category_id ?? '')) ?>" data-district-id="<?= e((string) ($participant->district_id ?? '')) ?>">
                                             <td colspan="<?= e($canVerify ? 7 : 6) ?>" class="px-5 py-8 text-center text-sm text-slate-400">Belum ada <?= e(mb_strtolower($group['label'])) ?> yang sesuai dengan filter.</td>
                                         </tr>
                                     <?php elseif ($pageGroupItems->isEmpty()): ?>
-                                        <tr class="table-row">
+                                        <tr class="table-row" data-participant-row data-participant-id="<?= e((string) $participant->id) ?>" data-category-id="<?= e((string) ($participant->competition_category_id ?? '')) ?>" data-district-id="<?= e((string) ($participant->district_id ?? '')) ?>">
                                             <td colspan="<?= e($canVerify ? 7 : 6) ?>" class="px-5 py-8 text-center text-sm text-slate-400">Tidak ada data <?= e(mb_strtolower($group['label'])) ?> pada halaman ini.</td>
                                         </tr>
                                     <?php endif; ?>
@@ -555,14 +555,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             ? app(\App\Http\Controllers\PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender)
                                                             : '1 peserta = 1 nomor lot';
                                                     ?>
-                                                    <div class="mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                                    <div class="mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100" data-lot-chip>
                                                         Lot <?= e($participant->lot_number) ?>
                                                     </div>
-                                                    <div class="mt-1 text-[11px] text-cyan-100/90">
+                                                    <div class="mt-1 text-[11px] text-cyan-100/90" data-lot-rule-label>
                                                         <?= e($lotGroupSize > 1 ? 'Lot kelompok · '.$lotRuleLabel : $lotRuleLabel) ?>
                                                     </div>
                                                 <?php elseif ($participant->verification_status === 'verified'): ?>
-                                                    <div class="mt-1 text-xs text-slate-400">Nomor lot belum diambil</div>
+                                                    <div class="mt-1 text-xs text-slate-400" data-lot-placeholder>Nomor lot belum diambil</div>
                                                 <?php endif; ?>
                                                 <div class="mt-1 text-xs text-slate-400"><?= e($participant->nik ?: '-') ?></div>
                                             </td>
@@ -613,10 +613,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             ? app(\App\Http\Controllers\PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender)
                                                             : '1 peserta = 1 nomor lot';
                                                     ?>
-                                                    <div class="mt-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                                    <div class="mt-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100" data-lot-chip>
                                                         Lot <?= e($participant->lot_number) ?>
                                                     </div>
-                                                    <div class="mt-2 text-[11px] text-cyan-100/90">
+                                                    <div class="mt-2 text-[11px] text-cyan-100/90" data-lot-rule-label>
                                                         <?= e($lotGroupSize > 1 ? 'Lot kelompok · '.$lotRuleLabel : $lotRuleLabel) ?>
                                                     </div>
                                                 <?php endif; ?>
@@ -627,8 +627,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         $maqraLabel = trim((string) preg_replace('/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/u', '', (string) ($participant->latestMaqraDraw?->maqraPackage?->title ?? '')));
                                                         $maqraLabel = $maqraLabel !== '' ? (str_starts_with($maqraLabel, 'QS') ? $maqraLabel : 'QS '.$maqraLabel) : '-';
                                                     ?>
-                                                    <div class="mt-2 inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
-                                                        <?= e($maqraLabel) ?>
+                                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                                        <div class="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100" data-maqra-chip>
+                                                            <?= e($maqraLabel) ?>
+                                                        </div>
+                                                        <span class="inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100" data-maqra-status-chip>
+                                                            Sudah diambil
+                                                        </span>
+                                                    </div>
+                                                    <div class="mt-1 text-[11px] text-fuchsia-100/90" data-maqra-round-label>
+                                                        <?= e($latestMaqraRound) ?>
                                                     </div>
                                                 <?php endif; ?>
                                             </td>
@@ -638,6 +646,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                                         Lihat Detail
                                                     </a>
+                                                    <?php if ($canDrawMaqra && $participant->verification_status === 'verified' && $participant->category && app(\App\Http\Controllers\PageController::class)->categoryUsesMaqra($participant->category)): ?>
+                                                        <?php
+                                                            $participantMaqraRound = (string) ($participant->latestMaqraDraw?->round_label ?? 'Penyisihan');
+                                                            $participantMaqraUsesDistrictSharing = app(\App\Http\Controllers\PageController::class)->categoryMaqraUsesDistrictSharing($participant->category);
+                                                        ?>
+                                                        <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.urlencode($participantMaqraRound)) ?>" data-maqra-launcher class="secondary-button rounded-xl border-fuchsia-300/30 bg-fuchsia-400/10 px-2.5 py-2 text-[11px] leading-tight text-center text-fuchsia-100 hover:border-fuchsia-200/50">
+                                                            <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                                            <?= e($participantMaqraUsesDistrictSharing ? 'Ambil Maqra Regu' : 'Ambil Maqra') ?>
+                                                        </a>
+                                                    <?php endif; ?>
                                                     <?php if ($canEditParticipant): ?>
                                                         <a href="<?= e(route('participants.edit', $participant)) ?>" class="secondary-button rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                             <?= mtq_icon('id-card', 'h-4 w-4') ?>
@@ -730,5 +748,191 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
     <?php foreach ($jsAssets as $src): ?>
         <script type="module" src="<?= e($src) ?>"></script>
     <?php endforeach; ?>
+    <script>
+        (function () {
+            function flashElement(element) {
+                if (!element) {
+                    return;
+                }
+
+                const originalClassName = element.className;
+                element.classList.add('ring-2', 'ring-emerald-300/80', 'bg-emerald-400/5');
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                window.setTimeout(() => {
+                    element.className = originalClassName;
+                }, 1400);
+            }
+
+            function formatMaqraLabel(label) {
+                const cleaned = String(label || '')
+                    .replace(/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/i, '')
+                    .trim();
+
+                if (!cleaned) {
+                    return 'Paket Maqra';
+                }
+
+                return /^QS\b/i.test(cleaned) ? cleaned : `QS ${cleaned}`;
+            }
+
+            function updateLotBadges(payload) {
+                if (!payload || !payload.participant_id || !payload.lot_number) {
+                    return;
+                }
+
+                const rows = payload.district_shared && payload.district_id && payload.category_id
+                    ? document.querySelectorAll(`[data-participant-row][data-category-id="${payload.category_id}"][data-district-id="${payload.district_id}"]`)
+                    : document.querySelectorAll(`[data-participant-row][data-participant-id="${payload.participant_id}"]`);
+
+                rows.forEach((row) => {
+                    const verificationBadge = row.querySelector('[data-verification-badge]');
+                    if (verificationBadge) {
+                        verificationBadge.textContent = 'Terverifikasi';
+                        verificationBadge.className = 'inline-flex w-fit max-w-full items-center justify-center rounded-full border px-2.5 py-1.5 text-[11px] font-semibold uppercase leading-none tracking-[0.12em] whitespace-nowrap border-emerald-400/20 bg-emerald-400/10 text-emerald-200';
+                    }
+
+                    const nameCell = row.children?.[1];
+                    const chipSelectors = '[data-lot-chip]';
+                    const ruleSelectors = '[data-lot-rule-label]';
+                    const placeholderSelectors = '[data-lot-placeholder]';
+                    const lotRuleLabel = payload.lot_rule_label || '1 peserta = 1 nomor lot';
+
+                    const chips = row.querySelectorAll(chipSelectors);
+                    if (chips.length > 0) {
+                        chips.forEach((chip) => {
+                            chip.textContent = `Lot ${payload.lot_number}`;
+                        });
+                    } else if (nameCell) {
+                        const nameBlock = nameCell.querySelector('.break-normal.font-semibold.leading-snug.text-white');
+                        if (nameBlock) {
+                            const chip = document.createElement('div');
+                            chip.className = 'mt-1 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100';
+                            chip.setAttribute('data-lot-chip', '');
+                            chip.textContent = `Lot ${payload.lot_number}`;
+                            nameBlock.insertAdjacentElement('afterend', chip);
+                        }
+                    }
+
+                    row.querySelectorAll(ruleSelectors).forEach((ruleLabel) => {
+                        ruleLabel.textContent = lotRuleLabel;
+                    });
+
+                    row.querySelectorAll(placeholderSelectors).forEach((placeholder) => {
+                        placeholder.remove();
+                    });
+
+                    flashElement(row);
+                });
+            }
+
+            function updateMaqraBadges(payload) {
+                if (!payload || !payload.participant_id || !payload.maqra_code) {
+                    return;
+                }
+
+                const rows = payload.district_shared && payload.district_id && payload.category_id
+                    ? document.querySelectorAll(`[data-participant-row][data-category-id="${payload.category_id}"][data-district-id="${payload.district_id}"]`)
+                    : document.querySelectorAll(`[data-participant-row][data-participant-id="${payload.participant_id}"]`);
+                const maqraLabel = payload.maqra_label || formatMaqraLabel(payload.maqra_title || payload.maqra_code || 'Paket Maqra');
+                const roundLabel = payload.maqra_round_label || payload.maqra_round || 'Penyisihan';
+
+                rows.forEach((row) => {
+                    const nameCell = row.children?.[1];
+                    if (!nameCell) {
+                        return;
+                    }
+
+                    const maqraChip = row.querySelector('[data-maqra-chip]');
+                    if (maqraChip) {
+                        maqraChip.textContent = maqraLabel;
+                    } else {
+                        const titleBlock = nameCell.querySelector('.break-normal.font-semibold.leading-snug.text-white');
+                        const nikBlock = nameCell.querySelector('.mt-1.text-xs.text-slate-400:last-of-type') || nameCell.querySelector('.mt-1.text-xs.text-slate-400');
+                        if (titleBlock) {
+                            const chip = document.createElement('div');
+                            chip.className = 'mt-2 inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100';
+                            chip.setAttribute('data-maqra-chip', '');
+                            chip.textContent = maqraLabel;
+                            if (nikBlock && nikBlock.parentNode === nameCell) {
+                                nikBlock.insertAdjacentElement('beforebegin', chip);
+                            } else {
+                                titleBlock.insertAdjacentElement('afterend', chip);
+                            }
+                        }
+                    }
+
+                    const roundLine = row.querySelector('[data-maqra-round-label]');
+                    if (roundLine) {
+                        roundLine.textContent = roundLabel;
+                    } else if (nameCell) {
+                        const chip = row.querySelector('[data-maqra-chip]');
+                        if (chip) {
+                            const line = document.createElement('div');
+                            line.className = 'mt-1 text-[11px] text-fuchsia-100/90';
+                            line.setAttribute('data-maqra-round-label', '');
+                            line.textContent = roundLabel;
+                            chip.insertAdjacentElement('afterend', line);
+                        }
+                    }
+
+                    const statusChip = row.querySelector('[data-maqra-status-chip]');
+                    if (statusChip) {
+                        statusChip.textContent = 'Sudah diambil';
+                        statusChip.className = 'inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100';
+                    }
+
+                    flashElement(row);
+                });
+            }
+
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) {
+                    return;
+                }
+
+                const payload = event.data;
+                if (!payload) {
+                    return;
+                }
+
+                if (payload.type === 'participant.lot.updated') {
+                    updateLotBadges(payload);
+                }
+
+                if (payload.type === 'participant.maqra.updated') {
+                    updateMaqraBadges(payload);
+                }
+            });
+
+            document.querySelectorAll('[data-maqra-launcher]').forEach((launcher) => {
+                launcher.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const url = launcher.getAttribute('href');
+                    if (!url) {
+                        return;
+                    }
+
+                    const popup = window.open(
+                        url,
+                        'mtq-maqra-draw',
+                        `popup=yes,width=${screen.availWidth},height=${screen.availHeight},left=0,top=0,noopener=no`
+                    );
+
+                    if (popup) {
+                        try {
+                            popup.moveTo(0, 0);
+                            popup.resizeTo(screen.availWidth, screen.availHeight);
+                            popup.focus();
+                        } catch (error) {
+                            popup.focus();
+                        }
+                    } else {
+                        window.location.href = url;
+                    }
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

@@ -75,7 +75,14 @@ class AdminContentController extends Controller
             'participant_documents_open' => ['nullable', 'boolean'],
             'participant_verification_open' => ['nullable', 'boolean'],
             'participant_lot_open' => ['nullable', 'boolean'],
-            'participant_maqra_open' => ['nullable', 'boolean'],
+            'participant_maqra_penyisihan_open' => ['nullable', 'boolean'],
+            'participant_maqra_final_open' => ['nullable', 'boolean'],
+            'participant_maqra_lot_min' => ['nullable', 'integer', 'min:1'],
+            'participant_maqra_lot_max' => ['nullable', 'integer', 'min:1'],
+            'participant_maqra_lot_ranges' => ['nullable', 'array'],
+            'participant_maqra_lot_ranges.*' => ['nullable', 'array'],
+            'participant_maqra_lot_ranges.*.min' => ['nullable', 'integer', 'min:1'],
+            'participant_maqra_lot_ranges.*.max' => ['nullable', 'integer', 'min:1'],
             'participant_maqra_category_ids' => ['nullable', 'array'],
             'participant_maqra_category_ids.*' => ['integer', 'exists:competition_categories,id'],
         ]);
@@ -88,6 +95,56 @@ class AdminContentController extends Controller
             ->unique()
             ->values()
             ->all();
+        $maqraLotMin = filled($request->input('participant_maqra_lot_min'))
+            ? (int) $request->input('participant_maqra_lot_min')
+            : null;
+        $maqraLotMax = filled($request->input('participant_maqra_lot_max'))
+            ? (int) $request->input('participant_maqra_lot_max')
+            : null;
+
+        if (filled($maqraLotMin) && filled($maqraLotMax) && $maqraLotMin > $maqraLotMax) {
+            [$maqraLotMin, $maqraLotMax] = [$maqraLotMax, $maqraLotMin];
+        }
+
+        $maqraPenyisihanOpen = $request->boolean('participant_maqra_penyisihan_open');
+        $maqraFinalOpen = $request->boolean('participant_maqra_final_open');
+
+        $maqraLotRangesInput = $request->input('participant_maqra_lot_ranges', []);
+        $maqraLotRanges = [];
+        if (is_array($maqraLotRangesInput)) {
+            foreach ($maqraLotRangesInput as $categoryId => $range) {
+                if (! is_array($range)) {
+                    continue;
+                }
+
+                $rangeMin = filled($range['min'] ?? null) ? (int) $range['min'] : null;
+                $rangeMax = filled($range['max'] ?? null) ? (int) $range['max'] : null;
+
+                if (! filled($rangeMin) && ! filled($rangeMax)) {
+                    continue;
+                }
+
+                if (! filled($rangeMin) || ! filled($rangeMax)) {
+                    return redirect()
+                        ->route('admin.content')
+                        ->withErrors(['participant_maqra_lot_ranges' => 'Setiap rentang lot maqra per golongan harus diisi lengkap.'])
+                        ->withInput();
+                }
+
+                if ($rangeMin > $rangeMax) {
+                    [$rangeMin, $rangeMax] = [$rangeMax, $rangeMin];
+                }
+
+                $categoryId = (int) $categoryId;
+                if ($categoryId > 0) {
+                    $maqraLotRanges[$categoryId] = [
+                        'min' => $rangeMin,
+                        'max' => $rangeMax,
+                    ];
+                }
+            }
+        }
+
         $setting->fill([
             'participant_registration_open' => $request->boolean('participant_registration_open'),
             'participant_edit_open' => $request->boolean('participant_edit_open'),
@@ -95,7 +152,12 @@ class AdminContentController extends Controller
             'participant_documents_open' => $request->boolean('participant_documents_open'),
             'participant_verification_open' => $request->boolean('participant_verification_open'),
             'participant_lot_open' => $request->boolean('participant_lot_open'),
-            'participant_maqra_open' => $request->boolean('participant_maqra_open'),
+            'participant_maqra_open' => $maqraPenyisihanOpen || $maqraFinalOpen,
+            'participant_maqra_penyisihan_open' => $maqraPenyisihanOpen,
+            'participant_maqra_final_open' => $maqraFinalOpen,
+            'participant_maqra_lot_min' => $maqraLotMin,
+            'participant_maqra_lot_max' => $maqraLotMax,
+            'participant_maqra_lot_ranges' => $maqraLotRanges,
             'participant_maqra_category_ids' => $selectedMaqraCategoryIds,
         ]);
         $setting->save();
@@ -112,6 +174,11 @@ class AdminContentController extends Controller
                 'participant_verification_open' => $setting->participant_verification_open,
                 'participant_lot_open' => $setting->participant_lot_open,
                 'participant_maqra_open' => $setting->participant_maqra_open,
+                'participant_maqra_penyisihan_open' => $setting->participant_maqra_penyisihan_open,
+                'participant_maqra_final_open' => $setting->participant_maqra_final_open,
+                'participant_maqra_lot_min' => $setting->participant_maqra_lot_min,
+                'participant_maqra_lot_max' => $setting->participant_maqra_lot_max,
+                'participant_maqra_lot_ranges' => $setting->participant_maqra_lot_ranges,
                 'participant_maqra_category_ids' => $setting->maqraOpenCategoryIds(),
             ]
         );

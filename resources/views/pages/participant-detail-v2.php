@@ -12,7 +12,7 @@ $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
-$maqraOpenForPanitia = (bool) ($officialAccessSetting->participant_maqra_open ?? true)
+$maqraOpenForPanitia = (bool) ($officialAccessSetting->maqraAnyRoundEnabled())
     && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
@@ -82,7 +82,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                         <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Status Verifikasi</p>
                         <p class="mt-2 text-lg font-bold text-white"><?= e(ucfirst((string) $participant?->verification_status)) ?></p>
                     </div>
-                    <div class="data-card">
+                    <div class="data-card" data-lot-card>
                         <div class="flex items-center gap-2 text-slate-500">
                             <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-300/14 bg-cyan-400/10 text-cyan-200"><?= mtq_icon('id-card', 'h-4 w-4') ?></span>
                             <p class="text-xs uppercase tracking-[0.24em]">Nomor Lot</p>
@@ -102,13 +102,18 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             }
                         ?>
                         <?php if (filled($participant?->lot_number)): ?>
-                            <p class="mt-2 text-lg font-bold text-white"><?= e($participant?->lot_number) ?></p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100" data-lot-status-chip>
+                                    Sudah diambil
+                                </span>
+                            </div>
+                            <p class="mt-2 text-lg font-bold text-white" data-lot-chip><?= e($participant?->lot_number) ?></p>
                             <?php if ($lotGroupSize > 1): ?>
-                                <p class="mt-1 text-xs text-cyan-200">Lot kelompok untuk <?= e($lotGroupSize) ?> peserta. <?= e($lotRuleLabel) ?></p>
+                                <p class="mt-1 text-xs text-cyan-200" data-lot-rule-label>Lot kelompok untuk <?= e($lotGroupSize) ?> peserta. <?= e($lotRuleLabel) ?></p>
                             <?php else: ?>
-                                <p class="mt-1 text-xs text-cyan-200"><?= e($lotRuleLabel) ?></p>
+                                <p class="mt-1 text-xs text-cyan-200" data-lot-rule-label><?= e($lotRuleLabel) ?></p>
                             <?php endif; ?>
-                            <p class="mt-1 text-xs text-emerald-300">Diambil pada <?= e(optional($participant?->lot_assigned_at)->format('d M Y H:i') ?: '-') ?></p>
+                            <p class="mt-1 text-xs text-emerald-300" data-lot-assigned-at>Diambil pada <?= e(optional($participant?->lot_assigned_at)->format('d M Y H:i') ?: '-') ?></p>
                             <?php if ($canDrawParticipant): ?>
                                 <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
                                     <?= mtq_icon('sparkles', 'h-4 w-4') ?>
@@ -178,7 +183,10 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             <?php endif; ?>
                         <?php elseif ($participant?->verification_status === 'verified'): ?>
                             <p class="mt-2 text-sm text-slate-300">Peserta sudah terverifikasi dan siap diambil nomor lot-nya.</p>
-                            <p class="mt-2 text-xs text-cyan-200"><?= e($lotRuleLabel) ?></p>
+                            <div class="mt-2 inline-flex rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300" data-lot-status-chip>
+                                Belum diambil
+                            </div>
+                            <p class="mt-2 text-xs text-cyan-200" data-lot-rule-label><?= e($lotRuleLabel) ?></p>
                             <?php if ($canDrawParticipant): ?>
                                 <a href="<?= e(route('participants.lot.draw', $participant).'?autofullscreen=1') ?>" data-lot-launcher class="secondary-button mt-3 w-full justify-center border-cyan-300/30 bg-cyan-400/10 text-[11px] text-cyan-100 hover:border-cyan-200/50">
                                     <?= mtq_icon('sparkles', 'h-4 w-4') ?>
@@ -216,7 +224,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                         <?php endif; ?>
                     </div>
                     <?php if ($usesMaqra): ?>
-                        <div class="data-card">
+                        <div class="data-card" data-maqra-card>
                             <div class="flex items-center gap-2 text-slate-500">
                                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-fuchsia-300/14 bg-fuchsia-400/10 text-fuchsia-200"><?= mtq_icon('sparkles', 'h-4 w-4') ?></span>
                                 <p class="text-xs uppercase tracking-[0.24em]">Maqra</p>
@@ -226,9 +234,14 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                     $maqraLabel = trim((string) preg_replace('/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/u', '', (string) $latestMaqraDraw->maqraPackage->title));
                                     $maqraLabel = $maqraLabel !== '' ? (str_starts_with($maqraLabel, 'QS') ? $maqraLabel : 'QS '.$maqraLabel) : '-';
                                 ?>
-                                <p class="mt-2 text-lg font-bold text-white"><?= e($maqraLabel) ?></p>
-                                <p class="mt-1 text-xs text-emerald-300">Diambil pada <?= e(optional($latestMaqraDraw?->drawn_at)->format('d M Y H:i') ?: '-') ?> • <?= e($latestMaqraDraw->round_label ?? 'Penyisihan') ?></p>
-                                <p class="mt-2 text-sm text-slate-300">QS resmi untuk pengambilan maqra ini.</p>
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100" data-maqra-status-chip>
+                                        Sudah diambil
+                                    </span>
+                                </div>
+                                <p class="mt-2 text-lg font-bold text-white" data-maqra-chip><?= e($maqraLabel) ?></p>
+                                <p class="mt-1 text-[11px] text-emerald-300" data-maqra-meta>Diambil pada <?= e(optional($latestMaqraDraw?->drawn_at)->format('d M Y H:i') ?: '-') ?> • <?= e($latestMaqraDraw->round_label ?? 'Penyisihan') ?></p>
+                                <p class="mt-2 text-[11px] text-slate-300" data-maqra-description>QS resmi untuk pengambilan maqra ini.</p>
                                 <?php if ($canDrawMaqra): ?>
                                     <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.urlencode($latestMaqraRound)) ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
@@ -291,6 +304,10 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 <?php endif; ?>
                             <?php elseif ($participant?->verification_status === 'verified'): ?>
                                 <p class="mt-2 text-sm text-slate-300">Peserta sudah terverifikasi dan siap diambil maqra-nya.</p>
+                                <div class="mt-2 inline-flex rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300" data-maqra-status-chip>
+                                    Belum diambil
+                                </div>
+                                <p class="mt-2 text-[11px] text-fuchsia-200" data-maqra-meta>Babak default dimulai dari Penyisihan.</p>
                                 <?php if ($canDrawMaqra): ?>
                                     <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round=Penyisihan') ?>" data-maqra-launcher class="secondary-button mt-3 w-full justify-center border-fuchsia-300/30 bg-fuchsia-400/10 text-[11px] text-fuchsia-100 hover:border-fuchsia-200/50">
                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
@@ -300,7 +317,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 <?php if ($isPanitiaUser && ! $maqraOpenForPanitia): ?>
                                     <p class="mt-2 text-xs text-amber-300">Masa ambil maqra untuk panitia sedang ditutup oleh admin.</p>
                                 <?php endif; ?>
-                                <p class="mt-2 text-xs text-slate-400">Babak default dimulai dari Penyisihan.</p>
+                                <p class="mt-2 text-[11px] text-slate-400">Babak default dimulai dari Penyisihan.</p>
                                 <?php if ($canManageMaqra): ?>
                                     <div class="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
                                         <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Info Admin</p>
@@ -846,6 +863,176 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
             statusField.addEventListener('change', syncDefaultNote);
             syncDefaultNote();
         });
+    </script>
+    <script>
+        (function () {
+            function flashElement(element) {
+                if (!element) {
+                    return;
+                }
+
+                const originalClassName = element.className;
+                element.classList.add('ring-2', 'ring-fuchsia-300/80', 'bg-fuchsia-400/5');
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                window.setTimeout(() => {
+                    element.className = originalClassName;
+                }, 1400);
+            }
+
+            function formatMaqraLabel(label) {
+                const cleaned = String(label || '')
+                    .replace(/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/i, '')
+                    .trim();
+
+                if (!cleaned) {
+                    return 'Paket Maqra';
+                }
+
+                return /^QS\b/i.test(cleaned) ? cleaned : `QS ${cleaned}`;
+            }
+
+            function updateLotCard(payload) {
+                if (!payload || payload.type !== 'participant.lot.updated') {
+                    return;
+                }
+
+                const participantId = <?= json_encode((int) ($participant?->id ?? 0)) ?>;
+                const participantDistrictId = <?= json_encode((int) ($participant?->district_id ?? 0)) ?>;
+                const participantCategoryId = <?= json_encode((int) ($participant?->competition_category_id ?? 0)) ?>;
+                const matchesParticipant = Number(payload.participant_id) === Number(participantId);
+                const matchesDistrictShared = Boolean(payload.district_shared)
+                    && Number(payload.district_id || 0) === Number(participantDistrictId)
+                    && Number(payload.category_id || 0) === Number(participantCategoryId);
+
+                if (!matchesParticipant && !matchesDistrictShared) {
+                    return;
+                }
+
+                const card = document.querySelector('[data-lot-card]');
+                if (!card) {
+                    return;
+                }
+
+                const lotNumber = payload.lot_number || '';
+                const lotRuleLabel = payload.lot_rule_label || '1 peserta = 1 nomor lot';
+                const lotAssignedAt = payload.lot_assigned_at || '';
+
+                const statusChip = card.querySelector('[data-lot-status-chip]');
+                if (statusChip) {
+                    statusChip.textContent = 'Sudah diambil';
+                    statusChip.className = 'inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100';
+                }
+
+                const chip = card.querySelector('[data-lot-chip]');
+                if (chip) {
+                    chip.textContent = lotNumber;
+                } else {
+                    const anchor = card.querySelector('[data-lot-status-chip]') || card.querySelector('.flex.items-center.gap-2.text-slate-500');
+                    if (anchor) {
+                        const lot = document.createElement('p');
+                        lot.setAttribute('data-lot-chip', '');
+                        lot.className = 'mt-2 text-lg font-bold text-white';
+                        lot.textContent = lotNumber;
+                        anchor.insertAdjacentElement('afterend', lot);
+                    }
+                }
+
+                const placeholder = card.querySelector('[data-lot-placeholder]');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+
+                const ruleLabel = card.querySelector('[data-lot-rule-label]');
+                if (ruleLabel) {
+                    ruleLabel.textContent = lotRuleLabel;
+                }
+
+                const assignedAt = card.querySelector('[data-lot-assigned-at]');
+                if (assignedAt && lotAssignedAt) {
+                    assignedAt.textContent = `Diambil pada ${lotAssignedAt}`;
+                } else if (!assignedAt && lotAssignedAt) {
+                    const lotChip = card.querySelector('[data-lot-chip]');
+                    if (lotChip) {
+                        const line = document.createElement('p');
+                        line.setAttribute('data-lot-assigned-at', '');
+                        line.className = 'mt-1 text-xs text-emerald-300';
+                        line.textContent = `Diambil pada ${lotAssignedAt}`;
+                        lotChip.insertAdjacentElement('afterend', line);
+                    }
+                }
+
+                flashElement(card);
+            }
+
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) {
+                    return;
+                }
+
+                const payload = event.data;
+                if (!payload) {
+                    return;
+                }
+
+                if (payload.type === 'participant.lot.updated') {
+                    updateLotCard(payload);
+                }
+
+                if (payload.type !== 'participant.maqra.updated') {
+                    return;
+                }
+
+                const participantId = <?= json_encode((int) ($participant?->id ?? 0)) ?>;
+                const participantDistrictId = <?= json_encode((int) ($participant?->district_id ?? 0)) ?>;
+                const participantCategoryId = <?= json_encode((int) ($participant?->competition_category_id ?? 0)) ?>;
+                const matchesParticipant = Number(payload.participant_id) === Number(participantId);
+                const matchesDistrictShared = Boolean(payload.district_shared)
+                    && Number(payload.district_id || 0) === Number(participantDistrictId)
+                    && Number(payload.category_id || 0) === Number(participantCategoryId);
+
+                if (!matchesParticipant && !matchesDistrictShared) {
+                    return;
+                }
+
+                const card = document.querySelector('[data-maqra-card]');
+                if (!card) {
+                    return;
+                }
+
+                const label = payload.maqra_label || formatMaqraLabel(payload.maqra_title || payload.maqra_code || 'Paket Maqra');
+                const roundLabel = payload.maqra_round_label || payload.maqra_round || 'Penyisihan';
+                const drawnAt = payload.drawn_at || payload.maqra_drawn_at || '<?= e(optional($latestMaqraDraw?->drawn_at)->format('d M Y H:i') ?: '-') ?>';
+                const statusChip = card.querySelector('[data-maqra-status-chip]');
+                if (statusChip) {
+                    statusChip.textContent = 'Sudah diambil';
+                    statusChip.className = 'inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100';
+                }
+
+                const chip = card.querySelector('[data-maqra-chip]');
+                if (chip) {
+                    chip.textContent = label;
+                }
+
+                const meta = card.querySelector('[data-maqra-meta]');
+                if (meta) {
+                    meta.textContent = `Diambil pada ${drawnAt} • ${roundLabel}`;
+                    meta.className = 'mt-1 text-[11px] text-emerald-300';
+                }
+
+                const description = card.querySelector('[data-maqra-description]');
+                if (description && payload.maqra_content) {
+                    description.textContent = payload.maqra_content;
+                }
+
+                const launcher = card.querySelector('[data-maqra-launcher]');
+                if (launcher) {
+                    launcher.textContent = label;
+                }
+
+                flashElement(card);
+            });
+        })();
     </script>
 </body>
 </html>

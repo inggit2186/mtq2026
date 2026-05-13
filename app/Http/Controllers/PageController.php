@@ -2505,8 +2505,8 @@ class PageController extends Controller
             return 3;
         }
 
-        if (str_contains($branch, 'khutbah') && str_contains($branch, 'adzan')) {
-            return $normalizedGender === 'putra' || $normalizedGender === '' ? 2 : 1;
+        if (str_contains($branch, 'khutbah') || str_contains($branch, 'adzan')) {
+            return 1;
         }
 
         return 1;
@@ -2517,6 +2517,10 @@ class PageController extends Controller
         $groupSize = $this->categoryLotGroupSize($category, $gender);
         $branch = mb_strtolower((string) ($category->branch ?? ''));
         $normalizedGender = mb_strtolower((string) $gender);
+
+        if (str_contains($branch, 'fahmil') || str_contains($branch, 'syarhil') || str_contains($branch, 'khutbah') || str_contains($branch, 'adzan')) {
+            return '1 kecamatan = 1 nomor lot';
+        }
 
         if ($groupSize === 3) {
             $genderLabel = $normalizedGender === 'putri'
@@ -2567,6 +2571,18 @@ class PageController extends Controller
             'Fahmil' => 'FHL',
             default => 'MQR',
         };
+    }
+
+    public function categoryMaqraUsesDistrictSharing(CompetitionCategory $category): bool
+    {
+        return $this->categoryMaqraSystemLabel($category) === 'Fahmil';
+    }
+
+    public function categoryMaqraRuleLabel(CompetitionCategory $category): string
+    {
+        return $this->categoryMaqraUsesDistrictSharing($category)
+            ? '1 kecamatan = 1 maqra'
+            : '1 peserta = 1 maqra';
     }
 
     protected function participantPriorityValues(Participant $participant): array

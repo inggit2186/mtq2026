@@ -34,6 +34,9 @@ $autoFullscreen = request()->boolean('autofullscreen');
 $maqraPackageCount = (int) ($maqraPackageCount ?? 0);
 $roundOptions = ['Penyisihan', 'Final'];
 $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
+$districtSharedMaqra = $participant?->category
+    ? app(\App\Http\Controllers\PageController::class)->categoryMaqraUsesDistrictSharing($participant->category)
+    : false;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -146,6 +149,15 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                         <p class="mt-1 text-xs font-semibold text-white"><?= e($maqraAssignedLabel ?: $maqraCodePrefix) ?></p>
                         <p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Jumlah Paket</p>
                         <p class="mt-1 text-xs font-semibold text-white"><?= e(number_format($maqraPackageCount)) ?></p>
+                        <?php if (! $maqraAssigned && $maqraPackageCount <= 0): ?>
+                            <div class="mt-3 inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-100">
+                                Stok maqra habis
+                            </div>
+                        <?php elseif (! $maqraAssigned && $maqraCandidates->isEmpty()): ?>
+                            <div class="mt-3 inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100">
+                                Belum ada kandidat maqra
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -215,17 +227,20 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                                 <button
                                     id="start-draw-button"
                                     type="button"
-                                    class="primary-button px-5 py-3.5 text-[11px] sm:px-6 sm:py-4 sm:text-sm <?= $maqraAssigned ? 'cursor-not-allowed opacity-60' : '' ?>"
-                                    <?= $maqraAssigned ? 'disabled' : '' ?>
+                                    class="primary-button px-5 py-3.5 text-[11px] sm:px-6 sm:py-4 sm:text-sm <?= ($maqraAssigned || (! $maqraAssigned && $maqraCandidates->isEmpty())) ? 'cursor-not-allowed opacity-60' : '' ?>"
+                                    <?= ($maqraAssigned || (! $maqraAssigned && $maqraCandidates->isEmpty())) ? 'disabled' : '' ?>
                                 >
                                     <?= mtq_icon('sparkles', 'h-5 w-5') ?>
-                                    <?= e($maqraAssigned ? $maqraAssignedLabel : 'Ambil Maqra') ?>
+                                    <?= e($maqraAssigned ? $maqraAssignedLabel : ($maqraCandidates->isEmpty() ? 'Stok Habis' : 'Ambil Maqra')) ?>
                                 </button>
                                 <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button px-5 py-3.5 text-[11px] sm:px-6 sm:py-4 sm:text-sm">
                                     <?= mtq_icon('id-card', 'h-5 w-5') ?>
                                     Detail Peserta
                                 </a>
                             </div>
+                            <?php if (! $maqraAssigned && $maqraCandidates->isEmpty()): ?>
+                                <p class="text-center text-xs text-rose-200">Tidak ada paket maqra tersisa untuk babak ini. Silakan cek pengaturan paket atau gunakan babak lain.</p>
+                            <?php endif; ?>
                             <div id="maqra-history" class="hidden"></div>
                         </div>
                     </div>
@@ -293,6 +308,7 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
             const assignedTitle = <?= json_encode($maqraAssignedTitle, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const assignedContent = <?= json_encode($maqraAssignedContent, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const assignedLabel = <?= json_encode($maqraAssignedLabel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+            const noCandidates = candidates.length === 0;
 
             confettiHost.className = 'pointer-events-none absolute inset-0 z-20 overflow-hidden';
             stage.appendChild(confettiHost);
@@ -471,6 +487,32 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                 button.disabled = true;
                 button.classList.add('opacity-60', 'cursor-not-allowed');
                 button.textContent = label;
+
+                if (window.opener && !window.opener.closed) {
+                    try {
+                        window.opener.postMessage({
+                            type: 'participant.maqra.updated',
+                            participant_id: <?= json_encode((int) ($participant?->id ?? 0)) ?>,
+                            participant_name: <?= json_encode((string) ($participant?->name ?? '')) ?>,
+                            registration_number: <?= json_encode((string) ($participant?->registration_number ?? '')) ?>,
+                            maqra_round: <?= json_encode((string) $maqraRoundLabel) ?>,
+                            maqra_round_label: <?= json_encode((string) $maqraRoundLabel) ?>,
+                            maqra_code: code,
+                            maqra_title: title,
+                            maqra_content: content,
+                            maqra_label: label,
+                            drawn_at: payload?.drawn_at || <?= json_encode((string) optional($participant?->latestMaqraDraw?->drawn_at)->format('d M Y H:i') ?: '') ?>,
+                            maqra_prefix: <?= json_encode((string) $maqraCodePrefix) ?>,
+                            system_label: <?= json_encode((string) $maqraSystemLabel) ?>,
+                            category_id: <?= json_encode((int) ($participant?->competition_category_id ?? 0)) ?>,
+                            district_id: <?= json_encode((int) ($participant?->district_id ?? 0)) ?>,
+                            district_shared: <?= json_encode($districtSharedMaqra) ?>,
+                            verification_status: 'verified',
+                        }, window.location.origin);
+                    } catch (error) {
+                        console.warn('Gagal mengirim update maqra ke opener:', error);
+                    }
+                }
             }
 
             function runSpinSequence() {
@@ -576,7 +618,12 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
             }
 
             if (!alreadyAssigned) {
-                button.addEventListener('click', startDraw);
+                if (noCandidates) {
+                    statusDisplay.textContent = 'Stok maqra habis';
+                    rollingLabel.textContent = 'Tidak tersedia';
+                } else {
+                    button.addEventListener('click', startDraw);
+                }
             } else {
                 finalizeDisplay({
                     maqra_code: assignedCode,
