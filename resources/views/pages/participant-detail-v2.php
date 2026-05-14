@@ -728,16 +728,8 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan umum</label>
+                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan verifikasi</label>
                                             <textarea name="verification_notes" rows="3" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Catatan verifikasi umum untuk official" data-verification-notes><?= e(old('verification_notes', $participant?->verification_notes)) ?></textarea>
-                                        </div>
-                                        <div class="grid gap-3">
-                                            <?php foreach ($documentMap as $key => $document): ?>
-                                                <div>
-                                                    <label class="mb-2 block text-sm font-semibold text-slate-200"><?= e('Catatan '.$document['label']) ?></label>
-                                                    <textarea name="document_revision_notes[<?= e($key) ?>]" rows="2" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Opsional, isi bila dokumen ini perlu diperbaiki"><?= e(old('document_revision_notes.'.$key, $document['revision_note'] ?? '')) ?></textarea>
-                                                </div>
-                                            <?php endforeach; ?>
                                         </div>
                                         <?php if ($districtMandate): ?>
                                             <div class="rounded-2xl border border-cyan-400/14 bg-slate-950/50 p-4">

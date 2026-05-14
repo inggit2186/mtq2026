@@ -99,11 +99,21 @@ class MfqScoringController extends Controller
                 ->filter()
                 ->values()
             : collect();
+        $selectedParticipantScores = $selectedParticipants->isNotEmpty()
+            ? ScoreEntry::query()
+                ->whereIn('participant_id', $selectedParticipants->pluck('id')->all())
+                ->where('judging_round', $selectionJudgingRound)
+                ->orderByDesc('submitted_at')
+                ->get()
+                ->groupBy('participant_id')
+                ->mapWithKeys(fn ($entries, $participantId) => [(int) $participantId => $entries->first()])
+            : collect();
         $selectedDistrictCards = $selectedDistrictIds->isNotEmpty()
             ? $selectedDistrictIds
-                ->map(function (int $districtId) use ($participantsByDistrict) {
+                ->map(function (int $districtId) use ($participantsByDistrict, $selectedParticipantScores) {
                     $districtParticipants = $participantsByDistrict->get($districtId, collect())->values();
                     $representative = $districtParticipants->first();
+                    $latestScore = $selectedParticipantScores->get((int) ($representative?->id ?? 0));
 
                     if (! $representative) {
                         return null;
@@ -117,6 +127,7 @@ class MfqScoringController extends Controller
                         'representative_name' => $representative->name,
                         'representative_registration_number' => $representative->registration_number,
                         'representative_lot_number' => $representative->lot_number ?? null,
+                        'score_value' => $latestScore ? number_format((float) $latestScore->score, 2) : null,
                     ];
                 })
                 ->filter()
@@ -169,6 +180,7 @@ class MfqScoringController extends Controller
                     'participant_id' => $selectedParticipant?->id ?? '',
                     'judging_round' => $selectedJudgingRound,
                 ],
+                'openInputModal' => $request->boolean('open_input_modal'),
                 'judgeNameDefault' => (string) auth()->user()?->name,
                 'selectionState' => $selection,
                 'selectionSessionName' => $selectionSessionName,
@@ -396,48 +408,52 @@ class MfqScoringController extends Controller
             ];
         }
 
-        $scoreEntry = ScoreEntry::query()->create([
-            'participant_id' => $participant->id,
-            'judge_name' => $validated['judge_name'],
-            'judging_round' => $validated['judging_round'],
-            'score' => (int) $totalScore,
+        $scoreEntry = ScoreEntry::query()->updateOrCreate(
+            [
+                'participant_id' => $participant->id,
+                'judging_round' => $validated['judging_round'],
+            ],
+            [
+                'judge_name' => $validated['judge_name'],
+                'score' => (int) $totalScore,
                 'score_breakdown' => [
                     'type' => 'MFQ',
                     'session_name' => $sessionName !== '' ? $sessionName : null,
                     'judge_name' => $validated['judge_name'],
                     'judging_round' => $validated['judging_round'],
                     'participant_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
-                'sheet_style' => [
-                    'question_count' => count($questionRows),
-                    'selected_regu_count' => $selectedDistrictIds->count(),
-                    'active_regu_id' => $participant->id,
-                    'active_regu_name' => $participant->name,
-                    'opponents' => $scoringColumns['opponents']->map(fn ($item) => [
-                        'id' => $item['id'],
-                        'name' => $item['name'],
-                        'registration_number' => $item['registration_number'],
-                    ])->values()->all(),
-                ],
-                'summary' => [
-                    'total_questions' => count($questionRows),
-                    'total_score' => (int) $totalScore,
-                    'column_totals' => [
-                        'package_score' => (int) $columnTotals['package_score'],
-                        'throw_scores' => collect($columnTotals['throw_scores'])->map(fn ($value) => (int) $value)->values()->all(),
-                        'rebuttal_score' => (int) $columnTotals['rebuttal_score'],
+                    'sheet_style' => [
+                        'question_count' => count($questionRows),
+                        'selected_regu_count' => $selectedDistrictIds->count(),
+                        'active_regu_id' => $participant->id,
+                        'active_regu_name' => $participant->name,
+                        'opponents' => $scoringColumns['opponents']->map(fn ($item) => [
+                            'id' => $item['id'],
+                            'name' => $item['name'],
+                            'registration_number' => $item['registration_number'],
+                        ])->values()->all(),
                     ],
+                    'summary' => [
+                        'total_questions' => count($questionRows),
+                        'total_score' => (int) $totalScore,
+                        'column_totals' => [
+                            'package_score' => (int) $columnTotals['package_score'],
+                            'throw_scores' => collect($columnTotals['throw_scores'])->map(fn ($value) => (int) $value)->values()->all(),
+                            'rebuttal_score' => (int) $columnTotals['rebuttal_score'],
+                        ],
+                    ],
+                    'questions' => $questionRows,
                 ],
-                'questions' => $questionRows,
-            ],
-            'remarks' => filled($validated['remarks'] ?? null) ? $validated['remarks'] : null,
-            'submitted_at' => Carbon::now(),
-        ]);
+                'remarks' => filled($validated['remarks'] ?? null) ? $validated['remarks'] : null,
+                'submitted_at' => Carbon::now(),
+            ]
+        );
 
         RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
 
         ActivityLogger::log(
-            'scoring.mfq.created',
-            (auth()->user()?->name ?? 'Panitia').' menginput penilaian MFQ untuk peserta '.$participant->name.'.',
+            $scoreEntry->wasRecentlyCreated ? 'scoring.mfq.created' : 'scoring.mfq.updated',
+            (auth()->user()?->name ?? 'Panitia').' menyimpan penilaian MFQ untuk peserta '.$participant->name.'.',
             $participant,
             [
                 'participant_id' => $participant->id,
@@ -447,6 +463,7 @@ class MfqScoringController extends Controller
                 'judging_round' => $validated['judging_round'],
                 'question_total' => count($questionRows),
                 'total_score' => round($totalScore, 2),
+                'action' => $scoreEntry->wasRecentlyCreated ? 'created' : 'updated',
             ]
         );
 

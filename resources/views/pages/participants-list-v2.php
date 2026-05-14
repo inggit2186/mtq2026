@@ -531,11 +531,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </thead>
                                 <tbody>
                                     <?php if ($group['items']->isEmpty()): ?>
-                                        <tr class="table-row" data-participant-row data-participant-id="<?= e($participant->id) ?>" data-category-id="<?= e((string) ($participant->competition_category_id ?? '')) ?>" data-district-id="<?= e((string) ($participant->district_id ?? '')) ?>">
+                                        <tr class="table-row" data-participant-row data-participant-id="" data-category-id="" data-district-id="">
                                             <td colspan="<?= e($canVerify ? 7 : 6) ?>" class="px-5 py-8 text-center text-sm text-slate-400">Belum ada <?= e(mb_strtolower($group['label'])) ?> yang sesuai dengan filter.</td>
                                         </tr>
                                     <?php elseif ($pageGroupItems->isEmpty()): ?>
-                                        <tr class="table-row" data-participant-row data-participant-id="<?= e((string) $participant->id) ?>" data-category-id="<?= e((string) ($participant->competition_category_id ?? '')) ?>" data-district-id="<?= e((string) ($participant->district_id ?? '')) ?>">
+                                        <tr class="table-row" data-participant-row data-participant-id="" data-category-id="" data-district-id="">
                                             <td colspan="<?= e($canVerify ? 7 : 6) ?>" class="px-5 py-8 text-center text-sm text-slate-400">Tidak ada data <?= e(mb_strtolower($group['label'])) ?> pada halaman ini.</td>
                                         </tr>
                                     <?php endif; ?>
