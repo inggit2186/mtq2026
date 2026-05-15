@@ -198,28 +198,28 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             <div class="status-pill border-amber-300/30 bg-amber-400/10 text-amber-100" x-text="registrationStatusLabel"><?= e($registrationSummary['label'] ?? '-') ?></div>
                         </div>
 
-                        <div class="relative mt-6 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-                            <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-5 py-5 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="registrationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
+                        <div class="relative mt-6 space-y-4">
+                            <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-4 py-4 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="registrationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
                                 <div class="flex items-center gap-3">
                                     <div class="icon-chip border border-amber-300/25 bg-amber-300/10 text-amber-100"><?= mtq_icon('clock') ?></div>
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-xs uppercase tracking-[0.24em] text-amber-100/70">Sisa Waktu Pendaftaran</p>
-                                        <div class="mt-3 flex w-full flex-nowrap gap-3 overflow-hidden">
-                                            <span class="inline-flex min-w-[132px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-4 py-4 text-center text-xl font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${registrationCountdownParts.days} hari`">0 hari</span>
-                                            <span class="inline-flex min-w-[132px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-4 py-4 text-center text-xl font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.hours} jam`">0 jam</span>
-                                            <span class="inline-flex min-w-[132px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-4 py-4 text-center text-xl font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.minutes} menit`">0 menit</span>
+                                        <p class="text-[11px] uppercase tracking-[0.24em] text-amber-100/70">Countdown</p>
+                                        <div class="mt-3 flex w-full flex-nowrap gap-2 overflow-hidden">
+                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-3 py-3 text-center text-lg font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${registrationCountdownParts.days} hari`">0 hari</span>
+                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.hours} jam`">0 jam</span>
+                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.minutes} menit`">0 menit</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                                <div class="data-card border border-cyan-300/15 bg-gradient-to-br from-cyan-400/10 via-sky-400/10 to-slate-900 px-4 py-4">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div class="data-card border border-cyan-300/15 bg-gradient-to-br from-cyan-400/10 via-sky-400/10 to-slate-900 px-4 py-3">
                                     <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Sudah Mendaftar</p>
-                                    <p class="mt-2 text-2xl font-black text-white sm:text-3xl" x-text="registrationTotalRegistered"><?= e($registrationSummary['total_registered'] ?? 0) ?></p>
+                                    <p class="mt-1 text-2xl font-black text-white sm:text-3xl" x-text="registrationTotalRegistered"><?= e($registrationSummary['total_registered'] ?? 0) ?></p>
                                 </div>
-                                <div class="data-card border border-emerald-300/15 bg-gradient-to-br from-emerald-400/10 via-cyan-400/10 to-slate-900 px-4 py-4">
+                                <div class="data-card border border-emerald-300/15 bg-gradient-to-br from-emerald-400/10 via-cyan-400/10 to-slate-900 px-4 py-3">
                                     <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Status</p>
-                                    <p class="mt-2 text-lg font-black" x-bind:class="registrationIsOpen ? 'text-emerald-300' : 'text-amber-200'" x-text="registrationIsOpen ? 'Sedang Dibuka' : 'Sudah Ditutup'">
+                                    <p class="mt-1 text-lg font-black" x-bind:class="registrationIsOpen ? 'text-emerald-300' : 'text-amber-200'" x-text="registrationIsOpen ? 'Sedang Dibuka' : 'Sudah Ditutup'">
                                         <?= e(($registrationSummary['is_open'] ?? false) ? 'Sedang Dibuka' : 'Sudah Ditutup') ?>
                                     </p>
                                 </div>
