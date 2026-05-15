@@ -25,6 +25,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -362,6 +363,8 @@ class PageController extends Controller
             ->where('starts_at', '>=', now())
             ->orderBy('starts_at')
             ->first();
+        $registrationSummary = $this->registrationSummaryPayload();
+        $registrationDistrictCounts = $this->registrationDistrictCounts();
 
         $branchRecap = $isAdminOps
             ? CompetitionCategory::query()
@@ -395,6 +398,8 @@ class PageController extends Controller
             'rolePanel' => $this->rolePanel((string) $user?->role),
             'stats' => $stats,
             'leaders' => $leaders,
+            'registrationSummary' => $registrationSummary,
+            'registrationDistrictCounts' => $registrationDistrictCounts,
             'schedules' => SessionSchedule::query()
                 ->orderBy('starts_at')
                 ->limit(5)
@@ -544,6 +549,8 @@ class PageController extends Controller
 
         $leaders = $this->buildLeaders($participants);
         $participantSummary = null;
+        $registrationSummary = $this->registrationSummaryPayload();
+        $registrationDistrictCounts = $this->registrationDistrictCounts();
 
         if ($participantId) {
             $participant = $participants->firstWhere('id', $participantId);
@@ -561,6 +568,8 @@ class PageController extends Controller
         return response()->json([
             'leaders' => $leaders,
             'participant_summary' => $participantSummary,
+            'registration_summary' => $registrationSummary,
+            'registration_district_counts' => $registrationDistrictCounts,
         ]);
     }
 
@@ -1853,6 +1862,134 @@ class PageController extends Controller
         }
 
         return null;
+    }
+
+    protected function registrationSummaryPayload(): array
+    {
+        $registration = (array) config('juknis.registration', []);
+        $now = Carbon::now('Asia/Bangkok');
+        $openAt = $this->parseIndonesianDate((string) ($registration['open'] ?? ''), false);
+        $closeAt = $this->parseIndonesianDate((string) ($registration['close'] ?? ''), true);
+        $totalRegistered = Participant::query()
+            ->whereIn('verification_status', ['submitted', 'verified', 'rejected'])
+            ->count();
+
+        $state = [
+            'is_open' => false,
+            'tone' => 'warning',
+            'title' => 'Masa pendaftaran MTQ',
+            'label' => 'Belum ada jadwal',
+            'message' => 'Jadwal pendaftaran belum tersedia di juknis.',
+            'open_at' => $openAt?->toIso8601String(),
+            'close_at' => $closeAt?->toIso8601String(),
+            'total_registered' => $totalRegistered,
+        ];
+
+        if ($openAt && $now->lt($openAt)) {
+            $state['title'] = 'Pendaftaran segera dibuka';
+            $state['label'] = 'Menunggu dibuka';
+            $state['message'] = 'Pendaftaran baru akan dibuka pada '.$openAt->translatedFormat('d F Y').'.';
+            return $state;
+        }
+
+        if ($openAt && $closeAt && $now->betweenIncluded($openAt, $closeAt)) {
+            $state['is_open'] = true;
+            $state['tone'] = 'success';
+            $state['title'] = 'Pendaftaran masih berlangsung';
+            $state['label'] = 'Sedang dibuka';
+            $state['message'] = 'Pendaftaran ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
+            return $state;
+        }
+
+        if ($closeAt && $now->gt($closeAt)) {
+            $state['title'] = 'Masa pendaftaran selesai';
+            $state['label'] = 'Sudah ditutup';
+            $state['message'] = 'Pendaftaran ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
+            return $state;
+        }
+
+        return $state;
+    }
+
+    protected function registrationDistrictCounts(): array
+    {
+        $registeredCounts = Participant::query()
+            ->whereNotNull('district_id')
+            ->whereIn('verification_status', ['submitted', 'verified', 'rejected'])
+            ->selectRaw('district_id, COUNT(*) as total')
+            ->groupBy('district_id')
+            ->pluck('total', 'district_id');
+
+        return District::query()
+            ->select(['id', 'name'])
+            ->orderBy('name')
+            ->get()
+            ->map(function (District $district) use ($registeredCounts): array {
+                $total = (int) ($registeredCounts->get((int) $district->id, 0) ?? 0);
+
+                return [
+                    'district_id' => $district->id,
+                    'district_name' => (string) $district->name,
+                    'total' => $total,
+                ];
+            })
+            ->sort(function (array $left, array $right): int {
+                $totalComparison = $right['total'] <=> $left['total'];
+
+                if ($totalComparison !== 0) {
+                    return $totalComparison;
+                }
+
+                return strcmp($left['district_name'], $right['district_name']);
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function parseIndonesianDate(string $value, bool $endOfDay = false): ?Carbon
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\\d{1,2})\\s+([[:alpha:]]+)\\s+(\\d{4})$/u', $value, $matches) !== 1) {
+            try {
+                return Carbon::parse($value, 'Asia/Bangkok');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        $monthMap = [
+            'januari' => 1,
+            'februari' => 2,
+            'maret' => 3,
+            'april' => 4,
+            'mei' => 5,
+            'juni' => 6,
+            'juli' => 7,
+            'agustus' => 8,
+            'september' => 9,
+            'oktober' => 10,
+            'november' => 11,
+            'desember' => 12,
+        ];
+
+        $month = $monthMap[mb_strtolower($matches[2])] ?? null;
+
+        if (! $month) {
+            return null;
+        }
+
+        $date = Carbon::create((int) $matches[3], $month, (int) $matches[1], 0, 0, 0, 'Asia/Bangkok');
+
+        if ($endOfDay) {
+            $date->endOfDay();
+        }
+
+        return $date;
     }
 
     public function viteAssets(): array

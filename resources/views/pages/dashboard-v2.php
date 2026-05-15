@@ -16,6 +16,8 @@ $realtimeState = [
     'participantProfileId' => $participantDashboard['profile']?->id,
     'participantLatestScore' => $participantDashboard['latest_score'] ?? '0.00',
     'participantAverageScore' => $participantDashboard['average_score'] ?? '0.00',
+    'registrationSummary' => $registrationSummary ?? ['title' => 'Masa pendaftaran MTQ', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'is_open' => false, 'total_registered' => 0, 'tone' => 'warning'],
+    'registrationDistrictCounts' => $registrationDistrictCounts ?? [],
     'summaryEndpoint' => route('dashboard.realtime-summary'),
     'forcePasswordChange' => (bool) ($mustChangePassword ?? false),
 ];
@@ -178,6 +180,78 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('layers') ?></div><p class="mt-4 text-sm text-slate-400">Golongan</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['categories']) ?></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('clock') ?></div><p class="mt-4 text-sm text-slate-400">Sesi Hari Ini</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['today_sessions']) ?></p></div>
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('chart') ?></div><p class="mt-4 text-sm text-slate-400">Rata-rata Nilai</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['average_score']) ?></p></div>
+                </section>
+
+                <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                    <div class="relative overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 shadow-[0_26px_80px_-34px_rgba(251,191,36,0.45)]">
+                        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/80 to-transparent"></div>
+                        <div class="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-400/10 blur-3xl"></div>
+                        <div class="absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl"></div>
+
+                        <div class="relative flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                                <div class="icon-chip ring-1 ring-amber-300/30"><?= mtq_icon('calendar') ?></div>
+                                <p class="mt-5 section-kicker text-amber-100/80">Notifikasi Pendaftaran</p>
+                                <h2 class="mt-2 text-2xl font-bold text-white" x-text="registrationNoticeTitle"><?= e($registrationSummary['title'] ?? 'Masa pendaftaran MTQ') ?></h2>
+                                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300" x-text="registrationNoticeBody"><?= e($registrationSummary['message'] ?? '-') ?></p>
+                            </div>
+                            <div class="status-pill border-amber-300/30 bg-amber-400/10 text-amber-100" x-text="registrationStatusLabel"><?= e($registrationSummary['label'] ?? '-') ?></div>
+                        </div>
+
+                        <div class="relative mt-6 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+                            <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-5 py-5 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="registrationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
+                                <div class="flex items-center gap-3">
+                                    <div class="icon-chip border border-amber-300/25 bg-amber-300/10 text-amber-100"><?= mtq_icon('clock') ?></div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs uppercase tracking-[0.24em] text-amber-100/70">Sisa Waktu Pendaftaran</p>
+                                        <div class="mt-3 flex w-full flex-nowrap gap-3 overflow-hidden">
+                                            <span class="inline-flex min-w-[132px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-4 py-4 text-center text-xl font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${registrationCountdownParts.days} hari`">0 hari</span>
+                                            <span class="inline-flex min-w-[132px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-4 py-4 text-center text-xl font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.hours} jam`">0 jam</span>
+                                            <span class="inline-flex min-w-[132px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-4 py-4 text-center text-xl font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.minutes} menit`">0 menit</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                                <div class="data-card border border-cyan-300/15 bg-gradient-to-br from-cyan-400/10 via-sky-400/10 to-slate-900 px-4 py-4">
+                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Sudah Mendaftar</p>
+                                    <p class="mt-2 text-2xl font-black text-white sm:text-3xl" x-text="registrationTotalRegistered"><?= e($registrationSummary['total_registered'] ?? 0) ?></p>
+                                </div>
+                                <div class="data-card border border-emerald-300/15 bg-gradient-to-br from-emerald-400/10 via-cyan-400/10 to-slate-900 px-4 py-4">
+                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Status</p>
+                                    <p class="mt-2 text-lg font-black" x-bind:class="registrationIsOpen ? 'text-emerald-300' : 'text-amber-200'" x-text="registrationIsOpen ? 'Sedang Dibuka' : 'Sudah Ditutup'">
+                                        <?= e(($registrationSummary['is_open'] ?? false) ? 'Sedang Dibuka' : 'Sudah Ditutup') ?>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card rounded-[2rem] p-6">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="section-kicker">Peserta per Kecamatan</p>
+                                <p class="mt-1 text-sm text-slate-300">Jumlah peserta yang sudah mendaftar di masing-masing kecamatan.</p>
+                            </div>
+                            <div class="status-pill" x-text="`${registrationDistrictCounts.length} kecamatan`"><?= e(count($registrationDistrictCounts ?? [])) ?> kecamatan</div>
+                        </div>
+                        <div class="mt-4 max-h-[22rem] space-y-3 overflow-auto pr-1">
+                            <template x-for="district in registrationDistrictCounts" :key="district.district_id">
+                                <div class="data-card flex items-center justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-white" x-text="district.district_name"><?= e($registrationDistrictCounts[0]['district_name'] ?? '') ?></p>
+                                        <p class="mt-1 text-xs text-slate-400">Peserta yang sudah mendaftar</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-2xl font-black text-cyan-200 tabular-nums" x-text="district.total"><?= e($registrationDistrictCounts[0]['total'] ?? 0) ?></p>
+                                    </div>
+                                </div>
+                            </template>
+                            <div class="data-card text-sm text-slate-300" x-show="registrationDistrictCounts.length === 0">
+                                Belum ada peserta yang sudah mendaftar.
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <?php if ($dashboardNotices->isNotEmpty()): ?>
@@ -666,23 +740,79 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
     <?php endforeach; ?>
     <script>
         function dashboardRealtime(initialState) {
+            const parseDate = (value) => {
+                if (!value) {
+                    return null;
+                }
+
+                const date = new Date(value);
+                return Number.isNaN(date.getTime()) ? null : date;
+            };
+
+            const buildCountdownParts = (ms) => {
+                const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+                const days = Math.floor(totalMinutes / 1440);
+                const hours = Math.floor((totalMinutes % 1440) / 60);
+                const minutes = totalMinutes % 60;
+
+                return { days, hours, minutes };
+            };
+
             return {
                 mobileNavOpen: false,
                 leaders: initialState.leaders ?? [],
                 participantProfileId: initialState.participantProfileId ?? null,
                 participantLatestScore: initialState.participantLatestScore ?? '0.00',
                 participantAverageScore: initialState.participantAverageScore ?? '0.00',
+                registrationSummary: initialState.registrationSummary ?? {},
+                registrationDistrictCounts: Array.isArray(initialState.registrationDistrictCounts) ? initialState.registrationDistrictCounts : [],
+                registrationNoticeTitle: initialState.registrationSummary?.title ?? 'Masa pendaftaran MTQ',
+                registrationNoticeBody: initialState.registrationSummary?.message ?? '-',
+                registrationStatusLabel: initialState.registrationSummary?.label ?? '-',
+                registrationCountdownText: '-',
+                registrationCountdownParts: { days: 0, hours: 0, minutes: 0 },
+                registrationCountdownFlash: false,
+                registrationCountdownFlashTimer: null,
+                registrationTotalRegistered: Number(initialState.registrationSummary?.total_registered ?? 0),
+                registrationIsOpen: Boolean(initialState.registrationSummary?.is_open ?? false),
+                registrationTicker: null,
+                summaryTicker: null,
                 forcePasswordChange: Boolean(initialState.forcePasswordChange ?? false),
                 showPasswordModal: false,
                 init() {
+                    this.syncRegistrationNotice();
                     window.addEventListener('mtq-score-updated', (event) => {
                         this.applyScoreUpdate(event.detail ?? {});
+                    });
+                    window.addEventListener('mtq-participant-verification-updated', () => {
+                        this.refreshSummary();
+                    });
+
+                    this.registrationTicker = window.setInterval(() => {
+                        this.syncRegistrationNotice();
+                    }, 1000);
+
+                    this.summaryTicker = window.setInterval(() => {
+                        this.refreshSummary();
+                    }, 60000);
+
+                    window.addEventListener('beforeunload', () => {
+                        if (this.registrationTicker) {
+                            window.clearInterval(this.registrationTicker);
+                        }
+
+                        if (this.summaryTicker) {
+                            window.clearInterval(this.summaryTicker);
+                        }
                     });
                 },
                 async applyScoreUpdate(payload) {
                     if (!payload.participant_id) {
                         return;
                     }
+                    await this.refreshSummary();
+                },
+                async refreshSummary() {
                     try {
                         const url = new URL(initialState.summaryEndpoint, window.location.origin);
 
@@ -712,9 +842,81 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             this.participantLatestScore = summary.participant_summary.latest_score ?? this.participantLatestScore;
                             this.participantAverageScore = summary.participant_summary.average_score ?? this.participantAverageScore;
                         }
+
+                        if (summary.registration_summary) {
+                            this.registrationSummary = summary.registration_summary;
+                            this.registrationTotalRegistered = Number(summary.registration_summary.total_registered ?? this.registrationTotalRegistered);
+                            this.registrationNoticeTitle = summary.registration_summary.title ?? this.registrationNoticeTitle;
+                            this.registrationNoticeBody = summary.registration_summary.message ?? this.registrationNoticeBody;
+                            this.registrationStatusLabel = summary.registration_summary.label ?? this.registrationStatusLabel;
+                            this.registrationIsOpen = Boolean(summary.registration_summary.is_open ?? this.registrationIsOpen);
+                        }
+
+                        if (Array.isArray(summary.registration_district_counts)) {
+                            this.registrationDistrictCounts = summary.registration_district_counts;
+                        }
+
+                        this.syncRegistrationNotice();
                     } catch (error) {
                         console.warn('Realtime summary refresh failed.', error);
                     }
+                },
+                syncRegistrationNotice() {
+                    const openAt = parseDate(this.registrationSummary?.open_at ?? null);
+                    const closeAt = parseDate(this.registrationSummary?.close_at ?? null);
+                    const now = new Date();
+
+                    if (openAt && now < openAt) {
+                        const diff = openAt.getTime() - now.getTime();
+                        this.registrationIsOpen = false;
+                        this.registrationNoticeTitle = 'Pendaftaran segera dibuka';
+                        this.registrationStatusLabel = 'Menunggu dibuka';
+                        this.registrationNoticeBody = `Pendaftaran dibuka pada ${openAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.updateCountdownState('Mulai dalam', diff);
+                        return;
+                    }
+
+                    if (openAt && closeAt && now >= openAt && now <= closeAt) {
+                        const diff = closeAt.getTime() - now.getTime();
+                        this.registrationIsOpen = true;
+                        this.registrationNoticeTitle = 'Pendaftaran masih berlangsung';
+                        this.registrationStatusLabel = 'Sedang dibuka';
+                        this.registrationNoticeBody = `Pendaftaran ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.updateCountdownState('Sisa', diff);
+                        return;
+                    }
+
+                    if (closeAt && now > closeAt) {
+                        this.registrationIsOpen = false;
+                        this.registrationNoticeTitle = 'Masa pendaftaran selesai';
+                        this.registrationStatusLabel = 'Sudah ditutup';
+                        this.registrationNoticeBody = `Pendaftaran ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.registrationCountdownText = 'Waktu pendaftaran telah habis';
+                        this.registrationCountdownParts = { days: 0, hours: 0, minutes: 0 };
+                        this.registrationCountdownFlash = false;
+                        return;
+                    }
+
+                    this.registrationIsOpen = Boolean(this.registrationSummary?.is_open ?? false);
+                    this.registrationNoticeTitle = this.registrationSummary?.title ?? 'Masa pendaftaran MTQ';
+                    this.registrationStatusLabel = this.registrationSummary?.label ?? '-';
+                    this.registrationNoticeBody = this.registrationSummary?.message ?? '-';
+                    this.registrationCountdownText = '-';
+                    this.registrationCountdownParts = { days: 0, hours: 0, minutes: 0 };
+                    this.registrationCountdownFlash = false;
+                },
+                updateCountdownState(prefix, diff) {
+                    this.registrationCountdownParts = buildCountdownParts(diff);
+                    this.registrationCountdownText = prefix;
+
+                    if (this.registrationCountdownFlashTimer) {
+                        window.clearTimeout(this.registrationCountdownFlashTimer);
+                    }
+
+                    this.registrationCountdownFlash = true;
+                    this.registrationCountdownFlashTimer = window.setTimeout(() => {
+                        this.registrationCountdownFlash = false;
+                    }, 260);
                 },
             };
         }
