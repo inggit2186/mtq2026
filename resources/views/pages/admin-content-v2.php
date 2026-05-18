@@ -249,6 +249,11 @@ $impersonation = session('impersonation', []);
                                         'description' => 'Mengizinkan official mengubah data peserta yang sudah didaftarkan.',
                                     ],
                                     [
+                                        'key' => 'participant_delete_open',
+                                        'title' => 'Hapus Peserta',
+                                        'description' => 'Mengizinkan official dan panitia menghapus peserta yang sudah didaftarkan ke arsip admin. Admin tetap dapat menghapus kapan saja.',
+                                    ],
+                                    [
                                         'key' => 'mandate_upload_open',
                                         'title' => 'Upload Surat Mandat',
                                         'description' => 'Mengizinkan official mengupload atau mengganti surat mandat kecamatan.',

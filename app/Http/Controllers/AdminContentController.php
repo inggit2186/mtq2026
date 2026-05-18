@@ -71,6 +71,7 @@ class AdminContentController extends Controller
         $request->validate([
             'participant_registration_open' => ['nullable', 'boolean'],
             'participant_edit_open' => ['nullable', 'boolean'],
+            'participant_delete_open' => ['nullable', 'boolean'],
             'mandate_upload_open' => ['nullable', 'boolean'],
             'participant_documents_open' => ['nullable', 'boolean'],
             'participant_verification_open' => ['nullable', 'boolean'],
@@ -148,6 +149,7 @@ class AdminContentController extends Controller
         $setting->fill([
             'participant_registration_open' => $request->boolean('participant_registration_open'),
             'participant_edit_open' => $request->boolean('participant_edit_open'),
+            'participant_delete_open' => $request->boolean('participant_delete_open'),
             'mandate_upload_open' => $request->boolean('mandate_upload_open'),
             'participant_documents_open' => $request->boolean('participant_documents_open'),
             'participant_verification_open' => $request->boolean('participant_verification_open'),
@@ -169,6 +171,7 @@ class AdminContentController extends Controller
             [
                 'participant_registration_open' => $setting->participant_registration_open,
                 'participant_edit_open' => $setting->participant_edit_open,
+                'participant_delete_open' => $setting->participant_delete_open,
                 'mandate_upload_open' => $setting->mandate_upload_open,
                 'participant_documents_open' => $setting->participant_documents_open,
                 'participant_verification_open' => $setting->participant_verification_open,

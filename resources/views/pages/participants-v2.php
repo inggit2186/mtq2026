@@ -83,11 +83,14 @@ $rolePanel = $rolePanel ?? [];
 $categoryUsage = $categoryUsage ?? collect();
 $officialMandate = $officialMandate ?? ['required' => false, 'ready' => true, 'path' => '', 'status' => 'missing', 'notes' => null, 'uploaded_at' => null, 'verified_at' => null, 'preview_url' => null];
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
-$officialRegistrationOpen = (bool) ($officialAccessSetting->participant_registration_open ?? true);
-$officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $officialMandateUploadOpen = (bool) ($officialAccessSetting->mandate_upload_open ?? true);
 $officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
+$registrationWindowOpen = $registrationWindowOpen ?? true;
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
+$officialRegistrationOpen = (bool) ($officialAccessSetting->participant_registration_open ?? true);
+$officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
+$officialRegistrationOpen = $officialRegistrationOpen && (! $isOfficialUser || $registrationWindowOpen);
+$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $registrationWindowOpen);
 $registrationCategoryInitial = (string) old('competition_category_id', request()->query('registration_category_id', ''));
 $registrationCategoryCards = collect($categories ?? [])->map(function ($category) use ($categoryUsage): array {
     $usage = $categoryUsage[$category->id] ?? [];
@@ -722,6 +725,12 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     <div class="mt-6 rounded-[1.5rem] border border-dashed border-slate-700 bg-slate-950/50 p-6 text-sm text-slate-300" x-show="!selectedCategory">
                         Pilih salah satu kategori di atas terlebih dahulu untuk membuka form pendaftaran peserta.
                     </div>
+
+                    <?php if ($isOfficialUser && ! $officialRegistrationOpen): ?>
+                        <div class="mt-6 rounded-[1.5rem] border border-amber-400/20 bg-amber-400/10 px-5 py-4 text-sm leading-6 text-amber-100">
+                            Masa pendaftaran official sudah berakhir mengikuti juknis. Form otomatis ditutup mulai 19 Mei 2026 pukul 00:00.
+                        </div>
+                    <?php endif; ?>
 
                     <?php if (! $isOfficialUser || $officialRegistrationOpen): ?>
                     <form method="POST" action="<?= e(route('participants.store')) ?>" enctype="multipart/form-data" class="mt-6" x-ref="registrationForm" data-loading-text="Menyimpan data peserta dan mengunggah berkas...">

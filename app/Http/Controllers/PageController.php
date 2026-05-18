@@ -1877,6 +1877,8 @@ class PageController extends Controller
             'message' => 'Jadwal pendaftaran belum tersedia di juknis.',
             'open_at' => $openAt?->toIso8601String(),
             'close_at' => $closeAt?->toIso8601String(),
+            'open_at_label' => $openAt ? $openAt->translatedFormat('d F Y H:i').' WIB' : null,
+            'close_at_label' => $closeAt ? $closeAt->translatedFormat('d F Y H:i').' WIB' : null,
             'total_registered' => $totalRegistered,
         ];
 

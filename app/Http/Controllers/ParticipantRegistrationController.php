@@ -126,6 +126,7 @@ class ParticipantRegistrationController extends Controller
             'districts' => $districts,
             'districtLocked' => (bool) $districtId,
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
+            'registrationWindowOpen' => $this->registrationDeadlineOpen(),
             'canVerify' => $this->canUserVerifyParticipants(),
             'filters' => [
                 'district_id' => $districtId ?: ($restrictPanitiaDistricts && count($verificationDistrictIds) === 1 ? (string) $verificationDistrictIds[0] : ''),
@@ -208,6 +209,7 @@ class ParticipantRegistrationController extends Controller
             'districtLocked' => (bool) $districtId,
             'restrictPanitiaDistricts' => $restrictPanitiaDistricts,
             'verificationDistrictIds' => $verificationDistrictIds,
+            'registrationWindowOpen' => $this->registrationDeadlineOpen(),
             'canVerify' => $this->canUserVerifyParticipants(),
             'canDrawParticipant' => $this->canUserDrawLot(),
             'canDrawMaqra' => $this->canUserDrawMaqra(),
@@ -388,7 +390,7 @@ class ParticipantRegistrationController extends Controller
     {
         $user = auth()->user();
         $districtLocked = in_array($user?->role, ['official', 'pendamping'], true);
-        $this->assertOfficialFeatureEnabled('participant_registration_open', 'Pendaftaran peserta untuk official sedang ditutup oleh admin.');
+        $this->assertOfficialFeatureEnabled('participant_registration_open', 'Pendaftaran peserta untuk official sedang ditutup.');
 
         if ($districtLocked && ! $this->officialMandateContext($user)['ready']) {
             return redirect()
@@ -648,7 +650,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup oleh admin.');
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -660,6 +662,7 @@ class ParticipantRegistrationController extends Controller
             'categories' => CompetitionCategory::query()->orderBy('sort_order')->orderBy('branch')->get(),
             'districts' => District::query()->orderBy('name')->get(),
             'districtLocked' => in_array($user?->role, ['official', 'pendamping'], true),
+            'registrationWindowOpen' => $this->registrationDeadlineOpen(),
             'documentMap' => $this->documentMap($participant),
         ]);
     }
@@ -667,7 +670,7 @@ class ParticipantRegistrationController extends Controller
     public function update(Request $request, Participant $participant): RedirectResponse
     {
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup oleh admin.');
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -809,7 +812,6 @@ class ParticipantRegistrationController extends Controller
     public function archive(Participant $participant): RedirectResponse
     {
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Arsip peserta untuk official sedang ditutup oleh admin.');
         $this->authorizeParticipantDelete($participant);
 
         $participantName = $participant->name;
@@ -939,6 +941,7 @@ class ParticipantRegistrationController extends Controller
             'cvDownloadUrl' => $this->participantCvDownloadUrl($participant),
             'canVerify' => $this->canUserVerifyParticipant($participant),
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
+            'registrationWindowOpen' => $this->registrationDeadlineOpen(),
             'canDrawParticipant' => $canDrawParticipant,
             'canDrawMaqra' => $canDrawMaqra,
             'districtMandate' => $this->districtMandateForParticipant($participant),
@@ -2512,8 +2515,26 @@ class ParticipantRegistrationController extends Controller
 
     protected function authorizeParticipantDelete(Participant $participant): void
     {
-        if (in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
+        $user = auth()->user();
+
+        if (! $user) {
+            abort(403);
+        }
+
+        if ($user->role === 'admin') {
             return;
+        }
+
+        if (! $this->participantDeletionOpen()) {
+            abort(403, 'Akses hapus peserta untuk official dan panitia sedang ditutup.');
+        }
+
+        if ($user->role === 'panitia') {
+            return;
+        }
+
+        if (! in_array($user->role, ['official', 'pendamping'], true)) {
+            abort(403);
         }
 
         if (! in_array($participant->verification_status, ['submitted', 'rejected'], true)) {
@@ -2839,9 +2860,33 @@ class ParticipantRegistrationController extends Controller
         return OfficialAccessSetting::currentOrDefault();
     }
 
+    protected function registrationDeadlineOpen(): bool
+    {
+        $closeAt = $this->registrationDeadlineCloseAt();
+
+        if (! $closeAt) {
+            return true;
+        }
+
+        return Carbon::now('Asia/Bangkok')->lte($closeAt);
+    }
+
     protected function participantVerificationOpen(): bool
     {
         return $this->officialAccessSetting()->isEnabled('participant_verification_open');
+    }
+
+    protected function participantDeletionOpen(): bool
+    {
+        if (! $this->officialAccessSetting()->isEnabled('participant_delete_open')) {
+            return false;
+        }
+
+        if (in_array(auth()->user()?->role, ['official', 'pendamping'], true)) {
+            return $this->registrationDeadlineOpen();
+        }
+
+        return true;
     }
 
     protected function officialFeatureEnabled(string $feature): bool
@@ -2850,7 +2895,19 @@ class ParticipantRegistrationController extends Controller
             return true;
         }
 
-        return $this->officialAccessSetting()->isEnabled($feature);
+        if (! $this->officialAccessSetting()->isEnabled($feature)) {
+            return false;
+        }
+
+        if (! in_array(auth()->user()?->role, ['official', 'pendamping'], true)) {
+            return false;
+        }
+
+        if (in_array($feature, ['participant_registration_open', 'participant_edit_open'], true)) {
+            return $this->registrationDeadlineOpen();
+        }
+
+        return true;
     }
 
     protected function assertOfficialFeatureEnabled(string $feature, string $message): void
@@ -2898,6 +2955,60 @@ class ParticipantRegistrationController extends Controller
         }
 
         return $this->normalizeDistrictLabel($district->name) === $this->hostDistrictName();
+    }
+
+    protected function registrationDeadlineCloseAt(): ?Carbon
+    {
+        $registration = (array) config('juknis.registration', []);
+        $closeAt = $this->parseIndonesianDate((string) ($registration['close'] ?? ''), true);
+
+        return $closeAt?->timezone('Asia/Bangkok');
+    }
+
+    protected function parseIndonesianDate(string $value, bool $endOfDay = false): ?Carbon
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\\d{1,2})\\s+([[:alpha:]]+)\\s+(\\d{4})$/u', $value, $matches) !== 1) {
+            try {
+                return Carbon::parse($value, 'Asia/Bangkok');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        $monthMap = [
+            'januari' => 1,
+            'februari' => 2,
+            'maret' => 3,
+            'april' => 4,
+            'mei' => 5,
+            'juni' => 6,
+            'juli' => 7,
+            'agustus' => 8,
+            'september' => 9,
+            'oktober' => 10,
+            'november' => 11,
+            'desember' => 12,
+        ];
+
+        $month = $monthMap[mb_strtolower($matches[2])] ?? null;
+
+        if (! $month) {
+            return null;
+        }
+
+        $date = Carbon::create((int) $matches[3], $month, (int) $matches[1], 0, 0, 0, 'Asia/Bangkok');
+
+        if ($endOfDay) {
+            $date->endOfDay();
+        }
+
+        return $date;
     }
 
     protected function categoryDistrictQuotaMultiplier(CompetitionCategory $category, ?District $district = null): int

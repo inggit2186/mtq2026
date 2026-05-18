@@ -19,11 +19,15 @@ $canDrawMaqra = $canDrawMaqra ?? false;
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
+$registrationWindowOpen = $registrationWindowOpen ?? true;
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
 $maqraOpenForPanitia = (bool) ($officialAccessSetting->maqraAnyRoundEnabled())
     && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
+$participantDeleteOpen = (bool) ($officialAccessSetting->participant_delete_open ?? true);
+$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $registrationWindowOpen);
+$participantDeleteOpen = $participantDeleteOpen && (! $isOfficialUser || $registrationWindowOpen);
 $maqraSwapCandidatesMap = $maqraSwapCandidatesMap ?? collect();
 $mainParticipants = $participants
     ->filter(fn ($participant) => ($participant->participant_role ?? 'main') !== 'reserve')
@@ -234,6 +238,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?php if ($isPanitiaUser && ! $maqraOpenForPanitia): ?>
                                 <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
                                     Masa ambil maqra untuk panitia sedang ditutup oleh admin.
+                                </div>
+                            <?php endif; ?>
+                            <?php if (($isOfficialUser || $isPanitiaUser) && ! $participantDeleteOpen): ?>
+                                <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                    Akses hapus peserta untuk official dan panitia sedang ditutup.
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($isOfficialUser && ! $officialEditOpen): ?>
+                                <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                    Masa edit peserta official sudah berakhir mengikuti juknis. Akses otomatis ditutup mulai 19 Mei 2026 pukul 00:00.
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -594,8 +608,17 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     || $officialMandateRejected
                                                 );
                                                 $canEditParticipant = $canEditParticipant && (! $isOfficialUser || $officialEditOpen);
-                                                $canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
-                                                    || in_array($participant->verification_status, ['submitted', 'rejected'], true);
+                                                $canDeleteParticipant = $user?->role === 'admin'
+                                                    || (
+                                                        $participantDeleteOpen
+                                                        && (
+                                                            $user?->role === 'panitia'
+                                                            || (
+                                                                in_array($user?->role, ['official', 'pendamping'], true)
+                                                                && in_array($participant->verification_status, ['submitted', 'rejected'], true)
+                                                            )
+                                                        )
+                                                    );
                                                 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
                                                 ?>
                                                 <span class="inline-flex w-fit max-w-full items-center justify-center rounded-full border px-2.5 py-1.5 text-[11px] font-semibold uppercase leading-none tracking-[0.12em] whitespace-nowrap <?= e($statusClass) ?>">

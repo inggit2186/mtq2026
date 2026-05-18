@@ -16,7 +16,7 @@ $realtimeState = [
     'participantProfileId' => $participantDashboard['profile']?->id,
     'participantLatestScore' => $participantDashboard['latest_score'] ?? '0.00',
     'participantAverageScore' => $participantDashboard['average_score'] ?? '0.00',
-    'registrationSummary' => $registrationSummary ?? ['title' => 'Masa pendaftaran MTQ', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'is_open' => false, 'total_registered' => 0, 'tone' => 'warning'],
+    'registrationSummary' => $registrationSummary ?? ['title' => 'Masa pendaftaran MTQ', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'open_at_label' => null, 'close_at_label' => null, 'is_open' => false, 'total_registered' => 0, 'tone' => 'warning'],
     'registrationDistrictCounts' => $registrationDistrictCounts ?? [],
     'summaryEndpoint' => route('dashboard.realtime-summary'),
     'forcePasswordChange' => (bool) ($mustChangePassword ?? false),
@@ -199,6 +199,19 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         </div>
 
                         <div class="relative mt-6 space-y-4">
+                            <div class="rounded-[1.5rem] border border-amber-300/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-50">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100/80">Deadline Pendaftaran</p>
+                                        <p class="mt-1 font-semibold text-white" x-text="registrationDeadlineLabel">
+                                            <?= e(($registrationSummary['close_at_label'] ?? null) ? ('Tutup otomatis pada '.($registrationSummary['close_at_label'])) : 'Jadwal tutup belum tersedia') ?>
+                                        </p>
+                                    </div>
+                                    <div class="rounded-full border border-amber-200/20 bg-slate-950/40 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+                                        WIB
+                                    </div>
+                                </div>
+                            </div>
                             <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-4 py-4 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="registrationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
                                 <div class="flex items-center gap-3">
                                     <div class="icon-chip border border-amber-300/25 bg-amber-300/10 text-amber-100"><?= mtq_icon('clock') ?></div>
@@ -769,6 +782,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 registrationNoticeTitle: initialState.registrationSummary?.title ?? 'Masa pendaftaran MTQ',
                 registrationNoticeBody: initialState.registrationSummary?.message ?? '-',
                 registrationStatusLabel: initialState.registrationSummary?.label ?? '-',
+                registrationDeadlineLabel: initialState.registrationSummary?.close_at_label
+                    ? `Tutup otomatis pada ${initialState.registrationSummary.close_at_label}`
+                    : 'Jadwal tutup belum tersedia',
                 registrationCountdownText: '-',
                 registrationCountdownParts: { days: 0, hours: 0, minutes: 0 },
                 registrationCountdownFlash: false,
@@ -849,6 +865,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             this.registrationNoticeTitle = summary.registration_summary.title ?? this.registrationNoticeTitle;
                             this.registrationNoticeBody = summary.registration_summary.message ?? this.registrationNoticeBody;
                             this.registrationStatusLabel = summary.registration_summary.label ?? this.registrationStatusLabel;
+                            this.registrationDeadlineLabel = summary.registration_summary.close_at_label
+                                ? `Tutup otomatis pada ${summary.registration_summary.close_at_label}`
+                                : this.registrationDeadlineLabel;
                             this.registrationIsOpen = Boolean(summary.registration_summary.is_open ?? this.registrationIsOpen);
                         }
 
@@ -901,6 +920,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     this.registrationNoticeTitle = this.registrationSummary?.title ?? 'Masa pendaftaran MTQ';
                     this.registrationStatusLabel = this.registrationSummary?.label ?? '-';
                     this.registrationNoticeBody = this.registrationSummary?.message ?? '-';
+                    this.registrationDeadlineLabel = this.registrationSummary?.close_at_label
+                        ? `Tutup otomatis pada ${this.registrationSummary.close_at_label}`
+                        : 'Jadwal tutup belum tersedia';
                     this.registrationCountdownText = '-';
                     this.registrationCountdownParts = { days: 0, hours: 0, minutes: 0 };
                     this.registrationCountdownFlash = false;

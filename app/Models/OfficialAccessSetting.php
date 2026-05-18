@@ -10,6 +10,7 @@ class OfficialAccessSetting extends Model
     protected $fillable = [
         'participant_registration_open',
         'participant_edit_open',
+        'participant_delete_open',
         'mandate_upload_open',
         'participant_documents_open',
         'participant_verification_open',
@@ -28,6 +29,7 @@ class OfficialAccessSetting extends Model
         return [
             'participant_registration_open' => 'boolean',
             'participant_edit_open' => 'boolean',
+            'participant_delete_open' => 'boolean',
             'mandate_upload_open' => 'boolean',
             'participant_documents_open' => 'boolean',
             'participant_verification_open' => 'boolean',
@@ -47,6 +49,7 @@ class OfficialAccessSetting extends Model
         return [
             'participant_registration_open' => true,
             'participant_edit_open' => true,
+            'participant_delete_open' => true,
             'mandate_upload_open' => true,
             'participant_documents_open' => true,
             'participant_verification_open' => true,

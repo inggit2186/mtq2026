@@ -10,11 +10,15 @@ $districtMandate = $districtMandate ?? null;
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
+$registrationWindowOpen = $registrationWindowOpen ?? true;
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
 $maqraOpenForPanitia = (bool) ($officialAccessSetting->maqraAnyRoundEnabled())
     && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
+$participantDeleteOpen = (bool) ($officialAccessSetting->participant_delete_open ?? true);
+$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $registrationWindowOpen);
+$participantDeleteOpen = $participantDeleteOpen && (! $isOfficialUser || $registrationWindowOpen);
 $officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
     && $user?->district?->mandate_status === 'rejected';
@@ -24,8 +28,17 @@ $canEditParticipant = ! (
     || $officialMandateRejected
 );
 $canEditParticipant = $canEditParticipant && (! $isOfficialUser || $officialEditOpen);
-$canDeleteParticipant = in_array($user?->role, ['admin', 'panitia'], true)
-    || in_array($participant?->verification_status, ['submitted', 'rejected'], true);
+$canDeleteParticipant = $user?->role === 'admin'
+    || (
+        $participantDeleteOpen
+        && (
+            $user?->role === 'panitia'
+            || (
+                in_array($user?->role, ['official', 'pendamping'], true)
+                && in_array($participant?->verification_status, ['submitted', 'rejected'], true)
+            )
+        )
+    );
 $usesOfficialDeleteCopy = in_array($user?->role, ['official', 'pendamping'], true);
 $cvDownloadUrl = $cvDownloadUrl ?? null;
 $canManageMaqra = $canManageMaqra ?? false;
@@ -352,6 +365,16 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-3">
+                        <?php if ($isOfficialUser && ! $officialEditOpen): ?>
+                            <div class="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                Masa edit peserta official sudah berakhir mengikuti juknis. Akses otomatis ditutup mulai 19 Mei 2026 pukul 00:00.
+                            </div>
+                        <?php endif; ?>
+                        <?php if (($isOfficialUser || $isPanitiaUser) && ! $participantDeleteOpen): ?>
+                            <div class="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                                Akses hapus peserta untuk official dan panitia sedang ditutup.
+                            </div>
+                        <?php endif; ?>
                         <?php if ($canEditParticipant): ?>
                             <a href="<?= e(route('participants.edit', $participant)) ?>" class="secondary-button">
                                 <?= mtq_icon('id-card', 'h-4 w-4') ?>
