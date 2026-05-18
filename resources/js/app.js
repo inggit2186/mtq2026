@@ -452,6 +452,17 @@ function showQueuedSweetAlerts() {
 
     const queue = [];
 
+    if (payload.toast && typeof payload.toast === 'object') {
+        const toast = payload.toast;
+        if (window.Alpine?.store && Alpine.store('ui')) {
+            Alpine.store('ui').pushNotification({
+                tone: toast.tone ?? 'success',
+                title: toast.title ?? 'Berhasil',
+                message: toast.message ?? '',
+            });
+        }
+    }
+
     if (payload.status) {
         queue.push({
             icon: 'success',

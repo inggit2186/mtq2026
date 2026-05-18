@@ -17,6 +17,11 @@ class ScoringSetting extends Model
         'scoring_priorities',
         'round_settings',
         'configured_by',
+        'edit_state',
+        'edit_requested_at',
+        'edit_requested_by',
+        'edit_opened_at',
+        'edit_opened_by',
     ];
 
     protected function casts(): array
@@ -27,6 +32,8 @@ class ScoringSetting extends Model
             'scoring_points' => 'array',
             'scoring_priorities' => 'array',
             'round_settings' => 'array',
+            'edit_requested_at' => 'datetime',
+            'edit_opened_at' => 'datetime',
         ];
     }
 
@@ -83,5 +90,15 @@ class ScoringSetting extends Model
             && count(array_filter($this->judge_names ?? [])) > 0
             && count(array_filter($this->judging_rounds ?? [])) > 0
             && count(array_filter($this->scoring_points ?? [])) > 0;
+    }
+
+    public function isEditable(): bool
+    {
+        return (string) ($this->edit_state ?? 'locked') === 'open';
+    }
+
+    public function isEditRequested(): bool
+    {
+        return (string) ($this->edit_state ?? 'locked') === 'requested';
     }
 }

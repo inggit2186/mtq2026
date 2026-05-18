@@ -1,6 +1,7 @@
 <?php
 $sweetAlertPayload = [
     'status' => session('status'),
+    'toast' => session('toast'),
     'warning' => session('warning'),
     'errors' => isset($errors) && $errors->any() ? $errors->all() : [],
 ];

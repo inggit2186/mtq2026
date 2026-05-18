@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
+use App\Models\ScoreCorrectionRequest;
 use App\Models\Participant;
 use App\Models\ScoringSetting;
 use App\Models\ScoreEntry;
@@ -35,6 +36,8 @@ class ScoringController extends Controller
             'branch' => ['nullable', 'string', 'max:255'],
             'keyword' => ['nullable', 'string', 'max:255'],
             'judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+            'step' => ['nullable', 'integer', 'min:1', 'max:3'],
+            'judge_index' => ['nullable', 'integer', 'min:0', 'max:20'],
         ]);
 
         $participants = Participant::query()
@@ -55,6 +58,13 @@ class ScoringController extends Controller
             })
             ->orderBy('name')
             ->get();
+
+        $categoryUsageParticipants = Participant::query()
+            ->select(['competition_category_id', 'verification_status'])
+            ->where('verification_status', 'verified')
+            ->when($restrictByCategory, fn ($query) => $query->whereIn('competition_category_id', $restrictedCategoryIds))
+            ->get()
+            ->groupBy('competition_category_id');
 
         $selectedParticipant = null;
         if (filled($filters['participant_id'] ?? null)) {
@@ -85,6 +95,7 @@ class ScoringController extends Controller
                 ->when($restrictByCategory, fn ($query) => $query->whereIn('id', $restrictedCategoryIds))
                 ->find($filters['competition_category_id'])
             : $selectedParticipant?->category;
+        $selectedCategoryIsMfq = (bool) ($selectedCategory && $this->isMfqCategory($selectedCategory));
         $scoringSetting = ScoringSetting::forCategory($selectedCategory?->id);
         $judgingRounds = $this->judgingRoundsForSetting($scoringSetting);
         $selectedJudgingRound = in_array(($filters['judging_round'] ?? null), $judgingRounds, true)
@@ -99,10 +110,21 @@ class ScoringController extends Controller
         $criteria = $activeRoundConfig['scoring_points'];
         $judgeNames = $activeRoundConfig['judge_names'];
         $setupReady = $selectedCategory && $scoringSetting?->isReady();
+        $setupCreated = (bool) $scoringSetting;
+        $setupEditable = (bool) ($scoringSetting?->isEditable() ?? false);
+        $setupRequested = (bool) ($scoringSetting?->isEditRequested() ?? false);
         $roundSetupConfigs = $this->roundSetupConfigs(
             $selectedCategory?->branch,
             $scoringSetting,
             (string) auth()->user()?->name
+        );
+        $participantHasScores = (bool) ($selectedParticipant?->scores?->isNotEmpty() ?? false);
+        $participantScoreRound = (string) ($selectedParticipant?->scores?->first()?->judging_round ?? $selectedJudgingRound);
+        $participantScoreDraft = $this->scoreDraftForParticipant(
+            $selectedParticipant,
+            $participantScoreRound,
+            $judgeNames,
+            $criteria
         );
 
         $recentScores = ScoreEntry::query()
@@ -117,6 +139,25 @@ class ScoringController extends Controller
             ->orderBy('sort_order')
             ->orderBy('branch')
             ->get();
+        $categorySettings = ScoringSetting::query()
+            ->whereIn('competition_category_id', $categories->pluck('id')->all())
+            ->latest('id')
+            ->get()
+            ->keyBy('competition_category_id');
+        $mfqCategories = $categories->filter(fn (CompetitionCategory $category): bool => $this->isMfqCategory($category))->values();
+        $regularCategories = $categories->reject(fn (CompetitionCategory $category): bool => $this->isMfqCategory($category))->values();
+        $categoryUsage = $categories->mapWithKeys(function (CompetitionCategory $category) use ($categoryUsageParticipants): array {
+            $registered = (int) collect($categoryUsageParticipants->get($category->id, collect()))->count();
+            $availableSlots = max((int) $category->quota, 0);
+
+            return [
+                $category->id => [
+                    'available_slots' => $availableSlots,
+                    'registered' => $registered,
+                    'remaining_slots' => max($availableSlots - $registered, 0),
+                ],
+            ];
+        });
 
         $branches = CompetitionCategory::query()
             ->select('branch')
@@ -142,15 +183,28 @@ class ScoringController extends Controller
             'selectedCategory' => $selectedCategory,
             'scoringSetting' => $scoringSetting,
             'setupReady' => (bool) $setupReady,
+            'setupCreated' => $setupCreated,
+            'setupEditable' => $setupEditable,
+            'setupRequested' => $setupRequested,
             'judgingRounds' => $judgingRounds,
             'selectedJudgingRound' => $selectedJudgingRound,
+            'participantHasScores' => $participantHasScores,
+            'participantScoreRound' => $participantScoreRound,
+            'participantScoreDraft' => $participantScoreDraft,
             'judgeNames' => $judgeNames,
             'criteria' => $criteria,
+            'initialJudgeIndex' => (int) ($filters['judge_index'] ?? 0),
             'roundSetupConfigs' => $roundSetupConfigs,
             'recentScores' => $recentScores,
             'categories' => $categories,
+            'regularCategories' => $regularCategories,
+            'mfqCategories' => $mfqCategories,
+            'categorySettings' => $categorySettings,
+            'categoryUsage' => $categoryUsage,
             'branches' => $branches,
             'bigScreenUrl' => $bigScreenUrl,
+            'selectedCategoryIsMfq' => $selectedCategoryIsMfq,
+            'initialStep' => (int) ($selectedCategoryIsMfq ? 1 : ($filters['step'] ?? 1)),
             'filters' => [
                 'participant_id' => $selectedParticipant?->id ?: ($filters['participant_id'] ?? ''),
                 'competition_category_id' => $filters['competition_category_id'] ?? '',
@@ -172,11 +226,99 @@ class ScoringController extends Controller
         ]);
     }
 
+    public function requestSettingEdit(Request $request): RedirectResponse
+    {
+        $user = auth()->user();
+        $restrictedCategoryIds = $this->accessibleCategoryIdsForUser($user);
+        $restrictByCategory = $user?->role === 'panitia';
+        $validated = $request->validate([
+            'competition_category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+            'message' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $category = CompetitionCategory::query()
+            ->when($restrictByCategory, fn ($query) => $query->whereIn('id', $restrictedCategoryIds))
+            ->findOrFail((int) $validated['competition_category_id']);
+
+        $this->ensureCategoryAccess((int) $category->id, 'competition_category_id');
+
+        $scoringSetting = ScoringSetting::forCategory((int) $category->id);
+        if (! $scoringSetting) {
+            return back()->with('warning', 'Setting babak untuk golongan ini belum pernah dibuat.');
+        }
+
+        if ($scoringSetting->isEditable()) {
+            return back()->with('status', 'Setting babak sedang dibuka untuk diedit.');
+        }
+
+        $message = trim((string) ($validated['message'] ?? ''));
+        $scoringSetting->forceFill([
+            'edit_state' => 'requested',
+            'edit_requested_at' => now(),
+            'edit_requested_by' => auth()->id(),
+        ])->save();
+
+        ActivityLogger::log(
+            'scoring.settings.edit_requested',
+            (auth()->user()?->name ?? 'Panitia').' meminta admin membuka/mengubah setting penilaian golongan '.$category->name.'.',
+            $scoringSetting,
+            array_filter([
+                'competition_category_id' => $category->id,
+                'competition_category_name' => $category->name,
+                'judging_round' => $validated['judging_round'] ?? null,
+                'message' => $message !== '' ? $message : null,
+            ], static fn ($value) => $value !== null && $value !== ''),
+            $request
+        );
+
+        return back()->with('status', 'Request ke admin sudah dikirim untuk membuka atau mengubah setting babak.');
+    }
+
+    public function openSettingEdit(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'competition_category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $category = CompetitionCategory::query()->findOrFail((int) $validated['competition_category_id']);
+        $this->ensureCategoryAccess((int) $category->id, 'competition_category_id');
+
+        $scoringSetting = ScoringSetting::forCategory((int) $category->id);
+        if (! $scoringSetting) {
+            return back()->with('warning', 'Setting babak untuk golongan ini belum pernah dibuat.');
+        }
+
+        $scoringSetting->forceFill([
+            'edit_state' => 'open',
+            'edit_opened_at' => now(),
+            'edit_opened_by' => auth()->id(),
+        ])->save();
+
+        ActivityLogger::log(
+            'scoring.settings.edit_opened',
+            (auth()->user()?->name ?? 'Admin').' membuka ulang setting penilaian golongan '.$category->name.'.',
+            $scoringSetting,
+            [
+                'category_id' => $category->id,
+                'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
+                'judging_round' => $validated['judging_round'] ?? null,
+            ],
+            $request
+        );
+
+        return back()->with('status', 'Setting babak dibuka kembali. Silakan ubah lalu simpan ulang.');
+    }
+
     public function storeSettings(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'competition_category_id' => ['required', 'exists:competition_categories,id'],
             'judging_rounds_text' => ['required', 'string', 'max:1500'],
+            'selected_judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
             'rounds.penyisihan.judge_count' => ['required', 'integer', 'min:1', 'max:15'],
             'rounds.penyisihan.judge_names_text' => ['required', 'string', 'max:3000'],
             'rounds.penyisihan.scoring_points_text' => ['required', 'string', 'max:3000'],
@@ -235,6 +377,8 @@ class ScoringController extends Controller
         }
 
         $primaryRoundConfig = $roundSettings['Final'] ?? $roundSettings['Penyisihan'] ?? reset($roundSettings) ?: [];
+        $redirectJudgingRound = $validated['selected_judging_round']
+            ?? ($judgingRounds[0] ?? self::ALLOWED_JUDGING_ROUNDS[0]);
 
         $setting = ScoringSetting::query()->updateOrCreate(
             ['competition_category_id' => $category->id],
@@ -246,6 +390,9 @@ class ScoringController extends Controller
                 'scoring_priorities' => $primaryRoundConfig['scoring_priorities'] ?? [],
                 'round_settings' => $roundSettings,
                 'configured_by' => auth()->id(),
+                'edit_state' => 'locked',
+                'edit_requested_at' => null,
+                'edit_requested_by' => null,
             ]
         );
 
@@ -262,7 +409,12 @@ class ScoringController extends Controller
         );
 
         return redirect()
-            ->route('scoring', ['competition_category_id' => $category->id, 'branch' => $category->branch])
+            ->route('scoring', [
+                'competition_category_id' => $category->id,
+                'branch' => $category->branch,
+                'judging_round' => $redirectJudgingRound,
+                'step' => 3,
+            ])
             ->with('status', 'Setting penilaian untuk golongan '.$category->name.' berhasil disimpan.');
     }
 
@@ -271,6 +423,7 @@ class ScoringController extends Controller
         $validated = $request->validate([
             'participant_id' => ['required', 'exists:participants,id'],
             'judging_round' => ['required', 'string', 'max:100'],
+            'active_judge_index' => ['nullable', 'integer', 'min:0', 'max:20'],
             'remarks' => ['nullable', 'array'],
         ]);
 
@@ -286,6 +439,12 @@ class ScoringController extends Controller
         if (! $scoringSetting || ! $scoringSetting->isReady()) {
             throw ValidationException::withMessages([
                 'participant_id' => 'Setting penilaian untuk golongan ini belum disiapkan. Simpan setting penilaian terlebih dahulu.',
+            ]);
+        }
+
+        if ($participant->scores()->exists()) {
+            throw ValidationException::withMessages([
+                'participant_id' => 'Peserta ini sudah pernah dinilai. Gunakan Request Perbaikan Nilai untuk mengajukan nilai baru.',
             ]);
         }
 
@@ -305,15 +464,7 @@ class ScoringController extends Controller
         );
         $judgeNames = $roundConfig['judge_names'];
         $criteria = $roundConfig['scoring_points'];
-        $scoreRules = [];
-        foreach ($judgeNames as $judgeName) {
-            $scoreRules['remarks.'.$judgeName] = ['nullable', 'string', 'max:1000'];
-
-            foreach (array_keys($criteria) as $key) {
-                $scoreRules['scores.'.$judgeName.'.'.$key] = ['required', 'numeric', 'min:0', 'max:100'];
-            }
-        }
-
+        $scoreRules = $this->scoreInputRules($judgeNames, $criteria);
         $scorePayload = $request->validate($scoreRules);
         $createdEntries = [];
         foreach ($judgeNames as $judgeName) {
@@ -358,11 +509,123 @@ class ScoringController extends Controller
                 'competition_category_id' => $participant->competition_category_id,
                 'branch' => $participant->category?->branch,
                 'judging_round' => $validated['judging_round'],
+                'step' => 3,
+                'judge_index' => (int) ($validated['active_judge_index'] ?? 0),
             ]).'#form-penilaian';
 
         return redirect()
             ->to($redirectUrl)
-            ->with('status', 'Nilai semua hakim untuk peserta '.$participant->name.' berhasil disimpan sekaligus.');
+            ->with('toast', [
+                'tone' => 'success',
+                'title' => 'Nilai tersimpan',
+                'message' => 'Nomor lot '.$participant->lot_number.' · '.$participant->name.' · babak '.$validated['judging_round'].' berhasil disimpan. Panel tetap di Step 3.',
+            ]);
+    }
+
+    public function storeCorrectionRequest(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'participant_id' => ['required', 'exists:participants,id'],
+            'judging_round' => ['required', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $participant = Participant::query()
+            ->with(['category', 'scores' => fn ($query) => $query->orderByDesc('submitted_at')])
+            ->whereKey($validated['participant_id'])
+            ->where('verification_status', 'verified')
+            ->firstOrFail();
+        $this->ensureCategoryAccess((int) $participant->competition_category_id, 'participant_id');
+
+        $scoringSetting = ScoringSetting::forCategory($participant->competition_category_id);
+        if (! $scoringSetting || ! $scoringSetting->isReady()) {
+            throw ValidationException::withMessages([
+                'participant_id' => 'Setting penilaian untuk golongan ini belum disiapkan. Permintaan perbaikan belum bisa dikirim.',
+            ]);
+        }
+
+        if ($participant->scores->isEmpty()) {
+            throw ValidationException::withMessages([
+                'participant_id' => 'Peserta ini belum punya nilai yang bisa diminta perbaikannya.',
+            ]);
+        }
+
+        $judgingRounds = $this->judgingRoundsForSetting($scoringSetting);
+        if (! in_array($validated['judging_round'], $judgingRounds, true)) {
+            throw ValidationException::withMessages([
+                'judging_round' => 'Babak perbaikan harus sesuai setting golongan ini.',
+            ]);
+        }
+
+        $roundConfig = $this->roundConfigForSetting(
+            $participant->category?->branch,
+            $scoringSetting,
+            $validated['judging_round'],
+            (string) auth()->user()?->name
+        );
+        $judgeNames = $roundConfig['judge_names'];
+        $criteria = $roundConfig['scoring_points'];
+        $scorePayload = $request->validate($this->scoreInputRules($judgeNames, $criteria));
+
+        $requestedScores = [];
+        $requestedRemarks = [];
+        foreach ($judgeNames as $judgeName) {
+            $scores = collect(data_get($scorePayload, 'scores.'.$judgeName, []))
+                ->map(fn ($value) => round((float) $value, 2))
+                ->all();
+
+            $requestedScores[] = [
+                'judge_name' => $judgeName,
+                'score' => round(collect($scores)->avg() ?? 0, 2),
+                'score_breakdown' => $scores,
+                'remarks' => data_get($scorePayload, 'remarks.'.$judgeName),
+            ];
+            $requestedRemarks[$judgeName] = data_get($scorePayload, 'remarks.'.$judgeName);
+        }
+
+        $note = trim((string) ($validated['note'] ?? ''));
+
+        $correctionRequest = ScoreCorrectionRequest::query()->create([
+            'participant_id' => $participant->id,
+            'competition_category_id' => $participant->competition_category_id,
+            'judging_round' => $validated['judging_round'],
+            'requested_by' => auth()->id(),
+            'status' => 'pending',
+            'note' => $note !== '' ? $note : null,
+            'requested_scores' => $requestedScores,
+            'requested_remarks' => $requestedRemarks,
+            'requested_at' => now(),
+        ]);
+
+        ActivityLogger::log(
+            'scoring.correction.requested',
+            (auth()->user()?->name ?? 'Panitia').' meminta perbaikan nilai untuk peserta '.$participant->name.'.',
+            $participant,
+            [
+                'participant_id' => $participant->id,
+                'participant_name' => $participant->name,
+                'lot_number' => $participant->lot_number,
+                'category_id' => $participant->competition_category_id,
+                'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
+                'judging_round' => $validated['judging_round'],
+                'status' => 'pending',
+                'request_id' => $correctionRequest->id,
+            ]
+        );
+
+        return redirect()
+            ->to(route('scoring', [
+                'participant_id' => $participant->id,
+                'competition_category_id' => $participant->competition_category_id,
+                'branch' => $participant->category?->branch,
+                'judging_round' => $validated['judging_round'],
+                'step' => 3,
+            ]).'#form-penilaian')
+            ->with('toast', [
+                'tone' => 'success',
+                'title' => 'Request terkirim',
+                'message' => 'Permintaan perbaikan nilai untuk lot '.$participant->lot_number.' berhasil dikirim ke admin.',
+            ]);
     }
 
     protected function criteriaForBranch(?string $branch): array
@@ -439,6 +702,47 @@ class ScoringController extends Controller
         ];
     }
 
+    protected function scoreInputRules(array $judgeNames, array $criteria): array
+    {
+        $scoreRules = [];
+
+        foreach ($judgeNames as $judgeName) {
+            $scoreRules['remarks.'.$judgeName] = ['nullable', 'string', 'max:1000'];
+
+            foreach (array_keys($criteria) as $key) {
+                $scoreRules['scores.'.$judgeName.'.'.$key] = ['required', 'numeric', 'min:0', 'max:100'];
+            }
+        }
+
+        return $scoreRules;
+    }
+
+    protected function scoreDraftForParticipant(?Participant $participant, string $judgingRound, array $judgeNames, array $criteria): array
+    {
+        if (! $participant) {
+            return [];
+        }
+
+        $scoreEntries = $participant->scores
+            ->where('judging_round', $judgingRound)
+            ->keyBy('judge_name');
+        $draft = [];
+
+        foreach ($judgeNames as $judgeName) {
+            $entry = $scoreEntries->get($judgeName);
+            $draft[$judgeName] = [
+                'scores' => [],
+                'remarks' => (string) ($entry?->remarks ?? ''),
+            ];
+
+            foreach (array_keys($criteria) as $key) {
+                $draft[$judgeName]['scores'][$key] = $entry ? data_get($entry->score_breakdown, $key, '') : '';
+            }
+        }
+
+        return $draft;
+    }
+
     protected function normalizeLines(string $text): array
     {
         return collect(preg_split('/\r\n|\r|\n/', $text) ?: [])
@@ -478,5 +782,12 @@ class ScoringController extends Controller
                 $errorKey => 'Akun panitia ini tidak memiliki hak akses untuk golongan tersebut.',
             ]);
         }
+    }
+
+    protected function isMfqCategory(CompetitionCategory $category): bool
+    {
+        $haystack = mb_strtolower(trim((string) $category->branch.' '.(string) $category->name.' '.(string) $category->slug));
+
+        return str_contains($haystack, 'fahmil');
     }
 }

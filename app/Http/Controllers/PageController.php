@@ -1495,7 +1495,6 @@ class PageController extends Controller
                     ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
                     ['label' => 'Hasil Nilai', 'href' => route('results.index')],
                     ['label' => 'Buka Penilaian', 'href' => route('scoring')],
-                    ['label' => 'Buka Penilaian MFQ', 'href' => route('scoring.mfq')],
                     ['label' => 'Muat Ulang Dashboard', 'href' => route('dashboard')],
                 ],
             ],
@@ -1517,7 +1516,6 @@ class PageController extends Controller
                     ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
                     ['label' => 'Hasil Nilai', 'href' => route('results.index')],
                     ['label' => 'Input Nilai', 'href' => route('scoring')],
-                    ['label' => 'Penilaian MFQ', 'href' => route('scoring.mfq')],
                     ['label' => 'Lihat Ringkasan', 'href' => route('dashboard')],
                 ],
             ],
@@ -1591,9 +1589,6 @@ class PageController extends Controller
                     : null,
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('scoring', 'Penilaian', route('scoring'), 'chart')
-                    : null,
-                in_array($role, ['admin', 'panitia'], true)
-                    ? $this->consoleNavigationLink('scoring.mfq', 'Penilaian MFQ', route('scoring.mfq'), 'chart')
                     : null,
             ]))),
             $this->consoleNavigationGroup('administrasi', 'Administrasi', 'shield', array_values(array_filter([
