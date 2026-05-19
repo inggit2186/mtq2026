@@ -803,7 +803,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                     <div class="flex flex-wrap items-center justify-between gap-3">
                                         <div>
                                             <p class="font-semibold text-white"><?= e(ucfirst((string) $log->status)) ?></p>
-                                            <p class="mt-1 text-xs text-slate-400"><?= e(optional($log->created_at)->format('d M Y H:i')) ?><?php if ($log->verifier): ?> | <?= e($log->verifier->name) ?><?php endif; ?></p>
+                                            <p class="mt-1 text-xs text-slate-400"><?= e(optional($log->created_at)->format('d M Y H:i')) ?><?php if (! $isOfficialUser && $log->verifier): ?> | <?= e($log->verifier->name) ?><?php endif; ?></p>
                                         </div>
                                     </div>
                                     <p class="mt-3 text-sm leading-6 text-slate-300"><?= e($log->notes ?: 'Tanpa catatan tambahan.') ?></p>

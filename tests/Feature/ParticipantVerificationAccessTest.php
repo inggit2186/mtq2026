@@ -6,6 +6,7 @@ use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
+use App\Models\ParticipantVerificationLog;
 use App\Models\User;
 use App\Models\UserDistrictAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -111,6 +112,29 @@ class ParticipantVerificationAccessTest extends TestCase
         $response->assertSee('Mandat Kecamatan');
         $response->assertSee('Surat Mandat Kecamatan');
         $response->assertSee('Pratinjau PDF');
+    }
+
+    public function test_official_does_not_see_verifier_name_in_verification_history(): void
+    {
+        [$participant] = $this->createParticipantAndPanitia();
+
+        $official = User::factory()->create([
+            'role' => 'official',
+            'district_id' => $participant->district_id,
+        ]);
+
+        ParticipantVerificationLog::query()->create([
+            'participant_id' => $participant->id,
+            'verified_by' => $official->id,
+            'status' => 'verified',
+            'notes' => 'Sudah lengkap',
+        ]);
+
+        $response = $this->actingAs($official)->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertSee('Riwayat Verifikasi');
+        $response->assertDontSee($official->name);
     }
 
     /**
