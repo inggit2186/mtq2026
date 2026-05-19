@@ -665,7 +665,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div class="grid gap-1.5">
-                                                    <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
+                                                    <a href="<?= e(route('participants.show', array_merge(['participant' => $participant], request()->query()))) ?>" class="secondary-button rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                         <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                                         Lihat Detail
                                                     </a>
@@ -703,7 +703,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             <?php if ($canVerify): ?>
                                                 <td class="px-3 py-3">
                                                     <div class="grid gap-1.5">
-                                                        <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
+                                                        <a href="<?= e(route('participants.show', array_merge(['participant' => $participant], request()->query()))) ?>" class="secondary-button w-full justify-center rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center">
                                                             <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                                             Cek Berkas
                                                         </a>

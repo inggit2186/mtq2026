@@ -1993,7 +1993,7 @@ class ParticipantRegistrationController extends Controller
         }
 
         return redirect()
-            ->route('participants.list')
+            ->route('participants.list', $request->query())
             ->with('status', 'Status verifikasi peserta '.$participant->name.' diperbarui menjadi '.ucfirst($validated['verification_status']).'.');
     }
 

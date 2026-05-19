@@ -395,7 +395,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                                 </button>
                             </form>
                         <?php endif; ?>
-                        <a href="<?= e(route('participants.list')) ?>" class="secondary-button">
+                        <a href="<?= e(route('participants.list', request()->query())) ?>" class="secondary-button">
                             <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                             Kembali ke daftar
                         </a>
@@ -740,7 +740,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                             <?php if ($canVerify): ?>
                                 <div class="data-card">
                                     <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Form verifikasi</p>
-                                    <form method="POST" action="<?= e(route('participants.verify', $participant)) ?>" class="mt-4 space-y-3" data-verification-form>
+                                    <form method="POST" action="<?= e(route('participants.verify', array_merge(['participant' => $participant], request()->query()))) ?>" class="mt-4 space-y-3" data-verification-form>
                                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                                         <div>
                                             <label class="mb-2 block text-sm font-semibold text-slate-200">Status verifikasi</label>

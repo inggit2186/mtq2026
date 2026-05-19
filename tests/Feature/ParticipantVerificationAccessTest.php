@@ -82,11 +82,11 @@ class ParticipantVerificationAccessTest extends TestCase
         ]);
 
         $this->actingAs($panitia)
-            ->post(route('participants.verify', $participant), [
+            ->post(route('participants.verify', ['participant' => $participant, 'page' => 3]), [
                 'verification_status' => 'verified',
                 'verification_notes' => 'Lengkap',
             ])
-            ->assertRedirect(route('participants.list'));
+            ->assertRedirect(route('participants.list', ['page' => 3]));
 
         $participant->refresh();
 
