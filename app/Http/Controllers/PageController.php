@@ -144,6 +144,22 @@ class PageController extends Controller
             ->map(function (Participant $participant): array {
                 $categoryLabel = trim((string) ($participant->category?->branch ? $participant->category->branch.' - ' : '').(string) ($participant->category?->name ?? '-'));
                 $originLabel = trim((string) ($participant->district?->name ?? $participant->institution ?? '-'));
+                $ageLabel = '-';
+
+                if ($participant->date_of_birth) {
+                    try {
+                        $birthDate = Carbon::parse($participant->date_of_birth)->startOfDay();
+                        $age = $birthDate->diff(Carbon::now()->startOfDay());
+                        $parts = array_filter([
+                            $age->y > 0 ? $age->y.' tahun' : null,
+                            $age->m > 0 ? $age->m.' bulan' : null,
+                            $age->d > 0 ? $age->d.' hari' : null,
+                        ]);
+                        $ageLabel = $parts !== [] ? implode(' ', $parts) : '0 hari';
+                    } catch (\Throwable) {
+                        $ageLabel = '-';
+                    }
+                }
 
                 return [
                     'participant_id' => $participant->id,
@@ -152,6 +168,7 @@ class PageController extends Controller
                     'category_label' => $categoryLabel !== '' ? $categoryLabel : '-',
                     'branch' => $participant->category?->branch ?? '-',
                     'photo_url' => $this->publicParticipantPhotoUrl($participant),
+                    'age_label' => $ageLabel,
                 ];
             })
             ->values();

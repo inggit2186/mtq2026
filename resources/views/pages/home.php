@@ -307,79 +307,74 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                     x-init="init()"
                 >
                     <?php if ($featuredParticipantSlides->isNotEmpty()): ?>
-                        <div class="relative overflow-hidden rounded-[2.2rem] border border-fuchsia-400/14 bg-gradient-to-br from-fuchsia-500/10 via-slate-950/82 to-cyan-500/10 p-5 sm:p-6">
-                            <div class="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl"></div>
-                            <div class="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl"></div>
+                        <div class="relative overflow-hidden rounded-[2.2rem] border border-white/10 bg-gradient-to-br from-slate-950 via-slate-950/94 to-slate-900/80 p-5 sm:p-6">
+                            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.06),transparent_24%)]"></div>
 
                             <?php foreach ($featuredParticipantSlides as $slideIndex => $slideParticipants): ?>
                                 <?php
                                     $primaryParticipant = $slideParticipants->first();
                                     $secondaryParticipants = $slideParticipants->skip(1)->values();
                                 ?>
-                                <div x-cloak x-show="active === <?= $slideIndex ?>" x-transition.opacity.duration.1000ms class="space-y-5">
+                                <div x-cloak x-show="active === <?= $slideIndex ?>" x-transition.opacity.duration.1000ms class="relative space-y-5">
                                     <div class="flex flex-wrap items-center justify-between gap-3">
-                                        <div>
+                                        <div class="relative">
                                             <p class="section-kicker">Kafilah Terverifikasi</p>
                                             <h4 class="mt-2 text-2xl font-bold text-white">Sorotan per putaran</h4>
+                                            <p class="mt-2 max-w-xl text-sm leading-6 text-slate-300">Tampilan ini menonjolkan satu wajah utama dengan detail yang lebih tenang, bersih, dan mudah dibaca.</p>
                                         </div>
-                                        <span class="status-pill">
+                                        <span class="status-pill border-white/10 bg-white/5 text-slate-200">
                                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-fuchsia-300"></span>
                                             Slide <?= e($slideIndex + 1) ?> / <?= e($featuredParticipantSlides->count()) ?>
                                         </span>
                                     </div>
 
-                                    <div class="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+                                    <div class="grid gap-4">
                                         <?php if ($primaryParticipant): ?>
-                                            <article class="group relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/72 shadow-[0_28px_90px_-42px_rgba(236,72,153,0.5)]">
-                                                <div class="grid h-full gap-0 lg:grid-cols-[minmax(250px,340px)_minmax(0,1fr)]">
-                                                    <div class="relative min-h-[340px] overflow-hidden">
-                                                        <?php if (! empty($primaryParticipant['photo_url'])): ?>
-                                                            <img src="<?= e($primaryParticipant['photo_url']) ?>" alt="<?= e($primaryParticipant['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
-                                                        <?php else: ?>
-                                                            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-slate-900 to-fuchsia-500/20">
-                                                                <div class="text-center">
-                                                                    <div class="icon-chip mx-auto h-20 w-20 rounded-[1.5rem]"><?= mtq_icon('users', 'h-10 w-10') ?></div>
-                                                                    <p class="mt-4 text-sm font-semibold tracking-[0.28em] text-cyan-200">PHOTO</p>
+                                            <article class="group relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/72 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.55)]">
+                                                <div class="grid gap-0 lg:grid-cols-[minmax(180px,200px)_minmax(0,1fr)]">
+                                                    <div class="relative flex items-center justify-center overflow-hidden border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 lg:border-b-0 lg:border-r">
+                                                        <div class="relative w-full max-w-[180px] overflow-hidden rounded-[1.6rem] border border-white/10 bg-slate-900/80 shadow-[0_14px_36px_-26px_rgba(15,23,42,0.5)]">
+                                                            <div class="relative aspect-[4/5]">
+                                                                <?php if (! empty($primaryParticipant['photo_url'])): ?>
+                                                                    <img src="<?= e($primaryParticipant['photo_url']) ?>" alt="<?= e($primaryParticipant['name']) ?>" class="h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.03]">
+                                                                <?php else: ?>
+                                                                    <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800">
+                                                                        <div class="text-center">
+                                                                            <div class="icon-chip mx-auto h-14 w-14 rounded-[1.15rem]"><?= mtq_icon('users', 'h-7 w-7') ?></div>
+                                                                            <p class="mt-3 text-xs font-semibold tracking-[0.28em] text-slate-300">PHOTO</p>
+                                                                        </div>
+                                                                    </div>
+                                                                <?php endif; ?>
+                                                                <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0)_0%,rgba(2,6,23,0.14)_60%,rgba(2,6,23,0.76)_100%)]"></div>
+                                                                <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-slate-950 via-slate-950/82 to-transparent p-3">
+                                                                    <div class="inline-flex rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/90 backdrop-blur-sm">
+                                                                        <?= e($primaryParticipant['branch'] ?? '-') ?>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        <?php endif; ?>
-                                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-4">
-                                                            <div class="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/90 backdrop-blur-sm">
-                                                                <?= e($primaryParticipant['branch'] ?? '-') ?>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div class="flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-6">
+                                                    <div class="relative flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-6">
                                                         <div class="space-y-4">
                                                             <div class="flex flex-wrap items-center gap-2">
                                                                 <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">Utama</span>
                                                                 <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">Terverifikasi</span>
-                                                                <span class="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-200">Slide <?= e($slideIndex + 1) ?> / <?= e($featuredParticipantSlides->count()) ?></span>
+                                                                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200">Slide <?= e($slideIndex + 1) ?> / <?= e($featuredParticipantSlides->count()) ?></span>
                                                             </div>
-                                                            <h5 class="max-w-xl text-[1.85rem] font-black leading-[1.05] tracking-tight text-white sm:text-[2.45rem]"><?= e($primaryParticipant['name']) ?></h5>
-                                                            <div class="grid gap-3 sm:grid-cols-2">
-                                                                <div class="rounded-[1.35rem] border border-white/8 bg-slate-950/60 p-4">
+                                                            <h5 class="max-w-xl text-[1.55rem] font-black leading-[1.05] tracking-tight text-white sm:text-[1.95rem]"><?= e($primaryParticipant['name']) ?></h5>
+                                                            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                                                <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5">
                                                                     <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Asal</p>
-                                                                    <p class="mt-2 text-lg font-bold text-white"><?= e($primaryParticipant['origin']) ?></p>
+                                                                    <p class="mt-2 text-base font-bold text-white"><?= e($primaryParticipant['origin']) ?></p>
                                                                 </div>
-                                                                <div class="rounded-[1.35rem] border border-white/8 bg-slate-950/60 p-4">
+                                                                <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5">
                                                                     <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Cabang / Golongan</p>
-                                                                    <p class="mt-2 text-lg font-bold text-white"><?= e($primaryParticipant['category_label']) ?></p>
+                                                                    <p class="mt-2 text-base font-bold text-white"><?= e($primaryParticipant['category_label']) ?></p>
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="grid gap-2 sm:grid-cols-3">
-                                                            <div class="rounded-[1.35rem] border border-fuchsia-400/14 bg-fuchsia-400/10 px-4 py-3">
-                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-fuchsia-100/80">Status</p>
-                                                                <p class="mt-2 text-sm font-semibold text-white">Tampil</p>
-                                                            </div>
-                                                            <div class="rounded-[1.35rem] border border-cyan-400/14 bg-cyan-400/10 px-4 py-3">
-                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-cyan-100/80">Data</p>
-                                                                <p class="mt-2 text-sm font-semibold text-white">Foto & Asal</p>
-                                                            </div>
-                                                            <div class="rounded-[1.35rem] border border-emerald-400/14 bg-emerald-400/10 px-4 py-3">
-                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-emerald-100/80">Cabang</p>
-                                                                <p class="mt-2 text-sm font-semibold text-white"><?= e($primaryParticipant['category_label']) ?></p>
+                                                                <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5 sm:col-span-2 xl:col-span-1">
+                                                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Umur peserta saat ini</p>
+                                                                    <p class="mt-2 text-base font-bold text-white"><?= e($primaryParticipant['age_label'] ?? '-') ?></p>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -387,22 +382,23 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                             </article>
                                         <?php endif; ?>
 
-                                        <div class="grid gap-4 sm:grid-cols-2">
+                                        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                                             <?php foreach ($secondaryParticipants as $participant): ?>
-                                                <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/68 shadow-[0_14px_40px_-30px_rgba(15,23,42,0.32)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/25">
-                                                    <div class="relative aspect-[4/5]">
+                                                <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/68 shadow-[0_14px_34px_-30px_rgba(15,23,42,0.3)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/25">
+                                                    <div class="relative aspect-[3/4]">
                                                         <?php if (! empty($participant['photo_url'])): ?>
-                                                            <img src="<?= e($participant['photo_url']) ?>" alt="<?= e($participant['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
+                                                            <img src="<?= e($participant['photo_url']) ?>" alt="<?= e($participant['name']) ?>" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]">
                                                         <?php else: ?>
-                                                            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-slate-900 to-fuchsia-500/20">
+                                                            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800">
                                                                 <div class="text-center">
-                                                                    <div class="icon-chip mx-auto h-16 w-16 rounded-[1.35rem]"><?= mtq_icon('users', 'h-8 w-8') ?></div>
-                                                                    <p class="mt-3 text-[11px] font-semibold tracking-[0.26em] text-cyan-200">PHOTO</p>
+                                                                    <div class="icon-chip mx-auto h-14 w-14 rounded-[1.2rem]"><?= mtq_icon('users', 'h-7 w-7') ?></div>
+                                                                    <p class="mt-3 text-[11px] font-semibold tracking-[0.26em] text-slate-300">PHOTO</p>
                                                                 </div>
                                                             </div>
                                                         <?php endif; ?>
-                                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-3">
-                                                            <div class="inline-flex rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
+                                                        <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0)_0%,rgba(2,6,23,0.08)_58%,rgba(2,6,23,0.72)_100%)]"></div>
+                                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent p-3">
+                                                            <div class="inline-flex rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
                                                                 <?= e($participant['branch'] ?? '-') ?>
                                                             </div>
                                                         </div>
@@ -430,18 +426,6 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                 <button type="button" class="absolute right-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/60 p-2.5 text-white backdrop-blur transition hover:bg-slate-950/85" x-on:click="next()" aria-label="Putaran berikutnya">
                                     <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                 </button>
-
-                                <div class="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-2 backdrop-blur">
-                                    <?php foreach ($featuredParticipantSlides as $slideIndex => $slideParticipants): ?>
-                                        <button
-                                            type="button"
-                                            class="h-2.5 w-2.5 rounded-full transition"
-                                            x-on:click="go(<?= $slideIndex ?>)"
-                                            x-bind:class="active === <?= $slideIndex ?> ? 'bg-fuchsia-300' : 'bg-white/40 hover:bg-white/70'"
-                                            aria-label="Lihat putaran <?= e($slideIndex + 1) ?>"
-                                        ></button>
-                                    <?php endforeach; ?>
-                                </div>
                             <?php endif; ?>
                         </div>
                     <?php else: ?>
