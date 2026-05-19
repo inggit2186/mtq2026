@@ -150,31 +150,64 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
             font-weight: 700;
         }
 
+        .photo {
+            width: 54px;
+            text-align: center;
+        }
+
+        .photo-thumb {
+            display: block;
+            width: 34px;
+            height: 44px;
+            margin: 0 auto;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #cbd5e1;
+            background: #e2e8f0;
+        }
+
+        .photo-placeholder {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 44px;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 1px dashed #94a3b8;
+            background: #f8fafc;
+            color: #94a3b8;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
         .reg {
-            width: 120px;
+            width: 108px;
             white-space: nowrap;
             font-weight: 700;
         }
 
         .name {
-            width: 150px;
+            width: 134px;
             font-weight: 700;
         }
 
         .district {
-            width: 105px;
+            width: 92px;
         }
 
         .branch {
-            width: 120px;
+            width: 100px;
         }
 
         .category {
-            width: 135px;
+            width: 118px;
         }
 
         .age {
-            width: 105px;
+            width: 92px;
             white-space: nowrap;
             text-align: center;
             font-weight: 700;
@@ -306,6 +339,7 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                 <thead>
                     <tr>
                         <th class="no" rowspan="2">No</th>
+                        <th class="photo" rowspan="2">Foto</th>
                         <th class="reg" rowspan="2">No Registrasi</th>
                         <th class="name" rowspan="2">Nama</th>
                         <th class="district" rowspan="2">Kecamatan</th>
@@ -323,7 +357,7 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                 <tbody>
                     <?php if (empty($rows)): ?>
                         <tr>
-                            <td colspan="10" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
+                            <td colspan="11" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $index => $row): ?>
@@ -336,6 +370,13 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                             ?>
                             <tr>
                                 <td class="no"><?= e($index + 1) ?></td>
+                                <td class="photo">
+                                    <?php if (! empty($row['photo_url'])): ?>
+                                        <img src="<?= e($row['photo_url']) ?>" alt="<?= e($row['name'] ?? 'Foto peserta') ?>" class="photo-thumb">
+                                    <?php else: ?>
+                                        <span class="photo-placeholder">Foto</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="reg"><?= e($row['registration_number'] ?? '-') ?></td>
                                 <td class="name"><?= e($row['name'] ?? '-') ?></td>
                                 <td class="district"><?= e($row['district'] ?? '-') ?></td>

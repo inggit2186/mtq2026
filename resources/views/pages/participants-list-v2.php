@@ -261,11 +261,15 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <?php endif; ?>
                             <a href="<?= e(route('participants.export.excel', $exportQuery)) ?>" class="secondary-button">
                                 <?= mtq_icon('book-open', 'h-4 w-4') ?>
-                                Ekspor Excel
+                                Export Data Peserta
+                            </a>
+                            <a href="<?= e(route('participants.export.verification.excel', $exportQuery)) ?>" class="secondary-button">
+                                <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                Export Data Verifikasi
                             </a>
                             <a href="<?= e(route('participants.export.pdf', $exportQuery)) ?>" target="_blank" rel="noreferrer" class="secondary-button">
                                 <?= mtq_icon('book-open', 'h-4 w-4') ?>
-                                Ekspor PDF
+                                Export PDF
                             </a>
                         <a href="<?= e(route('participants.index')) ?>" class="primary-button">
                             <?= mtq_icon('id-card', 'h-4 w-4') ?>

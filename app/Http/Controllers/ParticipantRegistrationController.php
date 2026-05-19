@@ -259,6 +259,31 @@ class ParticipantRegistrationController extends Controller
         ]);
     }
 
+    public function exportVerificationExcel(Request $request): StreamedResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+
+        [$filters, $districtId, $participants, $selectedDistrict] = $this->participantExportContext($request);
+        $documentConfig = app(PageController::class)->documentConfig();
+        $generatedAt = now();
+        $filenameDistrict = $selectedDistrict?->name
+            ?? ($districtId ? 'kecamatan' : 'semua-kecamatan');
+        $filename = 'data-verifikasi-'.Str::slug((string) $filenameDistrict).'-'.$generatedAt->format('Ymd-His').'.xls';
+
+        return response()->streamDownload(function () use ($participants, $selectedDistrict, $filters, $generatedAt, $documentConfig): void {
+            echo view('pages/participants-export-verification-excel', [
+                'participants' => $participants,
+                'selectedDistrict' => $selectedDistrict,
+                'filters' => $filters,
+                'generatedAt' => $generatedAt,
+                'documentConfig' => $documentConfig,
+                'rows' => $this->participantExportRows($participants),
+            ])->render();
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+        ]);
+    }
+
     public function exportPdf(Request $request): View
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
@@ -3379,6 +3404,9 @@ class ParticipantRegistrationController extends Controller
                 'registration_number' => (string) ($participant->registration_number ?? '-'),
                 'role_label' => ($participant->participant_role ?? 'main') === 'reserve' ? 'Cadangan' : 'Inti',
                 'verification_status' => $this->participantVerificationStatusLabel((string) $participant->verification_status),
+                'photo_url' => filled($participant->document_photo) && Storage::disk('public')->exists((string) $participant->document_photo)
+                    ? Storage::disk('public')->url((string) $participant->document_photo)
+                    : null,
                 'name' => (string) ($participant->name ?? '-'),
                 'gender' => (string) ($participant->gender ?? '-'),
                 'nik' => (string) ($participant->nik ?? '-'),

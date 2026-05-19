@@ -10,6 +10,7 @@ use App\Models\ParticipantVerificationLog;
 use App\Models\User;
 use App\Models\UserDistrictAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ParticipantVerificationAccessTest extends TestCase
@@ -140,9 +141,11 @@ class ParticipantVerificationAccessTest extends TestCase
     public function test_export_pdf_uses_simplified_columns(): void
     {
         [$participant, $panitia] = $this->createParticipantAndPanitia();
+        Storage::disk('public')->put('participants/documents/photo/test-photo.jpg', 'fake image');
         $participant->update([
             'verification_status' => 'verified',
             'verification_notes' => 'Terverifikasi untuk kebutuhan uji.',
+            'document_photo' => 'participants/documents/photo/test-photo.jpg',
         ]);
 
         OfficialAccessSetting::query()->create([
@@ -158,17 +161,51 @@ class ParticipantVerificationAccessTest extends TestCase
         $response->assertOk();
         $response->assertSee('Rekap Data Peserta');
         $response->assertSee('Verifikasi');
+        $response->assertSee('Foto');
         $response->assertSee('MS');
         $response->assertSee('TMS');
         $response->assertSee('Memenuhi Syarat');
         $response->assertSee('Tidak Memenuhi Syarat');
         $response->assertSee('Umur per 1 Juli');
         $response->assertSee('✓');
+        $response->assertSee('photo-thumb');
         $response->assertSee($participant->name);
         $response->assertSee($participant->district->name);
         $response->assertDontSee('No. HP');
         $response->assertDontSee('Dokumen');
         $response->assertDontSee('Catatan Verifikasi');
+    }
+
+    public function test_export_verification_excel_uses_pdf_style_columns(): void
+    {
+        [$participant, $panitia] = $this->createParticipantAndPanitia();
+        Storage::disk('public')->put('participants/documents/photo/test-photo.jpg', 'fake image');
+        $participant->update([
+            'verification_status' => 'rejected',
+            'verification_notes' => 'Perlu perbaikan.',
+            'document_photo' => 'participants/documents/photo/test-photo.jpg',
+        ]);
+
+        OfficialAccessSetting::query()->create([
+            'participant_registration_open' => true,
+            'participant_edit_open' => true,
+            'mandate_upload_open' => true,
+            'participant_documents_open' => true,
+            'participant_verification_open' => true,
+        ]);
+
+        $response = $this->actingAs($panitia)->get(route('participants.export.verification.excel'));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/vnd.ms-excel; charset=UTF-8');
+        $response->assertSee('Export Data Verifikasi');
+        $response->assertSee('Foto');
+        $response->assertSee('Verifikasi');
+        $response->assertSee('MS');
+        $response->assertSee('TMS');
+        $response->assertSee('TMS');
+        $response->assertSee('✓');
+        $response->assertSee($participant->name);
     }
 
     /**

@@ -97,6 +97,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/pendaftaran-peserta', [ParticipantRegistrationController::class, 'store'])->middleware('role:admin,panitia,official,pendamping')->name('participants.store');
     Route::get('/data-peserta', [ParticipantRegistrationController::class, 'list'])->middleware('role:admin,panitia,official,pendamping')->name('participants.list');
     Route::get('/data-peserta/export/excel', [ParticipantRegistrationController::class, 'exportExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.excel');
+    Route::get('/data-peserta/export/verifikasi/excel', [ParticipantRegistrationController::class, 'exportVerificationExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.verification.excel');
     Route::get('/data-peserta/export/pdf', [ParticipantRegistrationController::class, 'exportPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.pdf');
     Route::get('/pengambilan/lot', [ParticipantRegistrationController::class, 'lotMenu'])->middleware('role:admin,panitia')->name('participants.lot.menu');
     Route::get('/pengambilan/maqra', [ParticipantRegistrationController::class, 'maqraMenu'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.menu');
