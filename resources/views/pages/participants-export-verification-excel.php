@@ -91,60 +91,30 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
             width: 34px;
         }
 
-        .photo {
-            width: 56px;
-        }
-
-        .photo-thumb {
-            display: block;
-            width: 34px;
-            height: 44px;
-            margin: 0 auto;
-            object-fit: cover;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-        }
-
-        .photo-placeholder {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 34px;
-            height: 44px;
-            margin: 0 auto;
-            border: 1px dashed #94a3b8;
-            border-radius: 8px;
-            background: #f8fafc;
-            color: #94a3b8;
-            font-size: 8px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
         .reg {
-            width: 110px;
+            width: 120px;
             font-weight: 700;
         }
 
         .name {
-            width: 136px;
+            width: 150px;
             font-weight: 700;
         }
 
         .district {
-            width: 92px;
+            width: 105px;
         }
 
         .branch {
-            width: 102px;
+            width: 120px;
         }
 
         .category {
-            width: 118px;
+            width: 135px;
         }
 
         .age {
-            width: 92px;
+            width: 105px;
             text-align: center;
             font-weight: 700;
         }
@@ -258,13 +228,12 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
 
     <table class="data">
         <thead>
-            <tr>
-                <th class="no" rowspan="2">No</th>
-                <th class="photo" rowspan="2">Foto</th>
-                <th class="reg" rowspan="2">No Registrasi</th>
-                <th class="name" rowspan="2">Nama</th>
-                <th class="district" rowspan="2">Kecamatan</th>
-                <th class="branch" rowspan="2">Cabang</th>
+                    <tr>
+                        <th class="no" rowspan="2">No</th>
+                        <th class="reg" rowspan="2">No Registrasi</th>
+                        <th class="name" rowspan="2">Nama</th>
+                        <th class="district" rowspan="2">Kecamatan</th>
+                        <th class="branch" rowspan="2">Cabang</th>
                 <th class="category" rowspan="2">Golongan</th>
                 <th class="age" rowspan="2">Umur per 1 Juli</th>
                 <th class="ver-group" colspan="2">Verifikasi</th>
@@ -276,9 +245,9 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
             </tr>
         </thead>
         <tbody>
-            <?php if (empty($rows)): ?>
+                <?php if (empty($rows)): ?>
                 <tr>
-                    <td colspan="11" class="center">Belum ada data peserta yang sesuai dengan filter export.</td>
+                    <td colspan="10" class="center">Belum ada data peserta yang sesuai dengan filter export.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($rows as $index => $row): ?>
@@ -289,13 +258,6 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                     ?>
                     <tr>
                         <td class="center"><?= e($index + 1) ?></td>
-                        <td class="photo">
-                            <?php if (! empty($row['photo_url'])): ?>
-                                <img src="<?= e($row['photo_url']) ?>" alt="<?= e($row['name'] ?? 'Foto peserta') ?>" class="photo-thumb">
-                            <?php else: ?>
-                                <span class="photo-placeholder">Foto</span>
-                            <?php endif; ?>
-                        </td>
                         <td class="reg"><?= e($row['registration_number'] ?? '-') ?></td>
                         <td class="name"><?= e($row['name'] ?? '-') ?></td>
                         <td class="district"><?= e($row['district'] ?? '-') ?></td>

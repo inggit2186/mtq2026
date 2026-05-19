@@ -161,7 +161,7 @@ class ParticipantVerificationAccessTest extends TestCase
         $response->assertOk();
         $response->assertSee('Rekap Data Peserta');
         $response->assertSee('Verifikasi');
-        $response->assertSee('Foto');
+        $response->assertDontSee('Foto');
         $response->assertSee('MS');
         $response->assertSee('TMS');
         $response->assertSee('Memenuhi Syarat');
@@ -179,11 +179,9 @@ class ParticipantVerificationAccessTest extends TestCase
     public function test_export_verification_excel_uses_pdf_style_columns(): void
     {
         [$participant, $panitia] = $this->createParticipantAndPanitia();
-        Storage::disk('public')->put('participants/documents/photo/test-photo.jpg', 'fake image');
         $participant->update([
             'verification_status' => 'rejected',
             'verification_notes' => 'Perlu perbaikan.',
-            'document_photo' => 'participants/documents/photo/test-photo.jpg',
         ]);
 
         OfficialAccessSetting::query()->create([
@@ -199,7 +197,7 @@ class ParticipantVerificationAccessTest extends TestCase
         $response->assertOk();
         $response->assertHeader('Content-Type', 'application/vnd.ms-excel; charset=UTF-8');
         $response->assertSee('Export Data Verifikasi');
-        $response->assertSee('Foto');
+        $response->assertDontSee('Foto');
         $response->assertSee('Verifikasi');
         $response->assertSee('MS');
         $response->assertSee('TMS');
