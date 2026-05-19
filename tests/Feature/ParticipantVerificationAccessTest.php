@@ -69,6 +69,30 @@ class ParticipantVerificationAccessTest extends TestCase
         $this->assertSame('verified', $participant->verification_status);
     }
 
+    public function test_panitia_can_verify_participant_without_approving_mandate_first(): void
+    {
+        [$participant, $panitia] = $this->createParticipantAndPanitia('submitted');
+
+        OfficialAccessSetting::query()->create([
+            'participant_registration_open' => true,
+            'participant_edit_open' => true,
+            'mandate_upload_open' => true,
+            'participant_documents_open' => true,
+            'participant_verification_open' => true,
+        ]);
+
+        $this->actingAs($panitia)
+            ->post(route('participants.verify', $participant), [
+                'verification_status' => 'verified',
+                'verification_notes' => 'Lengkap',
+            ])
+            ->assertRedirect(route('participants.list'));
+
+        $participant->refresh();
+
+        $this->assertSame('verified', $participant->verification_status);
+    }
+
     public function test_panitia_can_see_district_mandate_on_participant_detail(): void
     {
         [$participant, $panitia] = $this->createParticipantAndPanitia();
@@ -92,16 +116,18 @@ class ParticipantVerificationAccessTest extends TestCase
     /**
      * @return array{0: \App\Models\Participant, 1: \App\Models\User}
      */
-    private function createParticipantAndPanitia(): array
+    private function createParticipantAndPanitia(string $mandateStatus = 'verified'): array
     {
         $district = District::query()->create([
             'name' => 'Kecamatan Pariangan',
             'slug' => 'pariangan',
             'mandate_document_path' => 'districts/mandates/pariangan.pdf',
             'mandate_uploaded_at' => now(),
-            'mandate_status' => 'verified',
-            'mandate_verification_notes' => 'Sudah diverifikasi untuk kebutuhan uji.',
-            'mandate_verified_at' => now(),
+            'mandate_status' => $mandateStatus,
+            'mandate_verification_notes' => $mandateStatus === 'verified'
+                ? 'Sudah diverifikasi untuk kebutuhan uji.'
+                : 'Menunggu verifikasi untuk kebutuhan uji.',
+            'mandate_verified_at' => $mandateStatus === 'verified' ? now() : null,
         ]);
 
         $category = CompetitionCategory::query()->create([

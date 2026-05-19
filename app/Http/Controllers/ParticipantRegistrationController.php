@@ -1930,17 +1930,6 @@ class ParticipantRegistrationController extends Controller
             ->whereNotNull('mandate_document_path')
             ->first();
 
-        if (
-            $validated['verification_status'] === 'verified'
-            && $districtMandate
-            && $districtMandate->mandate_status !== 'verified'
-            && ($validated['mandate_status'] ?? null) !== 'verified'
-        ) {
-            throw ValidationException::withMessages([
-                'mandate_status' => 'Setujui surat mandat kecamatan ini bersamaan dengan verifikasi peserta.',
-            ]);
-        }
-
         $participant->update([
             'verification_status' => $validated['verification_status'],
             'verification_notes' => $validated['verification_notes'] ?: match ($validated['verification_status']) {
