@@ -13,6 +13,7 @@ $galleryImages = $galleryImages ?? null;
 $coverSlides = $coverSlides ?? collect();
 $featuredParticipants = $featuredParticipants ?? collect();
 $featuredParticipantsList = $featuredParticipants->values();
+$featuredParticipantSlides = $featuredParticipantsList->chunk(5)->values();
 $eventTitle = $documentConfig['event_title'] ?? config('app.name', 'e-MTQ');
 $organizationName = $documentConfig['organization_name'] ?? 'e-MTQ';
 $eventLocation = $documentConfig['event_location'] ?? config('juknis.host', 'Tanah Datar');
@@ -279,24 +280,25 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                 </div>
 
                 <div
-                    class="mt-6 grid gap-4 xl:grid-cols-[1.08fr_0.92fr]"
+                    class="mt-6"
                     x-data="{
                         active: 0,
-                        count: <?= e($featuredParticipantsList->count()) ?>,
+                        slides: <?= e($featuredParticipantSlides->count()) ?>,
+                        timer: null,
                         init() {
-                            if (this.count > 1) {
+                            if (this.slides > 1) {
                                 this.timer = setInterval(() => {
-                                    this.active = (this.active + 1) % this.count;
-                                }, 4800);
+                                    this.active = (this.active + 1) % this.slides;
+                                }, 5200);
                             }
                         },
                         prev() {
-                            if (! this.count) return;
-                            this.active = (this.active - 1 + this.count) % this.count;
+                            if (! this.slides) return;
+                            this.active = (this.active - 1 + this.slides) % this.slides;
                         },
                         next() {
-                            if (! this.count) return;
-                            this.active = (this.active + 1) % this.count;
+                            if (! this.slides) return;
+                            this.active = (this.active + 1) % this.slides;
                         },
                         go(index) {
                             this.active = index;
@@ -304,144 +306,152 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                     }"
                     x-init="init()"
                 >
-                    <article class="relative overflow-hidden rounded-[2rem] border border-fuchsia-400/14 bg-gradient-to-br from-fuchsia-500/10 via-slate-950/82 to-cyan-500/10 p-5 sm:p-6">
-                        <div class="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl"></div>
-                        <div class="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl"></div>
+                    <?php if ($featuredParticipantSlides->isNotEmpty()): ?>
+                        <div class="relative overflow-hidden rounded-[2.2rem] border border-fuchsia-400/14 bg-gradient-to-br from-fuchsia-500/10 via-slate-950/82 to-cyan-500/10 p-5 sm:p-6">
+                            <div class="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl"></div>
+                            <div class="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl"></div>
 
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <p class="section-kicker">Spotlight Utama</p>
-                                <h4 class="mt-2 text-2xl font-bold text-white">Peserta pilihan panggung</h4>
-                            </div>
-                            <span class="status-pill">
-                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-fuchsia-300"></span>
-                                Live Spotlight
-                            </span>
-                        </div>
+                            <?php foreach ($featuredParticipantSlides as $slideIndex => $slideParticipants): ?>
+                                <?php
+                                    $primaryParticipant = $slideParticipants->first();
+                                    $secondaryParticipants = $slideParticipants->skip(1)->values();
+                                ?>
+                                <div x-cloak x-show="active === <?= $slideIndex ?>" x-transition.opacity.duration.1000ms class="space-y-5">
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <p class="section-kicker">Spotlight Kafilah</p>
+                                            <h4 class="mt-2 text-2xl font-bold text-white">Sorotan utama per putaran</h4>
+                                        </div>
+                                        <span class="status-pill">
+                                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-fuchsia-300"></span>
+                                            Slide <?= e($slideIndex + 1) ?> / <?= e($featuredParticipantSlides->count()) ?>
+                                        </span>
+                                    </div>
 
-                        <?php if ($featuredParticipantsList->isNotEmpty()): ?>
-                            <div class="relative mt-6">
-                                <?php foreach ($featuredParticipantsList as $index => $participant): ?>
-                                    <div x-cloak x-show="active === <?= $index ?>" x-transition.opacity.duration.600ms class="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-                                        <div class="overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/70 shadow-[0_20px_60px_-32px_rgba(236,72,153,0.35)]">
-                                            <div class="relative aspect-[4/5]">
-                                                <?php if (! empty($participant['photo_url'])): ?>
-                                                    <img src="<?= e($participant['photo_url']) ?>" alt="<?= e($participant['name']) ?>" class="h-full w-full object-cover">
-                                                <?php else: ?>
-                                                    <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-slate-900 to-fuchsia-500/20">
-                                                        <div class="text-center">
-                                                            <div class="icon-chip mx-auto h-20 w-20 rounded-[1.5rem]"><?= mtq_icon('users', 'h-10 w-10') ?></div>
-                                                            <p class="mt-4 text-sm font-semibold tracking-[0.28em] text-cyan-200">PHOTO</p>
+                                    <div class="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+                                        <?php if ($primaryParticipant): ?>
+                                            <article class="group relative overflow-hidden rounded-[2.4rem] border border-white/10 bg-slate-950/72 shadow-[0_28px_90px_-42px_rgba(236,72,153,0.5)]">
+                                                <div class="grid h-full gap-0 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
+                                                    <div class="relative min-h-[360px] overflow-hidden">
+                                                        <?php if (! empty($primaryParticipant['photo_url'])): ?>
+                                                            <img src="<?= e($primaryParticipant['photo_url']) ?>" alt="<?= e($primaryParticipant['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
+                                                        <?php else: ?>
+                                                            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-slate-900 to-fuchsia-500/20">
+                                                                <div class="text-center">
+                                                                    <div class="icon-chip mx-auto h-20 w-20 rounded-[1.5rem]"><?= mtq_icon('users', 'h-10 w-10') ?></div>
+                                                                    <p class="mt-4 text-sm font-semibold tracking-[0.28em] text-cyan-200">PHOTO</p>
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-4">
+                                                            <div class="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/90 backdrop-blur-sm">
+                                                                <?= e($primaryParticipant['branch'] ?? '-') ?>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                <?php endif; ?>
-                                                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-4">
-                                                    <div class="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/90">
-                                                        <?= e($participant['branch'] ?? '-') ?>
+                                                    <div class="flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-7">
+                                                        <div class="space-y-5">
+                                                            <div class="flex flex-wrap items-center gap-2">
+                                                                <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">Sorotan Utama</span>
+                                                                <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">Peserta Verifikasi</span>
+                                                                <span class="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-200">Slide <?= e($slideIndex + 1) ?> / <?= e($featuredParticipantSlides->count()) ?></span>
+                                                            </div>
+                                                            <h5 class="max-w-xl text-[2rem] font-black leading-[1.02] tracking-tight text-white sm:text-[2.7rem]"><?= e($primaryParticipant['name']) ?></h5>
+                                                            <div class="grid gap-3 sm:grid-cols-2">
+                                                                <div class="rounded-[1.35rem] border border-white/8 bg-slate-950/60 p-4">
+                                                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Asal</p>
+                                                                    <p class="mt-2 text-lg font-bold text-white"><?= e($primaryParticipant['origin']) ?></p>
+                                                                </div>
+                                                                <div class="rounded-[1.35rem] border border-white/8 bg-slate-950/60 p-4">
+                                                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Cabang / Golongan</p>
+                                                                    <p class="mt-2 text-lg font-bold text-white"><?= e($primaryParticipant['category_label']) ?></p>
+                                                                </div>
+                                                            </div>
+                                                            <p class="max-w-xl text-sm leading-7 text-slate-300">
+                                                                Lima foto disusun seperti spread editorial: satu sorotan utama, empat pendamping visual, lalu berganti ke kelompok berikutnya tanpa terasa ramai.
+                                                            </p>
+                                                        </div>
+                                                        <div class="grid gap-2 sm:grid-cols-3">
+                                                            <div class="rounded-[1.35rem] border border-fuchsia-400/14 bg-fuchsia-400/10 px-4 py-3">
+                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-fuchsia-100/80">Status</p>
+                                                                <p class="mt-2 text-sm font-semibold text-white">Siap Tampil</p>
+                                                            </div>
+                                                            <div class="rounded-[1.35rem] border border-cyan-400/14 bg-cyan-400/10 px-4 py-3">
+                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-cyan-100/80">Visual</p>
+                                                                <p class="mt-2 text-sm font-semibold text-white">Foto & Identitas</p>
+                                                            </div>
+                                                            <div class="rounded-[1.35rem] border border-emerald-400/14 bg-emerald-400/10 px-4 py-3">
+                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-emerald-100/80">Minat</p>
+                                                                <p class="mt-2 text-sm font-semibold text-white">Ramai Penonton</p>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="flex min-w-0 flex-col justify-between gap-5">
-                                            <div class="space-y-4">
-                                                <div class="flex flex-wrap items-center gap-2">
-                                                    <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-200">Tampil</span>
-                                                    <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Peserta Verifikasi</span>
-                                                    <span class="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-200">Slide <?= e($index + 1) ?> / <?= e($featuredParticipantsList->count()) ?></span>
-                                                </div>
-                                                <h5 class="text-3xl font-black tracking-tight text-white sm:text-4xl"><?= e($participant['name']) ?></h5>
-                                                <div class="grid gap-3 sm:grid-cols-2">
-                                                    <div class="rounded-2xl border border-white/8 bg-slate-950/60 p-4">
-                                                        <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Asal</p>
-                                                        <p class="mt-2 text-lg font-bold text-white"><?= e($participant['origin']) ?></p>
-                                                    </div>
-                                                    <div class="rounded-2xl border border-white/8 bg-slate-950/60 p-4">
-                                                        <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Cabang / Golongan</p>
-                                                        <p class="mt-2 text-lg font-bold text-white"><?= e($participant['category_label']) ?></p>
-                                                    </div>
-                                                </div>
-                                                <p class="max-w-xl text-sm leading-7 text-slate-300">
-                                                    Sorotan utama untuk penonton. Kartu ini dibuat lebih besar agar wajah peserta langsung menjadi pusat perhatian saat homepage dibuka.
-                                                </p>
-                                            </div>
-                                            <div class="grid gap-2 sm:grid-cols-3">
-                                                <div class="rounded-2xl border border-fuchsia-400/14 bg-fuchsia-400/10 px-4 py-3">
-                                                    <p class="text-[11px] uppercase tracking-[0.22em] text-fuchsia-100/80">Status</p>
-                                                    <p class="mt-2 text-sm font-semibold text-white">Siap Tampil</p>
-                                                </div>
-                                                <div class="rounded-2xl border border-cyan-400/14 bg-cyan-400/10 px-4 py-3">
-                                                    <p class="text-[11px] uppercase tracking-[0.22em] text-cyan-100/80">Visual</p>
-                                                    <p class="mt-2 text-sm font-semibold text-white">Foto & Identitas</p>
-                                                </div>
-                                                <div class="rounded-2xl border border-emerald-400/14 bg-emerald-400/10 px-4 py-3">
-                                                    <p class="text-[11px] uppercase tracking-[0.22em] text-emerald-100/80">Minat</p>
-                                                    <p class="mt-2 text-sm font-semibold text-white">Ramai Penonton</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-
-                                <?php if ($featuredParticipantsList->count() > 1): ?>
-                                    <button type="button" class="absolute left-3 top-3 rounded-full border border-white/10 bg-slate-950/60 p-2.5 text-white backdrop-blur transition hover:bg-slate-950/85" x-on:click="prev()" aria-label="Peserta sebelumnya">
-                                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                                    </button>
-                                    <button type="button" class="absolute right-3 top-3 rounded-full border border-white/10 bg-slate-950/60 p-2.5 text-white backdrop-blur transition hover:bg-slate-950/85" x-on:click="next()" aria-label="Peserta berikutnya">
-                                        <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                    </button>
-                                    <div class="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-2 backdrop-blur">
-                                        <?php foreach ($featuredParticipantsList as $index => $participant): ?>
-                                            <button
-                                                type="button"
-                                                class="h-2.5 w-2.5 rounded-full transition"
-                                                x-on:click="go(<?= $index ?>)"
-                                                x-bind:class="active === <?= $index ?> ? 'bg-fuchsia-300' : 'bg-white/40 hover:bg-white/70'"
-                                                aria-label="Lihat peserta <?= e($index + 1) ?>"
-                                            ></button>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        <?php else: ?>
-                            <div class="mt-6 rounded-[1.8rem] border border-dashed border-slate-700/70 bg-slate-950/50 p-6 text-sm leading-7 text-slate-300">
-                                Belum ada peserta verifikasi yang siap ditampilkan di homepage.
-                            </div>
-                        <?php endif; ?>
-                    </article>
-
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <?php foreach ($featuredParticipantsList->skip(1)->take(6) as $participant): ?>
-                            <article class="group overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/70 p-4 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/25">
-                                <div class="overflow-hidden rounded-[1.4rem] border border-white/8 bg-slate-900/80">
-                                    <div class="relative aspect-[4/5]">
-                                        <?php if (! empty($participant['photo_url'])): ?>
-                                            <img src="<?= e($participant['photo_url']) ?>" alt="<?= e($participant['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
-                                        <?php else: ?>
-                                            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-slate-900 to-fuchsia-500/20">
-                                                <div class="text-center">
-                                                    <div class="icon-chip mx-auto h-16 w-16 rounded-[1.35rem]"><?= mtq_icon('users', 'h-8 w-8') ?></div>
-                                                    <p class="mt-3 text-[11px] font-semibold tracking-[0.26em] text-cyan-200">PHOTO</p>
-                                                </div>
-                                            </div>
+                                            </article>
                                         <?php endif; ?>
+
+                                        <div class="grid gap-4 sm:grid-cols-2">
+                                            <?php foreach ($secondaryParticipants as $participant): ?>
+                                                <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/68 shadow-[0_14px_40px_-30px_rgba(15,23,42,0.32)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/25">
+                                                    <div class="relative aspect-[4/5]">
+                                                        <?php if (! empty($participant['photo_url'])): ?>
+                                                            <img src="<?= e($participant['photo_url']) ?>" alt="<?= e($participant['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
+                                                        <?php else: ?>
+                                                            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-slate-900 to-fuchsia-500/20">
+                                                                <div class="text-center">
+                                                                    <div class="icon-chip mx-auto h-16 w-16 rounded-[1.35rem]"><?= mtq_icon('users', 'h-8 w-8') ?></div>
+                                                                    <p class="mt-3 text-[11px] font-semibold tracking-[0.26em] text-cyan-200">PHOTO</p>
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-3">
+                                                            <div class="inline-flex rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
+                                                                <?= e($participant['branch'] ?? '-') ?>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="space-y-2 p-3.5">
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">Kafilah</span>
+                                                            <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Verifikasi</span>
+                                                        </div>
+                                                        <h5 class="text-[14px] font-bold leading-tight text-white"><?= e($participant['name']) ?></h5>
+                                                        <p class="text-xs leading-5 text-slate-300"><?= e($participant['origin']) ?></p>
+                                                        <p class="text-xs leading-5 text-slate-400"><?= e($participant['category_label']) ?></p>
+                                                    </div>
+                                                </article>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="mt-4 space-y-2">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span class="rounded-full border border-slate-700/80 bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                                            <?= e($participant['branch'] ?? '-') ?>
-                                        </span>
-                                        <span class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-200">
-                                            <?= e($participant['origin']) ?>
-                                        </span>
-                                    </div>
-                                    <h5 class="text-lg font-bold text-white"><?= e($participant['name']) ?></h5>
-                                    <p class="text-sm leading-6 text-slate-300"><?= e($participant['category_label']) ?></p>
+                            <?php endforeach; ?>
+
+                            <?php if ($featuredParticipantSlides->count() > 1): ?>
+                                <button type="button" class="absolute left-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/60 p-2.5 text-white backdrop-blur transition hover:bg-slate-950/85" x-on:click="prev()" aria-label="Putaran sebelumnya">
+                                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                                </button>
+                                <button type="button" class="absolute right-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/60 p-2.5 text-white backdrop-blur transition hover:bg-slate-950/85" x-on:click="next()" aria-label="Putaran berikutnya">
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </button>
+
+                                <div class="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-2 backdrop-blur">
+                                    <?php foreach ($featuredParticipantSlides as $slideIndex => $slideParticipants): ?>
+                                        <button
+                                            type="button"
+                                            class="h-2.5 w-2.5 rounded-full transition"
+                                            x-on:click="go(<?= $slideIndex ?>)"
+                                            x-bind:class="active === <?= $slideIndex ?> ? 'bg-fuchsia-300' : 'bg-white/40 hover:bg-white/70'"
+                                            aria-label="Lihat putaran <?= e($slideIndex + 1) ?>"
+                                        ></button>
+                                    <?php endforeach; ?>
                                 </div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="mt-6 rounded-[1.8rem] border border-dashed border-slate-700/70 bg-slate-950/50 p-6 text-sm leading-7 text-slate-300">
+                            Belum ada peserta verifikasi yang siap ditampilkan di homepage.
+                        </div>
+                    <?php endif; ?>
                 </div>
             </section>
 

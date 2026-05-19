@@ -140,7 +140,6 @@ class PageController extends Controller
             ->orderBy('competition_category_id')
             ->orderBy('district_id')
             ->orderBy('name')
-            ->limit(8)
             ->get()
             ->map(function (Participant $participant): array {
                 $categoryLabel = trim((string) ($participant->category?->branch ? $participant->category->branch.' - ' : '').(string) ($participant->category?->name ?? '-'));
