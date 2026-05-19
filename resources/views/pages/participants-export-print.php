@@ -14,14 +14,6 @@ $statusLabel = match ($filters['verification_status'] ?? '') {
 };
 $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026');
 
-$statusClass = static function (string $status): string {
-    return match ($status) {
-        'Terverifikasi' => 'status-verified',
-        'Menunggu' => 'status-pending',
-        'Ditolak' => 'status-rejected',
-        default => 'status-draft',
-    };
-};
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -189,9 +181,28 @@ $statusClass = static function (string $status): string {
             font-weight: 700;
         }
 
-        .status {
-            width: 110px;
+        .status-group {
+            width: 92px;
             text-align: center;
+        }
+
+        .status-sub {
+            width: 46px;
+            text-align: center;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            line-height: 1.15;
+        }
+
+        .status-sub small {
+            display: block;
+            margin-top: 4px;
+            font-size: 8px;
+            line-height: 1.25;
+            letter-spacing: 0.02em;
+            text-transform: none;
+            color: rgba(255, 255, 255, 0.78);
+            font-weight: 600;
         }
 
         .notes {
@@ -287,27 +298,38 @@ $statusClass = static function (string $status): string {
 
         <div class="table-wrap">
             <table>
-                <thead>
-                    <tr>
-                        <th class="no">No</th>
-                        <th class="reg">No Registrasi</th>
-                        <th class="name">Nama</th>
-                        <th class="district">Kecamatan</th>
-                        <th class="branch">Cabang</th>
-                        <th class="category">Golongan</th>
-                        <th class="age">Umur per 1 Juli</th>
-                        <th class="status">Status Verifikasi</th>
-                        <th class="notes">Keterangan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($rows)): ?>
-                        <tr>
-                            <td colspan="9" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($rows as $index => $row): ?>
-                            <?php $status = (string) ($row['verification_status'] ?? '-'); ?>
+        <thead>
+            <tr>
+                <th class="no" rowspan="2">No</th>
+                <th class="reg" rowspan="2">No Registrasi</th>
+                <th class="name" rowspan="2">Nama</th>
+                <th class="district" rowspan="2">Kecamatan</th>
+                <th class="branch" rowspan="2">Cabang</th>
+                <th class="category" rowspan="2">Golongan</th>
+                <th class="age" rowspan="2">Umur per 1 Juli</th>
+                <th class="status-group" colspan="2">Verifikasi</th>
+                <th class="notes" rowspan="2">Keterangan</th>
+            </tr>
+            <tr>
+                <th class="status-sub">MS<small>Memenuhi Syarat</small></th>
+                <th class="status-sub">TMS<small>Tidak Memenuhi Syarat</small></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($rows)): ?>
+                <tr>
+                    <td colspan="10" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($rows as $index => $row): ?>
+                            <?php
+                                $status = (string) ($row['verification_status'] ?? '-');
+                                $isVerified = $status === 'Terverifikasi';
+                                $isRejected = $status === 'Ditolak';
+                                $mark = '✓';
+                                $msClass = $isVerified ? 'status-verified' : 'status-draft';
+                                $tmsClass = $isRejected ? 'status-rejected' : 'status-draft';
+                            ?>
                             <tr>
                                 <td class="no"><?= e($index + 1) ?></td>
                                 <td class="reg"><?= e($row['registration_number'] ?? '-') ?></td>
@@ -316,13 +338,16 @@ $statusClass = static function (string $status): string {
                                 <td class="branch"><?= e($row['branch'] ?? '-') ?></td>
                                 <td class="category"><?= e($row['category'] ?? '-') ?></td>
                                 <td class="age"><?= e($row['age_per_reference'] ?? '-') ?></td>
-                                <td class="status">
-                                    <span class="status-pill <?= e($statusClass($status)) ?>"><?= e($status) ?></span>
+                                <td class="status-group">
+                                    <span class="status-pill <?= e($msClass) ?>"><?= $isVerified ? e($mark) : '&nbsp;' ?></span>
+                                </td>
+                                <td class="status-group">
+                                    <span class="status-pill <?= e($tmsClass) ?>"><?= $isRejected ? e($mark) : '&nbsp;' ?></span>
                                 </td>
                                 <td class="notes"><?= e($row['verification_notes'] ?? '-') ?></td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
                 </tbody>
             </table>
         </div>

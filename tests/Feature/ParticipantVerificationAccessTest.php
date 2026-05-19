@@ -140,6 +140,10 @@ class ParticipantVerificationAccessTest extends TestCase
     public function test_export_pdf_uses_simplified_columns(): void
     {
         [$participant, $panitia] = $this->createParticipantAndPanitia();
+        $participant->update([
+            'verification_status' => 'verified',
+            'verification_notes' => 'Terverifikasi untuk kebutuhan uji.',
+        ]);
 
         OfficialAccessSetting::query()->create([
             'participant_registration_open' => true,
@@ -153,8 +157,13 @@ class ParticipantVerificationAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Rekap Data Peserta');
-        $response->assertSee('No Registrasi');
+        $response->assertSee('Verifikasi');
+        $response->assertSee('MS');
+        $response->assertSee('TMS');
+        $response->assertSee('Memenuhi Syarat');
+        $response->assertSee('Tidak Memenuhi Syarat');
         $response->assertSee('Umur per 1 Juli');
+        $response->assertSee('✓');
         $response->assertSee($participant->name);
         $response->assertSee($participant->district->name);
         $response->assertDontSee('No. HP');
