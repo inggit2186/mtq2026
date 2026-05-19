@@ -182,8 +182,8 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('chart') ?></div><p class="mt-4 text-sm text-slate-400">Rata-rata Nilai</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['average_score']) ?></p></div>
                 </section>
 
-                <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                    <div class="relative overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 shadow-[0_26px_80px_-34px_rgba(251,191,36,0.45)]">
+                <section class="grid gap-6 xl:h-[38rem] xl:grid-cols-[1.05fr_0.95fr]">
+                    <div class="relative h-full overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 shadow-[0_26px_80px_-34px_rgba(251,191,36,0.45)]">
                         <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/80 to-transparent"></div>
                         <div class="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-400/10 blur-3xl"></div>
                         <div class="absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl"></div>
@@ -241,7 +241,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         </div>
                     </div>
 
-                    <div class="glass-card rounded-[2rem] p-6">
+                    <div class="glass-card flex h-full min-h-0 flex-col overflow-hidden rounded-[2rem] p-6">
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="section-kicker">Proses Verifikasi per Kecamatan</p>
@@ -249,7 +249,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             </div>
                             <div class="status-pill" x-text="`${verificationDistrictCounts.length} kecamatan`"><?= e(count($verificationDistrictCounts ?? [])) ?> kecamatan</div>
                         </div>
-                        <div class="mt-4 max-h-[22rem] space-y-3 overflow-auto pr-1">
+                        <div class="mt-4 flex-1 min-h-0 space-y-3 overflow-auto pr-1">
                             <template x-for="district in verificationDistrictCounts" :key="district.district_id">
                                 <div class="data-card flex items-center justify-between gap-4">
                                     <div class="min-w-0">
