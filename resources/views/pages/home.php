@@ -319,8 +319,8 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                 <div x-cloak x-show="active === <?= $slideIndex ?>" x-transition.opacity.duration.1000ms class="space-y-5">
                                     <div class="flex flex-wrap items-center justify-between gap-3">
                                         <div>
-                                            <p class="section-kicker">Spotlight Kafilah</p>
-                                            <h4 class="mt-2 text-2xl font-bold text-white">Sorotan utama per putaran</h4>
+                                            <p class="section-kicker">Kafilah Terverifikasi</p>
+                                            <h4 class="mt-2 text-2xl font-bold text-white">Sorotan per putaran</h4>
                                         </div>
                                         <span class="status-pill">
                                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-fuchsia-300"></span>
@@ -328,11 +328,11 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                         </span>
                                     </div>
 
-                                    <div class="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+                                    <div class="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
                                         <?php if ($primaryParticipant): ?>
-                                            <article class="group relative overflow-hidden rounded-[2.4rem] border border-white/10 bg-slate-950/72 shadow-[0_28px_90px_-42px_rgba(236,72,153,0.5)]">
-                                                <div class="grid h-full gap-0 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
-                                                    <div class="relative min-h-[360px] overflow-hidden">
+                                            <article class="group relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/72 shadow-[0_28px_90px_-42px_rgba(236,72,153,0.5)]">
+                                                <div class="grid h-full gap-0 lg:grid-cols-[minmax(250px,340px)_minmax(0,1fr)]">
+                                                    <div class="relative min-h-[340px] overflow-hidden">
                                                         <?php if (! empty($primaryParticipant['photo_url'])): ?>
                                                             <img src="<?= e($primaryParticipant['photo_url']) ?>" alt="<?= e($primaryParticipant['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
                                                         <?php else: ?>
@@ -349,14 +349,14 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div class="flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-7">
-                                                        <div class="space-y-5">
+                                                    <div class="flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-6">
+                                                        <div class="space-y-4">
                                                             <div class="flex flex-wrap items-center gap-2">
-                                                                <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">Sorotan Utama</span>
-                                                                <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">Peserta Verifikasi</span>
+                                                                <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">Utama</span>
+                                                                <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">Terverifikasi</span>
                                                                 <span class="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-200">Slide <?= e($slideIndex + 1) ?> / <?= e($featuredParticipantSlides->count()) ?></span>
                                                             </div>
-                                                            <h5 class="max-w-xl text-[2rem] font-black leading-[1.02] tracking-tight text-white sm:text-[2.7rem]"><?= e($primaryParticipant['name']) ?></h5>
+                                                            <h5 class="max-w-xl text-[1.85rem] font-black leading-[1.05] tracking-tight text-white sm:text-[2.45rem]"><?= e($primaryParticipant['name']) ?></h5>
                                                             <div class="grid gap-3 sm:grid-cols-2">
                                                                 <div class="rounded-[1.35rem] border border-white/8 bg-slate-950/60 p-4">
                                                                     <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Asal</p>
@@ -367,22 +367,19 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                                                     <p class="mt-2 text-lg font-bold text-white"><?= e($primaryParticipant['category_label']) ?></p>
                                                                 </div>
                                                             </div>
-                                                            <p class="max-w-xl text-sm leading-7 text-slate-300">
-                                                                Lima foto disusun seperti spread editorial: satu sorotan utama, empat pendamping visual, lalu berganti ke kelompok berikutnya tanpa terasa ramai.
-                                                            </p>
                                                         </div>
                                                         <div class="grid gap-2 sm:grid-cols-3">
                                                             <div class="rounded-[1.35rem] border border-fuchsia-400/14 bg-fuchsia-400/10 px-4 py-3">
                                                                 <p class="text-[11px] uppercase tracking-[0.22em] text-fuchsia-100/80">Status</p>
-                                                                <p class="mt-2 text-sm font-semibold text-white">Siap Tampil</p>
+                                                                <p class="mt-2 text-sm font-semibold text-white">Tampil</p>
                                                             </div>
                                                             <div class="rounded-[1.35rem] border border-cyan-400/14 bg-cyan-400/10 px-4 py-3">
-                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-cyan-100/80">Visual</p>
-                                                                <p class="mt-2 text-sm font-semibold text-white">Foto & Identitas</p>
+                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-cyan-100/80">Data</p>
+                                                                <p class="mt-2 text-sm font-semibold text-white">Foto & Asal</p>
                                                             </div>
                                                             <div class="rounded-[1.35rem] border border-emerald-400/14 bg-emerald-400/10 px-4 py-3">
-                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-emerald-100/80">Minat</p>
-                                                                <p class="mt-2 text-sm font-semibold text-white">Ramai Penonton</p>
+                                                                <p class="text-[11px] uppercase tracking-[0.22em] text-emerald-100/80">Cabang</p>
+                                                                <p class="mt-2 text-sm font-semibold text-white"><?= e($primaryParticipant['category_label']) ?></p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -412,8 +409,8 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                                     </div>
                                                     <div class="space-y-2 p-3.5">
                                                         <div class="flex flex-wrap items-center gap-2">
-                                                            <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">Kafilah</span>
-                                                            <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Verifikasi</span>
+                                                            <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">Peserta</span>
+                                                            <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Terverifikasi</span>
                                                         </div>
                                                         <h5 class="text-[14px] font-bold leading-tight text-white"><?= e($participant['name']) ?></h5>
                                                         <p class="text-xs leading-5 text-slate-300"><?= e($participant['origin']) ?></p>
@@ -458,18 +455,18 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
             <section class="mt-6 grid gap-4 md:grid-cols-3">
                 <div class="glass-card rounded-[2rem] p-6">
                     <div class="icon-chip"><?= mtq_icon('eye') ?></div>
-                    <h3 class="mt-4 text-xl font-bold text-white">Lebih mudah dipahami pengunjung</h3>
-                    <p class="mt-3 text-sm leading-7 text-slate-300">Susunan informasi dibuat lebih editorial dan ringkas agar terasa seperti laman resmi event yang siap menyambut pengunjung.</p>
+                    <h3 class="mt-4 text-xl font-bold text-white">Informasi ringkas</h3>
+                    <p class="mt-3 text-sm leading-7 text-slate-300">Pengunjung bisa melihat bagian penting tanpa perlu membuka banyak halaman.</p>
                 </div>
                 <div class="glass-card rounded-[2rem] p-6">
                     <div class="icon-chip"><?= mtq_icon('zap') ?></div>
-                    <h3 class="mt-4 text-xl font-bold text-white">Sorotan cepat dan jelas</h3>
-                    <p class="mt-3 text-sm leading-7 text-slate-300">Pengunjung langsung menangkap jadwal utama, pengumuman terbaru, dan gambaran cabang lomba tanpa perlu berpindah halaman.</p>
+                    <h3 class="mt-4 text-xl font-bold text-white">Jadwal dan pengumuman</h3>
+                    <p class="mt-3 text-sm leading-7 text-slate-300">Jadwal utama, pengumuman terbaru, dan dokumentasi tampil di satu tempat.</p>
                 </div>
                 <div class="glass-card rounded-[2rem] p-6">
                     <div class="icon-chip"><?= mtq_icon('shield') ?></div>
-                    <h3 class="mt-4 text-xl font-bold text-white">Tetap aman untuk sistem</h3>
-                    <p class="mt-3 text-sm leading-7 text-slate-300">Akses operasional tetap dibatasi melalui portal resmi, sementara homepage publik fokus pada informasi dan dokumentasi kegiatan.</p>
+                    <h3 class="mt-4 text-xl font-bold text-white">Akses operasional</h3>
+                    <p class="mt-3 text-sm leading-7 text-slate-300">Laman publik tetap terpisah dari alur kerja panitia.</p>
                 </div>
             </section>
 
