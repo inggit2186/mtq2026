@@ -65,4 +65,18 @@ class DashboardAnnouncementTargetingTest extends TestCase
             ->assertOk()
             ->assertDontSee('Notifikasi Dashboard Internal');
     }
+
+    public function test_dashboard_shows_verification_focus_copy(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Countdown Verifikasi')
+            ->assertSee('Proses Verifikasi per Kecamatan')
+            ->assertSee('Peserta / Telah Verifikasi');
+    }
 }

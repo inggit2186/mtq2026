@@ -16,8 +16,8 @@ $realtimeState = [
     'participantProfileId' => $participantDashboard['profile']?->id,
     'participantLatestScore' => $participantDashboard['latest_score'] ?? '0.00',
     'participantAverageScore' => $participantDashboard['average_score'] ?? '0.00',
-    'registrationSummary' => $registrationSummary ?? ['title' => 'Masa pendaftaran MTQ', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'open_at_label' => null, 'close_at_label' => null, 'is_open' => false, 'total_registered' => 0, 'tone' => 'warning'],
-    'registrationDistrictCounts' => $registrationDistrictCounts ?? [],
+    'verificationSummary' => $verificationSummary ?? ['title' => 'Masa verifikasi peserta', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'open_at_label' => null, 'close_at_label' => null, 'is_open' => false, 'total_registered' => 0, 'total_verified' => 0, 'tone' => 'warning'],
+    'verificationDistrictCounts' => $verificationDistrictCounts ?? [],
     'summaryEndpoint' => route('dashboard.realtime-summary'),
     'forcePasswordChange' => (bool) ($mustChangePassword ?? false),
 ];
@@ -191,20 +191,20 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         <div class="relative flex flex-wrap items-start justify-between gap-4">
                             <div>
                                 <div class="icon-chip ring-1 ring-amber-300/30"><?= mtq_icon('calendar') ?></div>
-                                <p class="mt-5 section-kicker text-amber-100/80">Notifikasi Pendaftaran</p>
-                                <h2 class="mt-2 text-2xl font-bold text-white" x-text="registrationNoticeTitle"><?= e($registrationSummary['title'] ?? 'Masa pendaftaran MTQ') ?></h2>
-                                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300" x-text="registrationNoticeBody"><?= e($registrationSummary['message'] ?? '-') ?></p>
+                                <p class="mt-5 section-kicker text-amber-100/80">Notifikasi Verifikasi</p>
+                                <h2 class="mt-2 text-2xl font-bold text-white" x-text="verificationNoticeTitle"><?= e($verificationSummary['title'] ?? 'Masa verifikasi peserta') ?></h2>
+                                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300" x-text="verificationNoticeBody"><?= e($verificationSummary['message'] ?? '-') ?></p>
                             </div>
-                            <div class="status-pill border-amber-300/30 bg-amber-400/10 text-amber-100" x-text="registrationStatusLabel"><?= e($registrationSummary['label'] ?? '-') ?></div>
+                            <div class="status-pill border-amber-300/30 bg-amber-400/10 text-amber-100" x-text="verificationStatusLabel"><?= e($verificationSummary['label'] ?? '-') ?></div>
                         </div>
 
                         <div class="relative mt-6 space-y-4">
                             <div class="rounded-[1.5rem] border border-amber-300/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-50">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100/80">Deadline Pendaftaran</p>
-                                        <p class="mt-1 font-semibold text-white" x-text="registrationDeadlineLabel">
-                                            <?= e(($registrationSummary['close_at_label'] ?? null) ? ('Tutup otomatis pada '.($registrationSummary['close_at_label'])) : 'Jadwal tutup belum tersedia') ?>
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100/80">Deadline Verifikasi</p>
+                                        <p class="mt-1 font-semibold text-white" x-text="verificationDeadlineLabel">
+                                            <?= e(($verificationSummary['close_at_label'] ?? null) ? ('Tutup otomatis pada '.($verificationSummary['close_at_label'])) : 'Jadwal tutup belum tersedia') ?>
                                         </p>
                                     </div>
                                     <div class="rounded-full border border-amber-200/20 bg-slate-950/40 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
@@ -212,28 +212,29 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                                     </div>
                                 </div>
                             </div>
-                            <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-4 py-4 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="registrationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
+                            <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-4 py-4 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="verificationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
                                 <div class="flex items-center gap-3">
                                     <div class="icon-chip border border-amber-300/25 bg-amber-300/10 text-amber-100"><?= mtq_icon('clock') ?></div>
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-[11px] uppercase tracking-[0.24em] text-amber-100/70">Countdown</p>
+                                        <p class="text-[11px] uppercase tracking-[0.24em] text-amber-100/70">Countdown Verifikasi</p>
                                         <div class="mt-3 flex w-full flex-nowrap gap-2 overflow-hidden">
-                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-3 py-3 text-center text-lg font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${registrationCountdownParts.days} hari`">0 hari</span>
-                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.hours} jam`">0 jam</span>
-                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${registrationCountdownParts.minutes} menit`">0 menit</span>
+                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-3 py-3 text-center text-lg font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${verificationCountdownParts.days} hari`">0 hari</span>
+                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${verificationCountdownParts.hours} jam`">0 jam</span>
+                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${verificationCountdownParts.minutes} menit`">0 menit</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="data-card border border-cyan-300/15 bg-gradient-to-br from-cyan-400/10 via-sky-400/10 to-slate-900 px-4 py-3">
-                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Sudah Mendaftar</p>
-                                    <p class="mt-1 text-2xl font-black text-white sm:text-3xl" x-text="registrationTotalRegistered"><?= e($registrationSummary['total_registered'] ?? 0) ?></p>
+                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Peserta Proses</p>
+                                    <p class="mt-1 text-2xl font-black text-white sm:text-3xl" x-text="verificationTotalRegistered"><?= e($verificationSummary['total_registered'] ?? 0) ?></p>
                                 </div>
                                 <div class="data-card border border-emerald-300/15 bg-gradient-to-br from-emerald-400/10 via-cyan-400/10 to-slate-900 px-4 py-3">
-                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Status</p>
-                                    <p class="mt-1 text-lg font-black" x-bind:class="registrationIsOpen ? 'text-emerald-300' : 'text-amber-200'" x-text="registrationIsOpen ? 'Sedang Dibuka' : 'Sudah Ditutup'">
-                                        <?= e(($registrationSummary['is_open'] ?? false) ? 'Sedang Dibuka' : 'Sudah Ditutup') ?>
+                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Terverifikasi</p>
+                                    <p class="mt-1 text-2xl font-black text-white sm:text-3xl" x-text="verificationTotalVerified"><?= e($verificationSummary['total_verified'] ?? 0) ?></p>
+                                    <p class="mt-1 text-xs uppercase tracking-[0.18em]" x-bind:class="verificationIsOpen ? 'text-emerald-300' : 'text-amber-200'" x-text="verificationIsOpen ? 'Sedang Berjalan' : 'Sudah Ditutup'">
+                                        <?= e(($verificationSummary['is_open'] ?? false) ? 'Sedang Berjalan' : 'Sudah Ditutup') ?>
                                     </p>
                                 </div>
                             </div>
@@ -243,25 +244,25 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     <div class="glass-card rounded-[2rem] p-6">
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="section-kicker">Peserta per Kecamatan</p>
-                                <p class="mt-1 text-sm text-slate-300">Jumlah peserta yang sudah mendaftar di masing-masing kecamatan.</p>
+                                <p class="section-kicker">Proses Verifikasi per Kecamatan</p>
+                                <p class="mt-1 text-sm text-slate-300">Jumlah proses verifikasi per kecamatan, ditampilkan sebagai total peserta dan yang sudah diverifikasi.</p>
                             </div>
-                            <div class="status-pill" x-text="`${registrationDistrictCounts.length} kecamatan`"><?= e(count($registrationDistrictCounts ?? [])) ?> kecamatan</div>
+                            <div class="status-pill" x-text="`${verificationDistrictCounts.length} kecamatan`"><?= e(count($verificationDistrictCounts ?? [])) ?> kecamatan</div>
                         </div>
                         <div class="mt-4 max-h-[22rem] space-y-3 overflow-auto pr-1">
-                            <template x-for="district in registrationDistrictCounts" :key="district.district_id">
+                            <template x-for="district in verificationDistrictCounts" :key="district.district_id">
                                 <div class="data-card flex items-center justify-between gap-4">
                                     <div class="min-w-0">
-                                        <p class="font-semibold text-white" x-text="district.district_name"><?= e($registrationDistrictCounts[0]['district_name'] ?? '') ?></p>
-                                        <p class="mt-1 text-xs text-slate-400">Peserta yang sudah mendaftar</p>
+                                        <p class="font-semibold text-white" x-text="district.district_name"><?= e($verificationDistrictCounts[0]['district_name'] ?? '') ?></p>
+                                        <p class="mt-1 text-xs text-slate-400">Peserta / Telah Verifikasi</p>
                                     </div>
                                     <div class="text-right">
-                                        <p class="text-2xl font-black text-cyan-200 tabular-nums" x-text="district.total"><?= e($registrationDistrictCounts[0]['total'] ?? 0) ?></p>
+                                        <p class="text-2xl font-black text-cyan-200 tabular-nums" x-text="`${district.total} / ${district.verified}`"><?= e(($verificationDistrictCounts[0]['total'] ?? 0).' / '.($verificationDistrictCounts[0]['verified'] ?? 0)) ?></p>
                                     </div>
                                 </div>
                             </template>
-                            <div class="data-card text-sm text-slate-300" x-show="registrationDistrictCounts.length === 0">
-                                Belum ada peserta yang sudah mendaftar.
+                            <div class="data-card text-sm text-slate-300" x-show="verificationDistrictCounts.length === 0">
+                                Belum ada proses verifikasi yang tercatat.
                             </div>
                         </div>
                     </div>
@@ -777,26 +778,27 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 participantProfileId: initialState.participantProfileId ?? null,
                 participantLatestScore: initialState.participantLatestScore ?? '0.00',
                 participantAverageScore: initialState.participantAverageScore ?? '0.00',
-                registrationSummary: initialState.registrationSummary ?? {},
-                registrationDistrictCounts: Array.isArray(initialState.registrationDistrictCounts) ? initialState.registrationDistrictCounts : [],
-                registrationNoticeTitle: initialState.registrationSummary?.title ?? 'Masa pendaftaran MTQ',
-                registrationNoticeBody: initialState.registrationSummary?.message ?? '-',
-                registrationStatusLabel: initialState.registrationSummary?.label ?? '-',
-                registrationDeadlineLabel: initialState.registrationSummary?.close_at_label
-                    ? `Tutup otomatis pada ${initialState.registrationSummary.close_at_label}`
+                verificationSummary: initialState.verificationSummary ?? {},
+                verificationDistrictCounts: Array.isArray(initialState.verificationDistrictCounts) ? initialState.verificationDistrictCounts : [],
+                verificationNoticeTitle: initialState.verificationSummary?.title ?? 'Masa verifikasi peserta',
+                verificationNoticeBody: initialState.verificationSummary?.message ?? '-',
+                verificationStatusLabel: initialState.verificationSummary?.label ?? '-',
+                verificationDeadlineLabel: initialState.verificationSummary?.close_at_label
+                    ? `Tutup otomatis pada ${initialState.verificationSummary.close_at_label}`
                     : 'Jadwal tutup belum tersedia',
-                registrationCountdownText: '-',
-                registrationCountdownParts: { days: 0, hours: 0, minutes: 0 },
-                registrationCountdownFlash: false,
-                registrationCountdownFlashTimer: null,
-                registrationTotalRegistered: Number(initialState.registrationSummary?.total_registered ?? 0),
-                registrationIsOpen: Boolean(initialState.registrationSummary?.is_open ?? false),
-                registrationTicker: null,
+                verificationCountdownText: '-',
+                verificationCountdownParts: { days: 0, hours: 0, minutes: 0 },
+                verificationCountdownFlash: false,
+                verificationCountdownFlashTimer: null,
+                verificationTotalRegistered: Number(initialState.verificationSummary?.total_registered ?? 0),
+                verificationTotalVerified: Number(initialState.verificationSummary?.total_verified ?? 0),
+                verificationIsOpen: Boolean(initialState.verificationSummary?.is_open ?? false),
+                verificationTicker: null,
                 summaryTicker: null,
                 forcePasswordChange: Boolean(initialState.forcePasswordChange ?? false),
                 showPasswordModal: false,
                 init() {
-                    this.syncRegistrationNotice();
+                    this.syncVerificationNotice();
                     window.addEventListener('mtq-score-updated', (event) => {
                         this.applyScoreUpdate(event.detail ?? {});
                     });
@@ -804,8 +806,8 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         this.refreshSummary();
                     });
 
-                    this.registrationTicker = window.setInterval(() => {
-                        this.syncRegistrationNotice();
+                    this.verificationTicker = window.setInterval(() => {
+                        this.syncVerificationNotice();
                     }, 1000);
 
                     this.summaryTicker = window.setInterval(() => {
@@ -813,8 +815,8 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     }, 60000);
 
                     window.addEventListener('beforeunload', () => {
-                        if (this.registrationTicker) {
-                            window.clearInterval(this.registrationTicker);
+                        if (this.verificationTicker) {
+                            window.clearInterval(this.verificationTicker);
                         }
 
                         if (this.summaryTicker) {
@@ -859,85 +861,87 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             this.participantAverageScore = summary.participant_summary.average_score ?? this.participantAverageScore;
                         }
 
-                        if (summary.registration_summary) {
-                            this.registrationSummary = summary.registration_summary;
-                            this.registrationTotalRegistered = Number(summary.registration_summary.total_registered ?? this.registrationTotalRegistered);
-                            this.registrationNoticeTitle = summary.registration_summary.title ?? this.registrationNoticeTitle;
-                            this.registrationNoticeBody = summary.registration_summary.message ?? this.registrationNoticeBody;
-                            this.registrationStatusLabel = summary.registration_summary.label ?? this.registrationStatusLabel;
-                            this.registrationDeadlineLabel = summary.registration_summary.close_at_label
-                                ? `Tutup otomatis pada ${summary.registration_summary.close_at_label}`
-                                : this.registrationDeadlineLabel;
-                            this.registrationIsOpen = Boolean(summary.registration_summary.is_open ?? this.registrationIsOpen);
+                        if (summary.verification_summary || summary.registration_summary) {
+                            const verificationSummary = summary.verification_summary ?? summary.registration_summary;
+                            this.verificationSummary = verificationSummary;
+                            this.verificationTotalRegistered = Number(verificationSummary.total_registered ?? this.verificationTotalRegistered);
+                            this.verificationTotalVerified = Number(verificationSummary.total_verified ?? this.verificationTotalVerified);
+                            this.verificationNoticeTitle = verificationSummary.title ?? this.verificationNoticeTitle;
+                            this.verificationNoticeBody = verificationSummary.message ?? this.verificationNoticeBody;
+                            this.verificationStatusLabel = verificationSummary.label ?? this.verificationStatusLabel;
+                            this.verificationDeadlineLabel = verificationSummary.close_at_label
+                                ? `Tutup otomatis pada ${verificationSummary.close_at_label}`
+                                : this.verificationDeadlineLabel;
+                            this.verificationIsOpen = Boolean(verificationSummary.is_open ?? this.verificationIsOpen);
                         }
 
-                        if (Array.isArray(summary.registration_district_counts)) {
-                            this.registrationDistrictCounts = summary.registration_district_counts;
+                        if (Array.isArray(summary.verification_district_counts) || Array.isArray(summary.registration_district_counts)) {
+                            this.verificationDistrictCounts = summary.verification_district_counts ?? summary.registration_district_counts;
                         }
 
-                        this.syncRegistrationNotice();
+                        this.syncVerificationNotice();
                     } catch (error) {
                         console.warn('Realtime summary refresh failed.', error);
                     }
                 },
-                syncRegistrationNotice() {
-                    const openAt = parseDate(this.registrationSummary?.open_at ?? null);
-                    const closeAt = parseDate(this.registrationSummary?.close_at ?? null);
+                syncVerificationNotice() {
+                    const openAt = parseDate(this.verificationSummary?.open_at ?? null);
+                    const closeAt = parseDate(this.verificationSummary?.close_at ?? null);
                     const now = new Date();
 
                     if (openAt && now < openAt) {
                         const diff = openAt.getTime() - now.getTime();
-                        this.registrationIsOpen = false;
-                        this.registrationNoticeTitle = 'Pendaftaran segera dibuka';
-                        this.registrationStatusLabel = 'Menunggu dibuka';
-                        this.registrationNoticeBody = `Pendaftaran dibuka pada ${openAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.verificationIsOpen = false;
+                        this.verificationNoticeTitle = 'Verifikasi segera dibuka';
+                        this.verificationStatusLabel = 'Menunggu dibuka';
+                        this.verificationNoticeBody = `Verifikasi dibuka pada ${openAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
                         this.updateCountdownState('Mulai dalam', diff);
                         return;
                     }
 
                     if (openAt && closeAt && now >= openAt && now <= closeAt) {
                         const diff = closeAt.getTime() - now.getTime();
-                        this.registrationIsOpen = true;
-                        this.registrationNoticeTitle = 'Pendaftaran masih berlangsung';
-                        this.registrationStatusLabel = 'Sedang dibuka';
-                        this.registrationNoticeBody = `Pendaftaran ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.verificationIsOpen = true;
+                        this.verificationNoticeTitle = 'Verifikasi masih berlangsung';
+                        this.verificationStatusLabel = 'Sedang berlangsung';
+                        this.verificationNoticeBody = `Verifikasi ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
                         this.updateCountdownState('Sisa', diff);
                         return;
                     }
 
                     if (closeAt && now > closeAt) {
-                        this.registrationIsOpen = false;
-                        this.registrationNoticeTitle = 'Masa pendaftaran selesai';
-                        this.registrationStatusLabel = 'Sudah ditutup';
-                        this.registrationNoticeBody = `Pendaftaran ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
-                        this.registrationCountdownText = 'Waktu pendaftaran telah habis';
-                        this.registrationCountdownParts = { days: 0, hours: 0, minutes: 0 };
-                        this.registrationCountdownFlash = false;
+                        this.verificationIsOpen = false;
+                        this.verificationNoticeTitle = 'Masa verifikasi selesai';
+                        this.verificationStatusLabel = 'Sudah ditutup';
+                        this.verificationNoticeBody = `Verifikasi ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.verificationCountdownText = 'Waktu verifikasi telah habis';
+                        this.verificationCountdownParts = { days: 0, hours: 0, minutes: 0 };
+                        this.verificationCountdownFlash = false;
                         return;
                     }
 
-                    this.registrationIsOpen = Boolean(this.registrationSummary?.is_open ?? false);
-                    this.registrationNoticeTitle = this.registrationSummary?.title ?? 'Masa pendaftaran MTQ';
-                    this.registrationStatusLabel = this.registrationSummary?.label ?? '-';
-                    this.registrationNoticeBody = this.registrationSummary?.message ?? '-';
-                    this.registrationDeadlineLabel = this.registrationSummary?.close_at_label
-                        ? `Tutup otomatis pada ${this.registrationSummary.close_at_label}`
+                    this.verificationIsOpen = Boolean(this.verificationSummary?.is_open ?? false);
+                    this.verificationNoticeTitle = this.verificationSummary?.title ?? 'Masa verifikasi peserta';
+                    this.verificationStatusLabel = this.verificationSummary?.label ?? '-';
+                    this.verificationNoticeBody = this.verificationSummary?.message ?? '-';
+                    this.verificationDeadlineLabel = this.verificationSummary?.close_at_label
+                        ? `Tutup otomatis pada ${this.verificationSummary.close_at_label}`
                         : 'Jadwal tutup belum tersedia';
-                    this.registrationCountdownText = '-';
-                    this.registrationCountdownParts = { days: 0, hours: 0, minutes: 0 };
-                    this.registrationCountdownFlash = false;
+                    this.verificationCountdownText = '-';
+                    this.verificationCountdownParts = { days: 0, hours: 0, minutes: 0 };
+                    this.verificationCountdownFlash = false;
                 },
                 updateCountdownState(prefix, diff) {
-                    this.registrationCountdownParts = buildCountdownParts(diff);
-                    this.registrationCountdownText = prefix;
+                    this.verificationCountdownParts = buildCountdownParts(diff);
+                    this.verificationCountdownText = prefix;
 
-                    if (this.registrationCountdownFlashTimer) {
-                        window.clearTimeout(this.registrationCountdownFlashTimer);
+                    if (this.verificationCountdownFlashTimer) {
+                        window.clearTimeout(this.verificationCountdownFlashTimer);
                     }
 
-                    this.registrationCountdownFlash = true;
-                    this.registrationCountdownFlashTimer = window.setTimeout(() => {
-                        this.registrationCountdownFlash = false;
+                    this.verificationCountdownFlash = true;
+                    this.verificationCountdownFlashTimer = window.setTimeout(() => {
+                        this.verificationCountdownFlash = false;
                     }, 260);
                 },
             };

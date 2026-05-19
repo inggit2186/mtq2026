@@ -363,8 +363,8 @@ class PageController extends Controller
             ->where('starts_at', '>=', now())
             ->orderBy('starts_at')
             ->first();
-        $registrationSummary = $this->registrationSummaryPayload();
-        $registrationDistrictCounts = $this->registrationDistrictCounts();
+        $verificationSummary = $this->verificationSummaryPayload();
+        $verificationDistrictCounts = $this->verificationDistrictCounts();
 
         $branchRecap = $isAdminOps
             ? CompetitionCategory::query()
@@ -398,8 +398,8 @@ class PageController extends Controller
             'rolePanel' => $this->rolePanel((string) $user?->role),
             'stats' => $stats,
             'leaders' => $leaders,
-            'registrationSummary' => $registrationSummary,
-            'registrationDistrictCounts' => $registrationDistrictCounts,
+            'verificationSummary' => $verificationSummary,
+            'verificationDistrictCounts' => $verificationDistrictCounts,
             'schedules' => SessionSchedule::query()
                 ->orderBy('starts_at')
                 ->limit(5)
@@ -549,8 +549,8 @@ class PageController extends Controller
 
         $leaders = $this->buildLeaders($participants);
         $participantSummary = null;
-        $registrationSummary = $this->registrationSummaryPayload();
-        $registrationDistrictCounts = $this->registrationDistrictCounts();
+        $verificationSummary = $this->verificationSummaryPayload();
+        $verificationDistrictCounts = $this->verificationDistrictCounts();
 
         if ($participantId) {
             $participant = $participants->firstWhere('id', $participantId);
@@ -568,8 +568,10 @@ class PageController extends Controller
         return response()->json([
             'leaders' => $leaders,
             'participant_summary' => $participantSummary,
-            'registration_summary' => $registrationSummary,
-            'registration_district_counts' => $registrationDistrictCounts,
+            'verification_summary' => $verificationSummary,
+            'verification_district_counts' => $verificationDistrictCounts,
+            'registration_summary' => $verificationSummary,
+            'registration_district_counts' => $verificationDistrictCounts,
         ]);
     }
 
@@ -1859,75 +1861,83 @@ class PageController extends Controller
         return null;
     }
 
-    protected function registrationSummaryPayload(): array
+    protected function verificationSummaryPayload(): array
     {
         $registration = (array) config('juknis.registration', []);
         $now = Carbon::now('Asia/Bangkok');
-        $openAt = $this->parseIndonesianDate((string) ($registration['open'] ?? ''), false);
-        $closeAt = $this->parseIndonesianDate((string) ($registration['close'] ?? ''), true);
+        $openAt = $this->parseIndonesianDate((string) ($registration['verification_start'] ?? ''), false);
+        $closeAt = $this->parseIndonesianDate((string) ($registration['verification_end'] ?? ''), true);
         $totalRegistered = Participant::query()
             ->whereIn('verification_status', ['submitted', 'verified', 'rejected'])
+            ->count();
+        $totalVerified = Participant::query()
+            ->where('verification_status', 'verified')
             ->count();
 
         $state = [
             'is_open' => false,
             'tone' => 'warning',
-            'title' => 'Masa pendaftaran MTQ',
+            'title' => 'Masa verifikasi peserta',
             'label' => 'Belum ada jadwal',
-            'message' => 'Jadwal pendaftaran belum tersedia di juknis.',
+            'message' => 'Jadwal verifikasi belum tersedia di juknis.',
             'open_at' => $openAt?->toIso8601String(),
             'close_at' => $closeAt?->toIso8601String(),
             'open_at_label' => $openAt ? $openAt->translatedFormat('d F Y H:i').' WIB' : null,
             'close_at_label' => $closeAt ? $closeAt->translatedFormat('d F Y H:i').' WIB' : null,
             'total_registered' => $totalRegistered,
+            'total_verified' => $totalVerified,
         ];
 
         if ($openAt && $now->lt($openAt)) {
-            $state['title'] = 'Pendaftaran segera dibuka';
+            $state['title'] = 'Verifikasi segera dibuka';
             $state['label'] = 'Menunggu dibuka';
-            $state['message'] = 'Pendaftaran baru akan dibuka pada '.$openAt->translatedFormat('d F Y').'.';
+            $state['message'] = 'Verifikasi peserta baru akan dibuka pada '.$openAt->translatedFormat('d F Y').'.';
             return $state;
         }
 
         if ($openAt && $closeAt && $now->betweenIncluded($openAt, $closeAt)) {
             $state['is_open'] = true;
             $state['tone'] = 'success';
-            $state['title'] = 'Pendaftaran masih berlangsung';
-            $state['label'] = 'Sedang dibuka';
-            $state['message'] = 'Pendaftaran ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
+            $state['title'] = 'Verifikasi masih berlangsung';
+            $state['label'] = 'Sedang berlangsung';
+            $state['message'] = 'Verifikasi ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
             return $state;
         }
 
         if ($closeAt && $now->gt($closeAt)) {
-            $state['title'] = 'Masa pendaftaran selesai';
+            $state['title'] = 'Masa verifikasi selesai';
             $state['label'] = 'Sudah ditutup';
-            $state['message'] = 'Pendaftaran ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
+            $state['message'] = 'Verifikasi ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
             return $state;
         }
 
         return $state;
     }
 
-    protected function registrationDistrictCounts(): array
+    protected function verificationDistrictCounts(): array
     {
         $registeredCounts = Participant::query()
             ->whereNotNull('district_id')
             ->whereIn('verification_status', ['submitted', 'verified', 'rejected'])
-            ->selectRaw('district_id, COUNT(*) as total')
+            ->selectRaw('district_id, COUNT(*) as total, SUM(CASE WHEN verification_status = \'verified\' THEN 1 ELSE 0 END) as verified')
             ->groupBy('district_id')
-            ->pluck('total', 'district_id');
+            ->get()
+            ->keyBy('district_id');
 
         return District::query()
             ->select(['id', 'name'])
             ->orderBy('name')
             ->get()
             ->map(function (District $district) use ($registeredCounts): array {
-                $total = (int) ($registeredCounts->get((int) $district->id, 0) ?? 0);
+                $row = $registeredCounts->get((int) $district->id);
+                $total = (int) ($row->total ?? 0);
+                $verified = (int) ($row->verified ?? 0);
 
                 return [
                     'district_id' => $district->id,
                     'district_name' => (string) $district->name,
                     'total' => $total,
+                    'verified' => $verified,
                 ];
             })
             ->sort(function (array $left, array $right): int {
