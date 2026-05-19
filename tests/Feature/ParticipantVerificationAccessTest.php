@@ -69,6 +69,26 @@ class ParticipantVerificationAccessTest extends TestCase
         $this->assertSame('verified', $participant->verification_status);
     }
 
+    public function test_panitia_can_see_district_mandate_on_participant_detail(): void
+    {
+        [$participant, $panitia] = $this->createParticipantAndPanitia();
+
+        OfficialAccessSetting::query()->create([
+            'participant_registration_open' => true,
+            'participant_edit_open' => true,
+            'mandate_upload_open' => true,
+            'participant_documents_open' => true,
+            'participant_verification_open' => true,
+        ]);
+
+        $response = $this->actingAs($panitia)->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertSee('Mandat Kecamatan');
+        $response->assertSee('Surat Mandat Kecamatan');
+        $response->assertSee('Pratinjau PDF');
+    }
+
     /**
      * @return array{0: \App\Models\Participant, 1: \App\Models\User}
      */
@@ -77,6 +97,11 @@ class ParticipantVerificationAccessTest extends TestCase
         $district = District::query()->create([
             'name' => 'Kecamatan Pariangan',
             'slug' => 'pariangan',
+            'mandate_document_path' => 'districts/mandates/pariangan.pdf',
+            'mandate_uploaded_at' => now(),
+            'mandate_status' => 'verified',
+            'mandate_verification_notes' => 'Sudah diverifikasi untuk kebutuhan uji.',
+            'mandate_verified_at' => now(),
         ]);
 
         $category = CompetitionCategory::query()->create([

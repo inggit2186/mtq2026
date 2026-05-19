@@ -2599,7 +2599,7 @@ class ParticipantRegistrationController extends Controller
 
     protected function districtMandateForParticipant(Participant $participant): ?District
     {
-        if (auth()->user()?->role !== 'admin') {
+        if (! in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
             return null;
         }
 
