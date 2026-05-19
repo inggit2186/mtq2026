@@ -13,7 +13,6 @@ $statusLabel = match ($filters['verification_status'] ?? '') {
     default => 'Semua Status',
 };
 $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026');
-
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -181,17 +180,18 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
             font-weight: 700;
         }
 
-        .status-group {
-            width: 92px;
+        .verification-header {
+            width: 112px;
             text-align: center;
         }
 
         .status-sub {
-            width: 46px;
+            width: 56px;
             text-align: center;
             font-weight: 700;
             letter-spacing: 0.04em;
             line-height: 1.15;
+            padding: 8px 4px 7px;
         }
 
         .status-sub small {
@@ -205,28 +205,33 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
             font-weight: 600;
         }
 
+        .status-cell {
+            width: 56px;
+            text-align: center;
+            vertical-align: middle;
+            padding: 8px 4px;
+        }
+
         .notes {
             width: auto;
         }
 
         .status-pill {
-            display: inline-block;
-            min-width: 82px;
-            padding: 4px 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
             border-radius: 999px;
-            font-size: 10px;
+            font-size: 13px;
             font-weight: 700;
-            letter-spacing: 0.02em;
+            line-height: 1;
+            margin: 0 auto;
         }
 
         .status-verified {
             background: #dcfce7;
             color: #166534;
-        }
-
-        .status-pending {
-            background: #e0f2fe;
-            color: #075985;
         }
 
         .status-rejected {
@@ -236,7 +241,7 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
 
         .status-draft {
             background: #e2e8f0;
-            color: #334155;
+            color: #94a3b8;
         }
 
         .empty {
@@ -298,35 +303,34 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
 
         <div class="table-wrap">
             <table>
-        <thead>
-            <tr>
-                <th class="no" rowspan="2">No</th>
-                <th class="reg" rowspan="2">No Registrasi</th>
-                <th class="name" rowspan="2">Nama</th>
-                <th class="district" rowspan="2">Kecamatan</th>
-                <th class="branch" rowspan="2">Cabang</th>
-                <th class="category" rowspan="2">Golongan</th>
-                <th class="age" rowspan="2">Umur per 1 Juli</th>
-                <th class="status-group" colspan="2">Verifikasi</th>
-                <th class="notes" rowspan="2">Keterangan</th>
-            </tr>
-            <tr>
-                <th class="status-sub">MS<small>Memenuhi Syarat</small></th>
-                <th class="status-sub">TMS<small>Tidak Memenuhi Syarat</small></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($rows)): ?>
-                <tr>
-                    <td colspan="10" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
-                </tr>
-            <?php else: ?>
-                <?php foreach ($rows as $index => $row): ?>
+                <thead>
+                    <tr>
+                        <th class="no" rowspan="2">No</th>
+                        <th class="reg" rowspan="2">No Registrasi</th>
+                        <th class="name" rowspan="2">Nama</th>
+                        <th class="district" rowspan="2">Kecamatan</th>
+                        <th class="branch" rowspan="2">Cabang</th>
+                        <th class="category" rowspan="2">Golongan</th>
+                        <th class="age" rowspan="2">Umur per 1 Juli</th>
+                        <th class="verification-header" colspan="2">Verifikasi</th>
+                        <th class="notes" rowspan="2">Keterangan</th>
+                    </tr>
+                    <tr>
+                        <th class="status-sub">MS<small>Memenuhi Syarat</small></th>
+                        <th class="status-sub">TMS<small>Tidak Memenuhi Syarat</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($rows)): ?>
+                        <tr>
+                            <td colspan="10" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($rows as $index => $row): ?>
                             <?php
                                 $status = (string) ($row['verification_status'] ?? '-');
                                 $isVerified = $status === 'Terverifikasi';
                                 $isRejected = $status === 'Ditolak';
-                                $mark = '✓';
                                 $msClass = $isVerified ? 'status-verified' : 'status-draft';
                                 $tmsClass = $isRejected ? 'status-rejected' : 'status-draft';
                             ?>
@@ -338,16 +342,16 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                                 <td class="branch"><?= e($row['branch'] ?? '-') ?></td>
                                 <td class="category"><?= e($row['category'] ?? '-') ?></td>
                                 <td class="age"><?= e($row['age_per_reference'] ?? '-') ?></td>
-                                <td class="status-group">
-                                    <span class="status-pill <?= e($msClass) ?>"><?= $isVerified ? e($mark) : '&nbsp;' ?></span>
+                                <td class="status-cell">
+                                    <span class="status-pill <?= e($msClass) ?>"><?= $isVerified ? '✓' : '' ?></span>
                                 </td>
-                                <td class="status-group">
-                                    <span class="status-pill <?= e($tmsClass) ?>"><?= $isRejected ? e($mark) : '&nbsp;' ?></span>
+                                <td class="status-cell">
+                                    <span class="status-pill <?= e($tmsClass) ?>"><?= $isRejected ? '✓' : '' ?></span>
                                 </td>
                                 <td class="notes"><?= e($row['verification_notes'] ?? '-') ?></td>
                             </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
