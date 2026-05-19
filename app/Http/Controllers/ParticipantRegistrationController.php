@@ -751,39 +751,84 @@ class ParticipantRegistrationController extends Controller
         ];
 
         $fileFields = [
-            'kk_document' => 'document_kk',
-            'ktp_document' => 'document_ktp',
-            'birth_certificate_document' => 'document_birth_certificate',
-            'photo_document' => 'document_photo',
-            'last_diploma_document' => 'document_last_diploma',
-            'bank_book_document' => 'document_bank_book',
+            'kk_document' => ['column' => 'document_kk', 'directory' => 'participants/documents/kk', 'delete_input' => 'delete_kk_document'],
+            'ktp_document' => ['column' => 'document_ktp', 'directory' => 'participants/documents/ktp', 'delete_input' => 'delete_ktp_document'],
+            'birth_certificate_document' => ['column' => 'document_birth_certificate', 'directory' => 'participants/documents/akta', 'delete_input' => 'delete_birth_certificate_document'],
+            'photo_document' => ['column' => 'document_photo', 'directory' => 'participants/documents/photo', 'delete_input' => 'delete_photo_document'],
+            'last_diploma_document' => ['column' => 'document_last_diploma', 'directory' => 'participants/documents/ijazah', 'delete_input' => 'delete_last_diploma_document'],
+            'bank_book_document' => ['column' => 'document_bank_book', 'directory' => 'participants/documents/tabungan', 'delete_input' => 'delete_bank_book_document'],
         ];
 
-        foreach ($fileFields as $input => $column) {
+        foreach ($fileFields as $input => $config) {
+            $column = $config['column'];
+
             if ($request->hasFile($input)) {
                 $this->deleteStoredFile($participant->{$column});
-                $attributes[$column] = $this->storeUploadedFile($request, $input, match ($column) {
-                    'document_kk' => 'participants/documents/kk',
-                    'document_ktp' => 'participants/documents/ktp',
-                    'document_birth_certificate' => 'participants/documents/akta',
-                    'document_last_diploma' => 'participants/documents/ijazah',
-                    'document_bank_book' => 'participants/documents/tabungan',
-                    default => 'participants/documents/photo',
-                });
+                $attributes[$column] = $this->storeUploadedFile($request, $input, $config['directory']);
+                continue;
+            }
+
+            if ($request->boolean($config['delete_input'])) {
+                $this->deleteStoredFile($participant->{$column});
+                $attributes[$column] = null;
             }
         }
 
         foreach ([
-            'certificate_documents' => ['column' => 'document_certificates', 'directory' => 'participants/documents/piagam'],
-            'other_documents' => ['column' => 'document_other_files', 'directory' => 'participants/documents/lainnya'],
+            'certificate_documents' => ['column' => 'document_certificates', 'directory' => 'participants/documents/piagam', 'delete_input' => 'delete_certificate_documents'],
+            'other_documents' => ['column' => 'document_other_files', 'directory' => 'participants/documents/lainnya', 'delete_input' => 'delete_other_documents'],
         ] as $input => $config) {
-            if ($request->hasFile($input)) {
-                $this->deleteStoredFiles($participant->{$config['column']});
-                $attributes[$config['column']] = $this->storeUploadedFiles($request, $input, $config['directory']);
+            $existingFiles = collect($participant->{$config['column']} ?? [])->filter()->values();
+            $deleteIndexes = collect((array) $request->input($config['delete_input'], []))
+                ->filter(fn ($value): bool => filled($value))
+                ->keys()
+                ->map(fn ($value): int => (int) $value)
+                ->all();
+
+            $hasFileUpload = $request->hasFile($input);
+
+            if ($hasFileUpload || $deleteIndexes !== []) {
+                $filesToDelete = $existingFiles
+                    ->only($deleteIndexes)
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                $this->deleteStoredFiles($filesToDelete);
+
+                $remainingExistingFiles = $existingFiles
+                    ->reject(fn ($path, int $index): bool => in_array($index, $deleteIndexes, true))
+                    ->values()
+                    ->all();
+
+                $newFiles = $hasFileUpload
+                    ? $this->storeUploadedFiles($request, $input, $config['directory'])
+                    : [];
+
+                $attributes[$config['column']] = array_values(array_merge($remainingExistingFiles, $newFiles));
             }
         }
 
         $revisionNotes = $participant->document_revision_notes ?? [];
+        $documentDeletionInputs = [
+            'kk_document' => 'delete_kk_document',
+            'ktp_document' => 'delete_ktp_document',
+            'birth_certificate_document' => 'delete_birth_certificate_document',
+            'photo_document' => 'delete_photo_document',
+            'last_diploma_document' => 'delete_last_diploma_document',
+            'bank_book_document' => 'delete_bank_book_document',
+            'certificate_documents' => 'delete_certificate_documents',
+            'other_documents' => 'delete_other_documents',
+        ];
+        $documentWasDeleted = static function (string $deleteInput) use ($request): bool {
+            $value = $request->input($deleteInput);
+
+            if (is_array($value)) {
+                return collect($value)->filter(fn ($item): bool => filled($item))->isNotEmpty();
+            }
+
+            return $request->boolean($deleteInput);
+        };
 
         foreach ([
             'kk_document' => 'kk',
@@ -795,7 +840,7 @@ class ParticipantRegistrationController extends Controller
             'certificate_documents' => 'certificates',
             'other_documents' => 'other_files',
         ] as $input => $key) {
-            if ($request->hasFile($input)) {
+            if ($request->hasFile($input) || $documentWasDeleted($documentDeletionInputs[$input] ?? '')) {
                 $revisionNotes[$key] = null;
             }
         }
@@ -2637,18 +2682,30 @@ class ParticipantRegistrationController extends Controller
         $underSeventeen = $this->participantIsUnderSeventeen((string) $request->input('date_of_birth'));
         $requiredOrNullable = $isDraft ? 'nullable' : 'required';
         $requiredOrNullableWhenAdult = $isDraft ? 'nullable' : ($underSeventeen ? 'nullable' : 'required');
-        $existingDocumentExists = static function (?Participant $participant, string $column): bool {
+        $singleFileDeleteInputs = [
+            'document_kk' => 'delete_kk_document',
+            'document_ktp' => 'delete_ktp_document',
+            'document_birth_certificate' => 'delete_birth_certificate_document',
+            'document_photo' => 'delete_photo_document',
+            'document_last_diploma' => 'delete_last_diploma_document',
+            'document_bank_book' => 'delete_bank_book_document',
+        ];
+        $existingDocumentExists = static function (?Participant $participant, string $column, string $deleteInput = '') use ($request): bool {
+            if ($deleteInput !== '' && $request->boolean($deleteInput)) {
+                return false;
+            }
+
             return filled($participant?->{$column});
         };
-        $requiredOrNullableForFile = static function (string $column) use ($isDraft, $participant, $existingDocumentExists): string {
-            if ($isDraft || $existingDocumentExists($participant, $column)) {
+        $requiredOrNullableForFile = static function (string $column, string $deleteInput) use ($isDraft, $participant, $existingDocumentExists): string {
+            if ($isDraft || $existingDocumentExists($participant, $column, $deleteInput)) {
                 return 'nullable';
             }
 
             return 'required';
         };
-        $requiredOrNullableForAdultFile = static function (string $column) use ($isDraft, $underSeventeen, $participant, $existingDocumentExists): string {
-            if ($isDraft || $underSeventeen || $existingDocumentExists($participant, $column)) {
+        $requiredOrNullableForAdultFile = static function (string $column, string $deleteInput) use ($isDraft, $underSeventeen, $participant, $existingDocumentExists): string {
+            if ($isDraft || $underSeventeen || $existingDocumentExists($participant, $column, $deleteInput)) {
                 return 'nullable';
             }
 
@@ -2677,10 +2734,10 @@ class ParticipantRegistrationController extends Controller
             'ktp_address' => [$requiredOrNullable, 'string', 'max:1000'],
             'ktp_district' => [$requiredOrNullable, 'string', 'max:255'],
             'ktp_regency' => [$requiredOrNullable, 'string', 'max:255'],
-            'kk_document' => [$requiredOrNullableForFile('document_kk'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'ktp_document' => [$requiredOrNullableForAdultFile('document_ktp'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'birth_certificate_document' => [$requiredOrNullableForFile('document_birth_certificate'), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'photo_document' => [$requiredOrNullableForFile('document_photo'), 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
+            'kk_document' => [$requiredOrNullableForFile('document_kk', $singleFileDeleteInputs['document_kk']), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'ktp_document' => [$requiredOrNullableForAdultFile('document_ktp', $singleFileDeleteInputs['document_ktp']), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'birth_certificate_document' => [$requiredOrNullableForFile('document_birth_certificate', $singleFileDeleteInputs['document_birth_certificate']), 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'photo_document' => [$requiredOrNullableForFile('document_photo', $singleFileDeleteInputs['document_photo']), 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:min_width=300,min_height=400,ratio=3/4'],
             'last_diploma_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'bank_book_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'certificate_documents' => ['nullable', 'array'],

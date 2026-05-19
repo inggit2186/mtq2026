@@ -553,6 +553,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             'certificates' => ['input' => 'certificate_documents', 'accept' => 'image/*,.pdf', 'preview' => 'multiple', 'multiple' => true],
                             'other_files' => ['input' => 'other_documents', 'accept' => 'image/*,.pdf', 'preview' => 'multiple', 'multiple' => true],
                         ];
+                        $editDocumentDeleteInputs = [
+                            'photo_document' => 'delete_photo_document',
+                            'birth_certificate_document' => 'delete_birth_certificate_document',
+                            'kk_document' => 'delete_kk_document',
+                            'ktp_document' => 'delete_ktp_document',
+                            'last_diploma_document' => 'delete_last_diploma_document',
+                            'bank_book_document' => 'delete_bank_book_document',
+                            'certificate_documents' => 'delete_certificate_documents',
+                            'other_documents' => 'delete_other_documents',
+                        ];
                         ?>
                         <?php foreach ($editDocumentInputs as $key => $config): ?>
                             <?php $document = $documentMap[$key] ?? ['label' => '-', 'path' => null, 'files' => [], 'revision_note' => null]; ?>
@@ -573,6 +583,56 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         <?= e($hasExistingDocument ? $existingDocumentLabel : 'Jika Anda belum mengunggah file baru, dokumen lama akan tetap dipakai jika tersedia.') ?>
                                     </span>
                                 </div>
+                                <?php if (! $config['multiple'] && filled($document['path'] ?? null)): ?>
+                                    <?php $deleteInput = $editDocumentDeleteInputs[$config['input']] ?? ''; ?>
+                                    <div class="mb-3 rounded-2xl border border-slate-700/70 bg-slate-950/60 p-3">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">File lama tersimpan</p>
+                                                <p class="mt-1 break-all text-sm font-semibold text-slate-100"><?= e(basename((string) $document['path'])) ?></p>
+                                                <p class="mt-1 text-xs text-slate-400" x-show="!isDocumentDeleted('<?= e($config['input']) ?>')" x-cloak>Klik ikon hapus jika file ini ingin dihapus saat disimpan.</p>
+                                                <p class="mt-1 text-xs text-rose-200" x-show="isDocumentDeleted('<?= e($config['input']) ?>')" x-cloak>File lama ditandai untuk dihapus saat disimpan.</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="secondary-button rounded-xl px-3 py-2"
+                                                x-on:click="toggleDocumentDeletion('<?= e($config['input']) ?>')"
+                                                :aria-label="isDocumentDeleted('<?= e($config['input']) ?>') ? 'Batalkan hapus file lama' : 'Hapus file lama'"
+                                            >
+                                                <span x-show="!isDocumentDeleted('<?= e($config['input']) ?>')" x-cloak><?= mtq_icon('trash', 'h-4 w-4') ?></span>
+                                                <span x-show="isDocumentDeleted('<?= e($config['input']) ?>')" x-cloak><?= mtq_icon('refresh-cw', 'h-4 w-4') ?></span>
+                                            </button>
+                                            <input type="hidden" name="<?= e($deleteInput) ?>" value="1" x-bind:disabled="!isDocumentDeleted('<?= e($config['input']) ?>')">
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($config['multiple'] && ! empty($document['files'])): ?>
+                                    <?php $deleteInput = $editDocumentDeleteInputs[$config['input']] ?? ''; ?>
+                                    <div class="mb-3 space-y-2">
+                                        <?php foreach ($document['files'] as $fileIndex => $filePath): ?>
+                                            <div class="rounded-2xl border border-slate-700/70 bg-slate-950/60 p-3">
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div class="min-w-0">
+                                                        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">File lama #<?= e((string) ($fileIndex + 1)) ?></p>
+                                                        <p class="mt-1 break-all text-sm font-semibold text-slate-100"><?= e(basename((string) $filePath)) ?></p>
+                                                        <p class="mt-1 text-xs text-slate-400" x-show="!isDocumentIndexDeleted('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>)" x-cloak>Klik ikon hapus jika file ini ingin dihapus saat disimpan.</p>
+                                                        <p class="mt-1 text-xs text-rose-200" x-show="isDocumentIndexDeleted('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>)" x-cloak>File lama ditandai untuk dihapus saat disimpan.</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        class="secondary-button rounded-xl px-3 py-2"
+                                                        x-on:click="toggleDocumentIndexDeletion('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>)"
+                                                        :aria-label="isDocumentIndexDeleted('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>) ? 'Batalkan hapus file lama' : 'Hapus file lama'"
+                                                    >
+                                                        <span x-show="!isDocumentIndexDeleted('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>)" x-cloak><?= mtq_icon('trash', 'h-4 w-4') ?></span>
+                                                        <span x-show="isDocumentIndexDeleted('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>)" x-cloak><?= mtq_icon('refresh-cw', 'h-4 w-4') ?></span>
+                                                    </button>
+                                                    <input type="hidden" name="<?= e($deleteInput) ?>[<?= (int) $fileIndex ?>]" value="1" x-bind:disabled="!isDocumentIndexDeleted('<?= e($config['input']) ?>', <?= (int) $fileIndex ?>)">
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                                 <input
                                     name="<?= e($config['multiple'] ? $config['input'].'[]' : $config['input']) ?>"
                                     type="file"
@@ -625,9 +685,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <?php endif; ?>
                                 <p class="mt-2 text-xs text-slate-400">
                                     <?php if ($config['multiple']): ?>
-                                        <?= ! empty($document['files']) ? e(count($document['files']).' file lama tersedia dan akan diganti jika upload baru dilakukan.') : 'Belum ada dokumen sebelumnya.' ?>
+                                        <?= ! empty($document['files']) ? e(count($document['files']).' file lama tersedia dan bisa dihapus satu per satu sebelum menyimpan ulang.') : 'Belum ada dokumen sebelumnya.' ?>
                                     <?php else: ?>
-                                        <?= $document['path'] ? 'Dokumen lama tersedia dan akan diganti jika upload baru dilakukan.' : 'Belum ada dokumen sebelumnya.' ?>
+                                        <?= $document['path'] ? 'Dokumen lama tersedia. Klik ikon hapus jika ingin dihapus saat menyimpan.' : 'Belum ada dokumen sebelumnya.' ?>
                                     <?php endif; ?>
                                 </p>
                                 <?php if (! empty($document['revision_note'])): ?>
@@ -691,14 +751,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <div class="data-card lg:col-span-2">
                                     <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Dokumen revisi terpilih</p>
                                     <div class="mt-3 grid gap-2 text-sm text-slate-300 md:grid-cols-2">
-                                        <p><span class="text-slate-500">Pas foto:</span> <span x-text="displayFileName('photo_document', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">Akta kelahiran:</span> <span x-text="displayFileName('birth_certificate_document', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">KK:</span> <span x-text="displayFileName('kk_document', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">KTP:</span> <span x-text="displayFileName('ktp_document', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">Ijazah terakhir:</span> <span x-text="displayFileName('last_diploma_document', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">Buku tabungan:</span> <span x-text="displayFileName('bank_book_document', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">Piagam:</span> <span x-text="displayMultipleFileNames('certificate_documents', 'tidak diganti')"></span></p>
-                                        <p><span class="text-slate-500">Dokumen lainnya:</span> <span x-text="displayMultipleFileNames('other_documents', 'tidak diganti')"></span></p>
+                                        <p><span class="text-slate-500">Pas foto:</span> <span x-text="reviewSingleDocumentText('photo_document')"></span></p>
+                                        <p><span class="text-slate-500">Akta kelahiran:</span> <span x-text="reviewSingleDocumentText('birth_certificate_document')"></span></p>
+                                        <p><span class="text-slate-500">KK:</span> <span x-text="reviewSingleDocumentText('kk_document')"></span></p>
+                                        <p><span class="text-slate-500">KTP:</span> <span x-text="reviewSingleDocumentText('ktp_document')"></span></p>
+                                        <p><span class="text-slate-500">Ijazah terakhir:</span> <span x-text="reviewSingleDocumentText('last_diploma_document')"></span></p>
+                                        <p><span class="text-slate-500">Buku tabungan:</span> <span x-text="reviewSingleDocumentText('bank_book_document')"></span></p>
+                                        <p><span class="text-slate-500">Piagam:</span> <span x-text="reviewMultipleDocumentText('certificate_documents')"></span></p>
+                                        <p><span class="text-slate-500">Dokumen lainnya:</span> <span x-text="reviewMultipleDocumentText('other_documents')"></span></p>
                                     </div>
                                 </div>
                                 <div class="data-card lg:col-span-2" x-show="documentPreviewUrl('photo_document') || documentPreviewUrl('kk_document') || documentPreviewUrl('ktp_document') || documentPreviewUrl('birth_certificate_document') || documentPreviewUrl('last_diploma_document') || documentPreviewUrl('bank_book_document')">
@@ -774,6 +834,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 fileNames: {},
                 multipleFileNames: {},
                 documentPreviewUrls: {},
+                deletedDocuments: {},
+                deletedDocumentIndexes: {},
                 photoPreviewUrl: initialState.existingPhotoPreviewUrl ?? '',
                 photoProcessing: false,
                 photoAdjusted: false,
@@ -1030,6 +1092,51 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 displayMultipleFileNames(name, fallback = '-') {
                     const files = this.multipleFileNames[name] || [];
                     return files.length ? files.join(', ') : fallback;
+                },
+                reviewSingleDocumentText(name, fallback = 'tidak diganti', deletedLabel = 'dihapus') {
+                    if (this.isDocumentDeleted(name)) {
+                        return deletedLabel;
+                    }
+
+                    return this.displayFileName(name, fallback);
+                },
+                reviewMultipleDocumentText(name, fallback = 'tidak diganti', deletedLabel = 'dihapus') {
+                    const files = this.multipleFileNames[name] || [];
+
+                    if (files.length) {
+                        return files.join(', ');
+                    }
+
+                    const deletedIndexes = this.deletedDocumentIndexes[name] || {};
+                    const deletedCount = Object.values(deletedIndexes).filter(Boolean).length;
+
+                    if (deletedCount > 0) {
+                        return deletedCount === 1
+                            ? deletedLabel
+                            : `${deletedCount} file ditandai hapus`;
+                    }
+
+                    return fallback;
+                },
+                isDocumentDeleted(name) {
+                    return !!this.deletedDocuments[name];
+                },
+                toggleDocumentDeletion(name) {
+                    this.deletedDocuments = {
+                        ...this.deletedDocuments,
+                        [name]: !this.deletedDocuments[name],
+                    };
+                },
+                isDocumentIndexDeleted(name, index) {
+                    return !!(this.deletedDocumentIndexes[name] || {})[index];
+                },
+                toggleDocumentIndexDeletion(name, index) {
+                    const indexes = { ...(this.deletedDocumentIndexes[name] || {}) };
+                    indexes[index] = !indexes[index];
+                    this.deletedDocumentIndexes = {
+                        ...this.deletedDocumentIndexes,
+                        [name]: indexes,
+                    };
                 },
                 documentPreviewUrl(name) {
                     return this.documentPreviewUrls[name] || '';
