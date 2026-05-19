@@ -1918,7 +1918,7 @@ class PageController extends Controller
         $registeredCounts = Participant::query()
             ->whereNotNull('district_id')
             ->whereIn('verification_status', ['submitted', 'verified', 'rejected'])
-            ->selectRaw('district_id, COUNT(*) as total, SUM(CASE WHEN verification_status = \'verified\' THEN 1 ELSE 0 END) as verified')
+            ->selectRaw('district_id, COUNT(*) as total, SUM(CASE WHEN verification_status = \'verified\' THEN 1 ELSE 0 END) as verified, SUM(CASE WHEN verification_status = \'rejected\' THEN 1 ELSE 0 END) as rejected')
             ->groupBy('district_id')
             ->get()
             ->keyBy('district_id');
@@ -1931,12 +1931,14 @@ class PageController extends Controller
                 $row = $registeredCounts->get((int) $district->id);
                 $total = (int) ($row->total ?? 0);
                 $verified = (int) ($row->verified ?? 0);
+                $rejected = (int) ($row->rejected ?? 0);
 
                 return [
                     'district_id' => $district->id,
                     'district_name' => (string) $district->name,
                     'total' => $total,
                     'verified' => $verified,
+                    'rejected' => $rejected,
                 ];
             })
             ->sort(function (array $left, array $right): int {

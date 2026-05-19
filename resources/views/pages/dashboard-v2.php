@@ -255,9 +255,11 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                                     <div class="min-w-0">
                                         <p class="font-semibold text-white" x-text="district.district_name"><?= e($verificationDistrictCounts[0]['district_name'] ?? '') ?></p>
                                         <p class="mt-1 text-xs text-slate-400">Peserta / Telah Verifikasi</p>
+                                        <p class="mt-1 text-xs text-rose-200">Butuh Perbaikan</p>
                                     </div>
                                     <div class="text-right">
                                         <p class="text-2xl font-black text-cyan-200 tabular-nums" x-text="`${district.total} / ${district.verified}`"><?= e(($verificationDistrictCounts[0]['total'] ?? 0).' / '.($verificationDistrictCounts[0]['verified'] ?? 0)) ?></p>
+                                        <p class="mt-1 text-sm font-semibold text-rose-200 tabular-nums" x-text="`${district.rejected}`"><?= e((string) ($verificationDistrictCounts[0]['rejected'] ?? 0)) ?></p>
                                     </div>
                                 </div>
                             </template>

@@ -77,6 +77,7 @@ class DashboardAnnouncementTargetingTest extends TestCase
             ->assertOk()
             ->assertSee('Countdown Verifikasi')
             ->assertSee('Proses Verifikasi per Kecamatan')
-            ->assertSee('Peserta / Telah Verifikasi');
+            ->assertSee('Peserta / Telah Verifikasi')
+            ->assertSee('Butuh Perbaikan');
     }
 }
