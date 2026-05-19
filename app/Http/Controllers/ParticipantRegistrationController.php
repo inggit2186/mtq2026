@@ -3370,7 +3370,9 @@ class ParticipantRegistrationController extends Controller
 
     protected function participantExportRows($participants): array
     {
-        return $participants->map(function (Participant $participant): array {
+        $referenceDate = $this->parseIndonesianDate((string) config('juknis.age_reference_date', '1 Juli 2026')) ?? Carbon::create(2026, 7, 1)->startOfDay();
+
+        return $participants->map(function (Participant $participant) use ($referenceDate): array {
             $documentMap = $this->documentMap($participant);
 
             return [
@@ -3382,6 +3384,7 @@ class ParticipantRegistrationController extends Controller
                 'nik' => (string) ($participant->nik ?? '-'),
                 'place_of_birth' => (string) ($participant->place_of_birth ?? '-'),
                 'date_of_birth' => optional($participant->date_of_birth)->format('d/m/Y') ?: '-',
+                'age_per_reference' => $this->participantAgeAtReference($participant->date_of_birth, $referenceDate),
                 'phone' => (string) ($participant->phone ?? '-'),
                 'district' => (string) ($participant->district?->name ?? '-'),
                 'branch' => (string) ($participant->category?->branch ?? '-'),
@@ -3411,6 +3414,30 @@ class ParticipantRegistrationController extends Controller
                 ],
             ];
         })->all();
+    }
+
+    protected function participantAgeAtReference(mixed $dateOfBirth, Carbon $referenceDate): string
+    {
+        try {
+            $birthDate = $dateOfBirth instanceof Carbon
+                ? $dateOfBirth->copy()->startOfDay()
+                : Carbon::parse((string) $dateOfBirth, 'Asia/Bangkok')->startOfDay();
+        } catch (\Throwable) {
+            return '-';
+        }
+
+        if ($birthDate->greaterThan($referenceDate)) {
+            return '-';
+        }
+
+        $age = $birthDate->diff($referenceDate);
+        $parts = collect([
+            $age->y > 0 ? $age->y.' th' : null,
+            $age->m > 0 ? $age->m.' bl' : null,
+            $age->d > 0 ? $age->d.' hr' : null,
+        ])->filter()->values();
+
+        return $parts->isNotEmpty() ? $parts->implode(' ') : '0 hr';
     }
 
     protected function participantExportSummary($participants): array

@@ -1,12 +1,9 @@
 <?php
 $rows = $rows ?? [];
-$summary = $summary ?? [];
 $generatedAt = $generatedAt ?? now();
 $selectedDistrict = $selectedDistrict ?? null;
 $filters = $filters ?? [];
 $documentConfig = $documentConfig ?? config('documents');
-$officials = $documentConfig['officials'] ?? [];
-$isPreview = request()->boolean('preview');
 $scopeLabel = $selectedDistrict?->name ?? 'Semua Kecamatan';
 $statusLabel = match ($filters['verification_status'] ?? '') {
     'verified' => 'Terverifikasi',
@@ -15,157 +12,328 @@ $statusLabel = match ($filters['verification_status'] ?? '') {
     'draft' => 'Draf',
     default => 'Semua Status',
 };
+$ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026');
+
+$statusClass = static function (string $status): string {
+    return match ($status) {
+        'Terverifikasi' => 'status-verified',
+        'Menunggu' => 'status-pending',
+        'Ditolak' => 'status-rejected',
+        default => 'status-draft',
+    };
+};
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= e(config('app.name', 'e-MTQ').' - Export Rekap Peserta') ?></title>
+    <title><?= e(config('app.name', 'e-MTQ').' - Export PDF Peserta') ?></title>
     <style>
-        body { font-family: Arial, sans-serif; color: #0f172a; margin: 24px; }
-        h1, h2, h3, p { margin: 0; }
-        .header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 3px solid #0f172a; padding-bottom: 16px; margin-bottom: 18px; }
-        .muted { color: #475569; }
-        .chip { display: inline-block; border: 1px solid #94a3b8; border-radius: 999px; padding: 5px 10px; font-size: 12px; margin-top: 8px; }
-        .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
-        .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; }
-        .card strong { display: block; font-size: 22px; margin-top: 8px; }
-        .meta { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 14px; }
-        .meta-box { border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-        .table th, .table td { border: 1px solid #cbd5e1; padding: 8px; vertical-align: top; }
-        .table th { background: #e2e8f0; text-align: center; }
-        .center { text-align: center; }
-        .note { border: 1px dashed #94a3b8; border-radius: 12px; padding: 12px; margin-top: 18px; font-size: 13px; line-height: 1.6; }
-        .signatures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 36px; }
-        .signature-box { text-align: center; }
-        .signature-line { margin: 66px auto 8px; width: 80%; border-top: 1px solid #0f172a; }
+        @page {
+            margin: 18mm 14mm 16mm;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .sheet {
+            position: relative;
+        }
+
+        .topbar {
+            border: 1px solid #dbe4f0;
+            border-radius: 18px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+
+        .topbar-accent {
+            height: 10px;
+            background: linear-gradient(90deg, #0f766e 0%, #38bdf8 55%, #7c3aed 100%);
+        }
+
+        .topbar-body {
+            padding: 16px 18px 14px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin: 0;
+        }
+
+        .subtitle {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            padding: 6px 10px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #334155;
+        }
+
+        .pill strong {
+            margin-left: 6px;
+            letter-spacing: 0;
+            text-transform: none;
+            font-size: 10px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .table-wrap {
+            border: 1px solid #dbe4f0;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        thead th {
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 10px;
+            line-height: 1.3;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 10px 8px;
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        thead th:last-child {
+            border-right: 0;
+        }
+
+        tbody td {
+            border-top: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+            padding: 9px 8px;
+            font-size: 10.5px;
+            line-height: 1.45;
+            vertical-align: top;
+            word-break: break-word;
+        }
+
+        tbody tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        tbody td:last-child {
+            border-right: 0;
+        }
+
+        .no {
+            width: 38px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .reg {
+            width: 120px;
+            white-space: nowrap;
+            font-weight: 700;
+        }
+
+        .name {
+            width: 150px;
+            font-weight: 700;
+        }
+
+        .district {
+            width: 105px;
+        }
+
+        .branch {
+            width: 120px;
+        }
+
+        .category {
+            width: 135px;
+        }
+
+        .age {
+            width: 105px;
+            white-space: nowrap;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .status {
+            width: 110px;
+            text-align: center;
+        }
+
+        .notes {
+            width: auto;
+        }
+
+        .status-pill {
+            display: inline-block;
+            min-width: 82px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .status-verified {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-pending {
+            background: #e0f2fe;
+            color: #075985;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-draft {
+            background: #e2e8f0;
+            color: #334155;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 18px 12px;
+            color: #475569;
+            font-size: 11px;
+        }
+
+        .footer-note {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 10.5px;
+            line-height: 1.6;
+        }
+
+        .footer-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 14px;
+            font-size: 10.5px;
+            color: #64748b;
+        }
+
         @media print {
-            body { margin: 14px; }
-            .summary { page-break-inside: avoid; }
+            .topbar, .table-wrap, .footer-note {
+                break-inside: avoid;
+            }
+
+            thead {
+                display: table-header-group;
+            }
         }
     </style>
 </head>
-<body<?= $isPreview ? '' : ' onload="window.print()"' ?>>
-    <div class="header">
-        <div>
-            <h1>Rekap Peserta Terdaftar</h1>
-            <p class="muted" style="margin-top: 6px;"><?= e($documentConfig['organization_name'] ?? 'e-MTQ Kabupaten Tanah Datar') ?></p>
-            <p class="muted" style="margin-top: 4px;"><?= e($documentConfig['event_title'] ?? '') ?></p>
-            <div class="chip">Siap disimpan sebagai PDF</div>
+<body<?= request()->boolean('preview') ? '' : ' onload="window.print()"' ?>>
+    <div class="sheet">
+        <div class="topbar">
+            <div class="topbar-accent"></div>
+            <div class="topbar-body">
+                <h1 class="title">Rekap Data Peserta</h1>
+                <div class="subtitle">
+                    <?= e($documentConfig['organization_name'] ?? 'e-MTQ Kabupaten Tanah Datar') ?> |
+                    <?= e($documentConfig['event_title'] ?? '') ?>
+                </div>
+                <div class="meta">
+                    <span class="pill">Dicetak <strong><?= e($generatedAt->format('d M Y H:i')) ?></strong></span>
+                    <span class="pill">Ruang lingkup <strong><?= e($scopeLabel) ?></strong></span>
+                    <span class="pill">Status <strong><?= e($statusLabel) ?></strong></span>
+                    <span class="pill">Umur dihitung per <strong><?= e($ageReferenceLabel) ?></strong></span>
+                </div>
+            </div>
         </div>
-        <div style="text-align: right;">
-            <p><strong>Dicetak:</strong> <?= e($generatedAt->format('d M Y H:i')) ?></p>
-            <p class="muted" style="margin-top: 6px;">Ruang lingkup: <?= e($scopeLabel) ?></p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="no">No</th>
+                        <th class="reg">No Registrasi</th>
+                        <th class="name">Nama</th>
+                        <th class="district">Kecamatan</th>
+                        <th class="branch">Cabang</th>
+                        <th class="category">Golongan</th>
+                        <th class="age">Umur per 1 Juli</th>
+                        <th class="status">Status Verifikasi</th>
+                        <th class="notes">Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($rows)): ?>
+                        <tr>
+                            <td colspan="9" class="empty">Belum ada data peserta yang sesuai dengan filter export.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($rows as $index => $row): ?>
+                            <?php $status = (string) ($row['verification_status'] ?? '-'); ?>
+                            <tr>
+                                <td class="no"><?= e($index + 1) ?></td>
+                                <td class="reg"><?= e($row['registration_number'] ?? '-') ?></td>
+                                <td class="name"><?= e($row['name'] ?? '-') ?></td>
+                                <td class="district"><?= e($row['district'] ?? '-') ?></td>
+                                <td class="branch"><?= e($row['branch'] ?? '-') ?></td>
+                                <td class="category"><?= e($row['category'] ?? '-') ?></td>
+                                <td class="age"><?= e($row['age_per_reference'] ?? '-') ?></td>
+                                <td class="status">
+                                    <span class="status-pill <?= e($statusClass($status)) ?>"><?= e($status) ?></span>
+                                </td>
+                                <td class="notes"><?= e($row['verification_notes'] ?? '-') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
-    </div>
 
-    <div class="meta">
-        <div class="meta-box">
-            <h3>Filter Export</h3>
-            <p class="muted" style="margin-top: 8px;">Dokumen ini mengikuti filter `Data Peserta` yang aktif saat export dijalankan.</p>
-            <p style="margin-top: 10px;"><strong>Kecamatan:</strong> <?= e($scopeLabel) ?></p>
-            <p style="margin-top: 4px;"><strong>Status:</strong> <?= e($statusLabel) ?></p>
-            <p style="margin-top: 4px;"><strong>Kata kunci:</strong> <?= e($filters['keyword'] ?? '-') ?></p>
+        <div class="footer-note">
+            Export ini hanya menampilkan data inti peserta untuk kebutuhan administrasi dan verifikasi. Jika dibutuhkan detail berkas, gunakan tampilan detail peserta di sistem.
         </div>
-        <div class="meta-box">
-            <h3>Keterangan Checklist</h3>
-            <p class="muted" style="margin-top: 8px;">Kolom dokumen memakai tanda `✓` jika file sudah diupload dan `-` jika belum tersedia.</p>
-        </div>
-    </div>
 
-    <div class="summary">
-        <div class="card"><span class="muted">Total Peserta</span><strong><?= e($summary['total'] ?? 0) ?></strong></div>
-        <div class="card"><span class="muted">Peserta Inti</span><strong><?= e($summary['main_total'] ?? 0) ?></strong></div>
-        <div class="card"><span class="muted">Peserta Cadangan</span><strong><?= e($summary['reserve_total'] ?? 0) ?></strong></div>
-        <div class="card"><span class="muted">Terverifikasi</span><strong><?= e($summary['verified'] ?? 0) ?></strong></div>
-    </div>
-    <div class="summary" style="margin-top: 0;">
-        <div class="card"><span class="muted">Menunggu</span><strong><?= e($summary['pending'] ?? 0) ?></strong></div>
-        <div class="card"><span class="muted">Draf</span><strong><?= e($summary['draft'] ?? 0) ?></strong></div>
-        <div class="card"><span class="muted">Ditolak</span><strong><?= e($summary['rejected'] ?? 0) ?></strong></div>
-        <div class="card"><span class="muted">Keperluan</span><strong style="font-size:16px;">Arsip dan Verifikasi</strong></div>
-    </div>
-
-    <table class="table">
-        <thead>
-            <tr>
-                <th>No</th>
-                <th>Registrasi / Status</th>
-                <th>Peserta</th>
-                <th>Kecamatan</th>
-                <th>Cabang / Golongan</th>
-                <th>Dokumen</th>
-                <th>Catatan</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($rows)): ?>
-                <tr>
-                    <td colspan="7" class="center">Belum ada data peserta yang sesuai dengan filter export.</td>
-                </tr>
-            <?php endif; ?>
-            <?php foreach ($rows as $index => $row): ?>
-                <tr>
-                    <td class="center"><?= e($index + 1) ?></td>
-                    <td>
-                        <strong><?= e($row['registration_number']) ?></strong><br>
-                        <span class="muted"><?= e($row['role_label']) ?> | <?= e($row['verification_status']) ?></span>
-                    </td>
-                    <td>
-                        <strong><?= e($row['name']) ?></strong><br>
-                        <span class="muted"><?= e($row['gender']) ?> | <?= e($row['nik']) ?></span><br>
-                        <span class="muted"><?= e(trim($row['place_of_birth'].', '.$row['date_of_birth'], ', ')) ?></span><br>
-                        <span class="muted"><?= e($row['institution']) ?> | <?= e($row['last_education']) ?></span><br>
-                        <span class="muted">HP <?= e($row['phone']) ?></span>
-                    </td>
-                    <td><?= e($row['district']) ?></td>
-                    <td><?= e($row['branch']) ?><br><span class="muted"><?= e($row['category']) ?></span></td>
-                    <td>
-                        KK <?= e($row['documents']['kk']) ?> |
-                        KTP <?= e($row['documents']['ktp']) ?> |
-                        Akta <?= e($row['documents']['birth_certificate']) ?><br>
-                        Foto <?= e($row['documents']['photo']) ?> |
-                        Ijazah <?= e($row['documents']['last_diploma']) ?> |
-                        Tabungan <?= e($row['documents']['bank_book']) ?><br>
-                        Piagam <?= e($row['documents']['certificates']) ?> |
-                        Lainnya <?= e($row['documents']['other_files']) ?>
-                    </td>
-                    <td>
-                        <span class="muted">KK <?= e($row['kk_number']) ?> | <?= e($row['kk_date']) ?></span><br>
-                        <span class="muted">KTP <?= e($row['ktp_date']) ?></span><br>
-                        <span class="muted">Bank <?= e($row['bank_name']) ?> / <?= e($row['bank_account_number']) ?></span><br>
-                        <span class="muted"><?= e($row['verification_notes']) ?></span>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-
-    <div class="note">
-        Rekap ini memuat data peserta yang telah didaftarkan pada sistem beserta indikator kelengkapan file upload. Official kecamatan hanya dapat mencetak data kecamatan sendiri, sedangkan admin dan panitia dapat mencetak per kecamatan atau seluruh kecamatan sesuai filter.
-    </div>
-
-    <div style="margin-top: 24px; text-align: right;">
-        <p><?= e(($documentConfig['signature_city'] ?? 'Batusangkar').', '.$generatedAt->translatedFormat('d F Y')) ?></p>
-    </div>
-
-    <div class="signatures">
-        <div class="signature-box">
-            <p><?= e($officials['committee_chair']['title'] ?? 'Ketua Panitia') ?></p>
-            <div class="signature-line"></div>
-            <p class="muted"><?= e($officials['committee_chair']['name'] ?? '........................................') ?></p>
-        </div>
-        <div class="signature-box">
-            <p><?= e($officials['secretary']['title'] ?? 'Sekretaris') ?></p>
-            <div class="signature-line"></div>
-            <p class="muted"><?= e($officials['secretary']['name'] ?? '........................................') ?></p>
-        </div>
-        <div class="signature-box">
-            <p><?= e($selectedDistrict?->name ? 'Official Kecamatan / Penanggung Jawab' : 'Koordinator Data') ?></p>
-            <div class="signature-line"></div>
-            <p class="muted"><?= e($selectedDistrict?->name ?? '........................................') ?></p>
+        <div class="footer-line">
+            <div><?= e($documentConfig['signature_city'] ?? 'Batusangkar') ?>, <?= e($generatedAt->translatedFormat('d F Y')) ?></div>
+            <div><?= e($selectedDistrict?->name ?? 'Semua kecamatan') ?></div>
         </div>
     </div>
 </body>

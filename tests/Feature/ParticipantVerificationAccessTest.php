@@ -137,6 +137,31 @@ class ParticipantVerificationAccessTest extends TestCase
         $response->assertDontSee($official->name);
     }
 
+    public function test_export_pdf_uses_simplified_columns(): void
+    {
+        [$participant, $panitia] = $this->createParticipantAndPanitia();
+
+        OfficialAccessSetting::query()->create([
+            'participant_registration_open' => true,
+            'participant_edit_open' => true,
+            'mandate_upload_open' => true,
+            'participant_documents_open' => true,
+            'participant_verification_open' => true,
+        ]);
+
+        $response = $this->actingAs($panitia)->get(route('participants.export.pdf'));
+
+        $response->assertOk();
+        $response->assertSee('Rekap Data Peserta');
+        $response->assertSee('No Registrasi');
+        $response->assertSee('Umur per 1 Juli');
+        $response->assertSee($participant->name);
+        $response->assertSee($participant->district->name);
+        $response->assertDontSee('No. HP');
+        $response->assertDontSee('Dokumen');
+        $response->assertDontSee('Catatan Verifikasi');
+    }
+
     /**
      * @return array{0: \App\Models\Participant, 1: \App\Models\User}
      */
