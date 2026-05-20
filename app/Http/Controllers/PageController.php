@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityDocumentation;
 use App\Models\Announcement;
 use App\Models\CompetitionCategory;
+use App\Models\CompetitionLocation;
 use App\Models\District;
 use App\Models\DocumentSetting;
 use App\Models\MaqraPackage;
@@ -40,7 +41,7 @@ class PageController extends Controller
 {
     private const SILATAR_NIP_API = 'https://ptsp.kemenagtanahdatar.cloud/api/v1/nip/';
 
-    public function home(): View
+    public function home(Request $request): View
     {
         SessionSchedule::syncAutomaticStatuses();
 
@@ -130,31 +131,61 @@ class PageController extends Controller
         $timeline = collect(config('juknis.event_schedule', []))
             ->take(4)
             ->values();
-        $locationRows = json_decode((string) @file_get_contents(resource_path('data/lokasi-mtq.json')), true);
-        $competitionVenues = collect(is_array($locationRows) ? $locationRows : [])->map(function (array $venue): array {
-            $kind = match (true) {
-                str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'masjid') => 'Masjid',
-                str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'sma')
-                    || str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'smp')
-                    || str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'mts')
-                    || str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'sdn') => 'Sekolah',
-                default => 'Lapangan / Komunitas',
-            };
+        $competitionVenues = collect();
 
-            $no = (int) ($venue['no'] ?? 0);
-            $webpPath = public_path(sprintf('images/lokasi-mtq-webp/%02d.webp', $no));
-            $thumbPath = public_path(sprintf('images/lokasi-mtq-thumb/%02d.webp', $no));
+        if (Schema::hasTable('competition_locations') && Schema::hasTable('competition_category_location')) {
+            $competitionVenues = CompetitionLocation::query()
+                ->with(['categories' => function ($query): void {
+                    $query->orderBy('sort_order')->orderBy('branch')->orderBy('name');
+                }])
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(function (CompetitionLocation $location): array {
+                    $venueName = trim((string) $location->venue_name);
+                    $kind = match (true) {
+                        str_contains(mb_strtolower($venueName), 'masjid') => 'Masjid',
+                        str_contains(mb_strtolower($venueName), 'sma')
+                            || str_contains(mb_strtolower($venueName), 'smp')
+                            || str_contains(mb_strtolower($venueName), 'mts')
+                            || str_contains(mb_strtolower($venueName), 'sdn') => 'Sekolah',
+                        default => 'Lapangan / Komunitas',
+                    };
 
-            return $venue + [
-                'kind' => $kind,
-                'photo_url' => file_exists($webpPath)
-                    ? asset(sprintf('images/lokasi-mtq-webp/%02d.webp', $no))
-                    : '',
-                'photo_thumb_url' => file_exists($thumbPath)
-                    ? asset(sprintf('images/lokasi-mtq-thumb/%02d.webp', $no))
-                    : (file_exists($webpPath) ? asset(sprintf('images/lokasi-mtq-webp/%02d.webp', $no)) : ''),
-            ];
-        })->filter(fn (array $venue): bool => filled($venue['venue'] ?? null))->values();
+                    $categoryLabels = $location->categories
+                        ->map(fn (CompetitionCategory $category): string => trim((string) $category->branch.' - '.(string) $category->name))
+                        ->filter()
+                        ->values();
+
+                    return [
+                        'no' => (int) $location->sort_order,
+                        'cabang' => $location->label,
+                        'venue' => $venueName !== '' ? $venueName : $location->label,
+                        'map_url' => (string) ($location->map_url ?? ''),
+                        'kind' => $kind,
+                        'photo_url' => filled($location->photo_path) ? asset($location->photo_path) : '',
+                        'photo_thumb_url' => filled($location->photo_thumb_path)
+                            ? asset($location->photo_thumb_path)
+                            : (filled($location->photo_path) ? asset($location->photo_path) : ''),
+                        'category_labels' => $categoryLabels->values()->all(),
+                        'category_count' => $categoryLabels->count(),
+                    ];
+                })
+                ->filter(fn (array $venue): bool => filled($venue['venue'] ?? null))
+                ->values();
+        }
+        $preferredVenueOrder = (int) $request->integer('venue', 0);
+        $initialVenueIndex = $competitionVenues->search(function (array $venue) use ($preferredVenueOrder): bool {
+            return (int) ($venue['no'] ?? 0) === $preferredVenueOrder;
+        });
+
+        if ($initialVenueIndex === false) {
+            $initialVenueIndex = $competitionVenues->search(fn (array $venue): bool => (int) ($venue['no'] ?? 0) === 2);
+        }
+
+        if ($initialVenueIndex === false) {
+            $initialVenueIndex = 0;
+        }
         $featuredParticipants = Participant::query()
             ->with(['category', 'district'])
             ->where('verification_status', 'verified')
@@ -221,6 +252,7 @@ class PageController extends Controller
             'featuredSchedules' => $featuredSchedules,
             'timeline' => $timeline,
             'competitionVenues' => $competitionVenues,
+            'initialVenueIndex' => $initialVenueIndex,
             'galleryImages' => $galleryImages,
             'coverSlides' => $coverSlides,
             'featuredParticipants' => $featuredParticipants,
@@ -1641,6 +1673,9 @@ class PageController extends Controller
                     : null,
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('admin.documents', 'Dokumen Resmi', route('admin.documents'), 'book-open')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('locations.index', 'Lokasi MTQ', route('locations.index'), 'map-pin')
                     : null,
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('application.logs', 'Log Aplikasi', route('application.logs'), 'clock')

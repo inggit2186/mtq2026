@@ -293,7 +293,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                 <div
                     class="mt-6 space-y-6"
                     x-data="{
-                        active: 0,
+                        active: <?= e((int) ($initialVenueIndex ?? 0)) ?>,
                         venues: <?= e(json_encode($competitionVenues->values()->all(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>,
                         timer: null,
                         get current() {
@@ -332,6 +332,13 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                     </div>
                                     <h4 class="mt-3 text-2xl font-black text-white sm:text-[2.15rem]" x-text="current ? current.venue : '<?= e($featuredVenue['venue']) ?>'"></h4>
                                     <p class="mt-3 max-w-xl text-sm leading-7 text-slate-300" x-text="current ? current.cabang : '<?= e($featuredVenue['cabang']) ?>'"></p>
+
+                                    <div class="mt-4 flex flex-wrap gap-2" x-cloak x-show="current && current.category_labels && current.category_labels.length">
+                                        <template x-for="label in (current ? current.category_labels.slice(0, 3) : [])" :key="label">
+                                            <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100" x-text="label"></span>
+                                        </template>
+                                        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200" x-show="current && current.category_labels && current.category_labels.length > 3" x-text="'+' + (current.category_labels.length - 3) + ' golongan'"></span>
+                                    </div>
 
                                     <div class="mt-5 grid gap-3 sm:grid-cols-3">
                                         <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5">
@@ -410,7 +417,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                     class="group relative flex min-w-[10rem] items-center gap-3 rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-3 text-left transition hover:border-cyan-300/30"
                                     x-on:click="go(<?= (int) $index ?>)"
                                     x-bind:class="active === <?= (int) $index ?> ? 'border-cyan-300/40 bg-cyan-400/10' : ''"
-                                >
+                                    >
                                     <img
                                         src="<?= e($venue['photo_thumb_url'] ?? ($venue['photo_url'] ?? '')) ?>"
                                         alt="<?= e($venue['venue']) ?>"
@@ -419,6 +426,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                     <div class="min-w-0">
                                         <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">No. <?= e(str_pad((string) $venue['no'], 2, '0', STR_PAD_LEFT)) ?></p>
                                         <p class="truncate text-sm font-semibold text-white"><?= e($venue['venue']) ?></p>
+                                        <p class="mt-1 text-[11px] text-slate-400"><?= e((int) ($venue['category_count'] ?? 0)) ?> golongan terhubung</p>
                                     </div>
                                 </button>
                             <?php endforeach; ?>

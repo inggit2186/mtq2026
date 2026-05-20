@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Announcement;
 use App\Models\CompetitionCategory;
+use App\Models\CompetitionLocation;
 use App\Models\District;
 use App\Models\MaqraPackage;
 use App\Models\Participant;
@@ -161,6 +162,104 @@ class DatabaseSeeder extends Seeder
                 ],
             );
         })->keyBy('slug');
+
+        $locationCategorySlugs = function (int $no): array {
+            return match ($no) {
+                1 => [
+                    Str::slug('Seni Baca Al Qur`an Tilawah Kanak-kanak'),
+                    Str::slug('Seni Baca Al Qur`an Tilawah Anak Anak'),
+                ],
+                2 => [
+                    Str::slug('Seni Baca Al Qur`an Tilawah Remaja'),
+                    Str::slug('Seni Baca Al Qur`an Tilawah Dewasa'),
+                ],
+                3 => [
+                    Str::slug('Tartil Al Qur`an Gol. Dasar'),
+                    Str::slug('Tartil Al Qur`an Gol. Menengah'),
+                    Str::slug('Tartil Al Qur`an Gol. Umum'),
+                ],
+                4 => [
+                    Str::slug('Hafalan Al Qur`an Gol. 1 Juz Tilawah'),
+                    Str::slug('Hafalan Al Qur`an Gol. 5 Juz Tilawah'),
+                ],
+                5 => [
+                    Str::slug('Hafalan Al Qur`an Gol. 1 Juz Non Tilawah'),
+                    Str::slug('Hafalan Al Qur`an Gol. 5 Juz Non Tilawah'),
+                    Str::slug('Hafalan Al Qur`an Gol. 10 Juz'),
+                ],
+                6 => [
+                    Str::slug('Khutbah Jumat dan Adzan Khatib dan Muadzin'),
+                    Str::slug('Kitab Standar Kitab Standar'),
+                ],
+                7 => [
+                    Str::slug('Tafsir Al Qur`an Bahasa Indonesia'),
+                    Str::slug('Tafsir Al Qur`an Bahasa Arab'),
+                    Str::slug('Tafsir Al Qur`an Bahasa Inggris'),
+                ],
+                8 => [
+                    Str::slug('Syarhil Qur`an Golongan Putra'),
+                    Str::slug('Syarhil Qur`an Golongan Putri'),
+                ],
+                9 => [
+                    Str::slug('Fahmil Qur`an Golongan Putra'),
+                    Str::slug('Fahmil Qur`an Golongan Putri'),
+                ],
+                10 => [
+                    Str::slug('Seni Kaligrafi Al Qur`an Golongan Naskah'),
+                    Str::slug('Seni Kaligrafi Al Qur`an Golongan Hiasan Mushaf'),
+                ],
+                11 => [
+                    Str::slug('Seni Kaligrafi Al Qur`an Golongan Dekorasi'),
+                    Str::slug('Seni Kaligrafi Al Qur`an Golongan Kontemporer'),
+                ],
+                12 => [
+                    Str::slug('Karya Tulis Ilmiah Al Qur`an (KTIQ) KTIQ'),
+                ],
+                13 => [
+                    Str::slug('Hafalan Hadits Nabi Hafalan 50 Hadits dengan Sanad'),
+                    Str::slug('Hafalan Hadits Nabi Hafalan 250 Hadits dengan Sanad'),
+                ],
+                default => [],
+            };
+        };
+
+        $locationRows = json_decode((string) @file_get_contents(resource_path('data/lokasi-mtq.json')), true);
+        $competitionLocationsSource = collect(is_array($locationRows) ? $locationRows : [])
+            ->filter(fn ($item): bool => is_array($item) && filled($item['no'] ?? null))
+            ->values();
+
+        CompetitionLocation::query()->delete();
+
+        $competitionLocationsSource->each(function (array $location) use ($categories, $locationCategorySlugs): void {
+            $no = (int) ($location['no'] ?? 0);
+            if ($no <= 0) {
+                return;
+            }
+
+            $createdLocation = CompetitionLocation::query()->updateOrCreate(
+                ['sort_order' => $no],
+                [
+                    'label' => trim((string) ($location['cabang'] ?? 'Lokasi '.$no)),
+                    'venue_name' => trim((string) ($location['venue'] ?? '')),
+                    'map_url' => trim((string) ($location['map_url'] ?? '')),
+                    'photo_path' => file_exists(public_path(sprintf('images/lokasi-mtq-webp/%02d.webp', $no)))
+                        ? sprintf('images/lokasi-mtq-webp/%02d.webp', $no)
+                        : null,
+                    'photo_thumb_path' => file_exists(public_path(sprintf('images/lokasi-mtq-thumb/%02d.webp', $no)))
+                        ? sprintf('images/lokasi-mtq-thumb/%02d.webp', $no)
+                        : null,
+                    'sort_order' => $no,
+                ],
+            );
+
+            $categoryIds = collect($locationCategorySlugs($no))
+                ->map(fn (string $slug): ?int => $categories->get($slug)?->id)
+                ->filter()
+                ->values()
+                ->all();
+
+            $createdLocation->categories()->sync($categoryIds);
+        });
 
         $usesMaqraCategory = function (CompetitionCategory $category): bool {
             $haystack = mb_strtolower(trim((string) $category->branch.' '.(string) $category->name));
