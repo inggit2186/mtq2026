@@ -126,10 +126,10 @@ class PageController extends Controller
         $featuredSchedules = SessionSchedule::query()
             ->orderByRaw("case when status = 'ongoing' then 0 when starts_at >= ? then 1 else 2 end", [now()])
             ->orderBy('starts_at')
-            ->limit(4)
+            ->limit(2)
             ->get();
         $timeline = collect(config('juknis.event_schedule', []))
-            ->take(4)
+            ->take(2)
             ->values();
         $competitionVenues = collect();
 
