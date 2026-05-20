@@ -194,7 +194,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                 </div>
                             </div>
 
-                            <div class="grid gap-4">
+                            <div class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
                                 <div id="agenda-utama" class="glass-card rounded-[2rem] p-6 sm:p-7">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
@@ -207,22 +207,28 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                         </div>
                                     </div>
 
-                                    <div class="mt-6 space-y-3">
+                                    <div class="mt-6 grid gap-4">
                                         <?php if ($featuredSchedules->isEmpty()): ?>
-                                            <?php foreach ($timeline as $item): ?>
-                                                <div class="data-card">
-                                                    <div class="flex items-start gap-4">
-                                                        <div class="icon-chip"><?= mtq_icon('calendar') ?></div>
-                                                        <div class="min-w-0">
+                                            <?php foreach ($timeline as $index => $item): ?>
+                                                <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/72 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
+                                                    <div class="grid gap-0 sm:grid-cols-[112px_minmax(0,1fr)]">
+                                                        <div class="flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 sm:flex-col sm:items-start sm:border-b-0 sm:border-r">
+                                                            <div>
+                                                                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-300">Agenda</p>
+                                                                <p class="mt-2 text-3xl font-black leading-none text-white"><?= e(str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT)) ?></p>
+                                                            </div>
+                                                            <div class="icon-chip h-11 w-11 shrink-0"><?= mtq_icon('calendar') ?></div>
+                                                        </div>
+                                                        <div class="min-w-0 p-4 sm:p-5">
                                                             <p class="font-semibold text-white"><?= e($item['activity'] ?? 'Agenda MTQ') ?></p>
                                                             <p class="mt-2 text-sm text-cyan-200"><?= e($item['date'] ?? '-') ?> | <?= e($item['time'] ?? '-') ?></p>
                                                             <p class="mt-2 text-sm leading-6 text-slate-300"><?= e($item['notes'] ?? 'Informasi detail akan diumumkan panitia.') ?></p>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </article>
                                             <?php endforeach; ?>
                                         <?php else: ?>
-                                            <?php foreach ($featuredSchedules as $schedule): ?>
+                                            <?php foreach ($featuredSchedules as $index => $schedule): ?>
                                                 <?php
                                                 $status = (string) ($schedule->status ?? 'scheduled');
                                                 $statusLabel = match ($status) {
@@ -238,9 +244,16 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                                     default => 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
                                                 };
                                                 ?>
-                                                <div class="data-card">
-                                                    <div class="flex items-start justify-between gap-4">
-                                                        <div class="min-w-0">
+                                                <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/72 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
+                                                    <div class="grid gap-0 sm:grid-cols-[112px_minmax(0,1fr)]">
+                                                        <div class="flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 sm:flex-col sm:items-start sm:border-b-0 sm:border-r">
+                                                            <div>
+                                                                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-300">Agenda</p>
+                                                                <p class="mt-2 text-3xl font-black leading-none text-white"><?= e(str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT)) ?></p>
+                                                            </div>
+                                                            <div class="icon-chip h-11 w-11 shrink-0"><?= mtq_icon('clock') ?></div>
+                                                        </div>
+                                                        <div class="min-w-0 p-4 sm:p-5">
                                                             <div class="flex flex-wrap items-center gap-2">
                                                                 <p class="font-semibold text-white"><?= e($schedule->title) ?></p>
                                                                 <span class="inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] <?= e($statusClasses) ?>"><?= e($statusLabel) ?></span>
@@ -251,9 +264,8 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                                                 <p class="mt-2 text-sm leading-6 text-slate-300"><?= e($schedule->notes) ?></p>
                                                             <?php endif; ?>
                                                         </div>
-                                                        <div class="icon-chip h-12 w-12 shrink-0"><?= mtq_icon('clock') ?></div>
                                                     </div>
-                                                </div>
+                                                </article>
                                             <?php endforeach; ?>
                                         <?php endif; ?>
                                     </div>
