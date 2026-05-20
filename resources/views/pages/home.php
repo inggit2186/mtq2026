@@ -194,7 +194,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                 </div>
                             </div>
 
-                            <div class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
+                            <div class="grid gap-4">
                                 <div id="agenda-utama" class="glass-card rounded-[2rem] p-6 sm:p-7">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
@@ -211,8 +211,8 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                         <?php if ($featuredSchedules->isEmpty()): ?>
                                             <?php foreach ($timeline as $index => $item): ?>
                                                 <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/72 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
-                                                    <div class="grid gap-0 sm:grid-cols-[112px_minmax(0,1fr)]">
-                                                        <div class="flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 sm:flex-col sm:items-start sm:border-b-0 sm:border-r">
+                                                    <div class="grid gap-0 md:grid-cols-[96px_minmax(0,1fr)]">
+                                                        <div class="flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 md:flex-col md:items-start md:border-b-0 md:border-r md:px-4 md:py-5">
                                                             <div>
                                                                 <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-300">Agenda</p>
                                                                 <p class="mt-2 text-3xl font-black leading-none text-white"><?= e(str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT)) ?></p>
@@ -245,8 +245,8 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                                 };
                                                 ?>
                                                 <article class="group overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/72 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
-                                                    <div class="grid gap-0 sm:grid-cols-[112px_minmax(0,1fr)]">
-                                                        <div class="flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 sm:flex-col sm:items-start sm:border-b-0 sm:border-r">
+                                                    <div class="grid gap-0 md:grid-cols-[96px_minmax(0,1fr)]">
+                                                        <div class="flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 md:flex-col md:items-start md:border-b-0 md:border-r md:px-4 md:py-5">
                                                             <div>
                                                                 <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-300">Agenda</p>
                                                                 <p class="mt-2 text-3xl font-black leading-none text-white"><?= e(str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT)) ?></p>
@@ -271,20 +271,6 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                     </div>
                                 </div>
 
-                                <div class="glass-card rounded-[2rem] p-6 sm:p-7">
-                                    <p class="section-kicker">Ringkasan Publik</p>
-                                    <h3 class="mt-2 text-2xl font-bold text-white">Informasi inti yang mudah dipindai</h3>
-                                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                                        <div class="data-card">
-                                            <p class="text-sm text-slate-400">Pendaftaran</p>
-                                            <p class="mt-2 text-lg font-semibold text-white"><?= e($registration['open'] ?? '-') ?> - <?= e($registration['close'] ?? '-') ?></p>
-                                        </div>
-                                        <div class="data-card">
-                                            <p class="text-sm text-slate-400">Pengumuman administrasi</p>
-                                            <p class="mt-2 text-lg font-semibold text-white"><?= e($registration['announcement'] ?? '-') ?></p>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
