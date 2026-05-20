@@ -431,20 +431,6 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                         </div>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-3 mt-5">
-                        <div class="data-card">
-                            <p class="text-sm text-slate-400">Total venue</p>
-                            <p class="mt-2 text-3xl font-black text-white"><?= e($competitionVenueStats['total']) ?></p>
-                        </div>
-                        <div class="data-card">
-                            <p class="text-sm text-slate-400">Venue masjid</p>
-                            <p class="mt-2 text-3xl font-black text-white"><?= e($competitionVenueStats['masjid']) ?></p>
-                        </div>
-                        <div class="data-card">
-                            <p class="text-sm text-slate-400">Venue sekolah / komunitas</p>
-                            <p class="mt-2 text-3xl font-black text-white"><?= e($competitionVenueStats['sekolah'] + $competitionVenueStats['komunitas']) ?></p>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -512,9 +498,9 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                     <div class="grid gap-4">
                                         <?php if ($primaryParticipant): ?>
                                             <article class="group relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/72 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.55)]">
-                                                <div class="grid gap-0 lg:grid-cols-[minmax(180px,200px)_minmax(0,1fr)]">
+                                                <div class="grid gap-0 lg:grid-cols-[minmax(190px,210px)_minmax(0,1fr)]">
                                                     <div class="relative flex items-center justify-center overflow-hidden border-b border-white/8 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-4 lg:border-b-0 lg:border-r">
-                                                        <div class="relative w-full max-w-[180px] overflow-hidden rounded-[1.6rem] border border-white/10 bg-slate-900/80 shadow-[0_14px_36px_-26px_rgba(15,23,42,0.5)]">
+                                                        <div class="relative w-full max-w-[194px] overflow-hidden rounded-[1.6rem] border border-white/10 bg-slate-900/80 shadow-[0_14px_36px_-26px_rgba(15,23,42,0.5)]">
                                                             <div class="relative aspect-[4/5]">
                                                                 <?php if (! empty($primaryParticipant['photo_url'])): ?>
                                                                     <img src="<?= e($primaryParticipant['photo_url']) ?>" alt="<?= e($primaryParticipant['name']) ?>" class="h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.03]">
