@@ -1,0 +1,80 @@
+[
+  {
+    "no": 1,
+    "cabang": "Tilawah TK dan Anak-Anak",
+    "venue": "Masjid Syura Tabek",
+    "map_url": "https://maps.app.goo.gl/dG1ymThYap5dE8NS6"
+  },
+  {
+    "no": 2,
+    "cabang": "Tilawah Remaja dan Dewasa",
+    "venue": "Mimbar Utama / Lapangan Simabur",
+    "map_url": "https://maps.app.goo.gl/v7Gripp8czAjCckg8"
+  },
+  {
+    "no": 3,
+    "cabang": "Tartil (Dasar, Menengah dan Umum)",
+    "venue": "Masjid Ridha Sawah Tangah",
+    "map_url": "https://maps.app.goo.gl/9gHURSGwmfQXJd2j7"
+  },
+  {
+    "no": 4,
+    "cabang": "Tahfizh 1 Juz Tilawah dan 5 Juz Tilawah",
+    "venue": "Masjid Ihsan Koto Baru Batu Basa",
+    "map_url": "https://maps.app.goo.gl/Ckce6RWGQ9sNKrKg6"
+  },
+  {
+    "no": 5,
+    "cabang": "Tahfizh 1 Non Tilawah dan 5 Juz Non Tilawah dan 10 Juz",
+    "venue": "Masjid Ishlah Pariangan",
+    "map_url": "https://maps.app.goo.gl/XSxN5LAKSa6icdwr6"
+  },
+  {
+    "no": 6,
+    "cabang": "Khutbah Jumat dan Kitab Standar",
+    "venue": "Masjid Jamik Sungai Jambu",
+    "map_url": "https://maps.app.goo.gl/SqE8NuoxGH4teoyNA"
+  },
+  {
+    "no": 7,
+    "cabang": "Tafsir (B. Indonesia, Arab dan Inggris)",
+    "venue": "Masjid Sabil Padang Panjang Pariangan",
+    "map_url": "https://maps.app.goo.gl/muE4G82wXAfhhA746"
+  },
+  {
+    "no": 8,
+    "cabang": "Musabaqah Syarhil Quran (MSQ)",
+    "venue": "SMA 1 Pariangan (Simabur)",
+    "map_url": "https://maps.app.goo.gl/gEgLkYoJozMuBPSS9"
+  },
+  {
+    "no": 9,
+    "cabang": "Musabaqah Fahmil Quran (MFQ)",
+    "venue": "SMPN 3 Tabek",
+    "map_url": "https://maps.app.goo.gl/yPHmJakf39j1uHhe8"
+  },
+  {
+    "no": 10,
+    "cabang": "Khatil Quran Gol. Naskhi dan Hiasan Mushaf",
+    "venue": "MTsN 07 Tanah Datar (Sungai Jambu)",
+    "map_url": "https://maps.app.goo.gl/3xXcHWv6WKuw758J6"
+  },
+  {
+    "no": 11,
+    "cabang": "Khatil Quran Gol. Dekorasi dan Kontemporer",
+    "venue": "MTsN 07 Tanah Datar (Sungai Jambu)",
+    "map_url": "https://maps.app.goo.gl/3xXcHWv6WKuw758J6"
+  },
+  {
+    "no": 12,
+    "cabang": "Karya Tulis Ilmiah Al-Quran (KTIQ)",
+    "venue": "SDN 21 Sawah Tangah",
+    "map_url": "https://maps.app.goo.gl/SVAGBVMx5vCmrfwXA"
+  },
+  {
+    "no": 13,
+    "cabang": "Hafalan Hadits",
+    "venue": "Masjid Baburrahim Batubasa",
+    "map_url": "https://maps.app.goo.gl/W5sn5rrf4m3NqC9j7"
+  }
+]

@@ -130,6 +130,31 @@ class PageController extends Controller
         $timeline = collect(config('juknis.event_schedule', []))
             ->take(4)
             ->values();
+        $locationRows = json_decode((string) @file_get_contents(resource_path('data/lokasi-mtq.json')), true);
+        $competitionVenues = collect(is_array($locationRows) ? $locationRows : [])->map(function (array $venue): array {
+            $kind = match (true) {
+                str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'masjid') => 'Masjid',
+                str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'sma')
+                    || str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'smp')
+                    || str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'mts')
+                    || str_contains(mb_strtolower((string) ($venue['venue'] ?? '')), 'sdn') => 'Sekolah',
+                default => 'Lapangan / Komunitas',
+            };
+
+            $no = (int) ($venue['no'] ?? 0);
+            $webpPath = public_path(sprintf('images/lokasi-mtq-webp/%02d.webp', $no));
+            $thumbPath = public_path(sprintf('images/lokasi-mtq-thumb/%02d.webp', $no));
+
+            return $venue + [
+                'kind' => $kind,
+                'photo_url' => file_exists($webpPath)
+                    ? asset(sprintf('images/lokasi-mtq-webp/%02d.webp', $no))
+                    : '',
+                'photo_thumb_url' => file_exists($thumbPath)
+                    ? asset(sprintf('images/lokasi-mtq-thumb/%02d.webp', $no))
+                    : (file_exists($webpPath) ? asset(sprintf('images/lokasi-mtq-webp/%02d.webp', $no)) : ''),
+            ];
+        })->filter(fn (array $venue): bool => filled($venue['venue'] ?? null))->values();
         $featuredParticipants = Participant::query()
             ->with(['category', 'district'])
             ->where('verification_status', 'verified')
@@ -195,6 +220,7 @@ class PageController extends Controller
             'announcements' => $announcements,
             'featuredSchedules' => $featuredSchedules,
             'timeline' => $timeline,
+            'competitionVenues' => $competitionVenues,
             'galleryImages' => $galleryImages,
             'coverSlides' => $coverSlides,
             'featuredParticipants' => $featuredParticipants,

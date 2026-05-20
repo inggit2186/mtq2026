@@ -9,6 +9,7 @@ $featuredBranches = $featuredBranches ?? collect();
 $announcements = $announcements ?? collect();
 $featuredSchedules = $featuredSchedules ?? collect();
 $timeline = $timeline ?? collect();
+$competitionVenues = $competitionVenues ?? collect();
 $galleryImages = $galleryImages ?? null;
 $coverSlides = $coverSlides ?? collect();
 $featuredParticipants = $featuredParticipants ?? collect();
@@ -21,6 +22,13 @@ $host = config('juknis.host', $eventLocation);
 $registration = config('juknis.registration', []);
 $primaryCtaHref = auth()->check() ? route('dashboard') : route('login');
 $primaryCtaLabel = auth()->check() ? 'Masuk ke Dashboard' : 'Masuk ke Portal';
+$competitionVenueStats = [
+    'total' => $competitionVenues->count(),
+    'masjid' => $competitionVenues->where('kind', 'Masjid')->count(),
+    'sekolah' => $competitionVenues->where('kind', 'Sekolah')->count(),
+    'komunitas' => $competitionVenues->where('kind', 'Lapangan / Komunitas')->count(),
+];
+$featuredVenue = $competitionVenues->firstWhere('no', 2) ?? $competitionVenues->first();
 $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollection'))
     ? $galleryImages->getCollection()->values()->all()
     : [];
@@ -174,6 +182,10 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                             <?= mtq_icon('calendar', 'h-4 w-4') ?>
                                             Lihat Agenda Utama
                                         </a>
+                                        <a href="#lokasi-lomba" class="secondary-button">
+                                            <?= mtq_icon('map-pin', 'h-4 w-4') ?>
+                                            Lokasi Lomba
+                                        </a>
                                         <a href="#pengumuman-terbaru" class="secondary-button">
                                             <?= mtq_icon('bell', 'h-4 w-4') ?>
                                             Cek Pengumuman
@@ -266,6 +278,169 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                     </div>
                 </section>
             <?php endif; ?>
+
+                        <section id="lokasi-lomba" class="relative mt-6 overflow-hidden rounded-[2.5rem] border border-cyan-400/12 bg-gradient-to-br from-slate-950/95 via-slate-900/88 to-sky-950/25 p-5 sm:p-6 lg:p-8">
+                <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent"></div>
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                        <p class="section-kicker">Lokasi Musabaqah</p>
+                        <h3 class="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Lokasi Lomba MTQ ke 43 di Kecamatan Pariangan</h3>
+                        <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-300">Semua venue ditampilkan dalam slideshow agar halaman tetap ringkas, tetapi pengunjung tetap bisa melihat foto, cabang, dan arah Google Maps dengan cepat.</p>
+                    </div>
+                    <div class="badge-live"><?= mtq_icon('map-pin', 'h-4 w-4') ?> <?= e($competitionVenueStats['total']) ?> venue aktif</div>
+                </div>
+
+                <div
+                    class="mt-6 space-y-6"
+                    x-data="{
+                        active: 0,
+                        venues: <?= e(json_encode($competitionVenues->values()->all(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>,
+                        timer: null,
+                        get current() {
+                            return this.venues[this.active] || null;
+                        },
+                        init() {
+                            if (this.venues.length > 1) {
+                                this.timer = setInterval(() => {
+                                    this.active = (this.active + 1) % this.venues.length;
+                                }, 5200);
+                            }
+                        },
+                        go(index) {
+                            this.active = index;
+                        },
+                        prev() {
+                            if (!this.venues.length) return;
+                            this.active = (this.active - 1 + this.venues.length) % this.venues.length;
+                        },
+                        next() {
+                            if (!this.venues.length) return;
+                            this.active = (this.active + 1) % this.venues.length;
+                        }
+                    }"
+                    x-init="init()"
+                >
+                    <?php if ($featuredVenue): ?>
+                        <div class="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/72 shadow-[0_24px_70px_-40px_rgba(14,165,233,0.42)]">
+                            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500"></div>
+                            <div class="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl"></div>
+                            <div class="grid gap-0 lg:grid-cols-[0.8fr_1.2fr]">
+                                <div class="relative p-5 sm:p-6 lg:p-7">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="section-kicker">Slideshow Venue</p>
+                                        <span class="status-pill border-white/10 bg-white/5 text-slate-200" x-text="current ? ('No. ' + String(current.no).padStart(2, '0')) : 'No. 02'"></span>
+                                    </div>
+                                    <h4 class="mt-3 text-2xl font-black text-white sm:text-[2.15rem]" x-text="current ? current.venue : '<?= e($featuredVenue['venue']) ?>'"></h4>
+                                    <p class="mt-3 max-w-xl text-sm leading-7 text-slate-300" x-text="current ? current.cabang : '<?= e($featuredVenue['cabang']) ?>'"></p>
+
+                                    <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                                        <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5">
+                                            <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">No</p>
+                                            <p class="mt-2 text-sm font-semibold text-white" x-text="current ? String(current.no).padStart(2, '0') : '02'"></p>
+                                        </div>
+                                        <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5">
+                                            <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Jenis venue</p>
+                                            <p class="mt-2 text-sm font-semibold text-white" x-text="current ? current.kind : '<?= e($featuredVenue['kind']) ?>'"></p>
+                                        </div>
+                                        <div class="rounded-[1.2rem] border border-white/8 bg-white/5 p-3.5">
+                                            <p class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Total lokasi</p>
+                                            <p class="mt-2 text-sm font-semibold text-white"><?= e($competitionVenueStats['total']) ?> titik</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-5 flex flex-wrap gap-3">
+                                        <a href="<?= e($featuredVenue['map_url']) ?>" target="_blank" rel="noreferrer" class="primary-button" x-bind:href="current ? current.map_url : '<?= e($featuredVenue['map_url']) ?>'">
+                                            <?= mtq_icon('link-external', 'h-4 w-4') ?>
+                                            Buka Google Maps
+                                        </a>
+                                        <a href="#lokasi-ringan" class="secondary-button">
+                                            <?= mtq_icon('map-pin', 'h-4 w-4') ?>
+                                            Lihat ringkasan
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <figure x-data="{ loaded: false }" x-init="$nextTick(() => { loaded = $refs.heroImage ? $refs.heroImage.complete : false })" class="relative min-h-[280px] overflow-hidden lg:min-h-[410px]">
+                                    <div x-cloak x-show="!loaded" class="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,rgba(15,23,42,0.9)_8%,rgba(30,41,59,0.95)_18%,rgba(15,23,42,0.9)_33%)] bg-[length:200%_100%]"></div>
+                                    <img
+                                        x-ref="heroImage"
+                                        x-bind:src="current ? current.photo_url : '<?= e($featuredVenue['photo_url'] ?? '') ?>'"
+                                        x-bind:alt="current ? current.venue : '<?= e($featuredVenue['venue']) ?>'"
+                                        loading="eager"
+                                        fetchpriority="high"
+                                        decoding="async"
+                                        sizes="(min-width: 1024px) 58vw, 100vw"
+                                        x-bind:srcset="current ? (current.photo_url + ' 1200w') : '<?= e($featuredVenue['photo_url'] ?? '') ?> 1200w'"
+                                        x-on:load="loaded = true"
+                                        x-bind:class="loaded ? 'opacity-100' : 'opacity-0'"
+                                        class="h-full w-full object-cover object-center transition-opacity duration-500"
+                                    >
+                                    <div class="mtq-cover-overlay"></div>
+                                    <button type="button" class="absolute left-4 top-1/2 z-10 inline-flex -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/55 p-3 text-white backdrop-blur transition hover:bg-slate-950/80" x-on:click="prev()" aria-label="Venue sebelumnya">
+                                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                                    </button>
+                                    <button type="button" class="absolute right-4 top-1/2 z-10 inline-flex -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/55 p-3 text-white backdrop-blur transition hover:bg-slate-950/80" x-on:click="next()" aria-label="Venue berikutnya">
+                                        <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                    </button>
+                                    <figcaption class="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                                        <div class="max-w-xl rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4 backdrop-blur">
+                                            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/90">Tap untuk arah lokasi</p>
+                                            <p class="mt-2 text-lg font-bold text-white sm:text-xl" x-text="current ? current.venue : '<?= e($featuredVenue['venue']) ?>'"></p>
+                                            <p class="mt-2 text-sm leading-6 text-slate-200" x-text="current ? current.cabang : '<?= e($featuredVenue['cabang']) ?>'"></p>
+                                        </div>
+                                    </figcaption>
+                                </figure>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <div id="lokasi-ringan" class="mt-5 rounded-[1.8rem] border border-white/10 bg-slate-950/55 p-4 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.4)]">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">Panel navigasi cepat</p>
+                                <p class="mt-1 text-sm text-slate-300">Pilih venue dengan tombol kecil di bawah ini tanpa memperpanjang halaman.</p>
+                            </div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400" x-text="venues.length ? ((active + 1) + ' / ' + venues.length) : '0 / 0'"></p>
+                        </div>
+
+                        <div class="mt-4 flex gap-2 overflow-x-auto pb-1">
+                            <?php foreach ($competitionVenues as $index => $venue): ?>
+                                <button
+                                    type="button"
+                                    class="group relative flex min-w-[10rem] items-center gap-3 rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-3 text-left transition hover:border-cyan-300/30"
+                                    x-on:click="go(<?= (int) $index ?>)"
+                                    x-bind:class="active === <?= (int) $index ?> ? 'border-cyan-300/40 bg-cyan-400/10' : ''"
+                                >
+                                    <img
+                                        src="<?= e($venue['photo_thumb_url'] ?? ($venue['photo_url'] ?? '')) ?>"
+                                        alt="<?= e($venue['venue']) ?>"
+                                        class="h-12 w-12 rounded-xl object-cover object-center"
+                                    >
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">No. <?= e(str_pad((string) $venue['no'], 2, '0', STR_PAD_LEFT)) ?></p>
+                                        <p class="truncate text-sm font-semibold text-white"><?= e($venue['venue']) ?></p>
+                                    </div>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-3 mt-5">
+                        <div class="data-card">
+                            <p class="text-sm text-slate-400">Total venue</p>
+                            <p class="mt-2 text-3xl font-black text-white"><?= e($competitionVenueStats['total']) ?></p>
+                        </div>
+                        <div class="data-card">
+                            <p class="text-sm text-slate-400">Venue masjid</p>
+                            <p class="mt-2 text-3xl font-black text-white"><?= e($competitionVenueStats['masjid']) ?></p>
+                        </div>
+                        <div class="data-card">
+                            <p class="text-sm text-slate-400">Venue sekolah / komunitas</p>
+                            <p class="mt-2 text-3xl font-black text-white"><?= e($competitionVenueStats['sekolah'] + $competitionVenueStats['komunitas']) ?></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             <section class="mt-6 overflow-hidden rounded-[2.5rem] border border-fuchsia-400/12 bg-gradient-to-br from-slate-950/90 via-slate-900/85 to-fuchsia-950/20 p-5 sm:p-6 lg:p-8">
                 <div class="flex flex-wrap items-end justify-between gap-4">
@@ -828,3 +1003,4 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
     <?php endforeach; ?>
 </body>
 </html>
+

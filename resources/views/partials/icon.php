@@ -38,6 +38,8 @@ if (! function_exists('mtq_icon')) {
             'trash' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 11v6"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 7l1 14h10l1-14"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 7V4h6v3"/>',
             'refresh-cw' => '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.64-6.36"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 3v6h-6"/>',
             'image' => '<rect width="18" height="14" x="3" y="5" rx="2"/><circle cx="8" cy="10" r="1.5"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 16 4-4 3 3 4-5 7 6"/>',
+            'map-pin' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 21s6-4.35 6-10a6 6 0 1 0-12 0c0 5.65 6 10 6 10Z"/><circle cx="12" cy="11" r="2.5"/>',
+            'link-external' => '<path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 14 19 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 13v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6"/>',
         ];
 
         $svg = $icons[$name] ?? $icons['spark'];
