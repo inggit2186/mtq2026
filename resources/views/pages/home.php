@@ -63,7 +63,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3">
-                        <div class="badge-live"><?= mtq_icon('eye', 'h-4 w-4') ?> Homepage Publik</div>
+                        <div class="badge-live"><?= mtq_icon('eye', 'h-4 w-4') ?> Halaman Publik</div>
                         <a href="<?= e($primaryCtaHref) ?>" class="primary-button">
                             <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                             <?= e($primaryCtaLabel) ?>
@@ -152,10 +152,10 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
 
                                     <div class="space-y-5">
                                         <h2 class="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-                                            Satu homepage untuk melihat denyut <span class="text-gradient">MTQ</span> dengan lebih hidup.
+                                            Satu halaman utama untuk mengikuti <span class="text-gradient">MTQ</span> dengan lebih mudah.
                                         </h2>
                                         <p class="max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-                                            Pantau suasana event, jadwal utama, pengumuman terbaru, dan gambaran cabang lomba dalam tampilan yang lebih hangat, jelas, dan layak dilihat pengunjung umum.
+                                            Pantau jadwal utama, pengumuman terbaru, lokasi lomba, dan cabang yang ditampilkan dalam satu halaman yang rapi.
                                         </p>
                                     </div>
 
@@ -203,7 +203,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                         </div>
                                         <div class="status-pill">
                                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                                            Realtime Ready
+                                            Siap digunakan
                                         </div>
                                     </div>
 
@@ -285,7 +285,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                     <div>
                         <p class="section-kicker">Lokasi Musabaqah</p>
                         <h3 class="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Lokasi Lomba MTQ ke 43 di Kecamatan Pariangan</h3>
-                        <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-300">Semua venue ditampilkan dalam slideshow agar halaman tetap ringkas, tetapi pengunjung tetap bisa melihat foto, cabang, dan arah Google Maps dengan cepat.</p>
+                        <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-300">Venue lomba ditampilkan dalam bentuk slideshow agar halaman tetap rapi, sambil tetap memberi akses cepat ke foto, cabang, dan peta lokasi.</p>
                     </div>
                     <div class="badge-live"><?= mtq_icon('map-pin', 'h-4 w-4') ?> <?= e($competitionVenueStats['total']) ?> venue aktif</div>
                 </div>
@@ -362,7 +362,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                         </a>
                                         <a href="#lokasi-ringan" class="secondary-button">
                                             <?= mtq_icon('map-pin', 'h-4 w-4') ?>
-                                            Lihat ringkasan
+                                            Lihat detail
                                         </a>
                                     </div>
                                 </div>
@@ -391,7 +391,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                     </button>
                                     <figcaption class="absolute inset-x-0 bottom-0 p-4 sm:p-5">
                                         <div class="max-w-xl rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4 backdrop-blur">
-                                            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/90">Tap untuk arah lokasi</p>
+                                            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/90">Klik untuk buka lokasi</p>
                                             <p class="mt-2 text-lg font-bold text-white sm:text-xl" x-text="current ? current.venue : '<?= e($featuredVenue['venue']) ?>'"></p>
                                             <p class="mt-2 text-sm leading-6 text-slate-200" x-text="current ? current.cabang : '<?= e($featuredVenue['cabang']) ?>'"></p>
                                         </div>
@@ -456,10 +456,10 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                         <p class="section-kicker">Peserta Tampil</p>
                         <h3 class="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Wajah-wajah kafilah di panggung MTQ</h3>
                         <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                            Homepage ini menyorot peserta yang tampil dengan foto, asal, dan cabang atau golongan agar penonton lebih cepat mengenali siapa yang sedang berlaga.
+                            Bagian ini menampilkan peserta yang sedang berlaga lengkap dengan foto, asal, dan cabang atau golongannya.
                         </p>
                     </div>
-                    <div class="badge-live"><?= mtq_icon('users', 'h-4 w-4') ?> Audience View</div>
+                    <div class="badge-live"><?= mtq_icon('users', 'h-4 w-4') ?> Tampilan Publik</div>
                 </div>
 
                 <div
@@ -503,7 +503,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                                         <div class="relative">
                                             <p class="section-kicker">Kafilah Terverifikasi</p>
                                             <h4 class="mt-2 text-2xl font-bold text-white">Sorotan per putaran</h4>
-                                            <p class="mt-2 max-w-xl text-sm leading-6 text-slate-300">Tampilan ini menonjolkan satu wajah utama dengan detail yang lebih tenang, bersih, dan mudah dibaca.</p>
+                                            <p class="mt-2 max-w-xl text-sm leading-6 text-slate-300">Tampilan ini menempatkan satu peserta utama di depan, disertai detail singkat yang mudah dibaca.</p>
                                         </div>
                                         <span class="status-pill border-white/10 bg-white/5 text-slate-200">
                                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-fuchsia-300"></span>
@@ -622,7 +622,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
             <section class="mt-6 grid gap-4 md:grid-cols-3">
                 <div class="glass-card rounded-[2rem] p-6">
                     <div class="icon-chip"><?= mtq_icon('eye') ?></div>
-                    <h3 class="mt-4 text-xl font-bold text-white">Informasi ringkas</h3>
+                    <h3 class="mt-4 text-xl font-bold text-white">Ringkasan informasi</h3>
                     <p class="mt-3 text-sm leading-7 text-slate-300">Pengunjung bisa melihat bagian penting tanpa perlu membuka banyak halaman.</p>
                 </div>
                 <div class="glass-card rounded-[2rem] p-6">
@@ -665,7 +665,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                             <p class="section-kicker">Pengumuman Terbaru</p>
                             <h3 class="mt-2 text-3xl font-bold text-white">Update penting dari panitia</h3>
                         </div>
-                        <div class="badge-live"><?= mtq_icon('bell', 'h-4 w-4') ?> Live Feed</div>
+                        <div class="badge-live"><?= mtq_icon('bell', 'h-4 w-4') ?> Info Langsung</div>
                     </div>
 
                     <div class="mt-6 space-y-4">
