@@ -246,7 +246,7 @@ $impersonation = session('impersonation', []);
                                     [
                                         'key' => 'participant_edit_open',
                                         'title' => 'Edit Peserta',
-                                        'description' => 'Mengizinkan official mengubah data peserta yang sudah didaftarkan.',
+                                        'description' => 'Mengizinkan official mengubah data peserta yang sudah didaftarkan selama sesi perbaikan berkas 22-23 Mei 2026.',
                                     ],
                                     [
                                         'key' => 'participant_delete_open',

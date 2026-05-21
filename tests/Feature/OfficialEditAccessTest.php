@@ -8,14 +8,24 @@ use App\Models\Participant;
 use App\Models\User;
 use App\Models\UserDistrictAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class OfficialEditAccessTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
     public function test_official_cannot_edit_participant_after_submitted(): void
     {
+        Carbon::setTestNow(Carbon::create(2026, 5, 22, 10, 0, 0, 'Asia/Bangkok'));
+
         [$participant, $official] = $this->createParticipantAndOfficial('submitted');
 
         $this->actingAs($official)
@@ -25,11 +35,24 @@ class OfficialEditAccessTest extends TestCase
 
     public function test_official_can_edit_participant_when_still_draft(): void
     {
+        Carbon::setTestNow(Carbon::create(2026, 5, 22, 10, 0, 0, 'Asia/Bangkok'));
+
         [$participant, $official] = $this->createParticipantAndOfficial('draft');
 
         $this->actingAs($official)
             ->get(route('participants.edit', $participant))
             ->assertOk();
+    }
+
+    public function test_official_cannot_edit_participant_before_edit_session_opens(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 21, 10, 0, 0, 'Asia/Bangkok'));
+
+        [$participant, $official] = $this->createParticipantAndOfficial('draft');
+
+        $this->actingAs($official)
+            ->get(route('participants.edit', $participant))
+            ->assertForbidden();
     }
 
     /**

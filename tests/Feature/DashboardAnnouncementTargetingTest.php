@@ -75,9 +75,9 @@ class DashboardAnnouncementTargetingTest extends TestCase
         $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Countdown Verifikasi')
-            ->assertSee('Proses Verifikasi per Kecamatan')
-            ->assertSee('Peserta / Telah Verifikasi')
+            ->assertSee('Countdown Perbaikan Berkas')
+            ->assertSee('Progress Perbaikan per Kecamatan')
+            ->assertSee('Peserta / Terverifikasi')
             ->assertSee('Butuh Perbaikan');
     }
 }

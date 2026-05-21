@@ -16,7 +16,7 @@ $realtimeState = [
     'participantProfileId' => $participantDashboard['profile']?->id,
     'participantLatestScore' => $participantDashboard['latest_score'] ?? '0.00',
     'participantAverageScore' => $participantDashboard['average_score'] ?? '0.00',
-    'verificationSummary' => $verificationSummary ?? ['title' => 'Masa verifikasi peserta', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'open_at_label' => null, 'close_at_label' => null, 'is_open' => false, 'total_registered' => 0, 'total_verified' => 0, 'tone' => 'warning'],
+    'verificationSummary' => $verificationSummary ?? ['title' => 'Perbaikan berkas peserta oleh official', 'label' => '-', 'message' => '-', 'open_at' => null, 'close_at' => null, 'open_at_label' => null, 'close_at_label' => null, 'is_open' => false, 'total_registered' => 0, 'total_verified' => 0, 'tone' => 'warning'],
     'verificationDistrictCounts' => $verificationDistrictCounts ?? [],
     'summaryEndpoint' => route('dashboard.realtime-summary'),
     'forcePasswordChange' => (bool) ($mustChangePassword ?? false),
@@ -191,8 +191,8 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         <div class="relative flex flex-wrap items-start justify-between gap-4">
                             <div>
                                 <div class="icon-chip ring-1 ring-amber-300/30"><?= mtq_icon('calendar') ?></div>
-                                <p class="mt-5 section-kicker text-amber-100/80">Notifikasi Verifikasi</p>
-                                <h2 class="mt-2 text-2xl font-bold text-white" x-text="verificationNoticeTitle"><?= e($verificationSummary['title'] ?? 'Masa verifikasi peserta') ?></h2>
+                                <p class="mt-5 section-kicker text-amber-100/80">Notifikasi Perbaikan Berkas</p>
+                                <h2 class="mt-2 text-2xl font-bold text-white" x-text="verificationNoticeTitle"><?= e($verificationSummary['title'] ?? 'Perbaikan berkas peserta oleh official') ?></h2>
                                 <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300" x-text="verificationNoticeBody"><?= e($verificationSummary['message'] ?? '-') ?></p>
                             </div>
                             <div class="status-pill border-amber-300/30 bg-amber-400/10 text-amber-100" x-text="verificationStatusLabel"><?= e($verificationSummary['label'] ?? '-') ?></div>
@@ -202,7 +202,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             <div class="rounded-[1.5rem] border border-amber-300/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-50">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100/80">Deadline Verifikasi</p>
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100/80">Deadline Perbaikan Berkas</p>
                                         <p class="mt-1 font-semibold text-white" x-text="verificationDeadlineLabel">
                                             <?= e(($verificationSummary['close_at_label'] ?? null) ? ('Tutup otomatis pada '.($verificationSummary['close_at_label'])) : 'Jadwal tutup belum tersedia') ?>
                                         </p>
@@ -216,7 +216,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                                 <div class="flex items-center gap-3">
                                     <div class="icon-chip border border-amber-300/25 bg-amber-300/10 text-amber-100"><?= mtq_icon('clock') ?></div>
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-[11px] uppercase tracking-[0.24em] text-amber-100/70">Countdown Verifikasi</p>
+                                        <p class="text-[11px] uppercase tracking-[0.24em] text-amber-100/70">Countdown Perbaikan Berkas</p>
                                         <div class="mt-3 flex w-full flex-nowrap gap-2 overflow-hidden">
                                             <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-3 py-3 text-center text-lg font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${verificationCountdownParts.days} hari`">0 hari</span>
                                             <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${verificationCountdownParts.hours} jam`">0 jam</span>
@@ -244,8 +244,8 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     <div class="glass-card flex h-full min-h-0 flex-col overflow-hidden rounded-[2rem] p-6">
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="section-kicker">Proses Verifikasi per Kecamatan</p>
-                                <p class="mt-1 text-sm text-slate-300">Jumlah proses verifikasi per kecamatan, ditampilkan sebagai total peserta dan yang sudah diverifikasi.</p>
+                                <p class="section-kicker">Progress Perbaikan per Kecamatan</p>
+                                <p class="mt-1 text-sm text-slate-300">Jumlah peserta yang sedang dalam proses perbaikan berkas per kecamatan, ditampilkan sebagai total peserta dan yang sudah diverifikasi.</p>
                             </div>
                             <div class="status-pill" x-text="`${verificationDistrictCounts.length} kecamatan`"><?= e(count($verificationDistrictCounts ?? [])) ?> kecamatan</div>
                         </div>
@@ -254,7 +254,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                                 <div class="data-card flex items-center justify-between gap-4">
                                     <div class="min-w-0">
                                         <p class="font-semibold text-white" x-text="district.district_name"><?= e($verificationDistrictCounts[0]['district_name'] ?? '') ?></p>
-                                        <p class="mt-1 text-xs text-slate-400">Peserta / Telah Verifikasi</p>
+                                        <p class="mt-1 text-xs text-slate-400">Peserta / Terverifikasi</p>
                                         <p class="mt-1 text-xs text-rose-200">Butuh Perbaikan</p>
                                     </div>
                                     <div class="text-right">
@@ -782,7 +782,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 participantAverageScore: initialState.participantAverageScore ?? '0.00',
                 verificationSummary: initialState.verificationSummary ?? {},
                 verificationDistrictCounts: Array.isArray(initialState.verificationDistrictCounts) ? initialState.verificationDistrictCounts : [],
-                verificationNoticeTitle: initialState.verificationSummary?.title ?? 'Masa verifikasi peserta',
+                verificationNoticeTitle: initialState.verificationSummary?.title ?? 'Perbaikan berkas peserta oleh official',
                 verificationNoticeBody: initialState.verificationSummary?.message ?? '-',
                 verificationStatusLabel: initialState.verificationSummary?.label ?? '-',
                 verificationDeadlineLabel: initialState.verificationSummary?.close_at_label
@@ -894,9 +894,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     if (openAt && now < openAt) {
                         const diff = openAt.getTime() - now.getTime();
                         this.verificationIsOpen = false;
-                        this.verificationNoticeTitle = 'Verifikasi segera dibuka';
+                        this.verificationNoticeTitle = 'Perbaikan berkas segera dibuka';
                         this.verificationStatusLabel = 'Menunggu dibuka';
-                        this.verificationNoticeBody = `Verifikasi dibuka pada ${openAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.verificationNoticeBody = `Edit Peserta untuk official dibuka pada ${openAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
                         this.updateCountdownState('Mulai dalam', diff);
                         return;
                     }
@@ -904,26 +904,26 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     if (openAt && closeAt && now >= openAt && now <= closeAt) {
                         const diff = closeAt.getTime() - now.getTime();
                         this.verificationIsOpen = true;
-                        this.verificationNoticeTitle = 'Verifikasi masih berlangsung';
+                        this.verificationNoticeTitle = 'Perbaikan berkas sedang berlangsung';
                         this.verificationStatusLabel = 'Sedang berlangsung';
-                        this.verificationNoticeBody = `Verifikasi ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.verificationNoticeBody = `Edit Peserta untuk official dibuka sampai ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
                         this.updateCountdownState('Sisa', diff);
                         return;
                     }
 
                     if (closeAt && now > closeAt) {
                         this.verificationIsOpen = false;
-                        this.verificationNoticeTitle = 'Masa verifikasi selesai';
+                        this.verificationNoticeTitle = 'Perbaikan berkas selesai';
                         this.verificationStatusLabel = 'Sudah ditutup';
-                        this.verificationNoticeBody = `Verifikasi ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
-                        this.verificationCountdownText = 'Waktu verifikasi telah habis';
+                        this.verificationNoticeBody = `Edit Peserta untuk official ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+                        this.verificationCountdownText = 'Waktu perbaikan berkas telah habis';
                         this.verificationCountdownParts = { days: 0, hours: 0, minutes: 0 };
                         this.verificationCountdownFlash = false;
                         return;
                     }
 
                     this.verificationIsOpen = Boolean(this.verificationSummary?.is_open ?? false);
-                    this.verificationNoticeTitle = this.verificationSummary?.title ?? 'Masa verifikasi peserta';
+                    this.verificationNoticeTitle = this.verificationSummary?.title ?? 'Perbaikan berkas peserta oleh official';
                     this.verificationStatusLabel = this.verificationSummary?.label ?? '-';
                     this.verificationNoticeBody = this.verificationSummary?.message ?? '-';
                     this.verificationDeadlineLabel = this.verificationSummary?.close_at_label

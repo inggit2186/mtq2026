@@ -143,7 +143,7 @@ $standaloneCategories = $categoryCards
     ->values();
 $selectedCategoryId = (string) old('competition_category_id', $participant?->competition_category_id);
 $selectedCategory = $categoryCards->firstWhere('id', $selectedCategoryId);
-$registrationWindowOpen = $registrationWindowOpen ?? true;
+$editWindowOpen = $editWindowOpen ?? true;
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) auth()->user()?->role, 'participants.list');
 ?>
@@ -212,9 +212,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <p class="section-kicker">Perbaikan Data</p>
                             <h2 class="mt-2 text-3xl font-black tracking-tight text-white"><?= e($participant?->name) ?></h2>
                             <p class="mt-2 text-sm text-slate-300">Perbarui identitas atau unggah ulang dokumen yang perlu diperbaiki.</p>
-                            <?php if ($isOfficialUser && ! $registrationWindowOpen): ?>
+                            <?php if ($isOfficialUser && ! $editWindowOpen): ?>
                                 <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
-                                    Masa edit peserta official sudah berakhir mengikuti juknis. Akses otomatis ditutup mulai 19 Mei 2026 pukul 00:00.
+                                    Masa edit peserta official dibatasi pada 22-23 Mei 2026 sesuai juknis. Akses otomatis di luar sesi tersebut.
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -790,7 +790,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </div>
                             </div>
 
-                            <?php if (! $isOfficialUser || $registrationWindowOpen): ?>
+                            <?php if (! $isOfficialUser || $editWindowOpen): ?>
                                 <div class="flex flex-wrap gap-3">
                                     <button type="button" class="secondary-button" x-on:click="goToStep(2)">
                                         <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
@@ -807,7 +807,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </div>
                             <?php else: ?>
                                 <div class="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
-                                    Tombol simpan dinonaktifkan karena masa edit official sudah ditutup otomatis pada 19 Mei 2026 pukul 00:00.
+                                    Tombol simpan dinonaktifkan karena sesi perbaikan berkas official hanya dibuka pada 22-23 Mei 2026.
                                 </div>
                             <?php endif; ?>
                         </div>

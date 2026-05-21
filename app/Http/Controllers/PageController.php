@@ -1942,8 +1942,8 @@ class PageController extends Controller
     {
         $registration = (array) config('juknis.registration', []);
         $now = Carbon::now('Asia/Bangkok');
-        $openAt = $this->parseIndonesianDate((string) ($registration['verification_start'] ?? ''), false);
-        $closeAt = $this->parseIndonesianDate((string) ($registration['verification_end'] ?? ''), true);
+        $openAt = $this->parseIndonesianDate((string) ($registration['official_edit_start'] ?? ''), false);
+        $closeAt = $this->parseIndonesianDate((string) ($registration['official_edit_end'] ?? ''), true);
         $totalRegistered = Participant::query()
             ->whereIn('verification_status', ['submitted', 'verified', 'rejected'])
             ->count();
@@ -1954,9 +1954,9 @@ class PageController extends Controller
         $state = [
             'is_open' => false,
             'tone' => 'warning',
-            'title' => 'Masa verifikasi peserta',
+            'title' => 'Perbaikan berkas peserta oleh official',
             'label' => 'Belum ada jadwal',
-            'message' => 'Jadwal verifikasi belum tersedia di juknis.',
+            'message' => 'Jadwal perbaikan berkas belum tersedia di juknis.',
             'open_at' => $openAt?->toIso8601String(),
             'close_at' => $closeAt?->toIso8601String(),
             'open_at_label' => $openAt ? $openAt->translatedFormat('d F Y H:i').' WIB' : null,
@@ -1966,25 +1966,25 @@ class PageController extends Controller
         ];
 
         if ($openAt && $now->lt($openAt)) {
-            $state['title'] = 'Verifikasi segera dibuka';
+            $state['title'] = 'Perbaikan berkas segera dibuka';
             $state['label'] = 'Menunggu dibuka';
-            $state['message'] = 'Verifikasi peserta baru akan dibuka pada '.$openAt->translatedFormat('d F Y').'.';
+            $state['message'] = 'Edit Peserta untuk official akan dibuka pada '.$openAt->translatedFormat('d F Y').'.';
             return $state;
         }
 
         if ($openAt && $closeAt && $now->betweenIncluded($openAt, $closeAt)) {
             $state['is_open'] = true;
             $state['tone'] = 'success';
-            $state['title'] = 'Verifikasi masih berlangsung';
+            $state['title'] = 'Perbaikan berkas sedang berlangsung';
             $state['label'] = 'Sedang berlangsung';
-            $state['message'] = 'Verifikasi ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
+            $state['message'] = 'Edit Peserta untuk official dibuka sampai '.$closeAt->translatedFormat('d F Y').'.';
             return $state;
         }
 
         if ($closeAt && $now->gt($closeAt)) {
-            $state['title'] = 'Masa verifikasi selesai';
+            $state['title'] = 'Perbaikan berkas selesai';
             $state['label'] = 'Sudah ditutup';
-            $state['message'] = 'Verifikasi ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
+            $state['message'] = 'Edit Peserta untuk official ditutup pada '.$closeAt->translatedFormat('d F Y').'.';
             return $state;
         }
 

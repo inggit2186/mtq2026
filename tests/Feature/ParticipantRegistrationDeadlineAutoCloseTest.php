@@ -56,10 +56,14 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_official_edit_is_closed_at_midnight_after_juknis_deadline(): void
+    public function test_official_edit_is_closed_before_edit_session_opens(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 5, 19, 0, 0, 0, 'Asia/Bangkok'));
-        config(['juknis.registration.close' => '18 Mei 2026']);
+        config([
+            'juknis.registration.close' => '18 Mei 2026',
+            'juknis.registration.official_edit_start' => '22 Mei 2026',
+            'juknis.registration.official_edit_end' => '23 Mei 2026',
+        ]);
 
         [$participant, $official] = $this->createParticipantAndOfficial();
         $this->createOpenAccessSetting();

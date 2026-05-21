@@ -11,13 +11,14 @@ $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAcces
 $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $isPanitiaUser = $user?->role === 'panitia';
 $registrationWindowOpen = $registrationWindowOpen ?? true;
+$editWindowOpen = $editWindowOpen ?? true;
 $verificationOpenForPanitia = (bool) ($officialAccessSetting->participant_verification_open ?? true);
 $lotOpenForPanitia = (bool) ($officialAccessSetting->participant_lot_open ?? true);
 $maqraOpenForPanitia = (bool) ($officialAccessSetting->maqraAnyRoundEnabled())
     && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $participantDeleteOpen = (bool) ($officialAccessSetting->participant_delete_open ?? true);
-$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $registrationWindowOpen);
+$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $editWindowOpen);
 $participantDeleteOpen = $participantDeleteOpen && (! $isOfficialUser || $registrationWindowOpen);
 $officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
@@ -367,7 +368,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                     <div class="flex flex-wrap gap-3">
                         <?php if ($isOfficialUser && ! $officialEditOpen): ?>
                             <div class="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
-                                Masa edit peserta official sudah berakhir mengikuti juknis. Akses otomatis ditutup mulai 19 Mei 2026 pukul 00:00.
+                                Masa edit peserta official dibatasi pada 22-23 Mei 2026 sesuai juknis. Akses otomatis di luar sesi tersebut.
                             </div>
                         <?php endif; ?>
                         <?php if (($isOfficialUser || $isPanitiaUser) && ! $participantDeleteOpen): ?>

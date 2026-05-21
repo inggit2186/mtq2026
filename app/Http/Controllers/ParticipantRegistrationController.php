@@ -127,6 +127,7 @@ class ParticipantRegistrationController extends Controller
             'districtLocked' => (bool) $districtId,
             'officialAccessSetting' => OfficialAccessSetting::currentOrDefault(),
             'registrationWindowOpen' => $this->registrationDeadlineOpen(),
+            'editWindowOpen' => $this->officialEditWindowOpen(),
             'canVerify' => $this->canUserVerifyParticipants(),
             'filters' => [
                 'district_id' => $districtId ?: ($restrictPanitiaDistricts && count($verificationDistrictIds) === 1 ? (string) $verificationDistrictIds[0] : ''),
@@ -210,6 +211,7 @@ class ParticipantRegistrationController extends Controller
             'restrictPanitiaDistricts' => $restrictPanitiaDistricts,
             'verificationDistrictIds' => $verificationDistrictIds,
             'registrationWindowOpen' => $this->registrationDeadlineOpen(),
+            'editWindowOpen' => $this->officialEditWindowOpen(),
             'canVerify' => $this->canUserVerifyParticipants(),
             'canDrawParticipant' => $this->canUserDrawLot(),
             'canDrawMaqra' => $this->canUserDrawMaqra(),
@@ -675,7 +677,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup.');
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup di luar sesi perbaikan berkas.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -688,6 +690,7 @@ class ParticipantRegistrationController extends Controller
             'districts' => District::query()->orderBy('name')->get(),
             'districtLocked' => in_array($user?->role, ['official', 'pendamping'], true),
             'registrationWindowOpen' => $this->registrationDeadlineOpen(),
+            'editWindowOpen' => $this->officialEditWindowOpen(),
             'documentMap' => $this->documentMap($participant),
         ]);
     }
@@ -695,7 +698,7 @@ class ParticipantRegistrationController extends Controller
     public function update(Request $request, Participant $participant): RedirectResponse
     {
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup.');
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup di luar sesi perbaikan berkas.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -2974,8 +2977,12 @@ class ParticipantRegistrationController extends Controller
             return false;
         }
 
-        if (in_array($feature, ['participant_registration_open', 'participant_edit_open'], true)) {
+        if ($feature === 'participant_registration_open') {
             return $this->registrationDeadlineOpen();
+        }
+
+        if ($feature === 'participant_edit_open') {
+            return $this->officialEditWindowOpen();
         }
 
         return true;
@@ -3034,6 +3041,19 @@ class ParticipantRegistrationController extends Controller
         $closeAt = $this->parseIndonesianDate((string) ($registration['close'] ?? ''), true);
 
         return $closeAt?->timezone('Asia/Bangkok');
+    }
+
+    protected function officialEditWindowOpen(): bool
+    {
+        $registration = (array) config('juknis.registration', []);
+        $openAt = $this->parseIndonesianDate((string) ($registration['official_edit_start'] ?? ''), false);
+        $closeAt = $this->parseIndonesianDate((string) ($registration['official_edit_end'] ?? ''), true);
+
+        if (! $openAt || ! $closeAt) {
+            return true;
+        }
+
+        return Carbon::now('Asia/Bangkok')->betweenIncluded($openAt, $closeAt);
     }
 
     protected function parseIndonesianDate(string $value, bool $endOfDay = false): ?Carbon

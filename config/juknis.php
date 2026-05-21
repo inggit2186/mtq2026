@@ -7,6 +7,8 @@ return [
     'registration' => [
         'open' => '11 Mei 2026',
         'close' => '18 Mei 2026',
+        'official_edit_start' => '22 Mei 2026',
+        'official_edit_end' => '23 Mei 2026',
         'verification_start' => '19 Mei 2026',
         'verification_end' => '25 Mei 2026',
         'announcement' => '26 Mei 2026',
