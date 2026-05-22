@@ -7,6 +7,7 @@ use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CommitteeRegistrationController;
 use App\Http\Controllers\CompetitionLocationController;
 use App\Http\Controllers\DocumentSettingsController;
+use App\Http\Controllers\JuknisSettingsController;
 use App\Http\Controllers\OfficialRegistrationController;
 use App\Http\Controllers\MfqScoringController;
 use App\Http\Controllers\PageController;
@@ -57,6 +58,8 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/konten/jadwal/{schedule}/hapus', [AdminContentController::class, 'destroySchedule'])->middleware('role:admin,panitia')->name('admin.content.schedules.destroy');
     Route::get('/admin/dokumen', [DocumentSettingsController::class, 'index'])->middleware('role:admin,panitia')->name('admin.documents');
     Route::post('/admin/dokumen', [DocumentSettingsController::class, 'update'])->middleware('role:admin,panitia')->name('admin.documents.update');
+    Route::get('/admin/juknis', [JuknisSettingsController::class, 'index'])->middleware('role:admin')->name('admin.juknis');
+    Route::post('/admin/juknis', [JuknisSettingsController::class, 'update'])->middleware('role:admin')->name('admin.juknis.update');
     Route::get('/admin/lokasi-mtq', [CompetitionLocationController::class, 'index'])->middleware('role:admin')->name('locations.index');
     Route::post('/admin/lokasi-mtq', [CompetitionLocationController::class, 'store'])->middleware('role:admin')->name('locations.store');
     Route::post('/admin/lokasi-mtq/sinkronisasi', [CompetitionLocationController::class, 'syncFromJson'])->middleware('role:admin')->name('locations.sync');

@@ -8,6 +8,7 @@ use App\Models\CompetitionCategory;
 use App\Models\CompetitionLocation;
 use App\Models\District;
 use App\Models\DocumentSetting;
+use App\Models\JuknisSetting;
 use App\Models\MaqraPackage;
 use App\Models\Participant;
 use App\Models\ScoringSetting;
@@ -128,7 +129,7 @@ class PageController extends Controller
             ->orderBy('starts_at')
             ->limit(2)
             ->get();
-        $timeline = collect(config('juknis.event_schedule', []))
+        $timeline = collect($this->juknisConfig()['event_schedule'] ?? [])
             ->take(2)
             ->values();
         $competitionVenues = collect();
@@ -1435,7 +1436,7 @@ class PageController extends Controller
         return view('pages/juknis-v2', [
             'assets' => $this->viteAssets(),
             'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
-            'juknis' => config('juknis'),
+            'juknis' => $this->juknisConfig(),
         ]);
     }
 
@@ -1566,6 +1567,7 @@ class PageController extends Controller
                     ['label' => 'Official Kecamatan', 'href' => route('officials.index')],
                     ['label' => 'Panitia Golongan', 'href' => route('committees.index')],
                     ['label' => 'Modul Kategori', 'href' => route('categories.index')],
+                    ['label' => 'Edit Juknis', 'href' => route('admin.juknis')],
                     ['label' => 'Kelola Konten', 'href' => route('admin.content')],
                     ['label' => 'Galeri MTQ', 'href' => route('gallery.index')],
                     ['label' => 'Dokumen Resmi', 'href' => route('admin.documents')],
@@ -1675,6 +1677,9 @@ class PageController extends Controller
                     ? $this->consoleNavigationLink('admin.documents', 'Dokumen Resmi', route('admin.documents'), 'book-open')
                     : null,
                 $role === 'admin'
+                    ? $this->consoleNavigationLink('admin.juknis', 'Edit Juknis', route('admin.juknis'), 'pencil')
+                    : null,
+                $role === 'admin'
                     ? $this->consoleNavigationLink('locations.index', 'Lokasi MTQ', route('locations.index'), 'map-pin')
                     : null,
                 in_array($role, ['admin', 'panitia'], true)
@@ -1758,6 +1763,18 @@ class PageController extends Controller
             'signature_city' => $setting->signature_city,
             'officials' => $setting->officials ?? [],
         ]);
+    }
+
+    public function juknisConfig(): array
+    {
+        $config = config('juknis', []);
+        $setting = JuknisSetting::current();
+
+        if (! $setting) {
+            return $config;
+        }
+
+        return array_replace_recursive($config, $setting->content ?? []);
     }
 
     protected function resolveParticipantProfile(?string $nomorInduk): ?Participant
