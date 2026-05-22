@@ -32,6 +32,10 @@ $featuredVenue = $competitionVenues->firstWhere('no', 2) ?? $competitionVenues->
 $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollection'))
     ? $galleryImages->getCollection()->values()->all()
     : [];
+$brandingConfig = config('mtq.branding', []);
+$homepageTitle = $brandingConfig['homepage_title'] ?? ($documentConfig['event_title'] ?? config('app.name', 'e-MTQ'));
+$homepageTagline = $brandingConfig['homepage_tagline'] ?? 'Satu halaman utama untuk mengikuti MTQ dengan lebih mudah.';
+$homepageDescription = $brandingConfig['homepage_description'] ?? 'Pantau jadwal utama, pengumuman terbaru, lokasi lomba, dan cabang yang ditampilkan dalam satu halaman yang rapi.';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -58,7 +62,7 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
                         </div>
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200"><?= e($organizationName) ?></p>
-                            <h1 class="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl"><?= e($eventTitle) ?></h1>
+                            <h1 class="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl"><?= e($homepageTitle) ?></h1>
                         </div>
                     </div>
 
@@ -152,10 +156,10 @@ $galleryModalItems = ($galleryImages && method_exists($galleryImages, 'getCollec
 
                                     <div class="space-y-5">
                                         <h2 class="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-                                            Satu halaman utama untuk mengikuti <span class="text-gradient">MTQ</span> dengan lebih mudah.
+                                            <?= e($homepageTagline) ?>
                                         </h2>
                                         <p class="max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-                                            Pantau jadwal utama, pengumuman terbaru, lokasi lomba, dan cabang yang ditampilkan dalam satu halaman yang rapi.
+                                            <?= e($homepageDescription) ?>
                                         </p>
                                     </div>
 

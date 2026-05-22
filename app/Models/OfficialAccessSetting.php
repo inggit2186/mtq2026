@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class OfficialAccessSetting extends Model
@@ -80,9 +81,66 @@ class OfficialAccessSetting extends Model
 
     public function isEnabled(string $feature): bool
     {
-        $defaults = static::defaults();
+        $rawValue = (bool) ($this->getRawOriginal($feature) ?? (static::defaults()[$feature] ?? true));
+        $role = (string) auth()->user()?->role;
 
-        return (bool) ($this->{$feature} ?? ($defaults[$feature] ?? true));
+        if ($role === 'admin') {
+            return $rawValue;
+        }
+
+        $scheduledValue = JuknisSetting::currentOrDefault()->scheduledAccessEnabled($feature, $role, Carbon::now('Asia/Bangkok'));
+
+        return $scheduledValue ?? $rawValue;
+    }
+
+    public function getParticipantRegistrationOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_registration_open');
+    }
+
+    public function getParticipantEditOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_edit_open');
+    }
+
+    public function getParticipantDeleteOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_delete_open');
+    }
+
+    public function getMandateUploadOpenAttribute(): bool
+    {
+        return $this->isEnabled('mandate_upload_open');
+    }
+
+    public function getParticipantDocumentsOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_documents_open');
+    }
+
+    public function getParticipantVerificationOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_verification_open');
+    }
+
+    public function getParticipantLotOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_lot_open');
+    }
+
+    public function getParticipantMaqraOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_maqra_open');
+    }
+
+    public function getParticipantMaqraPenyisihanOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_maqra_penyisihan_open');
+    }
+
+    public function getParticipantMaqraFinalOpenAttribute(): bool
+    {
+        return $this->isEnabled('participant_maqra_final_open');
     }
 
     public function maqraOpenCategoryIds(): array

@@ -6,6 +6,7 @@ use App\Events\ParticipantVerificationUpdated;
 use App\Models\ArchivedParticipant;
 use App\Models\CompetitionCategory;
 use App\Models\District;
+use App\Models\JuknisSetting;
 use App\Models\MaqraPackage;
 use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
@@ -2934,8 +2935,27 @@ class ParticipantRegistrationController extends Controller
         return OfficialAccessSetting::currentOrDefault();
     }
 
+    protected function juknisSetting(): JuknisSetting
+    {
+        return JuknisSetting::currentOrDefault();
+    }
+
     protected function registrationDeadlineOpen(): bool
     {
+        if (auth()->user()?->role === 'admin') {
+            return true;
+        }
+
+        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
+            'participant_registration_open',
+            (string) auth()->user()?->role,
+            Carbon::now('Asia/Bangkok')
+        );
+
+        if ($scheduled !== null) {
+            return $scheduled;
+        }
+
         $closeAt = $this->registrationDeadlineCloseAt();
 
         if (! $closeAt) {
@@ -2947,12 +2967,32 @@ class ParticipantRegistrationController extends Controller
 
     protected function participantVerificationOpen(): bool
     {
-        return $this->officialAccessSetting()->isEnabled('participant_verification_open');
+        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
+            'participant_verification_open',
+            (string) auth()->user()?->role,
+            Carbon::now('Asia/Bangkok')
+        );
+
+        return $scheduled ?? $this->officialAccessSetting()->isEnabled('participant_verification_open');
     }
 
     protected function participantDeletionOpen(): bool
     {
-        if (! $this->officialAccessSetting()->isEnabled('participant_delete_open')) {
+        if (auth()->user()?->role === 'admin') {
+            return true;
+        }
+
+        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
+            'participant_delete_open',
+            (string) auth()->user()?->role,
+            Carbon::now('Asia/Bangkok')
+        );
+
+        if ($scheduled !== null) {
+            if (! $scheduled) {
+                return false;
+            }
+        } elseif (! $this->officialAccessSetting()->isEnabled('participant_delete_open')) {
             return false;
         }
 
@@ -2966,14 +3006,30 @@ class ParticipantRegistrationController extends Controller
     protected function officialFeatureEnabled(string $feature): bool
     {
         if (in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
-            return true;
-        }
+            $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
+                $feature,
+                (string) auth()->user()?->role,
+                Carbon::now('Asia/Bangkok')
+            );
 
-        if (! $this->officialAccessSetting()->isEnabled($feature)) {
-            return false;
+            return $scheduled ?? true;
         }
 
         if (! in_array(auth()->user()?->role, ['official', 'pendamping'], true)) {
+            return false;
+        }
+
+        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
+            $feature,
+            (string) auth()->user()?->role,
+            Carbon::now('Asia/Bangkok')
+        );
+
+        if ($scheduled !== null) {
+            return $scheduled;
+        }
+
+        if (! $this->officialAccessSetting()->isEnabled($feature)) {
             return false;
         }
 
@@ -3045,6 +3101,20 @@ class ParticipantRegistrationController extends Controller
 
     protected function officialEditWindowOpen(): bool
     {
+        if (auth()->user()?->role === 'admin') {
+            return true;
+        }
+
+        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
+            'participant_edit_open',
+            (string) auth()->user()?->role,
+            Carbon::now('Asia/Bangkok')
+        );
+
+        if ($scheduled !== null) {
+            return $scheduled;
+        }
+
         $registration = (array) config('juknis.registration', []);
         $openAt = $this->parseIndonesianDate((string) ($registration['official_edit_start'] ?? ''), false);
         $closeAt = $this->parseIndonesianDate((string) ($registration['official_edit_end'] ?? ''), true);
