@@ -351,7 +351,7 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                     </tr>
                     <tr>
                         <th class="status-sub">MS<small>Memenuhi Syarat</small></th>
-                        <th class="status-sub">TMS<small>Tidak Memenuhi Syarat</small></th>
+                        <th class="status-sub">BTL<small>Perbaikan</small></th>
                     </tr>
                 </thead>
                 <tbody>
