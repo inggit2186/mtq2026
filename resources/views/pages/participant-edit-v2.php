@@ -214,7 +214,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <p class="mt-2 text-sm text-slate-300">Perbarui identitas atau unggah ulang dokumen yang perlu diperbaiki.</p>
                             <?php if ($isOfficialUser && ! $editWindowOpen): ?>
                                 <div class="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
-                                    Masa edit peserta official dibatasi pada 22-23 Mei 2026 sesuai juknis. Akses otomatis di luar sesi tersebut.
+                                    Fitur edit peserta official sedang dimatikan dari pengaturan akses admin.
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -807,7 +807,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </div>
                             <?php else: ?>
                                 <div class="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
-                                    Tombol simpan dinonaktifkan karena sesi perbaikan berkas official hanya dibuka pada 22-23 Mei 2026.
+                                    Tombol simpan dinonaktifkan karena fitur edit peserta official sedang dimatikan dari pengaturan akses admin.
                                 </div>
                             <?php endif; ?>
                         </div>

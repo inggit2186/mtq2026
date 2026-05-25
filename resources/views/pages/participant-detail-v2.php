@@ -18,7 +18,6 @@ $maqraOpenForPanitia = (bool) ($officialAccessSetting->maqraAnyRoundEnabled())
     && collect($officialAccessSetting->maqraOpenCategoryIds())->isNotEmpty();
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $participantDeleteOpen = (bool) ($officialAccessSetting->participant_delete_open ?? true);
-$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $editWindowOpen);
 $participantDeleteOpen = $participantDeleteOpen && (! $isOfficialUser || $registrationWindowOpen);
 $officialDocumentsOpen = (bool) ($officialAccessSetting->participant_documents_open ?? true);
 $officialMandateRejected = in_array($user?->role, ['official', 'pendamping'], true)
@@ -368,7 +367,7 @@ $maqraSwapCandidates = $maqraSwapCandidates ?? collect();
                     <div class="flex flex-wrap gap-3">
                         <?php if ($isOfficialUser && ! $officialEditOpen): ?>
                             <div class="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
-                                Masa edit peserta official dibatasi pada 22-23 Mei 2026 sesuai juknis. Akses otomatis di luar sesi tersebut.
+                                Fitur edit peserta official sedang dimatikan dari pengaturan akses admin.
                             </div>
                         <?php endif; ?>
                         <?php if (($isOfficialUser || $isPanitiaUser) && ! $participantDeleteOpen): ?>

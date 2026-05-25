@@ -56,7 +56,7 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_official_edit_is_closed_before_edit_session_opens(): void
+    public function test_official_edit_is_open_when_admin_checkbox_is_enabled_even_before_edit_session(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 5, 19, 0, 0, 0, 'Asia/Bangkok'));
         config([
@@ -70,7 +70,7 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
 
         $this->actingAs($official)
             ->get(route('participants.edit', $participant))
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_official_delete_is_closed_at_midnight_after_juknis_deadline(): void

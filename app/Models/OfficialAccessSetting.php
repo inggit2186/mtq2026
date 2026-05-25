@@ -82,6 +82,11 @@ class OfficialAccessSetting extends Model
     public function isEnabled(string $feature): bool
     {
         $rawValue = (bool) ($this->getRawOriginal($feature) ?? (static::defaults()[$feature] ?? true));
+
+        if ($feature === 'participant_edit_open') {
+            return $rawValue;
+        }
+
         $role = (string) auth()->user()?->role;
 
         if ($role === 'admin') {

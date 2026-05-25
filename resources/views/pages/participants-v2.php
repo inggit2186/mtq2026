@@ -91,7 +91,6 @@ $isOfficialUser = in_array($user?->role, ['official', 'pendamping'], true);
 $officialRegistrationOpen = (bool) ($officialAccessSetting->participant_registration_open ?? true);
 $officialEditOpen = (bool) ($officialAccessSetting->participant_edit_open ?? true);
 $officialRegistrationOpen = $officialRegistrationOpen && (! $isOfficialUser || $registrationWindowOpen);
-$officialEditOpen = $officialEditOpen && (! $isOfficialUser || $editWindowOpen);
 $registrationCategoryInitial = (string) old('competition_category_id', request()->query('registration_category_id', ''));
 $registrationCategoryCards = collect($categories ?? [])->map(function ($category) use ($categoryUsage): array {
     $usage = $categoryUsage[$category->id] ?? [];

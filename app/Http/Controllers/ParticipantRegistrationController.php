@@ -678,7 +678,7 @@ class ParticipantRegistrationController extends Controller
     {
         $participant->load(['category', 'district']);
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup di luar sesi perbaikan berkas.');
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup dari pengaturan akses admin.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -699,7 +699,7 @@ class ParticipantRegistrationController extends Controller
     public function update(Request $request, Participant $participant): RedirectResponse
     {
         $this->authorizeParticipantAccess($participant);
-        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup di luar sesi perbaikan berkas.');
+        $this->assertOfficialFeatureEnabled('participant_edit_open', 'Edit peserta untuk official sedang ditutup dari pengaturan akses admin.');
         $this->authorizeParticipantEdit($participant);
 
         $user = auth()->user();
@@ -3005,6 +3005,10 @@ class ParticipantRegistrationController extends Controller
 
     protected function officialFeatureEnabled(string $feature): bool
     {
+        if ($feature === 'participant_edit_open') {
+            return $this->officialAccessSetting()->isEnabled($feature);
+        }
+
         if (in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
             $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
                 $feature,
@@ -3035,10 +3039,6 @@ class ParticipantRegistrationController extends Controller
 
         if ($feature === 'participant_registration_open') {
             return $this->registrationDeadlineOpen();
-        }
-
-        if ($feature === 'participant_edit_open') {
-            return $this->officialEditWindowOpen();
         }
 
         return true;
@@ -3101,29 +3101,7 @@ class ParticipantRegistrationController extends Controller
 
     protected function officialEditWindowOpen(): bool
     {
-        if (auth()->user()?->role === 'admin') {
-            return true;
-        }
-
-        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
-            'participant_edit_open',
-            (string) auth()->user()?->role,
-            Carbon::now('Asia/Bangkok')
-        );
-
-        if ($scheduled !== null) {
-            return $scheduled;
-        }
-
-        $registration = (array) config('juknis.registration', []);
-        $openAt = $this->parseIndonesianDate((string) ($registration['official_edit_start'] ?? ''), false);
-        $closeAt = $this->parseIndonesianDate((string) ($registration['official_edit_end'] ?? ''), true);
-
-        if (! $openAt || ! $closeAt) {
-            return true;
-        }
-
-        return Carbon::now('Asia/Bangkok')->betweenIncluded($openAt, $closeAt);
+        return $this->officialAccessSetting()->isEnabled('participant_edit_open');
     }
 
     protected function parseIndonesianDate(string $value, bool $endOfDay = false): ?Carbon
