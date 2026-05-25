@@ -88,7 +88,7 @@ class JuknisSetting extends Model
         }
 
         $windows = $this->registrationWindows();
-        $relevantWindows = collect($windows)->filter(function (array $window) use ($role): bool {
+        $relevantWindows = collect($windows)->filter(function (array $window) use ($role, $feature): bool {
             $featureMap = $window[$role === 'panitia' ? 'panitia' : 'official'] ?? [];
 
             return is_array($featureMap) && array_key_exists($feature, $featureMap);
