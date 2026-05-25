@@ -6,7 +6,6 @@ use App\Events\ParticipantVerificationUpdated;
 use App\Models\ArchivedParticipant;
 use App\Models\CompetitionCategory;
 use App\Models\District;
-use App\Models\JuknisSetting;
 use App\Models\MaqraPackage;
 use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
@@ -2935,113 +2934,26 @@ class ParticipantRegistrationController extends Controller
         return OfficialAccessSetting::currentOrDefault();
     }
 
-    protected function juknisSetting(): JuknisSetting
-    {
-        return JuknisSetting::currentOrDefault();
-    }
-
     protected function registrationDeadlineOpen(): bool
     {
-        if (auth()->user()?->role === 'admin') {
-            return true;
-        }
-
-        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
-            'participant_registration_open',
-            (string) auth()->user()?->role,
-            Carbon::now('Asia/Bangkok')
-        );
-
-        if ($scheduled !== null) {
-            return $scheduled;
-        }
-
-        $closeAt = $this->registrationDeadlineCloseAt();
-
-        if (! $closeAt) {
-            return true;
-        }
-
-        return Carbon::now('Asia/Bangkok')->lte($closeAt);
+        return $this->officialAccessSetting()->isEnabled('participant_registration_open');
     }
 
     protected function participantVerificationOpen(): bool
     {
-        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
-            'participant_verification_open',
-            (string) auth()->user()?->role,
-            Carbon::now('Asia/Bangkok')
-        );
-
-        return $scheduled ?? $this->officialAccessSetting()->isEnabled('participant_verification_open');
+        return $this->officialAccessSetting()->isEnabled('participant_verification_open');
     }
 
     protected function participantDeletionOpen(): bool
     {
-        if (auth()->user()?->role === 'admin') {
-            return true;
-        }
-
-        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
-            'participant_delete_open',
-            (string) auth()->user()?->role,
-            Carbon::now('Asia/Bangkok')
-        );
-
-        if ($scheduled !== null) {
-            if (! $scheduled) {
-                return false;
-            }
-        } elseif (! $this->officialAccessSetting()->isEnabled('participant_delete_open')) {
-            return false;
-        }
-
-        if (in_array(auth()->user()?->role, ['official', 'pendamping'], true)) {
-            return $this->registrationDeadlineOpen();
-        }
-
-        return true;
+        return $this->officialAccessSetting()->isEnabled('participant_delete_open');
     }
 
     protected function officialFeatureEnabled(string $feature): bool
     {
-        if ($feature === 'participant_edit_open') {
-            return $this->officialAccessSetting()->isEnabled($feature);
-        }
-
-        if (in_array(auth()->user()?->role, ['admin', 'panitia'], true)) {
-            $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
-                $feature,
-                (string) auth()->user()?->role,
-                Carbon::now('Asia/Bangkok')
-            );
-
-            return $scheduled ?? true;
-        }
-
-        if (! in_array(auth()->user()?->role, ['official', 'pendamping'], true)) {
-            return false;
-        }
-
-        $scheduled = $this->juknisSetting()->scheduledAccessEnabled(
-            $feature,
-            (string) auth()->user()?->role,
-            Carbon::now('Asia/Bangkok')
-        );
-
-        if ($scheduled !== null) {
-            return $scheduled;
-        }
-
-        if (! $this->officialAccessSetting()->isEnabled($feature)) {
-            return false;
-        }
-
-        if ($feature === 'participant_registration_open') {
-            return $this->registrationDeadlineOpen();
-        }
-
-        return true;
+        return in_array(auth()->user()?->role, ['official', 'pendamping'], true)
+            ? $this->officialAccessSetting()->isEnabled($feature)
+            : false;
     }
 
     protected function assertOfficialFeatureEnabled(string $feature, string $message): void
@@ -3089,14 +3001,6 @@ class ParticipantRegistrationController extends Controller
         }
 
         return $this->normalizeDistrictLabel($district->name) === $this->hostDistrictName();
-    }
-
-    protected function registrationDeadlineCloseAt(): ?Carbon
-    {
-        $registration = (array) config('juknis.registration', []);
-        $closeAt = $this->parseIndonesianDate((string) ($registration['close'] ?? ''), true);
-
-        return $closeAt?->timezone('Asia/Bangkok');
     }
 
     protected function officialEditWindowOpen(): bool

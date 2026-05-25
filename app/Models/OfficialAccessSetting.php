@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class OfficialAccessSetting extends Model
@@ -82,20 +81,13 @@ class OfficialAccessSetting extends Model
     public function isEnabled(string $feature): bool
     {
         $rawValue = (bool) ($this->getRawOriginal($feature) ?? (static::defaults()[$feature] ?? true));
-
-        if ($feature === 'participant_edit_open') {
-            return $rawValue;
-        }
-
         $role = (string) auth()->user()?->role;
 
         if ($role === 'admin') {
-            return $rawValue;
+            return true;
         }
 
-        $scheduledValue = JuknisSetting::currentOrDefault()->scheduledAccessEnabled($feature, $role, Carbon::now('Asia/Bangkok'));
-
-        return $scheduledValue ?? $rawValue;
+        return $rawValue;
     }
 
     public function getParticipantRegistrationOpenAttribute(): bool

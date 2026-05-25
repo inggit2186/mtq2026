@@ -11,6 +11,10 @@ $projectorProtocolUrl = $projectorProtocolUrl ?? ('emtq-launch://bigscreen?url='
 $districtCount = $districtCount ?? 0;
 $officialAccessReady = $officialAccessReady ?? false;
 $officialAccessSetting = $officialAccessSetting ?? \App\Models\OfficialAccessSetting::currentOrDefault();
+$officialAccessDefaults = \App\Models\OfficialAccessSetting::defaults();
+$rawOfficialAccess = static function (string $feature) use ($officialAccessSetting, $officialAccessDefaults): bool {
+    return (bool) ($officialAccessSetting->getRawOriginal($feature) ?? ($officialAccessDefaults[$feature] ?? true));
+};
 $maqraCategories = $maqraCategories ?? collect();
 $selectedMaqraCategoryIds = collect($officialAccessSetting->maqraOpenCategoryIds())
     ->map(fn (int $id): string => (string) $id)
@@ -21,8 +25,8 @@ $maqraLotRangesByCategory = old('participant_maqra_lot_ranges', $officialAccessS
 if (! is_array($maqraLotRangesByCategory)) {
     $maqraLotRangesByCategory = [];
 }
-$maqraPenyisihanOpen = old('participant_maqra_penyisihan_open', $officialAccessSetting->participant_maqra_penyisihan_open ?? true);
-$maqraFinalOpen = old('participant_maqra_final_open', $officialAccessSetting->participant_maqra_final_open ?? true);
+$maqraPenyisihanOpen = old('participant_maqra_penyisihan_open', $rawOfficialAccess('participant_maqra_penyisihan_open'));
+$maqraFinalOpen = old('participant_maqra_final_open', $rawOfficialAccess('participant_maqra_final_open'));
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'admin.content');
 $priorityLabels = [
     'low' => 'Rendah',
@@ -277,7 +281,7 @@ $impersonation = session('impersonation', []);
                             ?>
 
                             <?php foreach ($accessCards as $card): ?>
-                                <?php $checked = (bool) ($officialAccessSetting->{$card['key']} ?? true); ?>
+                                <?php $checked = $rawOfficialAccess($card['key']); ?>
                                 <label class="rounded-[1.5rem] border border-slate-700/80 bg-slate-950/60 p-5 transition hover:border-cyan-400/30">
                                     <div class="flex items-start justify-between gap-4">
                                         <div class="min-w-0">

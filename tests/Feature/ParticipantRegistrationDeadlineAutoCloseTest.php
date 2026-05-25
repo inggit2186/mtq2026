@@ -23,7 +23,7 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_official_registration_is_closed_at_midnight_after_juknis_deadline(): void
+    public function test_official_registration_is_open_when_admin_toggle_is_enabled_even_after_deadline(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 5, 19, 0, 0, 0, 'Asia/Bangkok'));
         config(['juknis.registration.close' => '18 Mei 2026']);
@@ -53,7 +53,7 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
                 'ktp_regency' => 'Tanah Datar',
                 'submit_action' => 'draft',
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('participants.index'));
     }
 
     public function test_official_edit_is_open_when_admin_checkbox_is_enabled_even_before_edit_session(): void
@@ -73,7 +73,7 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
             ->assertOk();
     }
 
-    public function test_official_delete_is_closed_at_midnight_after_juknis_deadline(): void
+    public function test_official_delete_is_open_when_admin_toggle_is_enabled_even_after_deadline(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 5, 19, 0, 0, 0, 'Asia/Bangkok'));
         config(['juknis.registration.close' => '18 Mei 2026']);
@@ -83,7 +83,28 @@ class ParticipantRegistrationDeadlineAutoCloseTest extends TestCase
 
         $this->actingAs($official)
             ->post(route('participants.archive', $participant))
-            ->assertForbidden();
+            ->assertRedirect(route('participants.list'));
+    }
+
+    public function test_official_mandate_upload_is_open_when_admin_toggle_is_enabled_even_after_deadline(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 19, 0, 0, 0, 'Asia/Bangkok'));
+        config(['juknis.registration.close' => '18 Mei 2026']);
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $district = District::query()->create([
+            'name' => 'Kecamatan Pariangan',
+            'slug' => 'pariangan-mandate-'.uniqid(),
+        ]);
+
+        $official = $this->createOfficialUser($district->id);
+        $this->createOpenAccessSetting();
+
+        $this->actingAs($official)
+            ->post(route('participants.mandate.upload'), [
+                'mandate_document' => \Illuminate\Http\UploadedFile::fake()->create('mandat.pdf', 128, 'application/pdf'),
+            ])
+            ->assertRedirect(route('participants.index'));
     }
 
     /**
