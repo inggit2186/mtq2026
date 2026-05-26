@@ -97,40 +97,51 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
         .district-summary {
             margin-top: 12px;
             border: 1px solid #dbe4f0;
-            border-radius: 14px;
+            border-radius: 16px;
             background: #f8fbff;
-            padding: 12px 14px;
+            padding: 14px 16px;
         }
 
         .district-summary-title {
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 700;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
             color: #475569;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .district-summary-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
         }
 
         .district-summary-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            border-radius: 999px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 48px;
+            border-radius: 14px;
             border: 1px solid #cbd5e1;
             background: #fff;
-            padding: 6px 10px;
-            font-size: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            line-height: 1.35;
             color: #334155;
+            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
         }
 
-        .district-summary-item strong {
+        .district-summary-name {
             color: #0f172a;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .district-summary-count {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0f766e;
         }
 
         .pill {
@@ -394,9 +405,10 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                         <div class="district-summary-title">Rincian terverifikasi per kecamatan</div>
                         <div class="district-summary-grid">
                             <?php foreach ($districtVerificationSummary as $districtName => $verifiedCount): ?>
-                                <span class="district-summary-item">
-                                    <?= e($districtName) ?> <strong><?= e($verifiedCount) ?> terverifikasi</strong>
-                                </span>
+                                <div class="district-summary-item">
+                                    <div class="district-summary-name"><?= e($districtName) ?></div>
+                                    <div class="district-summary-count"><?= e($verifiedCount) ?> terverifikasi</div>
+                                </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
