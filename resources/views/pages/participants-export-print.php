@@ -3,6 +3,7 @@ $rows = $rows ?? [];
 $generatedAt = $generatedAt ?? now();
 $selectedDistrict = $selectedDistrict ?? null;
 $filters = $filters ?? [];
+$summary = $summary ?? [];
 $documentConfig = $documentConfig ?? config('documents');
 $scopeLabel = $selectedDistrict?->name ?? 'Semua Kecamatan';
 $statusLabel = match ($filters['verification_status'] ?? '') {
@@ -328,6 +329,7 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                 <div class="meta">
                     <span class="pill">Dicetak <strong><?= e($generatedAt->format('d M Y H:i')) ?></strong></span>
                     <span class="pill">Ruang lingkup <strong><?= e($scopeLabel) ?></strong></span>
+                    <span class="pill">Jumlah terverifikasi <strong><?= e($summary['verified'] ?? 0) ?></strong></span>
                     <span class="pill">Status <strong><?= e($statusLabel) ?></strong></span>
                     <span class="pill">Umur dihitung per <strong><?= e($ageReferenceLabel) ?></strong></span>
                 </div>

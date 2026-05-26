@@ -160,6 +160,7 @@ class ParticipantVerificationAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Rekap Data Peserta');
+        $response->assertSee('Jumlah terverifikasi <strong>1</strong>', false);
         $response->assertSee('Verifikasi');
         $response->assertDontSee('Foto');
         $response->assertSee('MS');
@@ -174,6 +175,64 @@ class ParticipantVerificationAccessTest extends TestCase
         $response->assertDontSee('No. HP');
         $response->assertDontSee('Dokumen');
         $response->assertDontSee('Catatan Verifikasi');
+    }
+
+    public function test_export_pdf_counts_verified_participants_across_multiple_districts(): void
+    {
+        [$participant, $panitia] = $this->createParticipantAndPanitia();
+
+        $secondDistrict = District::query()->create([
+            'name' => 'Kecamatan Lima Kaum',
+            'slug' => 'lima-kaum',
+            'mandate_document_path' => 'districts/mandates/lima-kaum.pdf',
+            'mandate_uploaded_at' => now(),
+            'mandate_status' => 'verified',
+            'mandate_verified_at' => now(),
+        ]);
+
+        UserDistrictAccess::query()->create([
+            'user_id' => $panitia->id,
+            'district_id' => $secondDistrict->id,
+        ]);
+
+        $secondParticipant = Participant::query()->create([
+            'district_id' => $secondDistrict->id,
+            'competition_category_id' => $participant->competition_category_id,
+            'registration_number' => 'REG-VER-002',
+            'participant_role' => 'main',
+            'name' => 'Peserta Uji Verifikasi Dua',
+            'gender' => 'putra',
+            'nik' => '2234567890123456',
+            'ktp_date' => '2026-01-01',
+            'place_of_birth' => 'Tanah Datar',
+            'date_of_birth' => '2008-02-01',
+            'kk_number' => 'KK002',
+            'kk_date' => '2026-01-01',
+            'phone' => '081234567891',
+            'institution' => 'TPQ Lima Kaum',
+            'last_education' => 'SMA',
+            'current_address' => 'Lima Kaum',
+            'ktp_address' => 'Lima Kaum',
+            'ktp_district' => 'Lima Kaum',
+            'ktp_regency' => 'Tanah Datar',
+            'status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        OfficialAccessSetting::query()->create([
+            'participant_registration_open' => true,
+            'participant_edit_open' => true,
+            'mandate_upload_open' => true,
+            'participant_documents_open' => true,
+            'participant_verification_open' => true,
+        ]);
+
+        $response = $this->actingAs($panitia)->get(route('participants.export.pdf'));
+
+        $response->assertOk();
+        $response->assertSee('Jumlah terverifikasi <strong>2</strong>', false);
+        $response->assertSee($participant->name);
+        $response->assertSee($secondParticipant->name);
     }
 
     public function test_export_verification_excel_uses_pdf_style_columns(): void
