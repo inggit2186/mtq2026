@@ -6,6 +6,23 @@ $filters = $filters ?? [];
 $summary = $summary ?? [];
 $documentConfig = $documentConfig ?? config('documents');
 $scopeLabel = $selectedDistrict?->name ?? 'Semua Kecamatan';
+$districtVerificationSummary = [];
+foreach ($rows as $row) {
+    $districtName = trim((string) ($row['district'] ?? ''));
+
+    if ($districtName === '' || $districtName === '-') {
+        continue;
+    }
+
+    if (! array_key_exists($districtName, $districtVerificationSummary)) {
+        $districtVerificationSummary[$districtName] = 0;
+    }
+
+    if ((string) ($row['verification_status'] ?? '') === 'Terverifikasi') {
+        $districtVerificationSummary[$districtName]++;
+    }
+}
+$showDistrictVerificationSummary = $selectedDistrict === null && count($districtVerificationSummary) > 1;
 $statusLabel = match ($filters['verification_status'] ?? '') {
     'verified' => 'Terverifikasi',
     'submitted' => 'Menunggu',
@@ -75,6 +92,45 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
             flex-wrap: wrap;
             gap: 8px;
             margin-top: 12px;
+        }
+
+        .district-summary {
+            margin-top: 12px;
+            border: 1px solid #dbe4f0;
+            border-radius: 14px;
+            background: #f8fbff;
+            padding: 12px 14px;
+        }
+
+        .district-summary-title {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #475569;
+            margin-bottom: 8px;
+        }
+
+        .district-summary-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .district-summary-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            padding: 6px 10px;
+            font-size: 10px;
+            color: #334155;
+        }
+
+        .district-summary-item strong {
+            color: #0f172a;
         }
 
         .pill {
@@ -333,6 +389,18 @@ $ageReferenceLabel = (string) config('juknis.age_reference_date', '1 Juli 2026')
                     <span class="pill">Status <strong><?= e($statusLabel) ?></strong></span>
                     <span class="pill">Umur dihitung per <strong><?= e($ageReferenceLabel) ?></strong></span>
                 </div>
+                <?php if ($showDistrictVerificationSummary): ?>
+                    <div class="district-summary">
+                        <div class="district-summary-title">Rincian terverifikasi per kecamatan</div>
+                        <div class="district-summary-grid">
+                            <?php foreach ($districtVerificationSummary as $districtName => $verifiedCount): ?>
+                                <span class="district-summary-item">
+                                    <?= e($districtName) ?> <strong><?= e($verifiedCount) ?> terverifikasi</strong>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 

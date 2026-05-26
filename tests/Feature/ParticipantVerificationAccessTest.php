@@ -216,7 +216,7 @@ class ParticipantVerificationAccessTest extends TestCase
             'ktp_district' => 'Lima Kaum',
             'ktp_regency' => 'Tanah Datar',
             'status' => 'active',
-            'verification_status' => 'verified',
+            'verification_status' => 'submitted',
         ]);
 
         OfficialAccessSetting::query()->create([
@@ -230,9 +230,12 @@ class ParticipantVerificationAccessTest extends TestCase
         $response = $this->actingAs($panitia)->get(route('participants.export.pdf'));
 
         $response->assertOk();
-        $response->assertSee('Jumlah terverifikasi <strong>2</strong>', false);
+        $response->assertSee('Rincian terverifikasi per kecamatan');
+        $response->assertSee('Jumlah terverifikasi <strong>1</strong>', false);
         $response->assertSee($participant->name);
         $response->assertSee($secondParticipant->name);
+        $response->assertSee('Kecamatan Pariangan <strong>1 terverifikasi</strong>', false);
+        $response->assertSee('Kecamatan Lima Kaum <strong>0 terverifikasi</strong>', false);
     }
 
     public function test_export_verification_excel_uses_pdf_style_columns(): void
