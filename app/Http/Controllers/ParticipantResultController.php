@@ -25,6 +25,10 @@ class ParticipantResultController extends Controller
         [$filters, $participants, $selectedParticipant, $scoreTimeline, $branchCriteria] = $this->resultContext($request, $isParticipant);
         $scores = $selectedParticipant?->scores ?? collect();
 
+        // Calculate stats - handle both old format (multiple rows) and new format (aggregated JSON)
+        $stats = $this->calculateScoreStats($scores);
+        $latestEntry = $scoreTimeline->first();
+
         return view('pages/results-v2', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) $user?->role),
@@ -37,15 +41,46 @@ class ParticipantResultController extends Controller
                 'keyword' => $filters['keyword'] ?? '',
             ],
             'resultStats' => [
-                'entries' => $scores->count(),
-                'latest' => number_format((float) ($scoreTimeline->first()?->score ?? 0), 2),
-                'best' => number_format((float) ($scores->max('score') ?? 0), 2),
-                'average' => number_format((float) ($scores->avg('score') ?? 0), 2),
+                'entries' => $stats['entries'],
+                'latest' => number_format((float) ($latestEntry ? ($latestEntry->average_score ?? $latestEntry->score ?? 0) : 0), 2),
+                'best' => number_format((float) ($stats['best'] ?? 0), 2),
+                'average' => number_format((float) ($stats['average'] ?? 0), 2),
             ],
             'scoreTimeline' => $scoreTimeline,
             'branchCriteria' => $branchCriteria,
             'isParticipant' => $isParticipant,
         ]);
+    }
+
+    /**
+     * Calculate score statistics handling both old and new format
+     */
+    protected function calculateScoreStats($scores): array
+    {
+        if ($scores->isEmpty()) {
+            return ['entries' => 0, 'best' => 0, 'average' => 0];
+        }
+
+        // Collect all individual judge scores from both formats
+        $allScores = [];
+
+        foreach ($scores as $score) {
+            // Check if new aggregated format (scores JSON)
+            if ($score->scores && is_array($score->scores)) {
+                foreach ($score->scores as $judgeData) {
+                    $allScores[] = (float) ($judgeData['score'] ?? 0);
+                }
+            } else {
+                // Old format - single score per row
+                $allScores[] = (float) ($score->score ?? 0);
+            }
+        }
+
+        return [
+            'entries' => count($allScores),
+            'best' => count($allScores) > 0 ? max($allScores) : 0,
+            'average' => count($allScores) > 0 ? array_sum($allScores) / count($allScores) : 0,
+        ];
     }
 
     public function export(Request $request): StreamedResponse
@@ -70,19 +105,35 @@ class ParticipantResultController extends Controller
             fputcsv($handle, ['Tanggal', 'Hakim / Operator', 'Babak', 'Total Nilai', 'Breakdown', 'Catatan']);
 
             foreach ($scoreTimeline as $entry) {
-                $breakdown = collect($entry->score_breakdown ?? [])
+                // Handle both old and new format for breakdown
+                $breakdownArray = [];
+                if ($entry->scores && is_array($entry->scores)) {
+                    // New format - get first judge's breakdown
+                    $firstJudge = array_key_first($entry->scores);
+                    $judgeData = $entry->scores[$firstJudge];
+                    $breakdownArray = $judgeData['breakdown'] ?? [];
+                    $judgeLabel = count($entry->scores).' Hakim';
+                } else {
+                    // Old format
+                    $breakdownArray = $entry->score_breakdown ?? [];
+                    $judgeLabel = $entry->judge_name;
+                }
+
+                $breakdown = collect($breakdownArray)
                     ->map(function ($value, $key) use ($branchCriteria): string {
                         $label = $branchCriteria[$key] ?? ucwords(str_replace('_', ' ', (string) $key));
-
                         return $label.': '.number_format((float) $value, 2);
                     })
                     ->implode(' | ');
 
+                // Use average_score for new format
+                $displayScore = $entry->average_score ?? $entry->score ?? 0;
+
                 fputcsv($handle, [
                     optional($entry->submitted_at)->format('d/m/Y H:i'),
-                    $entry->judge_name,
+                    $judgeLabel,
                     $entry->judging_round,
-                    number_format((float) $entry->score, 2),
+                    number_format((float) $displayScore, 2),
                     $breakdown,
                     $entry->remarks,
                 ]);
@@ -100,16 +151,20 @@ class ParticipantResultController extends Controller
         [$filters, $participants, $selectedParticipant, $scoreTimeline, $branchCriteria] = $this->resultContext($request, $isParticipant);
         $scores = $selectedParticipant?->scores ?? collect();
 
+        // Calculate stats using helper method
+        $stats = $this->calculateScoreStats($scores);
+        $latestEntry = $scoreTimeline->first();
+
         return view('pages/results-print', [
             'selectedParticipant' => $selectedParticipant,
             'scoreTimeline' => $scoreTimeline,
             'branchCriteria' => $branchCriteria,
             'documentConfig' => app(PageController::class)->documentConfig(),
             'resultStats' => [
-                'entries' => $scores->count(),
-                'latest' => number_format((float) ($scoreTimeline->first()?->score ?? 0), 2),
-                'best' => number_format((float) ($scores->max('score') ?? 0), 2),
-                'average' => number_format((float) ($scores->avg('score') ?? 0), 2),
+                'entries' => $stats['entries'],
+                'latest' => number_format((float) ($latestEntry ? ($latestEntry->average_score ?? $latestEntry->score ?? 0) : 0), 2),
+                'best' => number_format((float) ($stats['best'] ?? 0), 2),
+                'average' => number_format((float) ($stats['average'] ?? 0), 2),
             ],
             'generatedAt' => now(),
             'filters' => $filters,
@@ -369,8 +424,11 @@ class ParticipantResultController extends Controller
             ->map(function (Participant $participant): array {
                 $scores = $participant->scores;
                 $latest = $scores->sortByDesc('submitted_at')->first();
-                $average = (float) ($scores->avg('score') ?? 0);
-                $best = (float) ($scores->max('score') ?? 0);
+
+                // Calculate stats handling both formats
+                $stats = $this->calculateScoreStats($scores);
+                $latestScore = $latest ? ($latest->average_score ?? $latest->score ?? 0) : 0;
+
                 $priorityValues = $this->participantPriorityValues($participant);
 
                 return [
@@ -380,12 +438,12 @@ class ParticipantResultController extends Controller
                     'branch' => $participant->category?->branch ?? '-',
                     'category_name' => $participant->category?->name ?? '-',
                     'institution' => $participant->institution,
-                    'latest_score' => number_format((float) ($latest->score ?? 0), 2),
-                    'average_score' => number_format($average, 2),
-                    'average_score_value' => $average,
-                    'best_score' => number_format($best, 2),
-                    'best_score_value' => $best,
-                    'entry_count' => $scores->count(),
+                    'latest_score' => number_format((float) $latestScore, 2),
+                    'average_score' => number_format((float) ($stats['average'] ?? 0), 2),
+                    'average_score_value' => (float) ($stats['average'] ?? 0),
+                    'best_score' => number_format((float) ($stats['best'] ?? 0), 2),
+                    'best_score_value' => (float) ($stats['best'] ?? 0),
+                    'entry_count' => $stats['entries'] ?? 0,
                     'priority_values' => $priorityValues,
                 ];
             })
@@ -613,8 +671,11 @@ class ParticipantResultController extends Controller
             ->map(function (Participant $participant) use ($category): array {
                 $scores = $participant->scores;
                 $latest = $scores->sortByDesc('submitted_at')->first();
-                $average = (float) ($scores->avg('score') ?? 0);
-                $best = (float) ($scores->max('score') ?? 0);
+
+                // Calculate stats handling both formats
+                $stats = $this->calculateScoreStats($scores);
+                $latestScore = $latest ? ($latest->average_score ?? $latest->score ?? 0) : 0;
+
                 $priorityValues = $this->participantPriorityValues($participant);
 
                 return [
@@ -625,12 +686,12 @@ class ParticipantResultController extends Controller
                     'institution' => $participant->institution ?? '-',
                     'branch' => $category->branch,
                     'category_name' => $category->name,
-                    'latest_score' => number_format((float) ($latest->score ?? 0), 2),
-                    'average_score' => number_format($average, 2),
-                    'average_score_value' => $average,
-                    'best_score' => number_format($best, 2),
-                    'best_score_value' => $best,
-                    'entry_count' => $scores->count(),
+                    'latest_score' => number_format((float) $latestScore, 2),
+                    'average_score' => number_format((float) ($stats['average'] ?? 0), 2),
+                    'average_score_value' => (float) ($stats['average'] ?? 0),
+                    'best_score' => number_format((float) ($stats['best'] ?? 0), 2),
+                    'best_score_value' => (float) ($stats['best'] ?? 0),
+                    'entry_count' => $stats['entries'] ?? 0,
                     'priority_values' => $priorityValues,
                     'priority_label_values' => $this->priorityLabelValues($category, $priorityValues),
                     'score_entries' => $this->scoreEntryDetails($participant, $category),
@@ -686,8 +747,11 @@ class ParticipantResultController extends Controller
                 }
 
                 $latest = $roundScores->sortByDesc('submitted_at')->first();
-                $average = (float) ($roundScores->avg('score') ?? 0);
-                $best = (float) ($roundScores->max('score') ?? 0);
+
+                // Calculate stats for this round handling both formats
+                $stats = $this->calculateScoreStats($roundScores);
+                $latestScore = $latest ? ($latest->average_score ?? $latest->score ?? 0) : 0;
+
                 $priorityValues = $this->participantPriorityValuesFromScores($participant, $roundScores);
 
                 return [
@@ -698,12 +762,12 @@ class ParticipantResultController extends Controller
                     'institution' => $participant->institution ?? '-',
                     'branch' => $category->branch,
                     'category_name' => $category->name,
-                    'latest_score' => number_format((float) ($latest->score ?? 0), 2),
-                    'average_score' => number_format($average, 2),
-                    'average_score_value' => $average,
-                    'best_score' => number_format($best, 2),
-                    'best_score_value' => $best,
-                    'entry_count' => $roundScores->count(),
+                    'latest_score' => number_format((float) $latestScore, 2),
+                    'average_score' => number_format((float) ($stats['average'] ?? 0), 2),
+                    'average_score_value' => (float) ($stats['average'] ?? 0),
+                    'best_score' => number_format((float) ($stats['best'] ?? 0), 2),
+                    'best_score_value' => (float) ($stats['best'] ?? 0),
+                    'entry_count' => $stats['entries'] ?? 0,
                     'priority_values' => $priorityValues,
                     'priority_label_values' => $this->priorityLabelValues($category, $priorityValues),
                     'score_entries' => $this->scoreEntryDetailsForRound($participant, $category, $roundLabel),

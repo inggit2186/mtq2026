@@ -128,7 +128,7 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                     <div class="metric-card"><div class="icon-chip"><?= mtq_icon('spark') ?></div><p class="mt-4 text-sm text-slate-400">Batas Pemilihan</p><p class="mt-2 text-3xl font-extrabold text-emerald-300">2-5</p></div>
                 </section>
 
-                <section class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <section class="grid gap-6 xl:grid-cols-[1fr_320px]">
                     <div class="space-y-6">
                         <div class="glass-card rounded-[2rem] p-6">
                             <div class="flex flex-wrap items-start justify-between gap-4">
@@ -148,8 +148,9 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                                 <?php endif; ?>
                             </div>
 
-                            <form method="GET" action="<?= e(route('scoring.mfq')) ?>" class="mt-6 grid gap-4 md:grid-cols-[1fr_auto]">
-                                <div>
+                            <form method="GET" action="<?= e(route('scoring.mfq')) ?>" class="mt-6 flex flex-wrap items-end gap-4">
+                                <?php if (! $selectedCategory): ?>
+                                <div class="flex-1 min-w-[200px]">
                                     <label class="mb-2 block text-sm font-semibold text-slate-200">Golongan MFQ</label>
                                     <select name="competition_category_id" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20">
                                         <option value="">Pilih golongan MFQ</option>
@@ -160,12 +161,20 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                <div class="flex items-end">
-                                    <button type="submit" class="primary-button rounded-2xl px-5 py-3">
+                                <div>
+                                    <button type="submit" class="primary-button rounded-2xl px-5 py-3 whitespace-nowrap">
                                         <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                         Lihat Peserta
                                     </button>
                                 </div>
+                                <?php else: ?>
+                                <div class="flex-1">
+                                    <span class="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-200">
+                                        <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                        <?= e(trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name)) ?>
+                                    </span>
+                                </div>
+                                <?php endif; ?>
                             </form>
                         </div>
 
@@ -320,51 +329,44 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                         </div>
                     </div>
 
-                    <div class="space-y-6 xl:sticky xl:top-6">
-                        <div class="glass-card rounded-[2rem] p-6">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="space-y-4 xl:sticky xl:top-6">
+                        <div class="glass-card rounded-[2rem] p-5">
+                            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                                 <div>
-                                    <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Kecamatan Terpilih</p>
-                                    <h3 class="mt-2 text-2xl font-bold text-white">Pilihan regu yang sudah masuk</h3>
-                                    <p class="mt-2 text-sm text-slate-300">Panel ini merangkum semua kecamatan yang dipilih untuk sesi MFQ.</p>
+                                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Kecamatan Terpilih</p>
+                                    <h3 class="mt-1 text-lg font-bold text-white">Ringkasan Regu</h3>
                                 </div>
-                                <div class="rounded-[1rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-right">
-                                    <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-100/70">Regu Dipilih</p>
-                                    <p class="mt-1 text-3xl font-black text-cyan-100" x-text="selectedIds.length"></p>
+                                <div class="rounded-xl border border-cyan-400/16 bg-cyan-400/10 px-3 py-2 text-right">
+                                    <p class="text-[10px] uppercase tracking-[0.15em] text-cyan-100/70">Dipilih</p>
+                                    <p class="text-xl font-black text-cyan-100" x-text="selectedIds.length"></p>
                                 </div>
                             </div>
                             <?php if (filled($selectionSessionName)): ?>
-                                <div class="mt-4 rounded-[1.25rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3">
-                                    <p class="text-xs uppercase tracking-[0.18em] text-cyan-100/70">Nama Sesi</p>
-                                    <p class="mt-1 font-semibold text-white"><?= e($selectionSessionName) ?></p>
+                                <div class="mb-3 rounded-xl border border-cyan-400/16 bg-cyan-400/10 px-3 py-2">
+                                    <p class="text-[10px] uppercase tracking-[0.15em] text-cyan-100/70">Nama Sesi</p>
+                                    <p class="mt-0.5 text-sm font-semibold text-white"><?= e($selectionSessionName) ?></p>
                                 </div>
                             <?php endif; ?>
-                            <div class="mt-4 rounded-[1.25rem] border border-slate-800 bg-slate-950/55 px-4 py-3" x-show="selectedIds.length > 0" x-cloak>
-                                <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Status Pilihan</p>
-                                <p class="mt-1 text-sm font-semibold text-white" x-text="selectionStatusLabel()"></p>
-                                <p class="mt-1 text-xs text-slate-500" x-text="selectionDistrictLabel()"></p>
+                            <div class="rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-2" x-show="selectedIds.length > 0" x-cloak>
+                                <p class="text-[10px] uppercase tracking-[0.15em] text-slate-400">Status</p>
+                                <p class="mt-0.5 text-xs font-semibold text-white" x-text="selectionStatusLabel()"></p>
                             </div>
-                            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                            <div class="mt-4 space-y-2">
                                 <?php if ($selectedParticipants->isEmpty()): ?>
-                                    <div class="data-card text-sm text-slate-300 sm:col-span-2">Belum ada kecamatan yang dipilih.</div>
+                                    <div class="text-sm text-slate-400">Belum ada kecamatan dipilih.</div>
                                 <?php else: ?>
                                     <?php foreach ($selectedParticipants as $participant): ?>
                                         <?php $districtParticipantCount = $participantsByDistrict->get((int) $participant->district_id, collect())->count(); ?>
-                                        <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                                            <div class="flex items-start justify-between gap-3">
+                                        <div class="rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-2">
+                                            <div class="flex items-start justify-between gap-2">
                                                 <div class="min-w-0">
-                                                    <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">Kecamatan</p>
-                                                    <p class="mt-1 text-lg font-bold text-white"><?= e($participant->district?->name ?? '-') ?></p>
-                                                    <p class="mt-1 text-xs text-slate-400"><?= e($districtParticipantCount) ?> peserta regu</p>
+                                                    <p class="text-[10px] uppercase tracking-[0.15em] text-cyan-200/80"><?= e($participant->district?->name ?? '-') ?></p>
+                                                    <p class="mt-0.5 text-sm font-semibold text-white"><?= e($participant->name) ?></p>
+                                                    <p class="mt-0.5 text-[10px] text-slate-500"><?= e($participant->registration_number) ?></p>
                                                 </div>
-                                                <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
-                                                    <?= e($districtParticipantCount) ?> orang
+                                                <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-100">
+                                                    <?= e($districtParticipantCount) ?> org
                                                 </span>
-                                            </div>
-                                            <div class="mt-3 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-3">
-                                                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Perwakilan Regu</p>
-                                                <p class="mt-1 font-semibold text-white"><?= e($participant->name) ?></p>
-                                                <p class="mt-1 text-xs text-slate-400"><?= e($participant->registration_number) ?></p>
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
@@ -372,16 +374,16 @@ $selectedIds = collect(old('district_ids', $selectionState['district_ids'] ?? []
                             </div>
                         </div>
 
-                        <div class="glass-card rounded-[2rem] p-6">
-                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Tahap Berikutnya</p>
-                            <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                                <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
-                                    <p class="font-semibold text-white">Tahap 2: susun form penilaian</p>
-                                    <p class="mt-2 text-sm leading-6 text-slate-300">Setelah regu final, kita lanjut bikin alur soal regu, soal rebutan, dan pembagian nilai per babak.</p>
+                        <div class="glass-card rounded-[2rem] p-5">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Tahap Berikutnya</p>
+                            <div class="mt-3 space-y-2">
+                                <div class="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                    <p class="font-semibold text-white text-sm">Tahap 2</p>
+                                    <p class="mt-1 text-xs text-slate-400">Form penilaian per soal</p>
                                 </div>
-                                <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
-                                    <p class="font-semibold text-white">Tahap 3: rekap hasil</p>
-                                    <p class="mt-2 text-sm leading-6 text-slate-300">Nanti hasil setiap sesi akan kita simpan per regu supaya rekap juara dan urutan nilai lebih mudah.</p>
+                                <div class="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                    <p class="font-semibold text-white text-sm">Tahap 3</p>
+                                    <p class="mt-1 text-xs text-slate-400">Rekap hasil & juara</p>
                                 </div>
                             </div>
                         </div>

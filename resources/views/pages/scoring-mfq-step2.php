@@ -107,6 +107,20 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                     <p class="mt-2 text-sm leading-6 text-slate-300">Isi nilai per soal dalam bentuk angka bulat pada kolom paket, lontaran, dan rebutan. Total akan dijumlahkan otomatis per baris dan per regu aktif.</p>
                 </div>
 
+                <?php if ($selectedCategory): ?>
+                <div class="mt-4 rounded-[1.4rem] border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center rounded-full bg-cyan-400/20 p-2">
+                            <?= mtq_icon('check-circle', 'h-4 w-4 text-cyan-300') ?>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/70">Golongan MFQ (Dipilih di Step 1)</p>
+                            <p class="mt-1 text-lg font-bold text-cyan-100"><?= e(trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name)) ?></p>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <nav class="mt-8 space-y-2">
                     <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
                     <?php require __DIR__.'/../partials/console-navigation.php'; ?>
@@ -150,6 +164,14 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                             <p class="section-kicker">Ruang Penilaian MFQ</p>
                             <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Tahap 2: nilai regu yang sudah dipilih</h2>
                             <p class="mt-2 text-sm text-slate-300"><?= e($mfqSheetSummary ?? 'Format penilaian mengikuti lembar Excel MFQ dengan kolom paket, lontaran, rebutan, dan jumlah.') ?></p>
+                            <?php if ($selectedCategory): ?>
+                            <div class="mt-3 flex items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-200">
+                                    <?= mtq_icon('check-circle', 'h-3 w-3') ?>
+                                    Golongan: <?= e(trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name)) ?>
+                                </span>
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
@@ -302,7 +324,7 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                 <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Regu Aktif</p>
                                 <p class="mt-1 text-sm font-bold text-white" x-text="activeDistrictName()"></p>
                             </div>
-                            <button type="button" class="primary-button justify-center px-5 py-3" @click="finishDraft()">
+                            <button type="button" class="primary-button justify-center px-5 py-3" @click="showRankingModal()">
                                 <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                 Finish & Kirim DB
                             </button>
@@ -420,6 +442,64 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Modal Ranking -->
+                <section x-show="rankingModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-3 py-4 sm:px-4 sm:py-6">
+                    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" @click="rankingModalOpen = false"></div>
+                    <div class="relative w-full max-w-[min(96vw,600px)] overflow-hidden rounded-[2rem] border border-cyan-400/30 bg-slate-950 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)]">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-5">
+                            <div>
+                                <p class="section-kicker">Peringkat Sesi</p>
+                                <h4 class="mt-2 text-2xl font-bold text-white"><?= e($selectionSessionName ?: 'Sesi MFQ') ?></h4>
+                                <p class="mt-2 text-sm text-slate-300"><?= e($selectionJudgingRound) ?></p>
+                            </div>
+                            <button type="button" class="secondary-button rounded-xl px-3 py-2" @click="rankingModalOpen = false">
+                                <?= mtq_icon('x', 'h-4 w-4') ?>
+                            </button>
+                        </div>
+
+                        <div class="p-6 space-y-4">
+                            <template x-for="(rank, index) in computedRankings" :key="rank.districtId">
+                                <div class="relative overflow-hidden rounded-2xl border px-5 py-4 transition-all"
+                                    :class="index === 0 ? 'border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-transparent shadow-[0_8px_30px_-10px_rgba(251,191,36,0.4)]' : 'border-slate-700/80 bg-slate-900/50'">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex items-center gap-4">
+                                            <div class="flex h-12 w-12 items-center justify-center rounded-full border-2 font-black"
+                                                :class="index === 0 ? 'border-amber-400 bg-amber-400/20 text-2xl text-amber-300' : index === 1 ? 'border-slate-400 bg-slate-400/10 text-xl text-slate-300' : index === 2 ? 'border-orange-600 bg-orange-600/10 text-lg text-orange-400' : 'border-slate-600 bg-slate-600/10 text-base text-slate-400'">
+                                                <span x-text="index + 1"></span>
+                                            </div>
+                                            <div>
+                                                <p class="text-lg font-bold text-white" x-text="rank.districtName"></p>
+                                                <p class="text-sm text-slate-400" x-text="rank.representativeName"></p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-3xl font-black" :class="index === 0 ? 'text-amber-300' : 'text-white'" x-text="Number(rank.total).toFixed(0)"></p>
+                                            <p class="text-xs uppercase tracking-[0.15em] text-slate-500">poin</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="index === 0" class="absolute right-0 top-0 -translate-y-1 translate-x-1">
+                                        <div class="flex items-center gap-1 rounded-full bg-amber-400/20 px-3 py-1">
+                                            <span class="text-lg">🏆</span>
+                                            <span class="text-sm font-bold text-amber-300">PEMENANG</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 px-6 py-5">
+                            <button type="button" class="secondary-button px-5 py-3" @click="rankingModalOpen = false">
+                                <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                                Kembali Edit
+                            </button>
+                            <button type="button" class="primary-button justify-center px-6 py-3" @click="submitRanking()">
+                                <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                Konfirmasi & Simpan
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -822,6 +902,7 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                 mobileNavOpen: false,
                 modalOpen: false,
                 sheetModalOpen: Boolean(initialState.openInputModal),
+                rankingModalOpen: false,
                 activeQuestionIndex: 0,
                 activeParticipantId: String(initialState.activeParticipantId || ''),
                 modalAdvanceAfterSave: true,
@@ -949,6 +1030,30 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                 finishDraft() {
                     this.persistDraft();
 
+                    if (this.$refs.finishForm) {
+                        this.$refs.finishForm.requestSubmit();
+                    }
+                },
+                get computedRankings() {
+                    const rankings = this.districtCards.map((card) => {
+                        const total = this.districtDraftTotal(card.representative_id, '0');
+                        return {
+                            districtId: card.district_id,
+                            districtName: card.district_name,
+                            representativeId: card.representative_id,
+                            representativeName: card.representative_name,
+                            total: parseFloat(total) || 0,
+                        };
+                    });
+                    return rankings.sort((a, b) => b.total - a.total);
+                },
+                showRankingModal() {
+                    this.persistDraft();
+                    this.rankingModalOpen = true;
+                },
+                submitRanking() {
+                    this.rankingModalOpen = false;
+                    this.persistDraft();
                     if (this.$refs.finishForm) {
                         this.$refs.finishForm.requestSubmit();
                     }

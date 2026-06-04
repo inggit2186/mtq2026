@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ParticipantSelected;
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
 use App\Models\ScoreCorrectionRequest;
@@ -82,11 +83,32 @@ class ScoringController extends Controller
                 ->find($participants->first()->id);
         }
 
+        \Log::info('Checking participant for broadcast', [
+            'participant_id' => $selectedParticipant?->id,
+            'category_id' => $selectedParticipant?->competition_category_id,
+            'has_category' => $selectedParticipant?->competition_category_id ? 'yes' : 'no'
+        ]);
+        
         if ($selectedParticipant?->competition_category_id) {
             Cache::put(
                 $this->currentParticipantCacheKey((int) $selectedParticipant->competition_category_id),
                 (int) $selectedParticipant->id,
                 now()->addHours(12)
+            );
+
+            // Broadcast to Big Screen
+            $participantPhotoUrl = null;
+            if ($selectedParticipant->document_photo) {
+                $participantPhotoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $selectedParticipant->document_photo), '/'));
+            }
+
+            ParticipantSelected::dispatch(
+                (int) $selectedParticipant->id,
+                (int) $selectedParticipant->competition_category_id,
+                $selectedParticipant->name,
+                $selectedParticipant->district?->name,
+                $selectedParticipant->lot_number,
+                $participantPhotoUrl
             );
         }
 
@@ -466,27 +488,39 @@ class ScoringController extends Controller
         $criteria = $roundConfig['scoring_points'];
         $scoreRules = $this->scoreInputRules($judgeNames, $criteria);
         $scorePayload = $request->validate($scoreRules);
-        $createdEntries = [];
+
+        // Collect all judge scores into JSON format (single row per participant per round)
+        $allJudgeScores = [];
         foreach ($judgeNames as $judgeName) {
             $scores = collect(data_get($scorePayload, 'scores.'.$judgeName, []))
                 ->map(fn ($value) => round((float) $value, 2))
                 ->all();
             $totalScore = round(collect($scores)->avg() ?? 0, 2);
 
-            $createdEntries[] = ScoreEntry::query()->create([
-                'participant_id' => $participant->id,
-                'judge_name' => $judgeName,
-                'judging_round' => $validated['judging_round'],
+            $allJudgeScores[$judgeName] = [
                 'score' => $totalScore,
-                'score_breakdown' => $scores,
+                'breakdown' => $scores,
                 'remarks' => data_get($scorePayload, 'remarks.'.$judgeName),
-                'submitted_at' => now(),
-            ]);
+            ];
         }
 
-        foreach ($createdEntries as $scoreEntry) {
-            RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
-        }
+        // Calculate average across all judges
+        $averageScore = round(
+            collect($allJudgeScores)->avg(fn ($s) => $s['score']) ?? 0,
+            2
+        );
+
+        // Create single aggregated score entry
+        $scoreEntry = ScoreEntry::create([
+            'participant_id' => $participant->id,
+            'judging_round' => $validated['judging_round'],
+            'scores' => $allJudgeScores,
+            'average_score' => $averageScore,
+            'submitted_at' => now(),
+        ]);
+
+        // Broadcast single event
+        RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
 
         ActivityLogger::log(
             'scoring.score.created',
@@ -499,8 +533,8 @@ class ScoringController extends Controller
                 'category_id' => $participant->competition_category_id,
                 'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
                 'judging_round' => $validated['judging_round'],
-                'judge_total' => count($createdEntries),
-                'average_score' => round(collect($createdEntries)->avg(fn (ScoreEntry $entry): float => (float) $entry->score) ?? 0, 2),
+                'judge_total' => count($allJudgeScores),
+                'average_score' => $averageScore,
             ]
         );
 

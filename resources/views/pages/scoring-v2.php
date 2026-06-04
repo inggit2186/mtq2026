@@ -160,6 +160,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
     <?php endforeach; ?>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
+    <script>
+        window.currentParticipantId = <?= e($selectedParticipant?->id ?? 'null') ?>;
+    </script>
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
     <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8"
         x-data="scoringWorkflow({
@@ -968,7 +971,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         selectedJudgingRound: <?= e(json_encode($selectedJudgingRound, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                     })">
                                     <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                                    <input type="hidden" name="participant_id" value="<?= e($selectedParticipant->id) ?>">
+                                    <input type="hidden" name="participant_id" x-bind:value="window.currentParticipantId || '<?= e($selectedParticipant?->id ?? '') ?>'">
                                     <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
                                     <input type="hidden" name="active_judge_index" :value="activeJudgeIndex">
 
@@ -1283,7 +1286,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <div class="data-card text-sm text-slate-300">Belum ada nilai yang tercatat untuk peserta ini.</div>
                                 <?php endif; ?>
                                 <?php foreach ($recentScores->groupBy(fn ($score) => $score->judging_round ?: 'Tanpa Babak') as $roundLabel => $roundScores): ?>
-                                    <?php $latestRoundScores = $roundScores->take(count($judgeNames) ?: 1); ?>
+                                    <?php
+                                        // Get the first score entry for this round (new format: 1 row with all judges)
+                                        // Old format: first row is sufficient, accessor will handle it
+                                        $firstScore = $roundScores->first();
+                                        $isNewFormat = $firstScore && $firstScore->scores && is_array($firstScore->scores);
+                                        $judgeCount = $isNewFormat ? count($firstScore->scores) : ($roundScores->count() ?: 1);
+                                    ?>
                                     <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/45 p-4">
                                         <div class="flex flex-wrap items-center justify-between gap-3">
                                             <div>
@@ -1293,32 +1302,58 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 </p>
                                             </div>
                                             <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
-                                                <?= e($latestRoundScores->count()) ?> entri
+                                                <?= e($judgeCount) ?> hakim
                                             </div>
                                         </div>
 
                                         <div class="mt-4 grid gap-3">
-                                            <?php foreach ($latestRoundScores as $score): ?>
-                                                <div class="rounded-[1rem] border border-slate-800 bg-slate-950/55 px-3 py-2.5">
-                                                    <div class="flex flex-wrap items-center justify-between gap-3">
-                                                        <div>
-                                                            <p class="text-sm font-semibold text-white"><?= e($score->judge_name) ?></p>
-                                                            <p class="mt-1 text-xs text-slate-400"><?= e(optional($score->submitted_at)->format('d M Y H:i')) ?></p>
+                                            <?php if ($isNewFormat): ?>
+                                                <?php // New format: iterate over judges in the JSON scores ?>
+                                                <?php foreach ($firstScore->scores as $judgeName => $judgeData): ?>
+                                                    <div class="rounded-[1rem] border border-slate-800 bg-slate-950/55 px-3 py-2.5">
+                                                        <div class="flex flex-wrap items-center justify-between gap-3">
+                                                            <div>
+                                                                <p class="text-sm font-semibold text-white"><?= e($judgeName) ?></p>
+                                                                <p class="mt-1 text-xs text-slate-400"><?= e(optional($firstScore->submitted_at)->format('d M Y H:i')) ?></p>
+                                                            </div>
+                                                            <p class="text-base font-bold text-cyan-200"><?= e(number_format((float) ($judgeData['score'] ?? 0), 2)) ?></p>
                                                         </div>
-                                                        <p class="text-base font-bold text-cyan-200"><?= e(number_format((float) $score->score, 2)) ?></p>
+                                                        <?php if (! empty($judgeData['breakdown'] ?? [])): ?>
+                                                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                                                <?php foreach ($judgeData['breakdown'] as $label => $value): ?>
+                                                                    <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+                                                                        <span class="uppercase tracking-[0.12em] text-slate-500"><?= e(str_replace('_', ' ', ucfirst((string) $label))) ?></span>
+                                                                        <span class="text-slate-100"><?= e(number_format((float) $value, 2)) ?></span>
+                                                                    </span>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     </div>
-                                                    <?php if (! empty($score->score_breakdown)): ?>
-                                                        <div class="mt-2 flex flex-wrap gap-1.5">
-                                                            <?php foreach ($score->score_breakdown as $label => $value): ?>
-                                                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
-                                                                    <span class="uppercase tracking-[0.12em] text-slate-500"><?= e(str_replace('_', ' ', ucfirst((string) $label))) ?></span>
-                                                                    <span class="text-slate-100"><?= e(number_format((float) $value, 2)) ?></span>
-                                                                </span>
-                                                            <?php endforeach; ?>
+                                                <?php endforeach; ?>
+                                            <?php else: ?>
+                                                <?php // Old format: iterate over each score entry row ?>
+                                                <?php foreach ($roundScores as $score): ?>
+                                                    <div class="rounded-[1rem] border border-slate-800 bg-slate-950/55 px-3 py-2.5">
+                                                        <div class="flex flex-wrap items-center justify-between gap-3">
+                                                            <div>
+                                                                <p class="text-sm font-semibold text-white"><?= e($score->judge_name) ?></p>
+                                                                <p class="mt-1 text-xs text-slate-400"><?= e(optional($score->submitted_at)->format('d M Y H:i')) ?></p>
+                                                            </div>
+                                                            <p class="text-base font-bold text-cyan-200"><?= e(number_format((float) $score->score, 2)) ?></p>
                                                         </div>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endforeach; ?>
+                                                        <?php if (! empty($score->score_breakdown)): ?>
+                                                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                                                <?php foreach ($score->score_breakdown as $label => $value): ?>
+                                                                    <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+                                                                        <span class="uppercase tracking-[0.12em] text-slate-500"><?= e(str_replace('_', ' ', ucfirst((string) $label))) ?></span>
+                                                                        <span class="text-slate-100"><?= e(number_format((float) $value, 2)) ?></span>
+                                                                    </span>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -1398,7 +1433,17 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 dropdownOpen: false,
                 highlightedIndex: 0,
                 init() {
-                    if (this.selectedParticipant) {
+                    // Sync with URL parameter on page load
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const urlParticipantId = urlParams.get('participant_id');
+                    if (urlParticipantId) {
+                        this.selectedId = String(urlParticipantId);
+                        // Find the participant in the list to set the search
+                        const found = this.participants.find(p => String(p.id) === this.selectedId);
+                        if (found) {
+                            this.search = found.name;
+                        }
+                    } else if (this.selectedParticipant) {
                         this.search = this.selectedParticipant.name;
                     }
                 },
@@ -1446,6 +1491,35 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     }).slice(0, 12);
                 },
                 selectParticipant(participant) {
+                    // Show confirmation modal first
+                    this.showBigScreenConfirmation(participant);
+                },
+                async showBigScreenConfirmation(participant) {
+                    // Show SweetAlert confirmation
+                    const result = await Swal.fire({
+                        title: 'Peserta yang akan Tampil?',
+                        html: `<div class="text-left">
+                            <p class="mb-2">Peserta ini akan ditampilkan di Big Screen:</p>
+                            <div class="rounded-xl border border-slate-600 bg-slate-800 p-4">
+                                <p class="text-lg font-bold text-white">${participant.name}</p>
+                                <p class="text-sm text-cyan-300">Lot: ${participant.lot_number || '-'}</p>
+                                <p class="text-sm text-slate-400">${participant.district || participant.district_name || '-'}</p>
+                            </div>
+                        </div>`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Tampilkan',
+                        cancelButtonText: 'Batal',
+                        confirmButtonColor: '#22c55e',
+                        cancelButtonColor: '#64748b',
+                        background: '#1e293b',
+                        color: '#f1f5f9',
+                    });
+
+                    if (!result.isConfirmed) {
+                        return; // User cancelled
+                    }
+
                     this.selectedId = String(participant.id);
                     this.search = participant.name;
                     this.dropdownOpen = false;
@@ -1456,9 +1530,38 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             name: participant.name ?? '',
                             lot_number: participant.lot_number ?? '',
                             judging_round: participant.judging_round ?? '',
+                            district: participant.district ?? '',
                         },
                     }));
+
+                    // Update global state for form submission
+                    window.currentParticipantId = participant.id;
+                    window.dispatchEvent(new CustomEvent('current-participant-changed', { detail: { id: participant.id } }));
+
+                    // Update Big Screen - await to ensure broadcast completes before page reload
+                    await this.updateBigScreen(participant);
+
                     this.goToSelected();
+                },
+                async updateBigScreen(participant) {
+                    try {
+                        const categoryId = <?= e($selectedCategory?->id ?? 0) ?>;
+                        if (!categoryId || !participant) return;
+
+                        await fetch('/api/big-screen/set-participant', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                            },
+                            body: JSON.stringify({
+                                participant_id: participant.id,
+                                category_id: categoryId,
+                            })
+                        });
+                    } catch (error) {
+                        console.error('Failed to update Big Screen:', error);
+                    }
                 },
                 selectHighlighted() {
                     if (!this.dropdownOpen) {
@@ -1504,8 +1607,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     const targetUrl = new URL(this.selectedParticipant.url, window.location.origin);
                     targetUrl.hash = 'form-penilaian';
                     targetUrl.searchParams.set('step', '3');
-                    window.history.replaceState({}, '', targetUrl.toString());
-                    this.scrollToFormPanel();
+                    // Navigate to the new URL to get fresh participant data from server
+                    window.location.href = targetUrl.toString();
                 },
                 scrollToFormPanel() {
                     const formSection = document.getElementById('form-penilaian');
@@ -1728,6 +1831,19 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         this.selectedParticipantName = String(detail.name ?? this.selectedParticipantName ?? '');
                         this.selectedParticipantLot = String(detail.lot_number ?? this.selectedParticipantLot ?? '');
                         this.selectedJudgingRound = String(detail.judging_round ?? this.selectedJudgingRound ?? '');
+                    });
+
+                    // Listen for score updated events to refresh page when score is submitted
+                    window.addEventListener('mtq-score-updated', (event) => {
+                        const detail = event?.detail ?? {};
+                        // Check if this score is for the current participant
+                        const currentParticipantId = window.currentParticipantId;
+                        if (detail.participant_id == currentParticipantId) {
+                            // Refresh the page to show updated score data
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 500);
+                        }
                     });
                 },
                 selectedParticipantLabel() {

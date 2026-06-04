@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ParticipantSelected;
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
 use App\Models\Participant;
@@ -415,7 +416,7 @@ class MfqScoringController extends Controller
             ],
             [
                 'judge_name' => $validated['judge_name'],
-                'score' => (int) $totalScore,
+                'score' => round((float) $totalScore, 2),
                 'score_breakdown' => [
                     'type' => 'MFQ',
                     'session_name' => $sessionName !== '' ? $sessionName : null,
@@ -435,11 +436,11 @@ class MfqScoringController extends Controller
                     ],
                     'summary' => [
                         'total_questions' => count($questionRows),
-                        'total_score' => (int) $totalScore,
+                        'total_score' => round((float) $totalScore, 2),
                         'column_totals' => [
-                            'package_score' => (int) $columnTotals['package_score'],
-                            'throw_scores' => collect($columnTotals['throw_scores'])->map(fn ($value) => (int) $value)->values()->all(),
-                            'rebuttal_score' => (int) $columnTotals['rebuttal_score'],
+                            'package_score' => round((float) ($columnTotals['package_score'] ?? 0), 2),
+                            'throw_scores' => collect($columnTotals['throw_scores'] ?? [])->map(fn ($value) => round((float) $value, 2))->values()->all(),
+                            'rebuttal_score' => round((float) ($columnTotals['rebuttal_score'] ?? 0), 2),
                         ],
                     ],
                     'questions' => $questionRows,
@@ -584,6 +585,24 @@ class MfqScoringController extends Controller
             $participantId,
             now()->addHours(12)
         );
+
+        // Broadcast to Big Screen
+        $participant = Participant::with('district')->find($participantId);
+        if ($participant) {
+            $participantPhotoUrl = null;
+            if ($participant->document_photo) {
+                $participantPhotoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'));
+            }
+
+            ParticipantSelected::dispatch(
+                (int) $participant->id,
+                (int) $categoryId,
+                $participant->name,
+                $participant->district?->name,
+                $participant->lot_number,
+                $participantPhotoUrl
+            );
+        }
     }
 
     protected function currentSelection(): array

@@ -234,10 +234,22 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         </div>
                         <div class="mt-4 space-y-3">
                             <?php $latestEntry = $scoreTimeline->first(); ?>
-                            <?php if (! $latestEntry || empty($latestEntry->score_breakdown)): ?>
+                            <?php
+                            // Get breakdown - new format uses first judge's breakdown
+                            $latestBreakdown = null;
+                            if ($latestEntry) {
+                                if ($latestEntry->scores && is_array($latestEntry->scores)) {
+                                    $firstJudge = array_key_first($latestEntry->scores);
+                                    $latestBreakdown = $latestEntry->scores[$firstJudge]['breakdown'] ?? null;
+                                } else {
+                                    $latestBreakdown = $latestEntry->score_breakdown;
+                                }
+                            }
+                            ?>
+                            <?php if (! $latestEntry || empty($latestBreakdown)): ?>
                                 <div class="data-card text-sm text-slate-300">Belum ada breakdown komponen nilai untuk peserta ini.</div>
                             <?php else: ?>
-                                <?php foreach ($latestEntry->score_breakdown as $key => $value): ?>
+                                <?php foreach ($latestBreakdown as $key => $value): ?>
                                     <div class="data-card flex items-center justify-between gap-4">
                                         <div>
                                             <p class="font-semibold text-white"><?= e($branchCriteria[$key] ?? ucwords(str_replace('_', ' ', (string) $key))) ?></p>
@@ -265,21 +277,50 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <div class="data-card text-sm text-slate-300">Belum ada nilai yang tercatat untuk peserta ini.</div>
                         <?php else: ?>
                             <?php foreach ($scoreTimeline as $entry): ?>
+                                <?php
+                                // Check if new aggregated format
+                                $isNewFormat = $entry->scores && is_array($entry->scores);
+                                $judgeCount = $isNewFormat ? count($entry->scores) : 1;
+                                $displayScore = $isNewFormat
+                                    ? number_format((float) ($entry->average_score ?? 0), 2)
+                                    : number_format((float) ($entry->score ?? 0), 2);
+                                ?>
                                 <div class="data-card">
                                     <div class="flex flex-wrap items-center justify-between gap-4">
                                         <div>
-                                            <p class="font-semibold text-white"><?= e($entry->judge_name) ?><?php if ($entry->judging_round): ?> | <?= e($entry->judging_round) ?><?php endif; ?></p>
-                                            <p class="mt-1 text-xs text-slate-400"><?= e(optional($entry->submitted_at)->format('d M Y H:i')) ?></p>
+                                            <?php if ($isNewFormat): ?>
+                                                <p class="font-semibold text-white"><?= e($judgeCount) ?> Hakim<?php if ($entry->judging_round): ?> | <?= e($entry->judging_round) ?><?php endif; ?></p>
+                                                <p class="mt-1 text-xs text-slate-400">
+                                                    <?php
+                                                    $judgeNames = array_keys($entry->scores);
+                                                    echo implode(', ', array_slice($judgeNames, 0, 3));
+                                                    if (count($judgeNames) > 3) echo '...';
+                                                    ?>
+                                                </p>
+                                            <?php else: ?>
+                                                <p class="font-semibold text-white"><?= e($entry->judge_name) ?><?php if ($entry->judging_round): ?> | <?= e($entry->judging_round) ?><?php endif; ?></p>
+                                                <p class="mt-1 text-xs text-slate-400"><?= e(optional($entry->submitted_at)->format('d M Y H:i')) ?></p>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="text-right">
-                                            <p class="text-lg font-bold text-cyan-200"><?= e(number_format((float) $entry->score, 2)) ?></p>
+                                            <p class="text-lg font-bold text-cyan-200"><?= e($displayScore) ?></p>
                                             <p class="text-xs text-slate-400">Total Nilai</p>
                                         </div>
                                     </div>
 
-                                    <?php if (! empty($entry->score_breakdown)): ?>
+                                    <?php
+                                    // Get breakdown - new format uses first judge's breakdown, old uses score_breakdown
+                                    $breakdown = null;
+                                    if ($isNewFormat) {
+                                        $firstJudge = array_key_first($entry->scores);
+                                        $breakdown = $entry->scores[$firstJudge]['breakdown'] ?? null;
+                                    } else {
+                                        $breakdown = $entry->score_breakdown;
+                                    }
+                                    ?>
+                                    <?php if (! empty($breakdown)): ?>
                                         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                            <?php foreach ($entry->score_breakdown as $key => $value): ?>
+                                            <?php foreach ($breakdown as $key => $value): ?>
                                                 <div class="rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3">
                                                     <p class="text-xs uppercase tracking-[0.18em] text-slate-500"><?= e($branchCriteria[$key] ?? ucwords(str_replace('_', ' ', (string) $key))) ?></p>
                                                     <p class="mt-2 text-base font-bold text-white"><?= e(number_format((float) $value, 2)) ?></p>

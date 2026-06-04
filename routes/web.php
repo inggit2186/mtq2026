@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/big-screen', [PageController::class, 'bigScreen'])->name('big-screen');
+Route::get('/api/big-screen/current-participant', [PageController::class, 'apiCurrentParticipant'])->name('api.big-screen.current-participant');
+Route::post('/api/big-screen/set-participant', [PageController::class, 'setCurrentParticipant'])->name('api.big-screen.set-participant');
 Route::get('/jadwal/berlangsung', [PageController::class, 'ongoingSchedules'])->name('schedules.ongoing');
 Route::redirect('/panduan/pendaftaran-official', '/panduan/pendaftaran-peserta');
 Route::get('/panduan/pendaftaran-peserta', [PageController::class, 'participantRegistrationGuidePdf'])->name('participants.guide.pdf');
@@ -109,6 +111,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/data-peserta/export/excel', [ParticipantRegistrationController::class, 'exportExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.excel');
     Route::get('/data-peserta/export/verifikasi/excel', [ParticipantRegistrationController::class, 'exportVerificationExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.verification.excel');
     Route::get('/data-peserta/export/pdf', [ParticipantRegistrationController::class, 'exportPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.pdf');
+    Route::get('/data-peserta/export/rekap/pdf', [ParticipantRegistrationController::class, 'exportRecapPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.recap.pdf');
     Route::get('/pengambilan/lot', [ParticipantRegistrationController::class, 'lotMenu'])->middleware('role:admin,panitia')->name('participants.lot.menu');
     Route::get('/pengambilan/maqra', [ParticipantRegistrationController::class, 'maqraMenu'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.menu');
     Route::get('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'lotDraw'])->middleware('role:admin,panitia')->name('participants.lot.draw');

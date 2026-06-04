@@ -32,15 +32,46 @@ class ScoreUpdated implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $photoUrl = null;
+        $participant = $this->score->participant;
+        if ($participant && $participant->document_photo) {
+            $photoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'));
+        }
+
+        // Use new aggregated format if available
+        $scores = $this->score->scores;
+        $averageScore = $this->score->average_score;
+
+        // Fallback to legacy format for backward compatibility
+        if ($scores === null) {
+            $scoreValue = $this->score->score;
+            $scoreFloat = is_string($scoreValue) ? (float) $scoreValue : $scoreValue;
+            $judgeName = $this->score->judge_name;
+            $breakdown = $this->score->score_breakdown ?? [];
+
+            $scores = [
+                $judgeName => [
+                    'score' => $scoreFloat,
+                    'breakdown' => $breakdown,
+                    'remarks' => $this->score->remarks,
+                ]
+            ];
+            $averageScore = $scoreFloat;
+        }
+
         return [
             'participant_id' => $this->score->participant_id,
-            'participant' => $this->score->participant?->name,
-            'category' => $this->score->participant?->category?->name,
-            'branch' => $this->score->participant?->category?->branch,
+            'participant' => $participant?->name,
+            'category' => $participant?->category?->name,
+            'branch' => $participant?->category?->branch,
+            'district_name' => $participant?->district?->name,
+            'lot_number' => $participant?->lot_number,
+            'institution' => $participant?->institution,
             'judging_round' => $this->score->judging_round,
-            'score' => (float) $this->score->score,
-            'score_breakdown' => $this->score->score_breakdown,
+            'average_score' => (float) $averageScore,
+            'scores' => $scores, // All judge scores in JSON format
             'submitted_at' => $this->score->submitted_at?->toIso8601String(),
+            'photo_url' => $photoUrl,
             'remarks' => $this->score->remarks,
         ];
     }

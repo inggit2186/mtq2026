@@ -271,6 +271,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <?= mtq_icon('book-open', 'h-4 w-4') ?>
                                 Export PDF
                             </a>
+                            <a href="<?= e(route('participants.export.recap.pdf')) ?>" target="_blank" rel="noreferrer" class="secondary-button">
+                                <?= mtq_icon('file-text', 'h-4 w-4') ?>
+                                Rekap PDF
+                            </a>
                         <a href="<?= e(route('participants.index')) ?>" class="primary-button">
                             <?= mtq_icon('id-card', 'h-4 w-4') ?>
                             Daftar Peserta Baru

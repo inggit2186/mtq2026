@@ -725,6 +725,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// Override with production values if not already set
+if (!import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_REVERB_APP_KEY === 'undefined') {
+    import.meta.env.VITE_REVERB_APP_KEY = 'jfwgnk8dktj0wkxgxcfu';
+    import.meta.env.VITE_REVERB_HOST = 'localhost';
+    import.meta.env.VITE_REVERB_PORT = '8080';
+    import.meta.env.VITE_REVERB_SCHEME = 'http';
+    import.meta.env.VITE_REALTIME_ENABLED = 'true';
+}
+
 const realtimeEnabled = import.meta.env.VITE_REALTIME_ENABLED === 'true';
 const reverbAppKey = realtimeEnabled ? import.meta.env.VITE_REVERB_APP_KEY : '';
 let realtimeConnected = false;
@@ -786,6 +795,10 @@ if (reverbAppKey) {
 
     channel.listen('.schedule.updated', (payload) => {
         window.dispatchEvent(new CustomEvent('mtq-schedule-updated', { detail: payload }));
+    });
+
+    channel.listen('.participant.selected', (payload) => {
+        window.dispatchEvent(new CustomEvent('mtq-participant-selected', { detail: payload }));
     });
 
     const pusherConnection = window.Echo?.connector?.pusher?.connection;

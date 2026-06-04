@@ -303,6 +303,65 @@ class ParticipantRegistrationController extends Controller
         ]);
     }
 
+    public function exportRecapPdf(Request $request): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+
+        $user = auth()->user();
+        $districtId = in_array($user?->role, ['official', 'pendamping'], true) ? $user?->district_id : null;
+        $verificationDistrictIds = $this->verificationDistrictIdsForUser($user);
+        $restrictPanitiaDistricts = $user?->role === 'panitia';
+
+        $participantsQuery = Participant::query()
+            ->with(['district', 'category'])
+            ->when($restrictPanitiaDistricts, fn ($query) => $query->whereIn('district_id', $verificationDistrictIds))
+            ->when($districtId, fn ($query) => $query->where('district_id', $districtId));
+
+        $allParticipants = $participantsQuery->get();
+
+        $districtSummary = $allParticipants
+            ->groupBy(fn ($p) => (string) ($p->district?->name ?? 'Tanpa Kecamatan'))
+            ->map(fn ($group) => [
+                'putra' => $group->where('gender', 'putra')->count(),
+                'putri' => $group->where('gender', 'putri')->count(),
+                'total' => $group->count(),
+            ])
+            ->sortBy(fn ($item, $key) => $key)
+            ->toArray();
+
+        $categorySummary = $allParticipants
+            ->groupBy(fn ($p) => (int) $p->competition_category_id)
+            ->map(fn ($group) => [
+                'name' => (string) ($group->first()?->category?->name ?? 'Tanpa Golongan'),
+                'branch' => (string) ($group->first()?->category?->branch ?? '-'),
+                'sort_order' => (int) ($group->first()?->category?->sort_order ?? 9999),
+                'putra' => $group->where('gender', 'putra')->count(),
+                'putri' => $group->where('gender', 'putri')->count(),
+                'total' => $group->count(),
+            ])
+            ->sortBy(fn ($item) => $item['sort_order'])
+            ->mapWithKeys(fn ($item, $key) => [$item['name'] => $item])
+            ->toArray();
+
+        $grandTotal = [
+            'putra' => $allParticipants->where('gender', 'putra')->count(),
+            'putri' => $allParticipants->where('gender', 'putri')->count(),
+            'total' => $allParticipants->count(),
+        ];
+
+        $selectedDistrictId = $districtId ?: (filled($request->query('district_id')) ? (int) $request->query('district_id') : null);
+        $selectedDistrict = $selectedDistrictId ? District::query()->find($selectedDistrictId) : null;
+
+        return view('pages/participants-recap-pdf', [
+            'generatedAt' => now(),
+            'selectedDistrict' => $selectedDistrict,
+            'documentConfig' => app(PageController::class)->documentConfig(),
+            'districtSummary' => $districtSummary,
+            'categorySummary' => $categorySummary,
+            'grandTotal' => $grandTotal,
+        ]);
+    }
+
     public function trash(Request $request): View
     {
         abort_unless(auth()->user()?->role === 'admin', 403);

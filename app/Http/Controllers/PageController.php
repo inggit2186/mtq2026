@@ -2125,6 +2125,148 @@ class PageController extends Controller
         ];
     }
 
+    public function setCurrentParticipant(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $participantId = (int) $request->get('participant_id', 0);
+        $categoryId = (int) $request->get('category_id', 0);
+
+        if (!$participantId || !$categoryId) {
+            return response()->json(['error' => 'Invalid parameters'], 400);
+        }
+
+        $participant = \App\Models\Participant::with(['district'])->find($participantId);
+        if (!$participant) {
+            return response()->json(['error' => 'Participant not found'], 404);
+        }
+
+        // Update cache
+        Cache::put(
+            $this->currentParticipantCacheKey($categoryId),
+            $participantId,
+            now()->addHours(12)
+        );
+
+        // Dispatch event
+        $participantPhotoUrl = null;
+        if ($participant->document_photo) {
+            $participantPhotoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'));
+        }
+
+        \App\Events\ParticipantSelected::dispatch(
+            $participantId,
+            $categoryId,
+            $participant->name,
+            $participant->district?->name,
+            $participant->lot_number,
+            $participantPhotoUrl
+        );
+
+        return response()->json([
+            'success' => true,
+            'participant' => [
+                'id' => $participant->id,
+                'name' => $participant->name,
+                'district_name' => $participant->district?->name,
+                'lot_number' => $participant->lot_number,
+                'photo_url' => $participantPhotoUrl,
+            ]
+        ]);
+    }
+
+    public function apiCurrentParticipant(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $categoryId = (int) $request->get('category_id', 0);
+        if (!$categoryId) {
+            return response()->json(['error' => 'Category ID required'], 400);
+        }
+
+        $participantId = (int) Cache::get($this->currentParticipantCacheKey($categoryId), 0);
+
+        if (!$participantId) {
+            return response()->json(['participant' => null, 'latest_scored' => null]);
+        }
+
+        $participant = Participant::with(['district', 'category'])
+            ->whereKey($participantId)
+            ->first();
+
+        if (!$participant) {
+            return response()->json(['participant' => null, 'latest_scored' => null]);
+        }
+
+        $photoUrl = $this->publicParticipantPhotoUrl($participant);
+
+        // Get latest scored entry for this category
+        $latestScored = null;
+        $categoryParticipantIds = Participant::query()
+            ->where('competition_category_id', $categoryId)
+            ->where('verification_status', 'verified')
+            ->pluck('id');
+
+        $latestEntry = ScoreEntry::query()
+            ->whereIn('participant_id', $categoryParticipantIds)
+            ->whereNotNull('scores') // New aggregated format first
+            ->orderByDesc('submitted_at')
+            ->first();
+
+        if (!$latestEntry) {
+            // Fallback to old format
+            $latestEntry = ScoreEntry::query()
+                ->whereIn('participant_id', $categoryParticipantIds)
+                ->orderByDesc('submitted_at')
+                ->first();
+        }
+
+        if ($latestEntry) {
+            $latestEntry->load('participant.district');
+            $latestParticipant = $latestEntry->participant;
+            $latestPhotoUrl = $latestParticipant ? $this->publicParticipantPhotoUrl($latestParticipant) : null;
+
+            // Get scores based on format
+            $scores = $latestEntry->scores;
+            $averageScore = $latestEntry->average_score;
+
+            // Fallback for old format
+            if ($scores === null) {
+                $scores = [
+                    $latestEntry->judge_name => [
+                        'score' => (float) $latestEntry->score,
+                        'breakdown' => $latestEntry->score_breakdown ?? [],
+                        'remarks' => $latestEntry->remarks,
+                    ]
+                ];
+                $averageScore = (float) $latestEntry->score;
+            }
+
+            $latestScored = [
+                'participant_id' => $latestEntry->participant_id,
+                'participant' => $latestParticipant?->name,
+                'lot_number' => $latestParticipant?->lot_number,
+                'district_name' => $latestParticipant?->district?->name,
+                'institution' => $latestParticipant?->institution,
+                'judging_round' => $latestEntry->judging_round,
+                'average_score' => $averageScore,
+                'scores' => $scores,
+                'submitted_at' => $latestEntry->submitted_at?->toIso8601String(),
+                'photo_url' => $latestPhotoUrl,
+            ];
+        }
+
+        return response()->json([
+            'participant' => [
+                'id' => $participant->id,
+                'name' => $participant->name,
+                'district_name' => $participant->district?->name,
+                'lot_number' => $participant->lot_number,
+                'institution' => $participant->institution,
+                'category_branch' => $participant->category?->branch,
+                'category_name' => $participant->category?->name,
+                'photo_url' => $photoUrl,
+            ],
+            'latest_scored' => $latestScored,
+        ]);
+    }
+
     protected function currentParticipantCacheKey(int $categoryId): string
     {
         return 'mtq:bigscreen:category:'.$categoryId.':current_participant_id';
