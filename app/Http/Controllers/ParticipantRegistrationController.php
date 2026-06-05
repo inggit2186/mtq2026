@@ -314,6 +314,7 @@ class ParticipantRegistrationController extends Controller
 
         $participantsQuery = Participant::query()
             ->with(['district', 'category'])
+            ->where('verification_status', 'verified')
             ->when($restrictPanitiaDistricts, fn ($query) => $query->whereIn('district_id', $verificationDistrictIds))
             ->when($districtId, fn ($query) => $query->where('district_id', $districtId));
 
