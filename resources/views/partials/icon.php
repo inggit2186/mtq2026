@@ -42,6 +42,7 @@ if (! function_exists('mtq_icon')) {
             'map-pin' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 21s6-4.35 6-10a6 6 0 1 0-12 0c0 5.65 6 10 6 10Z"/><circle cx="12" cy="11" r="2.5"/>',
             'link-external' => '<path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 14 19 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 13v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6"/>',
             'file-text' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v4a2 2 0 0 0 2 2h4"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 12h4"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 16h4"/>',
+            'file-spreadsheet' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v4a2 2 0 0 0 2 2h4"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 13h2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 17h2"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 13h2"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 17h2"/>',
         ];
 
         $svg = $icons[$name] ?? $icons['spark'];

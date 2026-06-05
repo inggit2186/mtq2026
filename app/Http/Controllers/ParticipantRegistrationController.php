@@ -364,6 +364,74 @@ class ParticipantRegistrationController extends Controller
         ]);
     }
 
+    public function exportRecapExcel(Request $request): StreamedResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+
+        $user = auth()->user();
+        $districtId = in_array($user?->role, ['official', 'pendamping'], true) ? $user?->district_id : null;
+        $verificationDistrictIds = $this->verificationDistrictIdsForUser($user);
+        $restrictPanitiaDistricts = $user?->role === 'panitia';
+
+        $participantsQuery = Participant::query()
+            ->with(['district', 'category'])
+            ->where('verification_status', 'verified')
+            ->when($restrictPanitiaDistricts, fn ($query) => $query->whereIn('district_id', $verificationDistrictIds))
+            ->when($districtId, fn ($query) => $query->where('district_id', $districtId));
+
+        $allParticipants = $participantsQuery->get();
+
+        $districtSummary = $allParticipants
+            ->groupBy(fn ($p) => (string) ($p->district?->name ?? 'Tanpa Kecamatan'))
+            ->map(fn ($group) => [
+                'putra' => $group->where('gender', 'putra')->count(),
+                'putri' => $group->where('gender', 'putri')->count(),
+                'total' => $group->count(),
+            ])
+            ->sortBy(fn ($item, $key) => $key)
+            ->toArray();
+
+        $categorySummary = $allParticipants
+            ->groupBy(fn ($p) => (int) $p->competition_category_id)
+            ->map(fn ($group) => [
+                'id' => (int) ($group->first()?->competition_category_id ?? 0),
+                'name' => (string) ($group->first()?->category?->name ?? 'Tanpa Golongan'),
+                'branch' => (string) ($group->first()?->category?->branch ?? '-'),
+                'sort_order' => (int) ($group->first()?->category?->sort_order ?? 9999),
+                'putra' => $group->where('gender', 'putra')->count(),
+                'putri' => $group->where('gender', 'putri')->count(),
+                'total' => $group->count(),
+            ])
+            ->sortBy(fn ($item) => $item['sort_order'])
+            ->values()
+            ->toArray();
+
+        $grandTotal = [
+            'putra' => $allParticipants->where('gender', 'putra')->count(),
+            'putri' => $allParticipants->where('gender', 'putri')->count(),
+            'total' => $allParticipants->count(),
+        ];
+
+        $selectedDistrictId = $districtId ?: (filled($request->query('district_id')) ? (int) $request->query('district_id') : null);
+        $selectedDistrict = $selectedDistrictId ? District::query()->find($selectedDistrictId) : null;
+        $generatedAt = now();
+        $filenameDistrict = $selectedDistrict?->name ?? 'semua-kecamatan';
+        $filename = 'rekap-jumlah-peserta-'.Str::slug($filenameDistrict).'-'.$generatedAt->format('Ymd-His').'.xls';
+
+        return response()->streamDownload(function () use ($districtSummary, $categorySummary, $grandTotal, $selectedDistrict, $generatedAt): void {
+            echo view('pages/participants-recap-excel', [
+                'generatedAt' => $generatedAt,
+                'selectedDistrict' => $selectedDistrict,
+                'documentConfig' => app(PageController::class)->documentConfig(),
+                'districtSummary' => $districtSummary,
+                'categorySummary' => $categorySummary,
+                'grandTotal' => $grandTotal,
+            ])->render();
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+        ]);
+    }
+
     public function trash(Request $request): View
     {
         abort_unless(auth()->user()?->role === 'admin', 403);

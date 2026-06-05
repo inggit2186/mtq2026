@@ -112,6 +112,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/data-peserta/export/verifikasi/excel', [ParticipantRegistrationController::class, 'exportVerificationExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.verification.excel');
     Route::get('/data-peserta/export/pdf', [ParticipantRegistrationController::class, 'exportPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.pdf');
     Route::get('/data-peserta/export/rekap/pdf', [ParticipantRegistrationController::class, 'exportRecapPdf'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.recap.pdf');
+    Route::get('/data-peserta/export/rekap/excel', [ParticipantRegistrationController::class, 'exportRecapExcel'])->middleware('role:admin,panitia,official,pendamping')->name('participants.export.recap.excel');
     Route::get('/pengambilan/lot', [ParticipantRegistrationController::class, 'lotMenu'])->middleware('role:admin,panitia')->name('participants.lot.menu');
     Route::get('/pengambilan/maqra', [ParticipantRegistrationController::class, 'maqraMenu'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.menu');
     Route::get('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'lotDraw'])->middleware('role:admin,panitia')->name('participants.lot.draw');
