@@ -333,6 +333,7 @@ class ParticipantRegistrationController extends Controller
         $categorySummary = $allParticipants
             ->groupBy(fn ($p) => (int) $p->competition_category_id)
             ->map(fn ($group) => [
+                'id' => (int) ($group->first()?->competition_category_id ?? 0),
                 'name' => (string) ($group->first()?->category?->name ?? 'Tanpa Golongan'),
                 'branch' => (string) ($group->first()?->category?->branch ?? '-'),
                 'sort_order' => (int) ($group->first()?->category?->sort_order ?? 9999),
@@ -341,7 +342,7 @@ class ParticipantRegistrationController extends Controller
                 'total' => $group->count(),
             ])
             ->sortBy(fn ($item) => $item['sort_order'])
-            ->mapWithKeys(fn ($item, $key) => [$item['name'] => $item])
+            ->values()
             ->toArray();
 
         $grandTotal = [

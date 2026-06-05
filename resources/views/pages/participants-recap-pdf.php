@@ -350,14 +350,14 @@ $scopeLabel = $selectedDistrict?->name ?? 'Semua Kecamatan';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php $no = 1; foreach ($categorySummary as $categoryName => $counts): ?>
+                        <?php $no = 1; foreach ($categorySummary as $item): ?>
                             <tr>
                                 <td class="number"><?= e($no++) ?></td>
-                                <td><?= e($counts['branch']) ?></td>
-                                <td><?= e($categoryName) ?></td>
-                                <td class="number putra-cell"><?= e($counts['putra']) ?></td>
-                                <td class="number putri-cell"><?= e($counts['putri']) ?></td>
-                                <td class="number total-cell"><?= e($counts['total']) ?></td>
+                                <td><?= e($item['branch']) ?></td>
+                                <td><?= e($item['name']) ?></td>
+                                <td class="number putra-cell"><?= e($item['putra']) ?></td>
+                                <td class="number putri-cell"><?= e($item['putri']) ?></td>
+                                <td class="number total-cell"><?= e($item['total']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         <tr style="background: #f1f5f9; font-weight: 700;">
