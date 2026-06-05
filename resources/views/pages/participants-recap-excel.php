@@ -139,6 +139,12 @@
         .col-branch { width: 200px; }
         .col-count { width: 80px; }
     </style>
+    <?php
+    $generatedAt = $generatedAt ?? now();
+    $selectedDistrict = $selectedDistrict ?? null;
+    $documentConfig = $documentConfig ?? config('documents');
+    $scopeLabel = $selectedDistrict?->name ?? 'Semua Kecamatan';
+    ?>
 </head>
 <body>
     <table>
