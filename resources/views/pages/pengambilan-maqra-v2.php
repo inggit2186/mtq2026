@@ -23,7 +23,7 @@ $selectedMaqraLotRange = $selectedCategory
     ? $officialAccessSetting->maqraOpenLotRangeForCategory((int) $selectedCategory->id)
     : $officialAccessSetting->maqraOpenLotRange();
 $selectedMaqraLotRangeLabel = is_array($selectedMaqraLotRange)
-    ? sprintf('%03d - %03d', (int) ($selectedMaqraLotRange['min'] ?? 0), (int) ($selectedMaqraLotRange['max'] ?? 0))
+    ? sprintf('%02d - %02d', (int) ($selectedMaqraLotRange['min'] ?? 0), (int) ($selectedMaqraLotRange['max'] ?? 0))
     : 'Semua lot';
 $selectedMaqraStatusLabel = $officialAccessSetting->maqraRoundEnabled($roundLabel) ? 'Dibuka' : 'Ditutup';
 $selectedMaqraRoundStatusLabel = 'Babak '.$roundLabel.' '.$selectedMaqraStatusLabel;

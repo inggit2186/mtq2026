@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -48,5 +49,10 @@ class CompetitionCategory extends Model
     public function locations(): BelongsToMany
     {
         return $this->belongsToMany(CompetitionLocation::class, 'competition_category_location');
+    }
+
+    public function appearanceSchedule(): HasOne
+    {
+        return $this->hasOne(AppearanceSchedule::class, 'competition_category_id');
     }
 }

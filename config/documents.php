@@ -4,6 +4,7 @@ return [
     'organization_name' => 'e-MTQ Kabupaten Tanah Datar',
     'event_title' => config('juknis.title'),
     'event_location' => 'Tanah Datar',
+    'google_maps_url' => '',
     'signature_city' => 'Batusangkar',
     'signature_date_label' => 'April 2026',
     'officials' => [

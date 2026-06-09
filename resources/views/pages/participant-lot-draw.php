@@ -21,7 +21,7 @@ $photoDataUri = (string) ($photoDataUri ?? '');
 $initials = (string) ($initials ?? 'P');
 $assignUrl = route('participants.lot.assign', $participant);
 $autoFullscreen = request()->boolean('autofullscreen');
-$lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
+$lotRangeLabel = (string) ($lotRangeLabel ?? '01 - 99');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -36,7 +36,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
 </head>
 <body class="grid-bg min-h-screen overflow-hidden bg-slate-950 text-slate-100 antialiased">
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
-    <main id="lot-stage" class="relative flex h-screen flex-col overflow-hidden" x-data="{ rolling: false, assigned: <?= $lotAssigned ? 'true' : 'false' ?>, currentSuffix: '<?= e($lotAssigned && $lotSuffix !== null ? str_pad((string) $lotSuffix, 3, '0', STR_PAD_LEFT) : '---') ?>', status: '<?= e($lotAssigned ? 'Nomor lot sudah dikunci' : 'Tekan tombol untuk memulai undian') ?>', history: [] }">
+    <main id="lot-stage" class="relative flex h-screen flex-col overflow-hidden" x-data="{ rolling: false, assigned: <?= $lotAssigned ? 'true' : 'false' ?>, currentSuffix: '<?= e($lotAssigned && $lotSuffix !== null ? str_pad((string) $lotSuffix, 2, '0', STR_PAD_LEFT) : '--') ?>', status: '<?= e($lotAssigned ? 'Nomor lot sudah dikunci' : 'Tekan tombol untuk memulai undian') ?>', history: [] }">
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.28),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.18),_transparent_26%),linear-gradient(135deg,rgba(2,6,23,0.98),rgba(8,15,43,0.96))]"></div>
         <div class="hero-orb hero-orb-cyan right-[-8rem] top-10 h-80 w-80 opacity-70"></div>
         <div class="hero-orb hero-orb-blue left-[-9rem] bottom-[-6rem] h-[28rem] w-[28rem] opacity-50"></div>
@@ -153,7 +153,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                                             class="inline-flex min-w-[7rem] shrink-0 items-center justify-center whitespace-nowrap text-center font-black leading-[0.9] tracking-[0.04em] text-white drop-shadow-[0_0_24px_rgba(255,255,255,0.15)]"
                                             style="font-size: clamp(4rem, 10vw, 8rem);"
                                             id="lot-suffix-display"
-                                        ><?= e($lotAssigned && $lotSuffix !== null ? str_pad((string) $lotSuffix, 3, '0', STR_PAD_LEFT) : '---') ?></span>
+                                        ><?= e($lotAssigned && $lotSuffix !== null ? str_pad((string) $lotSuffix, 2, '0', STR_PAD_LEFT) : '--') ?></span>
                                     </div>
                                     <p class="text-xs uppercase tracking-[0.24em] text-slate-400" id="lot-status"><?= e($lotAssigned ? 'Nomor lot sudah dikunci' : 'Tekan tombol untuk memulai putaran') ?></p>
                                 </div>
@@ -203,7 +203,7 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
                             </div>
                             <div class="flex flex-wrap gap-2 text-xs">
                                 <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-slate-200">Kode Golongan</span>
-                                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-slate-200">Nomor 3 Digit</span>
+                                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-slate-200">Nomor 2 Digit</span>
                                 <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-slate-200">Auto Lock</span>
                             </div>
                         </div>
@@ -284,12 +284,12 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '001 - 999');
             let audioContext = null;
 
             function padNumber(value) {
-                return String(value).padStart(3, '0');
+                return String(value).padStart(2, '0');
             }
 
             function nextCandidate() {
                 const start = parity === 'even' ? 2 : 1;
-                const maxIndex = 498;
+                const maxIndex = 49;
                 const index = Math.floor(Math.random() * maxIndex);
                 return padNumber(start + (index * 2));
             }

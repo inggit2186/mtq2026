@@ -1692,6 +1692,9 @@ class PageController extends Controller
                     ? $this->consoleNavigationLink('admin.lot-auto-calculate', 'Auto-Calculate Lot', route('admin.lot-auto-calculate'), 'calculator')
                     : null,
                 $role === 'admin'
+                    ? $this->consoleNavigationLink('appearance.schedules', 'Penampilan Peserta', route('appearance.schedules'), 'sparkles')
+                    : null,
+                $role === 'admin'
                     ? $this->consoleNavigationLink('officials.index', 'Official Kecamatan', route('officials.index'), 'users')
                     : null,
                 $role === 'admin'
@@ -2857,7 +2860,7 @@ class PageController extends Controller
     public function categoryLotRange(CompetitionCategory $category): array
     {
         $min = (int) ($category->lot_number_min ?? 1);
-        $max = (int) ($category->lot_number_max ?? 999);
+        $max = (int) ($category->lot_number_max ?? 99);
 
         if ($min < 1) {
             $min = 1;
@@ -2878,7 +2881,7 @@ class PageController extends Controller
     {
         [$min, $max] = $this->categoryLotRange($category);
 
-        return sprintf('%03d - %03d', $min, $max);
+        return sprintf('%02d - %02d', $min, $max);
     }
 
     public function categoryLotGroupSize(CompetitionCategory $category, ?string $gender = null): int

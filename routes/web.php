@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminContentController;
 use App\Http\Controllers\ApplicationLogController;
+use App\Http\Controllers\AppearanceScheduleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CommitteeRegistrationController;
@@ -90,6 +91,13 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/maqra/{maqraPackage}/hapus', [PageController::class, 'destroyMaqra'])->middleware('role:admin')->name('maqra.destroy');
     Route::get('/admin/lot-auto-calculate', [PageController::class, 'lotAutoCalculate'])->middleware('role:admin')->name('admin.lot-auto-calculate');
     Route::get('/admin/lot-auto-calculate/preview', [PageController::class, 'previewLotAutoCalculate'])->middleware('role:admin')->name('admin.lot-auto-calculate.preview');
+    Route::get('/admin/penampilan', [AppearanceScheduleController::class, 'index'])->middleware('role:admin')->name('appearance.schedules');
+    Route::post('/admin/penampilan', [AppearanceScheduleController::class, 'store'])->middleware('role:admin')->name('appearance.schedules.store');
+    Route::delete('/admin/penampilan/{schedule}', [AppearanceScheduleController::class, 'destroy'])->middleware('role:admin')->name('appearance.schedules.destroy');
+    Route::get('/admin/penampilan/hasil/{category}', [AppearanceScheduleController::class, 'results'])->middleware('role:admin')->name('appearance.results');
+    Route::get('/admin/penampilan/hasil/{category}/pdf', [AppearanceScheduleController::class, 'exportPdf'])->middleware('role:admin')->name('appearance.results.pdf');
+    Route::get('/admin/penampilan/export/pdf', [AppearanceScheduleController::class, 'exportAllPdf'])->middleware('role:admin')->name('appearance.export.all.pdf');
+    Route::get('/admin/rangkaian-kegiatan/pdf', [AppearanceScheduleController::class, 'exportFullSchedulePdf'])->middleware('role:admin')->name('full.schedule.pdf');
     Route::get('/hasil-nilai', [ParticipantResultController::class, 'index'])->name('results.index');
     Route::get('/hasil-nilai/export', [ParticipantResultController::class, 'export'])->name('results.export');
     Route::get('/hasil-nilai/cetak', [ParticipantResultController::class, 'print'])->name('results.print');

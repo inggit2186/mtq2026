@@ -1444,7 +1444,7 @@ class ParticipantRegistrationController extends Controller
                     'id' => (int) $category->id,
                     'label' => trim((string) $category->branch.' - '.(string) $category->name),
                     'range_label' => is_array($range)
-                        ? sprintf('%03d - %03d', (int) ($range['min'] ?? 0), (int) ($range['max'] ?? 0))
+                        ? sprintf('%02d - %02d', (int) ($range['min'] ?? 0), (int) ($range['max'] ?? 0))
                         : 'Semua lot',
                 ];
             })
@@ -1548,7 +1548,7 @@ class ParticipantRegistrationController extends Controller
 
             [$minSequence, $maxSequence] = app(PageController::class)->categoryLotRange($lockedParticipant->category);
             $nextSequence = $this->nextParticipantLotSequence($lockedParticipant, $prefix, $minSequence, $maxSequence);
-            $candidate = sprintf('%s-%03d', $prefix, $nextSequence);
+            $candidate = sprintf('%s-%02d', $prefix, $nextSequence);
 
             $lockedParticipant->update([
                 'lot_number' => $candidate,
@@ -1962,7 +1962,7 @@ class ParticipantRegistrationController extends Controller
         abort_unless($sequence >= $minSequence && $sequence <= $maxSequence, 422, 'Nomor harus berada dalam range lot golongan ini.');
         abort_unless(($sequence % 2) === $requiredParity, 422, 'Nomor harus sesuai aturan genap/ganjil jenis kelamin peserta.');
 
-        $lotNumber = sprintf('%s-%03d', $this->participantLotPrefix($participant), $sequence);
+        $lotNumber = sprintf('%s-%02d', $this->participantLotPrefix($participant), $sequence);
         abort_if(
             Participant::query()->where('id', '!=', $participant->id)->where('lot_number', $lotNumber)->exists(),
             422,
@@ -2603,7 +2603,7 @@ class ParticipantRegistrationController extends Controller
 
             if (Participant::query()
                 ->where('id', '!=', $participant->id)
-                ->where('lot_number', sprintf('%s-%03d', $prefix, $candidate))
+                ->where('lot_number', sprintf('%s-%02d', $prefix, $candidate))
                 ->exists()
             ) {
                 continue;
