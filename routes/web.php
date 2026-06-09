@@ -88,6 +88,8 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/maqra/import', [PageController::class, 'importMaqraCsv'])->middleware('role:admin')->name('maqra.import');
     Route::post('/admin/maqra/{maqraPackage}', [PageController::class, 'updateMaqra'])->middleware('role:admin')->name('maqra.update');
     Route::post('/admin/maqra/{maqraPackage}/hapus', [PageController::class, 'destroyMaqra'])->middleware('role:admin')->name('maqra.destroy');
+    Route::get('/admin/lot-auto-calculate', [PageController::class, 'lotAutoCalculate'])->middleware('role:admin')->name('admin.lot-auto-calculate');
+    Route::get('/admin/lot-auto-calculate/preview', [PageController::class, 'previewLotAutoCalculate'])->middleware('role:admin')->name('admin.lot-auto-calculate.preview');
     Route::get('/hasil-nilai', [ParticipantResultController::class, 'index'])->name('results.index');
     Route::get('/hasil-nilai/export', [ParticipantResultController::class, 'export'])->name('results.export');
     Route::get('/hasil-nilai/cetak', [ParticipantResultController::class, 'print'])->name('results.print');

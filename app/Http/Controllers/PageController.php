@@ -1689,6 +1689,9 @@ class PageController extends Controller
                     ? $this->consoleNavigationLink('maqra', 'Kelola Maqra', route('maqra.index'), 'book-open')
                     : null,
                 $role === 'admin'
+                    ? $this->consoleNavigationLink('admin.lot-auto-calculate', 'Auto-Calculate Lot', route('admin.lot-auto-calculate'), 'calculator')
+                    : null,
+                $role === 'admin'
                     ? $this->consoleNavigationLink('officials.index', 'Official Kecamatan', route('officials.index'), 'users')
                     : null,
                 $role === 'admin'
@@ -2965,6 +2968,115 @@ class PageController extends Controller
         return $this->categoryMaqraUsesDistrictSharing($category)
             ? '1 kecamatan = 1 maqra'
             : '1 peserta = 1 maqra';
+    }
+
+    public function calculateRecommendedLotRange(CompetitionCategory $category): array
+    {
+        $groupSize = $this->categoryLotGroupSize($category);
+
+        $putraCount = (int) Participant::query()
+            ->where('competition_category_id', $category->id)
+            ->where('gender', 'putra')
+            ->where('verification_status', 'verified')
+            ->count();
+
+        $putriCount = (int) Participant::query()
+            ->where('competition_category_id', $category->id)
+            ->where('gender', 'putri')
+            ->where('verification_status', 'verified')
+            ->count();
+
+        // For shared categories (group size > 1), divide by group size
+        $putraSharedCount = $groupSize > 1 ? (int) ceil($putraCount / $groupSize) : $putraCount;
+        $putriSharedCount = $groupSize > 1 ? (int) ceil($putriCount / $groupSize) : $putriCount;
+
+        // Get the configured lot range for determining "unused" numbers
+        [$configuredMin, $configuredMax] = $this->categoryLotRange($category);
+
+        // Calculate pool max numbers
+        $putraPoolMax = $putraSharedCount * 2;  // Last even number
+        $putriPoolMax = $putriSharedCount * 2 - 1;  // Last odd number
+
+        // Calculate unused numbers (beyond pool but within configured range)
+        // Putra: even numbers from (pool_max + 2) to configuredMax
+        $putraUnused = [];
+        for ($n = $putraPoolMax + 2; $n <= $configuredMax; $n += 2) {
+            $putraUnused[] = $n;
+        }
+
+        // Putri: odd numbers from (pool_max + 2) to configuredMax
+        $putriUnused = [];
+        for ($n = $putriPoolMax + 2; $n <= $configuredMax; $n += 2) {
+            $putriUnused[] = $n;
+        }
+
+        return [
+            'category_id' => $category->id,
+            'category_label' => trim((string) ($category->branch ?? '').' - '.(string) ($category->name ?? '')),
+            'group_size' => $groupSize,
+            'is_shared' => $groupSize > 1,
+            'configured_min' => $configuredMin,
+            'configured_max' => $configuredMax,
+            'putra' => [
+                'participant_count' => $putraCount,
+                'unique_lots_needed' => $putraSharedCount,
+                'pool_min' => 2,
+                'pool_max' => $putraPoolMax,
+                'pool_numbers' => range(2, $putraPoolMax, 2),
+                'unused_numbers' => $putraUnused,
+            ],
+            'putri' => [
+                'participant_count' => $putriCount,
+                'unique_lots_needed' => $putriSharedCount,
+                'pool_min' => 1,
+                'pool_max' => $putriPoolMax,
+                'pool_numbers' => range(1, $putriPoolMax, 2),
+                'unused_numbers' => $putriUnused,
+            ],
+        ];
+    }
+
+    public function lotAutoCalculate(): View
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        return view('pages/admin-lot-auto-calculate-v2', [
+            'assets' => $this->viteAssets(),
+            'rolePanel' => $this->rolePanel((string) auth()->user()?->role),
+            'navigation' => $this->consoleNavigation((string) auth()->user()?->role, 'admin.lot-auto-calculate'),
+            'categories' => $categories,
+        ]);
+    }
+
+    public function previewLotAutoCalculate(Request $request): JsonResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $filters = $request->validate([
+            'competition_category_id' => ['nullable', 'integer'],
+        ]);
+
+        $query = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name');
+
+        if (filled($filters['competition_category_id'] ?? null)) {
+            $query->whereKey((int) $filters['competition_category_id']);
+        }
+
+        $categories = $query->get();
+        $calculations = $categories->map(fn (CompetitionCategory $category) => $this->calculateRecommendedLotRange($category))->values();
+
+        return response()->json([
+            'calculations' => $calculations,
+        ]);
     }
 
     protected function participantPriorityValues(Participant $participant): array

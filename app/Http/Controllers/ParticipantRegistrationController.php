@@ -2551,6 +2551,18 @@ class ParticipantRegistrationController extends Controller
     {
         $requiredParity = $participant->gender === 'putra' ? 0 : 1;
 
+        // Count verified participants for this category and gender to limit pool
+        $participantCount = (int) Participant::query()
+            ->where('competition_category_id', $participant->competition_category_id)
+            ->where('gender', $participant->gender)
+            ->where('verification_status', 'verified')
+            ->count();
+
+        // Include current participant in count if not already counted
+        if ($participant->verification_status === 'verified') {
+            $participantCount = max($participantCount, 1);
+        }
+
         $existingNumbers = Participant::query()
             ->where('competition_category_id', $participant->competition_category_id)
             ->whereNotNull('lot_number')
@@ -2574,6 +2586,14 @@ class ParticipantRegistrationController extends Controller
 
         for ($candidate = $minSequence; $candidate <= $maxSequence; $candidate++) {
             if (($candidate % 2) !== $requiredParity) {
+                continue;
+            }
+
+            // Limit pool based on participant count
+            // For even (putra): position = candidate / 2
+            // For odd (putri): position = (candidate + 1) / 2
+            $position = (int) (($candidate + $requiredParity) / 2);
+            if ($position > $participantCount) {
                 continue;
             }
 
