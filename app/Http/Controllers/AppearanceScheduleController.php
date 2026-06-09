@@ -322,29 +322,8 @@ class AppearanceScheduleController extends Controller
                 'eventName' => config('mtq.event_name', 'MTQ Kabupaten'),
             ])->render();
 
-        // Preview mode - show HTML directly (disable PDF for now)
+        // Preview mode - show HTML directly
         return response($html, 200, ['Content-Type' => 'text/html']);
-
-        /* Uncomment below to enable PDF generation:
-
-        // Try Snappy first, fallback to HTML auto-download
-        try {
-            $pdf = SnappyPdf::loadHTML($html)
-                ->setOrientation('landscape')
-                ->setPaper('A4')
-                ->setOption('enable-local-file-access', true);
-
-            $filename = 'Jadwal_Penampilan_Semua_' . now()->format('Ymd_His') . '.pdf';
-            return $pdf->download($filename);
-        } catch (\Exception $e) {
-            // Fallback to HTML auto-download with html2pdf.js
-            return view('pages.admin.appearance-results-pdf-html', [
-                'htmlContent' => $html,
-                'filename' => 'Jadwal_Penampilan_Semua_' . now()->format('Ymd_His') . '.pdf',
-            ]);
-        }
-
-        */
     }
 
     public function exportPdf(int $categoryId)
@@ -490,7 +469,6 @@ class AppearanceScheduleController extends Controller
         $dataByCategory = [];
         $totalPoolLots = 0;
         $totalScheduledLots = 0;
-        $totalVerifiedParticipants = 0;
 
         foreach ($categories as $category) {
             $schedule = $category->appearanceSchedule;
@@ -505,15 +483,8 @@ class AppearanceScheduleController extends Controller
                 $categoryScheduledLots += ($day['range']['count'] ?? 0);
             }
 
-            // Count verified participants for this category
-            $categoryVerified = Participant::query()
-                ->where('competition_category_id', $category->id)
-                ->where('verification_status', 'verified')
-                ->count();
-
             $totalPoolLots += $categoryTotalLots;
             $totalScheduledLots += $categoryScheduledLots;
-            $totalVerifiedParticipants += $categoryVerified;
 
             $location = $category->locations->first();
             $locationName = $location?->venue_name ?? $eventLocation;
@@ -650,7 +621,13 @@ class AppearanceScheduleController extends Controller
             return [$date, $timeNum];
         })->values()->pluck('original')->all();
 
-        $html = view('pages.admin.full-schedule-pdf', [
+        // Count verified participants
+        $totalVerifiedParticipants = Participant::query()
+            ->where('verification_status', 'verified')
+            ->count();
+
+        // Return view for client-side PDF generation (html2canvas + jsPDF)
+        return view('pages.admin.full-schedule-pdf', [
             'eventSchedule' => $eventSchedulePrepared,
             'eventTitle' => $eventTitle,
             'eventLocation' => $eventLocation,
@@ -660,9 +637,6 @@ class AppearanceScheduleController extends Controller
             'totalPoolLots' => $totalPoolLots,
             'totalScheduledLots' => $totalScheduledLots,
             'totalVerifiedParticipants' => $totalVerifiedParticipants,
-        ])->render();
-
-        // Preview mode - show HTML directly
-        return response($html, 200, ['Content-Type' => 'text/html']);
+        ]);
     }
 }

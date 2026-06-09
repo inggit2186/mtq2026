@@ -154,10 +154,11 @@
             display: inline-flex;
             align-items: center;
             gap: 4pt;
-            padding: 3pt 8pt;
+            padding: 4pt 10pt;
             border-radius: 12pt;
-            font-size: 7pt;
-            font-weight: 600;
+            font-size: 9pt;
+            font-weight: 700;
+            line-height: 1.2;
         }
         .type-kegiatan {
             background: linear-gradient(135deg, #fef3c7, #fde68a);
@@ -167,7 +168,17 @@
             background: linear-gradient(135deg, #dbeafe, #bfdbfe);
             color: #1d4ed8;
         }
-        .type-icon { font-size: 10pt; }
+        .type-icon {
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
+            color: inherit;
+        }
+        .type-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
         /* Activity content */
         .activity-name { font-weight: 600; color: #1e293b; font-size: 10pt; margin-bottom: 3pt; }
         .activity-notes { font-size: 8pt; color: #64748b; font-style: italic; }
@@ -224,17 +235,60 @@
             font-size: 10pt;
             font-weight: 600;
             box-shadow: 0 4pt 15pt rgba(8,145,178,0.3);
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 6pt;
         }
+        .download-btn:hover { background: linear-gradient(135deg, #0e7490, #0891b2); }
+        .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-disabled { opacity: 0.5; cursor: not-allowed; }
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            color: white;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14pt; }
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Generating PDF...</div>
+    </div>
+
     <div class="preview-banner">
-        <span>&#x1F4AC;</span>
+        <span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </span>
         <span>PREVIEW MODE - Auto-download dinonaktifkan</span>
     </div>
 
-    <div class="pdf-wrapper">
+    <div class="pdf-wrapper" id="pdfContent">
         <!-- Cover -->
         <div class="cover">
             <div class="cover-logos">
@@ -243,18 +297,30 @@
                 <img src="/images/logo-lptq.webp" alt="" class="cover-logo">
                 <img src="/images/emtq-resmi.webp" alt="" class="cover-logo cover-logo-lg">
             </div>
-            <div class="cover-badge">&#x1F3DB; Dokumen Resmi MTQ</div>
+            <div class="cover-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:4pt;">
+                    <path d="M3 21h18"></path>
+                    <path d="M5 21V7l8-4v18"></path>
+                    <path d="M19 21V11l-6-4"></path>
+                </svg>
+                Dokumen Resmi MTQ
+            </div>
             <h1>Rangkaian Kegiatan MTQ &<br>Jadwal Penampilan Peserta</h1>
             <h2>{{ $eventTitle }}</h2>
             <div class="cover-location">
-                <span>&#x1F4CD;</span>
+                <span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                </span>
                 <span>{{ $eventLocation }}</span>
             </div>
         </div>
 
         <!-- Info Cards -->
         <div style="padding: 15pt 20pt; display: flex; gap: 10pt; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 150pt; background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 12pt; border-radius: 10pt; text-align: center;">
+<div style="flex: 1; min-width: 150pt; background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 12pt; border-radius: 10pt; text-align: center;">
                 <div style="font-size: 9pt; color: #92400e; font-weight: 600;">KATEGORI LOMBA</div>
                 <div style="font-size: 18pt; font-weight: 700; color: #92400e;">{{ $totalCategories }}</div>
             </div>
@@ -439,9 +505,8 @@
                         <td class="col-content">
                             {{-- Kegiatan MTQ --}}
                             @if ($event['type'] === 'kegiatan')
-                                <div class="type-badge type-kegiatan">
-                                    <span class="type-icon">&#x2699;</span>
-                                    <span>KEGIATAN</span>
+                                <div style="display:inline-block;background:#fef3c7;color:#92400e;padding:3pt 8pt;border-radius:10pt;font-size:9pt;font-weight:700;margin-bottom:4pt;">
+                                    KEGIATAN
                                 </div>
                                 <div class="activity-name" style="margin-top:6pt;">{{ $event['name'] }}</div>
                                 @if ($event['notes'])
@@ -450,9 +515,8 @@
 
                             {{-- Penampilan Peserta --}}
                             @else
-                                <div class="type-badge type-penampilan">
-                                    <span class="type-icon">&#x1F3DB;</span>
-                                    <span>PENAMPILAN</span>
+                                <div style="display:inline-block;background:#dbeafe;color:#1d4ed8;padding:3pt 8pt;border-radius:10pt;font-size:9pt;font-weight:700;margin-bottom:4pt;">
+                                    PENAMPILAN
                                 </div>
                                 <div class="gol-name" style="margin-top:6pt;">
                                     @if ($event['notes'])
@@ -475,11 +539,13 @@
                                 @if ($event['location'])
                                     <div style="margin-top:8pt;padding:6pt;background:#f8fafc;border-radius:6pt;">
                                         <div style="font-size:9pt;font-weight:600;color:#374151;">
-                                            📍 {{ $event['location'] }}
+                                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                           {{ $event['location'] }}
                                         </div>
                                         @if ($event['location_url'])
                                             <div style="font-size:7pt;color:#64748b;margin-top:3pt;word-break:break-all;">
-                                                🗺️ {{ $event['location_url'] }}
+                                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+                                               {{ $event['location_url'] }}
                                             </div>
                                         @endif
                                     </div>
@@ -500,11 +566,110 @@
         </div>
     </div>
 
-    <!-- Download Button (Disabled) -->
+    <!-- Download Button -->
     <div class="download-section">
-        <div class="download-btn btn-disabled">
-            &#x1F4E4; Auto-Download Dinonaktifkan
-        </div>
+        <button id="downloadPdfBtn" class="download-btn" onclick="downloadPDF()">
+            <span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+            </span>
+            <span>Download PDF</span>
+        </button>
     </div>
+
+    <!-- jsPDF and html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <script>
+        async function downloadPDF() {
+            const btn = document.getElementById('downloadPdfBtn');
+            const overlay = document.getElementById('loadingOverlay');
+
+            // Disable button and show loading
+            btn.disabled = true;
+            btn.innerHTML = '<span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span><span>Processing...</span>';
+            overlay.style.display = 'flex';
+
+            try {
+                const { jsPDF } = window.jspdf;
+
+                // Get the content element
+                const element = document.getElementById('pdfContent');
+
+                // Configure html2canvas options for better quality
+                const canvas = await html2canvas(element, {
+                    scale: 2, // Higher scale = better quality
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    imageTimeout: 0, // No timeout for images
+                });
+
+                // Calculate PDF dimensions (A4 in mm)
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 297; // A4 height in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                // Create PDF
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                // Calculate how many pages we need
+                let heightLeft = imgHeight;
+                let position = 0;
+                const pageWidth = 210;
+                const pageHeightInMM = 297;
+
+                // Add image to PDF (first page)
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeightInMM;
+
+                // Add more pages if needed
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeightInMM;
+                }
+
+                // Generate filename with timestamp
+                const now = new Date();
+                const timestamp = now.getFullYear() +
+                    String(now.getMonth() + 1).padStart(2, '0') +
+                    String(now.getDate()).padStart(2, '0') + '_' +
+                    String(now.getHours()).padStart(2, '0') +
+                    String(now.getMinutes()).padStart(2, '0') +
+                    String(now.getSeconds()).padStart(2, '0');
+                const filename = 'Rangkaian_Kegiatan_MTQ_' + timestamp + '.pdf';
+
+                // Download the PDF
+                pdf.save(filename);
+
+                // Success feedback
+                btn.innerHTML = '<span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span>Downloaded!</span>';
+                setTimeout(() => {
+                    btn.innerHTML = '<span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></span><span>Download PDF</span>';
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                alert('Gagal generate PDF: ' + error.message);
+                btn.innerHTML = '<span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></span><span>Download PDF</span>';
+                btn.disabled = false;
+            } finally {
+                overlay.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
