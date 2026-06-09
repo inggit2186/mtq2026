@@ -3983,4 +3983,117 @@ class ParticipantRegistrationController extends Controller
             'revision_note' => $entry['revision_note'] ?? null,
         ];
     }
+
+    public function exportByCategoryPdf(Request $request): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
+
+        $user = auth()->user();
+        $districtId = in_array($user?->role, ['official', 'pendamping'], true) ? $user?->district_id : null;
+        $verificationDistrictIds = $this->verificationDistrictIdsForUser($user);
+        $restrictPanitiaDistricts = $user?->role === 'panitia';
+
+        // Get all categories
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->get();
+
+        // Get verified participants grouped by category
+        $participantsByCategory = [];
+        $totalPutra = 0;
+        $totalPutri = 0;
+
+        foreach ($categories as $category) {
+            $participantsQuery = Participant::query()
+                ->with(['district', 'category'])
+                ->where('competition_category_id', $category->id)
+                ->where('verification_status', 'verified')
+                ->when($restrictPanitiaDistricts, fn ($query) => $query->whereIn('district_id', $verificationDistrictIds))
+                ->when($districtId, fn ($query) => $query->where('district_id', $districtId))
+                ->orderBy('name');
+
+            $participants = $participantsQuery->get();
+
+            if ($participants->isEmpty()) {
+                continue;
+            }
+
+            $putraCount = $participants->where('gender', 'putra')->count();
+            $putriCount = $participants->where('gender', 'putri')->count();
+
+            $totalPutra += $putraCount;
+            $totalPutri += $putriCount;
+
+            // Calculate ages for each participant - age reference: July 1, 2026
+            $participantsWithAge = $participants->map(function ($p) {
+                $birthDate = $p->date_of_birth;
+                if (!$birthDate) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'photo' => $p->document_photo,
+                        'gender' => $p->gender,
+                        'district' => $p->district?->name ?? '-',
+                        'birth_date' => null,
+                        'age' => null,
+                    ];
+                }
+                try {
+                    $birth = Carbon::parse($birthDate);
+                    $refDate = Carbon::create(2026, 7, 1);
+                    // Calculate difference from birth to reference date
+                    $totalDays = $birth->diffInDays($refDate);
+                    $years = (int) floor($totalDays / 365);
+                    $remainingDays = $totalDays - ($years * 365);
+                    $months = (int) floor($remainingDays / 30);
+                    $days = (int) ($remainingDays - ($months * 30));
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'photo' => $p->document_photo,
+                        'gender' => $p->gender,
+                        'district' => $p->district?->name ?? '-',
+                        'birth_date' => $birthDate,
+                        'age' => [
+                            'years' => $years,
+                            'months' => $months,
+                            'days' => $days,
+                        ],
+                    ];
+                } catch (\Exception $e) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'photo' => $p->document_photo,
+                        'gender' => $p->gender,
+                        'district' => $p->district?->name ?? '-',
+                        'birth_date' => $birthDate,
+                        'age' => null,
+                    ];
+                }
+            });
+
+            $participantsByCategory[] = [
+                'category' => $category,
+                'participants' => $participantsWithAge,
+                'putra_count' => $putraCount,
+                'putri_count' => $putriCount,
+                'total' => $participants->count(),
+            ];
+        }
+
+        $eventTitle = config('juknis.title', 'MTQ');
+        $eventLocation = config('juknis.host', 'Lokasi');
+
+        return view('pages.participants-by-category-pdf', [
+            'eventTitle' => $eventTitle,
+            'eventLocation' => $eventLocation,
+            'categoriesData' => $participantsByCategory,
+            'totalPutra' => $totalPutra,
+            'totalPutri' => $totalPutri,
+            'totalAll' => $totalPutra + $totalPutri,
+            'generatedAt' => now(),
+        ]);
+    }
 }

@@ -16,23 +16,6 @@
             min-height: 100vh;
             padding: 15pt;
         }
-        .preview-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 10pt 20pt;
-            text-align: center;
-            font-weight: 600;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10pt;
-        }
         .pdf-wrapper {
             max-width: 210mm;
             margin: 50pt auto 0;
@@ -225,25 +208,8 @@
         .col-date { width: 75pt; }
         .col-time { width: 70pt; }
         .col-content { }
-        /* Download button */
-        .download-section { position: fixed; bottom: 15pt; right: 15pt; z-index: 1000; }
-        .download-btn {
-            background: linear-gradient(135deg, #0891b2, #0e7490);
-            color: white;
-            padding: 10pt 18pt;
-            border-radius: 25pt;
-            font-size: 10pt;
-            font-weight: 600;
-            box-shadow: 0 4pt 15pt rgba(8,145,178,0.3);
-            cursor: pointer;
-            border: none;
-            display: flex;
-            align-items: center;
-            gap: 6pt;
-        }
-        .download-btn:hover { background: linear-gradient(135deg, #0e7490, #0891b2); }
-        .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-disabled { opacity: 0.5; cursor: not-allowed; }
+        /* Download button - hidden */
+        .download-section { display: none; }
         /* Loading overlay */
         .loading-overlay {
             position: fixed;
@@ -279,13 +245,18 @@
         <div class="loading-text">Generating PDF...</div>
     </div>
 
-    <div class="preview-banner">
-        <span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-        </span>
-        <span>PREVIEW MODE - Auto-download dinonaktifkan</span>
+    <!-- Hidden Download Button -->
+    <div class="download-section">
+        <button id="downloadPdfBtn" class="download-btn" onclick="downloadPDF()">
+            <span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+            </span>
+            <span>Download PDF</span>
+        </button>
     </div>
 
     <div class="pdf-wrapper" id="pdfContent">
@@ -505,7 +476,8 @@
                         <td class="col-content">
                             {{-- Kegiatan MTQ --}}
                             @if ($event['type'] === 'kegiatan')
-                                <div style="display:inline-block;background:#fef3c7;color:#92400e;padding:3pt 8pt;border-radius:10pt;font-size:9pt;font-weight:700;margin-bottom:4pt;">
+                                <div style="display:inline-flex;align-items:center;gap:4pt;background:#fef3c7;color:#92400e;padding:3pt 8pt;border-radius:10pt;font-size:9pt;font-weight:700;margin-bottom:4pt;">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="#fef3c7"/></svg>
                                     KEGIATAN
                                 </div>
                                 <div class="activity-name" style="margin-top:6pt;">{{ $event['name'] }}</div>
@@ -515,7 +487,8 @@
 
                             {{-- Penampilan Peserta --}}
                             @else
-                                <div style="display:inline-block;background:#dbeafe;color:#1d4ed8;padding:3pt 8pt;border-radius:10pt;font-size:9pt;font-weight:700;margin-bottom:4pt;">
+                                <div style="display:inline-flex;align-items:center;gap:4pt;background:#dbeafe;color:#1d4ed8;padding:3pt 8pt;border-radius:10pt;font-size:9pt;font-weight:700;margin-bottom:4pt;">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
                                     PENAMPILAN
                                 </div>
                                 <div class="gol-name" style="margin-top:6pt;">
@@ -566,20 +539,7 @@
         </div>
     </div>
 
-    <!-- Download Button -->
-    <div class="download-section">
-        <button id="downloadPdfBtn" class="download-btn" onclick="downloadPDF()">
-            <span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-            </span>
-            <span>Download PDF</span>
-        </button>
-    </div>
-
+    
     <!-- jsPDF and html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -610,10 +570,13 @@
                     imageTimeout: 0, // No timeout for images
                 });
 
-                // Calculate PDF dimensions (A4 in mm)
-                const imgWidth = 210; // A4 width in mm
-                const pageHeight = 297; // A4 height in mm
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                // PDF dimensions (A4 in mm)
+                const pdfWidth = 210; // A4 width in mm
+                const pdfHeight = 297; // A4 height in mm
+
+                // Calculate page height in canvas pixels
+                // 297mm / 210mm * canvas.width = canvas height for one A4 page
+                const pageHeightInCanvasPixels = (pdfHeight / pdfWidth) * canvas.width;
 
                 // Create PDF
                 const pdf = new jsPDF({
@@ -622,23 +585,40 @@
                     format: 'a4'
                 });
 
-                // Calculate how many pages we need
-                let heightLeft = imgHeight;
-                let position = 0;
-                const pageWidth = 210;
-                const pageHeightInMM = 297;
+                // Total pages needed
+                const totalPages = Math.ceil(canvas.height / pageHeightInCanvasPixels);
 
-                // Add image to PDF (first page)
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeightInMM;
+                // Add each page slice to PDF
+                for (let i = 0; i < totalPages; i++) {
+                    // Calculate source y position (where to cut in canvas)
+                    const sourceY = i * pageHeightInCanvasPixels;
 
-                // Add more pages if needed
-                while (heightLeft > 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeightInMM;
+                    // Create a temporary canvas for this page slice
+                    const pageCanvas = document.createElement('canvas');
+                    pageCanvas.width = canvas.width;
+                    pageCanvas.height = pageHeightInCanvasPixels;
+                    const ctx = pageCanvas.getContext('2d');
+
+                    // Draw the slice onto temporary canvas
+                    ctx.drawImage(
+                        canvas,
+                        0, sourceY, // source x, y
+                        canvas.width, pageHeightInCanvasPixels, // source width, height
+                        0, 0, // dest x, y
+                        canvas.width, pageHeightInCanvasPixels // dest width, height
+                    );
+
+                    // Add page to PDF
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+                    pdf.addImage(
+                        pageCanvas.toDataURL('image/jpeg', 0.95),
+                        'JPEG',
+                        0, 0, // x, y position in mm
+                        pdfWidth, // width in mm (full page)
+                        pdfHeight // height in mm (full page)
+                    );
                 }
 
                 // Generate filename with timestamp
