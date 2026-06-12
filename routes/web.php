@@ -153,6 +153,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/setting/buka', [ScoringController::class, 'openSettingEdit'])->middleware('role:admin')->name('scoring.settings.open');
     Route::post('/penilaian', [ScoringController::class, 'store'])->middleware('role:admin,panitia')->name('scoring.store');
     Route::post('/penilaian/request-perbaikan', [ScoringController::class, 'storeCorrectionRequest'])->middleware('role:admin,panitia')->name('scoring.corrections.store');
+    Route::get('/penilaian/poll', [ScoringController::class, 'poll'])->middleware('role:admin,panitia')->name('scoring.poll');
     Route::get('/penilaian/mfq', [MfqScoringController::class, 'index'])->middleware('role:admin,panitia')->name('scoring.mfq');
     Route::post('/penilaian/mfq/pilih-regu', [MfqScoringController::class, 'storeSelection'])->middleware('role:admin,panitia')->name('scoring.mfq.selection.store');
     Route::post('/penilaian/mfq/pilih-regu/hapus', [MfqScoringController::class, 'clearSelection'])->middleware('role:admin,panitia')->name('scoring.mfq.selection.clear');

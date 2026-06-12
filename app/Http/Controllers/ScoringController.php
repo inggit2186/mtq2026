@@ -96,20 +96,24 @@ class ScoringController extends Controller
                 now()->addHours(12)
             );
 
-            // Broadcast to Big Screen
+            // Broadcast to Big Screen - wrap with try-catch to handle Reverb unavailable
             $participantPhotoUrl = null;
             if ($selectedParticipant->document_photo) {
                 $participantPhotoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $selectedParticipant->document_photo), '/'));
             }
 
-            ParticipantSelected::dispatch(
-                (int) $selectedParticipant->id,
-                (int) $selectedParticipant->competition_category_id,
-                $selectedParticipant->name,
-                $selectedParticipant->district?->name,
-                $selectedParticipant->lot_number,
-                $participantPhotoUrl
-            );
+            try {
+                ParticipantSelected::dispatch(
+                    (int) $selectedParticipant->id,
+                    (int) $selectedParticipant->competition_category_id,
+                    $selectedParticipant->name,
+                    $selectedParticipant->district?->name,
+                    $selectedParticipant->lot_number,
+                    $participantPhotoUrl
+                );
+            } catch (\Throwable $e) {
+                \Log::warning('ParticipantSelected broadcast skipped: '.$e->getMessage());
+            }
         }
 
         $selectedCategory = filled($filters['competition_category_id'] ?? null)
@@ -823,5 +827,92 @@ class ScoringController extends Controller
         $haystack = mb_strtolower(trim((string) $category->branch.' '.(string) $category->name.' '.(string) $category->slug));
 
         return str_contains($haystack, 'fahmil');
+    }
+
+    public function poll(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'competition_category_id' => ['nullable', 'integer'],
+            'last_timestamp' => ['nullable', 'string'],
+            'participant_id' => ['nullable', 'integer'],
+        ]);
+
+        $user = auth()->user();
+        $restrictByCategory = $user?->role === 'panitia';
+        $restrictedCategoryIds = $this->accessibleCategoryIdsForUser($user);
+
+        $query = ScoreEntry::query()
+            ->with('participant.category')
+            ->when($restrictByCategory, fn ($q) => $q->whereIn('competition_category_id', $restrictedCategoryIds))
+            ->when(filled($validated['competition_category_id'] ?? null), fn ($q) => $q->where('competition_category_id', $validated['competition_category_id']))
+            ->when(filled($validated['participant_id'] ?? null), fn ($q) => $q->where('participant_id', $validated['participant_id']))
+            ->orderByDesc('submitted_at')
+            ->limit(20);
+
+        if (! empty($validated['last_timestamp'])) {
+            try {
+                $lastTime = \Carbon\Carbon::parse($validated['last_timestamp']);
+                $query->where('submitted_at', '>', $lastTime);
+            } catch (\Exception $e) {
+                // Ignore invalid timestamp, return all
+            }
+        }
+
+        $scores = $query->get();
+        $latestTimestamp = $scores->max('submitted_at');
+
+        $data = $scores->map(function (ScoreEntry $score) {
+            $participant = $score->participant;
+            $scoresArray = $score->scores;
+            $averageScore = $score->average_score;
+
+            if ($scoresArray === null) {
+                $scoresArray = [$score->judge_name => [
+                    'score' => (float) $score->score,
+                    'breakdown' => $score->score_breakdown ?? [],
+                    'remarks' => $score->remarks,
+                ]];
+                $averageScore = (float) $score->score;
+            }
+
+            return [
+                'id' => $score->id,
+                'participant_id' => $score->participant_id,
+                'participant_name' => $participant?->name,
+                'category_name' => $participant?->category?->name,
+                'branch' => $participant?->category?->branch,
+                'district_name' => $participant?->district?->name,
+                'lot_number' => $participant?->lot_number,
+                'judging_round' => $score->judging_round,
+                'average_score' => (float) $averageScore,
+                'scores' => $scoresArray,
+                'submitted_at' => $score->submitted_at?->toIso8601String(),
+            ];
+        });
+
+        return response()->json([
+            'scores' => $data,
+            'latest_timestamp' => $latestTimestamp?->toIso8601String(),
+            'count' => $scores->count(),
+            'realtime_available' => $this->isReverbAvailable(),
+        ]);
+    }
+
+    protected function isReverbAvailable(): bool
+    {
+        try {
+            $host = config('broadcasting.connections.reverb.options.host', '127.0.0.1');
+            $port = (int) config('broadcasting.connections.reverb.options.port', 8080);
+
+            $socket = @fsockopen($host, $port, $errno, $errstr, 1);
+            if ($socket) {
+                fclose($socket);
+                return true;
+            }
+        } catch (\Exception $e) {
+            // Fallback available
+        }
+
+        return false;
     }
 }

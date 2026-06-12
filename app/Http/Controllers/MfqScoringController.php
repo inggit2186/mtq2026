@@ -594,14 +594,18 @@ class MfqScoringController extends Controller
                 $participantPhotoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'));
             }
 
-            ParticipantSelected::dispatch(
-                (int) $participant->id,
-                (int) $categoryId,
-                $participant->name,
-                $participant->district?->name,
-                $participant->lot_number,
-                $participantPhotoUrl
-            );
+            try {
+                ParticipantSelected::dispatch(
+                    (int) $participant->id,
+                    (int) $categoryId,
+                    $participant->name,
+                    $participant->district?->name,
+                    $participant->lot_number,
+                    $participantPhotoUrl
+                );
+            } catch (\Throwable $e) {
+                \Log::warning('MFQ ParticipantSelected broadcast skipped: '.$e->getMessage());
+            }
         }
     }
 

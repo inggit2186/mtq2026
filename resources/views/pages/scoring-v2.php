@@ -246,6 +246,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <span class="inline-flex h-2.5 w-2.5 rounded-full <?= $setupReady ? 'bg-emerald-300' : 'bg-amber-300' ?>"></span>
                             <?= $setupReady ? 'Penilaian Siap' : 'Setup Belum Lengkap' ?>
                         </div>
+                        <div x-data="{ liveConnected: window.Alpine?.store('ui')?.liveConnected ?? false, pollingActive: window.Alpine?.store('ui')?.pollingActive ?? false }"
+                             x-init="$watch('$store.ui.liveConnected', v => liveConnected = v); $watch('$store.ui.pollingActive', v => pollingActive = v);"
+                             class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]"
+                             :class="liveConnected ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : (pollingActive ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-slate-700 bg-slate-900/70 text-slate-400')">
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full"
+                                  :class="liveConnected ? 'bg-emerald-300' : (pollingActive ? 'bg-amber-300 animate-pulse' : 'bg-slate-500')"></span>
+                            <span x-text="liveConnected ? 'Live' : (pollingActive ? 'Polling' : 'Offline')"></span>
+                        </div>
                         <?php if ($selectedCategory): ?>
                             <a href="<?= e($bigScreenUrl) ?>" target="_blank" rel="noreferrer" class="secondary-button">
                                 <?= mtq_icon('eye', 'h-4 w-4') ?>

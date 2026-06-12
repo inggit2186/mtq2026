@@ -1496,6 +1496,8 @@ class ParticipantRegistrationController extends Controller
             'lotParity' => $participant->gender === 'putra' ? 'even' : 'odd',
             'photoDataUri' => $this->participantPhotoDataUri((string) ($participant->document_photo ?? '')),
             'initials' => $this->participantInitials($participant),
+            'participantNik' => $participant->nik,
+            'participantKkNumber' => $participant->kk_number,
         ]);
     }
 
@@ -2254,7 +2256,7 @@ class ParticipantRegistrationController extends Controller
 
         abort_unless(in_array($user?->role, ['admin', 'panitia'], true), 403);
 
-        if ($user?->role === 'panitia' && ! $this->officialFeatureEnabled('participant_lot_open')) {
+        if ($user?->role === 'panitia' && ! $this->officialAccessSetting()->isEnabled('participant_lot_open')) {
             abort(403, 'Masa ambil nomor lot untuk panitia sedang ditutup oleh admin.');
         }
     }

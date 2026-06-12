@@ -22,6 +22,8 @@ $initials = (string) ($initials ?? 'P');
 $assignUrl = route('participants.lot.assign', $participant);
 $autoFullscreen = request()->boolean('autofullscreen');
 $lotRangeLabel = (string) ($lotRangeLabel ?? '01 - 99');
+$participantNik = $participantNik ?? $participant?->nik ?? '';
+$participantKkNumber = $participantKkNumber ?? $participant?->kk_number ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -106,6 +108,18 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '01 - 99');
                             <?= e($parityLabel) ?>
                         </div>
                     </div>
+                    <?php if (filled($participantNik)): ?>
+                    <div class="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-4 py-3">
+                        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">NIK</p>
+                        <p class="mt-2 text-sm font-semibold text-white font-mono tracking-wider"><?= e($participantNik) ?></p>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (filled($participantKkNumber)): ?>
+                    <div class="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-4 py-3">
+                        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">No. Kartu Keluarga</p>
+                        <p class="mt-2 text-sm font-semibold text-white font-mono tracking-wider"><?= e($participantKkNumber) ?></p>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </aside>
 
@@ -581,6 +595,12 @@ $lotRangeLabel = (string) ($lotRangeLabel ?? '01 - 99');
 
             if (!alreadyAssigned) {
                 button.addEventListener('click', startDraw);
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !button.disabled && !drawStarted) {
+                        e.preventDefault();
+                        startDraw();
+                    }
+                });
             } else {
                 finalizeDisplay(assignedValue, false);
             }

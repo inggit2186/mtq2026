@@ -2158,14 +2158,18 @@ class PageController extends Controller
             $participantPhotoUrl = asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'));
         }
 
-        \App\Events\ParticipantSelected::dispatch(
-            $participantId,
-            $categoryId,
-            $participant->name,
-            $participant->district?->name,
-            $participant->lot_number,
-            $participantPhotoUrl
-        );
+        try {
+            \App\Events\ParticipantSelected::dispatch(
+                $participantId,
+                $categoryId,
+                $participant->name,
+                $participant->district?->name,
+                $participant->lot_number,
+                $participantPhotoUrl
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('PageController ParticipantSelected broadcast skipped: '.$e->getMessage());
+        }
 
         return response()->json([
             'success' => true,

@@ -739,6 +739,9 @@ const reverbAppKey = realtimeEnabled ? import.meta.env.VITE_REVERB_APP_KEY : '';
 let realtimeConnected = false;
 let ongoingSchedulesFallbackTimer = null;
 let ongoingSchedulesFallbackDelayTimer = null;
+let scorePollingTimer = null;
+let scorePollingLastTimestamp = null;
+let scorePollingEnabled = false;
 
 function uiStore() {
     try {
@@ -758,11 +761,13 @@ function setRealtimeConnected(connected) {
 
     if (connected) {
         stopOngoingSchedulesFallbackPolling();
+        stopScorePolling();
         return;
     }
 
     runWhenReady(() => {
         startOngoingSchedulesFallbackPolling();
+        initScorePolling();
     });
 }
 
@@ -824,6 +829,7 @@ if (reverbAppKey) {
 Alpine.store('ui', {
     mobileMenuOpen: false,
     liveConnected: realtimeConnected,
+    pollingActive: false,
     notifications: [],
     theme: initialTheme,
     pushNotification(notification) {
@@ -1042,6 +1048,112 @@ function startOngoingScheduleChecks() {
     }, 10000);
 }
 
+async function fetchScoreUpdates() {
+    try {
+        const url = new URL('/penilaian/poll', window.location.origin);
+        url.searchParams.set('_', Date.now().toString());
+
+        if (scorePollingLastTimestamp) {
+            url.searchParams.set('last_timestamp', scorePollingLastTimestamp);
+        }
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const payload = await response.json();
+        const scores = Array.isArray(payload.scores) ? payload.scores : [];
+
+        if (scores.length > 0) {
+            scorePollingLastTimestamp = payload.latest_timestamp;
+
+            scores.forEach((score) => {
+                window.dispatchEvent(new CustomEvent('mtq-score-updated', {
+                    detail: {
+                        participant: score.participant_name,
+                        participant_id: score.participant_id,
+                        score: score.average_score,
+                        judging_round: score.judging_round,
+                        scores: score.scores,
+                        lot_number: score.lot_number,
+                        category: score.category_name,
+                        branch: score.branch,
+                    },
+                }));
+            });
+        } else if (payload.latest_timestamp) {
+            scorePollingLastTimestamp = payload.latest_timestamp;
+        }
+
+        if (payload.realtime_available && realtimeConnected) {
+            stopScorePolling();
+        }
+    } catch (error) {
+        console.warn('Score polling failed.', error);
+    }
+}
+
+function stopScorePolling() {
+    scorePollingEnabled = false;
+    if (scorePollingTimer) {
+        window.clearInterval(scorePollingTimer);
+        scorePollingTimer = null;
+    }
+
+    const ui = uiStore();
+    if (ui) {
+        ui.pollingActive = false;
+    }
+}
+
+function startScorePolling() {
+    if (scorePollingEnabled || scorePollingTimer) {
+        return;
+    }
+
+    scorePollingEnabled = true;
+    fetchScoreUpdates();
+
+    scorePollingTimer = window.setInterval(() => {
+        if (!scorePollingEnabled) {
+            stopScorePolling();
+            return;
+        }
+
+        fetchScoreUpdates();
+    }, 15000);
+}
+
+function initScorePolling() {
+    const ui = uiStore();
+    if (ui) {
+        ui.pollingActive = true;
+    }
+
+    if (!reverbAppKey) {
+        startScorePolling();
+        return;
+    }
+
+    if (realtimeConnected) {
+        return;
+    }
+
+    window.setTimeout(() => {
+        if (!realtimeConnected) {
+            startScorePolling();
+        }
+    }, 15000);
+}
+
 function runWhenReady(callback) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', callback, { once: true });
@@ -1059,6 +1171,7 @@ window.addEventListener('mtq-schedule-updated', (event) => {
 
 runWhenReady(() => {
     startOngoingScheduleChecks();
+    initScorePolling();
 
     if (!document.getElementById('mtq-theme-toggle')) {
         const button = document.createElement('button');

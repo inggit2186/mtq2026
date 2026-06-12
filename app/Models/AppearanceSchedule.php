@@ -67,23 +67,36 @@ class AppearanceSchedule extends Model
 
         // Check if this is a lot-per-district category
         if ($this->isLotPerDistrictCategory()) {
-            // For lot-per-district categories, each district gets 1 lot
-            $totalDistricts = Participant::query()
+            // For lot-per-district categories, each district gets 1 lot per gender
+            // Putra gets even numbers, Putri gets odd numbers
+            $putraDistricts = (int) Participant::query()
                 ->where('competition_category_id', $category->id)
+                ->where('gender', 'putra')
                 ->where('verification_status', 'verified')
                 ->distinct('district_id')
                 ->count('district_id');
 
-            // All lots go to Putra (or single gender)
-            $lotNumbers = range(1, $totalDistricts * 2 - ($totalDistricts > 0 ? 1 : 0), 2);
-            if ($totalDistricts === 0) {
-                $lotNumbers = [];
-            }
+            $putriDistricts = (int) Participant::query()
+                ->where('competition_category_id', $category->id)
+                ->where('gender', 'putri')
+                ->where('verification_status', 'verified')
+                ->distinct('district_id')
+                ->count('district_id');
+
+            // Putra: even numbers (2, 4, 6, ...)
+            $putraLots = $putraDistricts > 0
+                ? range(2, $putraDistricts * 2, 2)
+                : [];
+
+            // Putri: odd numbers (1, 3, 5, ...)
+            $putriLots = $putriDistricts > 0
+                ? range(1, $putriDistricts * 2 - 1, 2)
+                : [];
 
             return [
-                'putra' => $lotNumbers,
-                'putri' => [],
-                'all' => $lotNumbers,
+                'putra' => $putraLots,
+                'putri' => $putriLots,
+                'all' => array_unique(array_merge($putraLots, $putriLots)),
             ];
         }
 
@@ -232,33 +245,37 @@ class AppearanceSchedule extends Model
             ];
         }
 
-        // Sanitize lot numbers to ensure they are integers (prevent SQL injection)
-        $sanitizedLotNumbers = array_map('intval', $lotNumbers);
-
-        $participants = Participant::query()
+        // Build query to find participants with matching lot suffix
+        // First, get all participants with lot numbers for this category
+        $allParticipants = Participant::query()
             ->where('competition_category_id', $this->competition_category_id)
             ->whereNotNull('lot_number')
             ->where('verification_status', 'verified')
-            ->whereRaw(
-                "CAST(SUBSTRING_INDEX(lot_number, '-', -1) AS UNSIGNED) IN (" . implode(',', array_fill(0, count($sanitizedLotNumbers), '?')) . ")",
-                $sanitizedLotNumbers
-            )
-            ->orderByRaw("CAST(SUBSTRING_INDEX(lot_number, '-', -1) AS UNSIGNED) ASC")
             ->get();
 
-        $totalParticipants = Participant::query()
-            ->where('competition_category_id', $this->competition_category_id)
-            ->whereNotNull('lot_number')
-            ->where('verification_status', 'verified')
-            ->count();
+        // Filter by lot suffix match - more robust than raw SQL
+        $matchedParticipants = $allParticipants->filter(function ($participant) use ($lotNumbers) {
+            $lotNumber = $participant->lot_number;
+            // Extract suffix after the dash (e.g., "MTQ-02" -> "02")
+            $parts = explode('-', $lotNumber);
+            $suffix = (int) end($parts);
+            return in_array($suffix, $lotNumbers, true);
+        });
 
+        // Sort by lot suffix
+        $matchedParticipants = $matchedParticipants->sortBy(function ($participant) {
+            $parts = explode('-', $participant->lot_number);
+            return (int) end($parts);
+        })->values();
+
+        $totalParticipants = $allParticipants->count();
         $totalPoolLots = count($this->getPoolLotNumbers()['all']);
         $remaining = max(0, $totalPoolLots - ($dayRange['end'] ?? 0));
 
         return [
-            'participants' => $participants,
+            'participants' => $matchedParticipants,
             'total' => $totalParticipants,
-            'displayed' => $participants->count(),
+            'displayed' => $matchedParticipants->count(),
             'remaining' => $remaining,
             'range' => $dayRange,
             'schedule' => $daySchedule,

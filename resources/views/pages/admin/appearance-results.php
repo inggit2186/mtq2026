@@ -195,11 +195,12 @@ $dayData = $dayData ?? [];
                             $scheduledCount = $range['count'] ?? 0;
                             $dayLotNumbers = $range['lot_numbers'] ?? [];
 
-                            // Create participant lookup by lot number
+                            // Create participant lookup by lot number suffix
                             $participantByLot = [];
                             foreach ($dayParticipants as $p) {
-                                $lotOnly = (int) filter_var($p->lot_number, FILTER_SANITIZE_NUMBER_INT);
-                                $participantByLot[$lotOnly] = $p;
+                                $parts = explode('-', $p->lot_number);
+                                $lotSuffix = (int) end($parts);
+                                $participantByLot[$lotSuffix] = $p;
                             }
                         ?>
 
@@ -243,7 +244,7 @@ $dayData = $dayData ?? [];
                                                     </td>
                                                     <td class="px-5 py-3 text-center">
                                                         <span class="inline-flex rounded-full border border-slate-700 bg-slate-950/70 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] <?= $participant->gender === 'putra' ? 'text-blue-300' : 'text-pink-300' ?>">
-                                                            <?= e(substr($participant->gender, 0, 1)) ?>
+                                                            <?= e($participant->gender === 'putra' ? 'L' : 'P') ?>
                                                         </span>
                                                     </td>
                                                     <td class="px-5 py-3 text-center">
