@@ -18,6 +18,8 @@ use App\Http\Controllers\ScoringController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PageController::class, 'home'])->name('home');
+Route::get('/api/time', fn () => response()->json(['time' => (int) (microtime(true) * 1000)]))->name('api.time');
+Route::get('/api/maqra-schedule/check', [ParticipantRegistrationController::class, 'checkMaqraSchedule'])->name('api.maqra-schedule.check');
 Route::get('/big-screen', [PageController::class, 'bigScreen'])->name('big-screen');
 Route::get('/api/big-screen/current-participant', [PageController::class, 'apiCurrentParticipant'])->name('api.big-screen.current-participant');
 Route::post('/api/big-screen/set-participant', [PageController::class, 'setCurrentParticipant'])->name('api.big-screen.set-participant');

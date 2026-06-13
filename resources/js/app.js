@@ -742,6 +742,8 @@ let ongoingSchedulesFallbackDelayTimer = null;
 let scorePollingTimer = null;
 let scorePollingLastTimestamp = null;
 let scorePollingEnabled = false;
+let maqraSchedulePollingTimer = null;
+let maqraSchedulePollingLastCheck = null;
 
 function uiStore() {
     try {
@@ -762,16 +764,20 @@ function setRealtimeConnected(connected) {
     if (connected) {
         stopOngoingSchedulesFallbackPolling();
         stopScorePolling();
+        stopMaqraSchedulePolling();
         return;
     }
 
     runWhenReady(() => {
         startOngoingSchedulesFallbackPolling();
         initScorePolling();
+        startMaqraSchedulePolling();
     });
 }
 
 if (reverbAppKey) {
+    console.log('[Reverb] Initializing with key:', reverbAppKey);
+
     const scheme = import.meta.env.VITE_REVERB_SCHEME ?? 'http';
 
     window.Echo = new Echo({
@@ -785,6 +791,7 @@ if (reverbAppKey) {
     });
 
     const channel = window.Echo.channel('mtq-live');
+    console.log('[Reverb] Subscribing to mtq-live channel');
 
     channel.listen('.score.updated', (payload) => {
         window.dispatchEvent(new CustomEvent('mtq-score-updated', { detail: payload }));
@@ -806,14 +813,34 @@ if (reverbAppKey) {
         window.dispatchEvent(new CustomEvent('mtq-participant-selected', { detail: payload }));
     });
 
+    channel.listen('.maqra.schedule.updated', (payload) => {
+        console.log('[Reverb] Maqra schedule event received:', payload);
+        window.dispatchEvent(new CustomEvent('mtq-maqra-schedule-updated', { detail: payload }));
+    });
+
+    console.log('[Reverb] All listeners registered');
+
     const pusherConnection = window.Echo?.connector?.pusher?.connection;
 
     if (pusherConnection) {
-        pusherConnection.bind('connected', () => setRealtimeConnected(true));
-        pusherConnection.bind('disconnected', () => setRealtimeConnected(false));
-        pusherConnection.bind('unavailable', () => setRealtimeConnected(false));
-        pusherConnection.bind('failed', () => setRealtimeConnected(false));
+        pusherConnection.bind('connected', () => {
+            console.log('[Reverb] Connected');
+            setRealtimeConnected(true);
+        });
+        pusherConnection.bind('disconnected', () => {
+            console.log('[Reverb] Disconnected');
+            setRealtimeConnected(false);
+        });
+        pusherConnection.bind('unavailable', () => {
+            console.log('[Reverb] Unavailable');
+            setRealtimeConnected(false);
+        });
+        pusherConnection.bind('failed', () => {
+            console.log('[Reverb] Failed');
+            setRealtimeConnected(false);
+        });
         pusherConnection.bind('state_change', ({ current }) => {
+            console.log('[Reverb] State changed to:', current);
             if (current === 'connected') {
                 setRealtimeConnected(true);
                 return;
@@ -1048,6 +1075,54 @@ function startOngoingScheduleChecks() {
     }, 10000);
 }
 
+// Maqra Schedule Polling - Fallback for when Reverb is disconnected
+function stopMaqraSchedulePolling() {
+    if (maqraSchedulePollingTimer) {
+        window.clearInterval(maqraSchedulePollingTimer);
+        maqraSchedulePollingTimer = null;
+    }
+}
+
+function startMaqraSchedulePolling() {
+    if (maqraSchedulePollingTimer) {
+        return;
+    }
+
+    maqraSchedulePollingLastCheck = Date.now();
+    maqraSchedulePollingTimer = window.setInterval(() => {
+        fetchMaqraScheduleUpdates();
+    }, 30000); // Poll every 30 seconds
+}
+
+async function fetchMaqraScheduleUpdates() {
+    try {
+        const url = new URL('/api/maqra-schedule/check', window.location.origin);
+        url.searchParams.set('_', Date.now().toString());
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.schedules && data.schedules.length > 0) {
+            data.schedules.forEach((schedule) => {
+                window.dispatchEvent(new CustomEvent('mtq-maqra-schedule-updated', { detail: schedule }));
+            });
+        }
+    } catch (error) {
+        // Silently ignore polling errors
+    }
+}
+
 async function fetchScoreUpdates() {
     try {
         const url = new URL('/penilaian/poll', window.location.origin);
@@ -1169,9 +1244,84 @@ window.addEventListener('mtq-schedule-updated', (event) => {
     pushScheduleNotification(detail);
 });
 
+// Listen for maqra schedule updates (Reverb + polling fallback)
+window.addEventListener('mtq-maqra-schedule-updated', (event) => {
+    console.log('[Maqra] Event received:', event.detail);
+
+    const detail = event.detail ?? {};
+
+    // Determine notification based on action
+    const action = detail.action ?? '';
+    const isCreated = action === 'created';
+    const isOpen = action === 'opened';
+    const isDeleted = action === 'deleted';
+
+    let title, message, tone;
+    if (isDeleted) {
+        title = 'Jadwal Maqra Dihapus';
+        message = `Jadwal maqra untuk ${detail.category_name ?? 'golongan'} ${detail.round_name ? `babak ${detail.round_name}` : ''} telah dihapus.`;
+        tone = 'warning';
+    } else if (isCreated) {
+        title = 'Jadwal Maqra Baru!';
+        message = `Jadwal maqra untuk ${detail.category_name ?? 'golongan'} ${detail.round_name ? `babak ${detail.round_name}` : ''} telah dibuat.`;
+        tone = 'info';
+    } else if (isOpen) {
+        title = 'Jadwal Maqra Dibuka!';
+        message = `Maqra untuk ${detail.category_name ?? 'golongan'} ${detail.round_name ? `babak ${detail.round_name}` : ''} sudah dibuka!`;
+        tone = 'success';
+    } else {
+        title = 'Jadwal Maqra Ditutup';
+        message = `Maqra untuk ${detail.category_name ?? 'golongan'} ${detail.round_name ? `babak ${detail.round_name}` : ''} telah ditutup.`;
+        tone = 'warning';
+    }
+
+    console.log('[Maqra] Showing notification:', title, message);
+
+    // Use optional chaining to safely access Alpine store
+    if (window.Alpine?.store('ui')) {
+        window.Alpine.store('ui').pushNotification({
+            tone,
+            title,
+            message,
+        });
+        console.log('[Maqra] Notification pushed');
+    } else {
+        console.log('[Maqra] Alpine store not available');
+    }
+
+    // Auto-reload for official/pendamping users on maqra menu page
+    if ((isOpen || isCreated) && window.location.pathname.includes('/pengambilan/maqra')) {
+        sessionStorage.setItem('maqra-schedule-just-opened', JSON.stringify({
+            timestamp: Date.now(),
+        }));
+        // Delay reload to let notification appear first
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    }
+});
+
 runWhenReady(() => {
     startOngoingScheduleChecks();
     initScorePolling();
+
+    // Start maqra schedule polling if on maqra page
+    if (window.location.pathname.includes('/pengambilan/maqra')) {
+        if (!realtimeConnected) {
+            startMaqraSchedulePolling();
+        }
+
+        // Check if schedule was just opened (after reload from countdown)
+        const justOpened = sessionStorage.getItem('maqra-schedule-just-opened');
+        if (justOpened) {
+            sessionStorage.removeItem('maqra-schedule-just-opened');
+            Alpine.store('ui').pushNotification({
+                tone: 'success',
+                title: 'Jadwal Maqra Dibuka!',
+                message: 'Pengambilan maqra telah dibuka. Silakan pilih peserta untuk maqra.',
+            });
+        }
+    }
 
     if (!document.getElementById('mtq-theme-toggle')) {
         const button = document.createElement('button');
@@ -1187,5 +1337,82 @@ runWhenReady(() => {
         document.body.appendChild(button);
     }
 });
+
+// Alpine component: maqraCountdown - real-time countdown for Maqra schedule
+// Lightweight: server time sync once, then client-side setInterval
+window.maqraCountdown = function (targetIso, type) {
+    return {
+        targetIso,
+        type,
+        label: '...',
+        hours: '00',
+        minutes: '00',
+        seconds: '00',
+        days: '',
+        isExpired: false,
+        _offset: 0,
+        _timer: null,
+
+        async init() {
+            await this._syncServerTime();
+            this._tick();
+            this._timer = setInterval(() => this._tick(), 1000);
+        },
+
+        async _syncServerTime() {
+            try {
+                const res = await fetch('/api/time', {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+                if (res.ok) {
+                    const { time } = await res.json();
+                    this._offset = time - Date.now();
+                }
+            } catch {
+                // Silently fall back to local clock
+            }
+        },
+
+        _tick() {
+            const now = Date.now() + this._offset;
+            const target = new Date(this.targetIso).getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                this.isExpired = true;
+                this.label = this.type === 'scheduled' ? 'Buka sekarang!' : 'Waktu habis';
+                clearInterval(this._timer);
+
+                // Auto-reload page when scheduled maqra becomes open
+                if (this.type === 'scheduled' && window.location.pathname.includes('/pengambilan/maqra')) {
+                    // Store flag to show notification after reload
+                    sessionStorage.setItem('maqra-schedule-just-opened', JSON.stringify({
+                        timestamp: Date.now(),
+                    }));
+
+                    window.location.reload();
+                }
+                return;
+            }
+
+            const totalSec = Math.floor(diff / 1000);
+            const d = Math.floor(totalSec / 86400);
+            const h = Math.floor((totalSec % 86400) / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = totalSec % 60;
+
+            const pad = (n) => String(n).padStart(2, '0');
+            this.hours = pad(h);
+            this.minutes = pad(m);
+            this.seconds = pad(s);
+            this.days = d > 0 ? `${d}h ` : '';
+            this.label = `${this.days}${this.hours}:${this.minutes}:${this.seconds}`;
+        },
+    };
+};
 
 Alpine.start();

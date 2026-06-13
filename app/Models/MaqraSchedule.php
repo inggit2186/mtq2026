@@ -120,6 +120,16 @@ class MaqraSchedule extends Model
         };
     }
 
+    public function getOpenAtIsoAttribute(): ?string
+    {
+        return $this->open_at?->toIsoString();
+    }
+
+    public function getCloseAtIsoAttribute(): ?string
+    {
+        return $this->close_at?->toIsoString();
+    }
+
     public function getStatusColorAttribute(): string
     {
         return match ($this->status) {

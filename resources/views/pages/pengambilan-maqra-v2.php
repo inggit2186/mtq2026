@@ -191,7 +191,8 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                 ?>
                                 <a
                                     href="#golongan-<?= e((string) $category->id) ?>"
-                                    onclick="const section = document.getElementById('golongan-<?= e((string) $category->id) ?>'); if(section){section.scrollIntoView({ behavior: 'smooth', block: 'start' }); if(window.flashMaqraSection) window.flashMaqraSection(section);}"
+                                    x-on:click.prevent="$nextTick(() => { activeCategoryId = '<?= e((string) $category->id) ?>'; const section = document.getElementById('golongan-<?= e((string) $category->id) ?>'); if(section){section.scrollIntoView({ behavior: 'smooth', block: 'start' }); if(window.flashMaqraSection) window.flashMaqraSection(section); } })"
+                                    x-bind:class="activeCategoryId === '<?= e((string) $category->id) ?>' ? 'ring-2 ring-fuchsia-400 ring-offset-2 ring-offset-slate-950' : ''"
                                     class="block w-full rounded-[1.5rem] border px-4 py-4 transition <?= $status === 'active' ? 'border-emerald-400/30 bg-emerald-400/5 hover:border-emerald-400/50' : 'border-amber-400/30 bg-amber-400/5 hover:border-amber-400/50' ?>"
                                 >
                                     <div class="flex items-start justify-between gap-2">
@@ -201,7 +202,8 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                             <p class="mt-2 text-xs text-slate-400"><?= e($categoryParticipants->count()) ?> peserta</p>
                                         </div>
                                         <div class="flex flex-col items-end gap-2">
-                                            <span class="inline-flex rounded-full border <?= e($statusConfig['border'].' '.$statusConfig['bg']) ?> px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-<?= e($statusConfig['color']) ?>-100">
+                                            <span class="inline-flex items-center gap-1.5 rounded-full border <?= e($statusConfig['border'].' '.$statusConfig['bg']) ?> px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-<?= e($statusConfig['color']) ?>-100">
+                                                <span x-show="activeCategoryId === '<?= e((string) $category->id) ?>'" class="h-1.5 w-1.5 rounded-full bg-current animate-pulse"></span>
                                                 <?= e($statusConfig['label']) ?>
                                             </span>
                                             <?php if ($scheduleToShow): ?>
@@ -215,14 +217,14 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                     <div class="mt-3 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2">
                                         <span class="text-amber-400"><?= mtq_icon('clock', 'h-4 w-4') ?></span>
                                         <span class="text-[11px] font-semibold text-amber-200">
-                                            Buka <?= e($upcomingSchedule->open_at?->diffForHumans() ?? '...') ?>
+                                            Terjadwal
                                         </span>
                                     </div>
                                     <?php elseif ($status === 'active' && $currentSchedule): ?>
                                     <div class="mt-3 flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-2">
                                         <span class="text-emerald-400"><?= mtq_icon('zap', 'h-4 w-4') ?></span>
                                         <span class="text-[11px] font-semibold text-emerald-200">
-                                            Sisa waktu <?= e($currentSchedule->close_at?->diffForHumans() ?? '...') ?>
+                                            Sedang Buka
                                         </span>
                                     </div>
                                     <?php endif; ?>
@@ -251,6 +253,14 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                 ->groupBy(fn ($participant) => (int) ($participant->district_id ?? 0))
                                 ->sortBy(fn ($group) => (string) ($group->first()?->district?->name ?? ''))
                             : collect();
+
+                        // Schedule data for countdown
+                        $catScheduleData = $categoryScheduleData[$category->id] ?? null;
+                        $catCurrentSchedule = $catScheduleData['current'] ?? null;
+                        $catUpcomingSchedule = $catScheduleData['upcoming'] ?? null;
+                        $catStatus = $catScheduleData['status'] ?? 'closed';
+                        $countdownTarget = $catStatus === 'scheduled' ? $catUpcomingSchedule : $catCurrentSchedule;
+                        $countdownType = $catStatus === 'scheduled' ? 'scheduled' : 'active';
                     ?>
                     <section
                         id="golongan-<?= e($category->id) ?>"
@@ -277,7 +287,9 @@ $selectedMaqraCategoryLabel = $selectedCategory
                             <div>
                                 <p class="section-kicker">Golongan</p>
                                 <h3 class="mt-2 text-2xl font-bold text-white"><?= e($category->branch.' - '.$category->name) ?></h3>
+                                <?php if ($catStatus !== 'scheduled'): ?>
                                 <p class="mt-2 text-sm text-slate-300"><?= e($categoryParticipants->count()) ?> peserta terverifikasi siap dipilih untuk maqra</p>
+                                <?php endif; ?>
                                 <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100"><?= e(app(\App\Http\Controllers\PageController::class)->categoryMaqraRuleLabel($category)) ?></p>
                                 <?php if ($categoryStockEmpty): ?>
                                     <div class="mt-3 inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-100">
@@ -285,6 +297,7 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                     </div>
                                 <?php endif; ?>
                             </div>
+                            <?php if ($catStatus !== 'scheduled'): ?>
                             <div class="flex flex-wrap gap-2">
                                 <span class="status-pill border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100">
                                     <?= mtq_icon('users', 'h-4 w-4') ?>
@@ -294,9 +307,66 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                     <?= $categoryStockEmpty ? 'Stok habis' : ($isDistrictMaqraCategory ? '1 kecamatan = 1 maqra' : '1 peserta = 1 maqra') ?>
                                 </span>
                             </div>
+                            <?php endif; ?>
                         </div>
 
-                        <?php if ($categoryParticipants->isEmpty()): ?>
+                        <?php if ($countdownTarget): ?>
+                        <div class="mt-6 rounded-[1.5rem] border border-amber-400/30 bg-amber-400/10 p-6 text-center"
+                             x-data="maqraCountdown('<?= e($countdownTarget->{($countdownType === 'scheduled' ? 'open_at_iso' : 'close_at_iso')} ?? '') ?>', '<?= e($countdownType) ?>')"
+                             x-init="init()">
+                            <p class="text-xs uppercase tracking-[0.18em] text-amber-200/80 mb-4 flex items-center justify-center gap-2">
+                                <?php if ($countdownType === 'scheduled'): ?>
+                                    <?= mtq_icon('calendar', 'h-4 w-4') ?>
+                                    <span>Pembukaan maqra dalam</span>
+                                <?php else: ?>
+                                    <?= mtq_icon('zap', 'h-4 w-4') ?>
+                                    <span>Sisa waktu pengambilan</span>
+                                <?php endif; ?>
+                            </p>
+                            <div class="flex items-center justify-center gap-1 sm:gap-2" x-show="!isExpired">
+                                <template x-if="days">
+                                    <div class="flex flex-col items-center">
+                                        <div class="rounded-xl bg-amber-500/20 px-3 py-2 sm:px-4 sm:py-3">
+                                            <span class="text-2xl sm:text-3xl font-black text-amber-50 tabular-nums" x-text="days.replace('h ', '')"></span>
+                                        </div>
+                                        <span class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/70">hari</span>
+                                    </div>
+                                </template>
+                                <template x-if="days">
+                                    <span class="text-2xl font-bold text-amber-300/50">:</span>
+                                </template>
+                                <div class="flex flex-col items-center">
+                                    <div class="rounded-xl bg-amber-500/20 px-3 py-2 sm:px-4 sm:py-3">
+                                        <span class="text-3xl sm:text-4xl font-black text-amber-50 tabular-nums" x-text="hours"></span>
+                                    </div>
+                                    <span class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/70">jam</span>
+                                </div>
+                                <span class="text-3xl font-bold text-amber-300/50">:</span>
+                                <div class="flex flex-col items-center">
+                                    <div class="rounded-xl bg-amber-500/20 px-3 py-2 sm:px-4 sm:py-3">
+                                        <span class="text-3xl sm:text-4xl font-black text-amber-50 tabular-nums" x-text="minutes"></span>
+                                    </div>
+                                    <span class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/70">menit</span>
+                                </div>
+                                <span class="text-3xl font-bold text-amber-300/50">:</span>
+                                <div class="flex flex-col items-center">
+                                    <div class="rounded-xl bg-amber-500/20 px-3 py-2 sm:px-4 sm:py-3">
+                                        <span class="text-3xl sm:text-4xl font-black text-amber-50 tabular-nums" x-text="seconds"></span>
+                                    </div>
+                                    <span class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/70">detik</span>
+                                </div>
+                            </div>
+                            <div x-show="isExpired" class="flex items-center justify-center gap-2">
+                                <span class="text-2xl font-bold text-emerald-300" x-text="label"></span>
+                                <?= mtq_icon('check-circle', 'h-6 w-6 text-emerald-300') ?>
+                            </div>
+                            <p class="mt-4 text-m font-semibold text-amber-300/70">Waktu Indonesia Barat</p>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if ($catStatus === 'scheduled'): ?>
+                            <?php // Saat terjadwal: TIDAK tampilkan list peserta ?>
+                        <?php elseif ($categoryParticipants->isEmpty()): ?>
                             <div class="mt-6 rounded-[1.5rem] border border-dashed border-slate-700 bg-slate-950/50 p-6 text-sm text-slate-400">
                                 Belum ada peserta terverifikasi pada golongan ini.
                             </div>

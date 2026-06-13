@@ -7,6 +7,7 @@ use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraRound;
 use App\Models\MaqraSchedule;
+use App\Events\MaqraScheduleUpdated;
 use App\Models\OfficialAccessSetting;
 use App\Models\SessionSchedule;
 use App\Support\ActivityLogger;
@@ -701,6 +702,15 @@ POWERSHELL;
             ]
         );
 
+        // Broadcast schedule creation/update to all connected clients
+        \Illuminate\Support\Facades\Log::info('[MaqraSchedule] Broadcasting created event', [
+            'schedule_id' => $schedule->id,
+            'action' => 'created',
+            'category' => $schedule->category?->name,
+        ]);
+
+        MaqraScheduleUpdated::dispatch($schedule, 'created');
+
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal maqra berhasil ditambahkan.');
@@ -735,6 +745,12 @@ POWERSHELL;
             ]
         );
 
+        // Broadcast schedule update to all connected clients
+        MaqraScheduleUpdated::dispatch(
+            $maqraSchedule,
+            $maqraSchedule->is_active ? 'opened' : 'closed'
+        );
+
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal maqra berhasil diperbarui.');
@@ -745,6 +761,10 @@ POWERSHELL;
         abort_unless(auth()->user()?->role === 'admin', 403);
 
         $info = $maqraSchedule->category?->name.' ('.$maqraSchedule->round?->name.')';
+
+        // Broadcast before delete
+        MaqraScheduleUpdated::dispatch($maqraSchedule, 'deleted');
+
         $maqraSchedule->delete();
 
         ActivityLogger::log(
@@ -774,6 +794,18 @@ POWERSHELL;
             (auth()->user()?->name ?? 'Admin').' '.$status.' jadwal maqra untuk '.$info.'.',
             $maqraSchedule,
             ['is_active' => $maqraSchedule->is_active]
+        );
+
+        // Broadcast schedule update to all connected clients
+        \Illuminate\Support\Facades\Log::info('[MaqraSchedule] Broadcasting toggle event', [
+            'schedule_id' => $maqraSchedule->id,
+            'action' => $maqraSchedule->is_active ? 'opened' : 'closed',
+            'category' => $info,
+        ]);
+
+        MaqraScheduleUpdated::dispatch(
+            $maqraSchedule,
+            $maqraSchedule->is_active ? 'opened' : 'closed'
         );
 
         return redirect()

@@ -2938,7 +2938,10 @@ class PageController extends Controller
         return str_contains($haystack, 'seni baca al qur')
             || str_contains($haystack, 'hafalan al qur')
             || str_contains($haystack, 'tafsir al qur')
-            || str_contains($haystack, 'fahmil qur');
+            || str_contains($haystack, 'fahmil qur')
+            || str_contains($haystack, 'syarhil qur')
+            || str_contains($haystack, 'khatib')
+            || str_contains($haystack, 'muadzin');
     }
 
     public function categoryMaqraSystemLabel(CompetitionCategory $category): ?string
@@ -2950,6 +2953,9 @@ class PageController extends Controller
             str_contains($branch, 'hafalan al qur') => 'Tahfizh',
             str_contains($branch, 'tafsir al qur') => 'Tafsir',
             str_contains($branch, 'fahmil qur') => 'Fahmil',
+            str_contains($branch, 'syarhil qur') => 'Syarhil',
+            str_contains($branch, 'khatib') => 'Khatib',
+            str_contains($branch, 'muadzin') => 'Muadzin',
             default => null,
         };
     }
@@ -2961,13 +2967,18 @@ class PageController extends Controller
             'Tahfizh' => 'HFZ',
             'Tafsir' => 'TFS',
             'Fahmil' => 'FHL',
+            'Syarhil' => 'SYR',
+            'Khatib' => 'KTB',
+            'Muadzin' => 'MDZ',
             default => 'MQR',
         };
     }
 
     public function categoryMaqraUsesDistrictSharing(CompetitionCategory $category): bool
     {
-        return $this->categoryMaqraSystemLabel($category) === 'Fahmil';
+        $systemLabel = $this->categoryMaqraSystemLabel($category);
+
+        return in_array($systemLabel, ['Fahmil', 'Syarhil', 'Khatib', 'Muadzin']);
     }
 
     public function categoryMaqraRuleLabel(CompetitionCategory $category): string

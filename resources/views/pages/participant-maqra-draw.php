@@ -9,6 +9,8 @@ $maqraRound = (string) ($maqraRound ?? 'Penyisihan');
 $maqraRoundLabel = (string) ($maqraRoundLabel ?? 'Penyisihan');
 $maqraSystemLabel = (string) ($maqraSystemLabel ?? 'Maqra');
 $maqraCodePrefix = (string) ($maqraCodePrefix ?? 'MQR');
+$districtSharedMaqra = $districtSharedMaqra ?? false;
+$districtParticipants = $districtParticipants ?? collect();
 $maqraCandidates = collect($maqraCandidates ?? []);
 $maqraAssignedPackage = $maqraPackage ?? null;
 $maqraAssignedCode = (string) ($maqraAssignedPackage?->maqra_code ?? '');
@@ -34,9 +36,6 @@ $autoFullscreen = request()->boolean('autofullscreen');
 $maqraPackageCount = (int) ($maqraPackageCount ?? 0);
 $roundOptions = ['Penyisihan', 'Final'];
 $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
-$districtSharedMaqra = $participant?->category
-    ? app(\App\Http\Controllers\PageController::class)->categoryMaqraUsesDistrictSharing($participant->category)
-    : false;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -89,6 +88,55 @@ $districtSharedMaqra = $participant?->category
             style="grid-template-columns: 250px minmax(0, 1fr);"
         >
             <aside class="glass-card flex min-h-0 flex-col overflow-y-auto rounded-[2rem] p-4 lg:p-5">
+                <?php if ($districtSharedMaqra): ?>
+                <?php /* District-shared maqra: show district participants list */ ?>
+                <p class="section-kicker">Asal Kecamatan</p>
+                <div class="mt-3">
+                    <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3">
+                        <p class="text-sm font-semibold text-white"><?= e($participant?->district?->name ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php if ($districtParticipants->isNotEmpty()): ?>
+                <div class="mt-4">
+                    <p class="text-xs uppercase tracking-[0.2em] text-cyan-300 font-semibold">Peserta Satu Maqra</p>
+                    <p class="mt-1 text-[11px] text-slate-500"><?= e($districtParticipants->count()) ?> peserta</p>
+                    <div class="mt-3 space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                        <?php foreach ($districtParticipants as $dp): ?>
+                        <?php
+                            $dpPhoto = null;
+                            if (filled($dp->document_photo)) {
+                                $dpPhoto = asset('storage/'.ltrim(str_replace('\\', '/', $dp->document_photo), '/'));
+                            }
+                            $dpInitials = '';
+                            if ($dp->name) {
+                                $names = explode(' ', trim($dp->name));
+                                $dpInitials = strtoupper(substr($names[0] ?? '', 0, 1));
+                                if (count($names) > 1) {
+                                    $dpInitials .= strtoupper(substr($names[count($names) - 1] ?? '', 0, 1));
+                                }
+                            }
+                        ?>
+                        <div class="flex flex-col items-center rounded-2xl border p-4 <?= $dp->id === $participant->id ? 'border-cyan-400/50 bg-cyan-400/10' : 'border-slate-700/50 bg-slate-950/40' ?>">
+                            <div class="h-20 w-20 rounded-2xl border-2 border-white/20 bg-white/5 overflow-hidden flex items-center justify-center mb-3">
+                                <?php if (filled($dpPhoto)): ?>
+                                <img src="<?= e($dpPhoto) ?>" alt="" class="h-full w-full object-cover">
+                                <?php else: ?>
+                                <span class="text-2xl font-bold text-cyan-100"><?= e($dpInitials) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <p class="text-m font-semibold text-center <?= $dp->id === $participant->id ? 'text-cyan-100' : 'text-white' ?> mb-2"><?= e($dp->name) ?></p>
+                            <p class="text-sm <?= $dp->id === $participant->id ? 'text-cyan-300/70' : 'text-slate-400' ?> font-mono text-center">Lot: <?= e($dp->lot_number ?? '-') ?></p>
+                            <?php if (filled($dp->nik)): ?>
+                            <p class="text-sm <?= $dp->id === $participant->id ? 'text-cyan-300/70' : 'text-slate-400' ?> font-mono text-center">NIK: <?= e($dp->nik) ?></p>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php else: ?>
+                <?php /* Regular: show single participant */ ?>
                 <p class="section-kicker">Peserta</p>
                 <div class="mt-2 overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/60">
                     <div class="aspect-[4/5] bg-slate-950/80">
@@ -108,65 +156,61 @@ $districtSharedMaqra = $participant?->category
                     </div>
                 </div>
                 <div class="mt-3 inline-flex w-fit rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100">
-                    <?= e($participant?->registration_number) ?>
+                    <?= e($participant?->lot_number ?? '-') ?>
                 </div>
                 <div class="mt-3 space-y-2.5">
                     <div class="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2.5">
                         <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Kecamatan</p>
                         <p class="mt-1.5 text-sm font-semibold text-white"><?= e($participant?->district?->name ?? '-') ?></p>
                     </div>
-                    <div class="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2.5">
-                        <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Golongan</p>
-                        <p class="mt-1.5 text-sm font-semibold text-white"><?= e(trim((string) ($participant?->category?->branch ?? '-').' - '.(string) ($participant?->category?->name ?? '-'))) ?></p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2.5">
-                        <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Sistem Maqra</p>
-                        <div class="mt-1.5 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">
-                            <?= e($maqraSystemLabel) ?>
-                        </div>
-                    </div>
-                    <div class="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2.5">
-                        <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Babak</p>
-                        <div class="mt-1.5 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">
-                            <?= e($maqraRoundLabel) ?>
-                        </div>
-                    </div>
                 </div>
+                <?php endif; ?>
             </aside>
 
             <section class="relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-cyan-400/20 bg-slate-950/60 p-4 shadow-[0_30px_120px_-50px_rgba(15,23,42,0.95)] backdrop-blur-xl sm:p-5">
                 <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-fuchsia-500"></div>
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p class="section-kicker">Nomor Maqra</p>
-                        <h2 class="mt-1.5 text-[1.65rem] font-black tracking-tight text-white xl:text-[1.9rem]">Paket akan berputar sebelum terkunci</h2>
-                        <p class="mt-1.5 max-w-xl text-[11px] leading-5 text-slate-300 sm:text-xs">Gunakan mode ini untuk pengambilan maqra pada cabang yang memang memakainya. Paket diacak dari data testing sesuai babak yang dipilih.</p>
+
+                <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <p class="text-center text-xs uppercase tracking-[0.2em] text-slate-400 mb-6">Info Golongan</p>
+                    <div class="flex flex-wrap items-start justify-center gap-6">
+                        <div class="flex-1 min-w-[120px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Golongan</p>
+                            <p class="text-base font-semibold text-cyan-200"><?= e(trim((string) ($participant?->category?->branch ?? '-').' - '.(string) ($participant?->category?->name ?? '-'))) ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[100px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Sistem</p>
+                            <p class="text-base font-semibold text-white"><?= e($maqraSystemLabel) ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[80px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Kode</p>
+                            <p class="text-2xl font-black tracking-[0.24em] text-cyan-200"><?= e($maqraCodePrefix) ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[80px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Babak</p>
+                            <p class="text-base font-semibold text-white"><?= e($maqraRoundLabel) ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[100px] text-center px-4 py-3">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Jumlah Paket</p>
+                            <p class="text-base font-semibold text-white"><?= e(number_format($maqraPackageCount)) ?></p>
+                        </div>
                     </div>
-                    <div class="rounded-[1.3rem] border border-white/10 bg-white/5 px-3 py-2.5 text-right">
-                        <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Sistem</p>
-                        <p class="mt-1 text-base font-black tracking-[0.24em] text-cyan-200"><?= e($maqraSystemLabel) ?></p>
-                        <p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Nama QS</p>
-                        <p class="mt-1 text-xs font-semibold text-white"><?= e($maqraAssignedLabel ?: $maqraCodePrefix) ?></p>
-                        <p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Jumlah Paket</p>
-                        <p class="mt-1 text-xs font-semibold text-white"><?= e(number_format($maqraPackageCount)) ?></p>
-                        <?php if (! $maqraAssigned && $maqraPackageCount <= 0): ?>
-                            <div class="mt-3 inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-100">
+                    <?php if (! $maqraAssigned && $maqraPackageCount <= 0): ?>
+                        <div class="mt-4 flex justify-center">
+                            <div class="inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-rose-100">
                                 Stok maqra habis
                             </div>
-                        <?php elseif (! $maqraAssigned && $maqraCandidates->isEmpty()): ?>
-                            <div class="mt-3 inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100">
+                        </div>
+                    <?php elseif (! $maqraAssigned && $maqraCandidates->isEmpty()): ?>
+                        <div class="mt-4 flex justify-center">
+                            <div class="inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
                                 Belum ada kandidat maqra
                             </div>
-                        <?php endif; ?>
-                    </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
-                <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <?php foreach ($roundOptions as $roundOption): ?>
-                        <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.$roundOption) ?>" class="rounded-full border px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition <?= $currentRoundLabel === $roundOption ? 'border-cyan-300/40 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600' ?>">
-                            <?= e($roundOption) ?>
-                        </a>
-                    <?php endforeach; ?>
+                <div class="mt-4 flex flex-wrap items-center justify-center gap-4">
+                    <p class="text-sm text-slate-300">Tekan tombol di bawah atau tekan <strong class="text-cyan-200">Enter</strong> untuk mengambil maqra.</p>
                 </div>
 
                 <div class="mt-4 grid flex-1 min-h-0 gap-4">
@@ -623,6 +667,13 @@ $districtSharedMaqra = $participant?->category
                     rollingLabel.textContent = 'Tidak tersedia';
                 } else {
                     button.addEventListener('click', startDraw);
+                    // Enter key support
+                    document.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !button.disabled && !drawStarted) {
+                            e.preventDefault();
+                            startDraw();
+                        }
+                    });
                 }
             } else {
                 finalizeDisplay({

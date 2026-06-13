@@ -1677,6 +1677,18 @@ class ParticipantRegistrationController extends Controller
         abort_unless($this->participantUsesMaqra($participant), 403, 'Kategori peserta ini tidak menggunakan pengambilan maqra.');
 
         $category = $participant->category;
+        $districtSharedMaqra = app(PageController::class)->categoryMaqraUsesDistrictSharing($category);
+
+        // For district-shared maqra categories, get all participants from same district
+        $districtParticipants = collect();
+        if ($districtSharedMaqra && $participant->district_id) {
+            $districtParticipants = Participant::query()
+                ->where('competition_category_id', $participant->competition_category_id)
+                ->where('district_id', $participant->district_id)
+                ->where('verification_status', 'verified')
+                ->orderBy('name')
+                ->get(['id', 'name', 'nik', 'kk_number', 'document_photo']);
+        }
 
         $candidatePackages = MaqraPackage::query()
             ->where('competition_category_id', $participant->competition_category_id)
@@ -1712,6 +1724,8 @@ class ParticipantRegistrationController extends Controller
             'maqraPackageCount' => $candidatePackages->count(),
             'maqraPhotoDataUri' => $this->participantPhotoDataUri((string) ($participant->document_photo ?? '')),
             'initials' => $this->participantInitials($participant),
+            'districtSharedMaqra' => $districtSharedMaqra,
+            'districtParticipants' => $districtParticipants,
         ]);
     }
 
@@ -1867,6 +1881,45 @@ class ParticipantRegistrationController extends Controller
         return redirect()
             ->route('participants.maqra.draw', ['participant' => $participant, 'round' => $roundLabel])
             ->with('status', 'Maqra peserta '.$participant->name.' berhasil diambil.');
+    }
+
+    /**
+     * API endpoint for polling maqra schedule updates.
+     * Used as fallback when WebSocket (Reverb) is unavailable.
+     */
+    public function checkMaqraSchedule(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        abort_unless($user, 401);
+
+        $roundLabel = (string) ($request->query('round') ?? 'Penyisihan');
+        $round = \App\Models\MaqraRound::where('name', $roundLabel)->first();
+
+        if (! $round) {
+            return response()->json(['schedules' => []]);
+        }
+
+        $schedules = \App\Models\MaqraSchedule::where('round_id', $round->id)
+            ->where('is_active', true)
+            ->get()
+            ->map(function ($schedule) {
+                return [
+                    'schedule_id' => $schedule->id,
+                    'category_id' => $schedule->category_id,
+                    'category_name' => $schedule->category?->name,
+                    'round_id' => $schedule->round_id,
+                    'round_name' => $schedule->round?->name,
+                    'action' => $schedule->is_active ? 'opened' : 'closed',
+                    'is_active' => $schedule->is_active,
+                    'open_at' => $schedule->open_at?->toIso8601String(),
+                    'close_at' => $schedule->close_at?->toIso8601String(),
+                    'lot_min' => $schedule->lot_min,
+                    'lot_max' => $schedule->lot_max,
+                    'updated_at' => $schedule->updated_at?->toIso8601String(),
+                ];
+            });
+
+        return response()->json(['schedules' => $schedules]);
     }
 
     /**
