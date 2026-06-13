@@ -2898,7 +2898,7 @@ class PageController extends Controller
         }
 
         if (str_contains($branch, 'khutbah') || str_contains($branch, 'adzan')) {
-            return 1;
+            return 2;
         }
 
         return 1;

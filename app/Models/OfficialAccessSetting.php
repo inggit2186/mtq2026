@@ -22,6 +22,7 @@ class OfficialAccessSetting extends Model
         'participant_maqra_lot_max',
         'participant_maqra_lot_ranges',
         'participant_maqra_category_ids',
+        'participant_maqra_category_schedules',
     ];
 
     protected function casts(): array
@@ -41,6 +42,7 @@ class OfficialAccessSetting extends Model
             'participant_maqra_lot_max' => 'integer',
             'participant_maqra_lot_ranges' => 'array',
             'participant_maqra_category_ids' => 'array',
+            'participant_maqra_category_schedules' => 'array',
         ];
     }
 
@@ -61,6 +63,8 @@ class OfficialAccessSetting extends Model
             'participant_maqra_lot_max' => null,
             'participant_maqra_lot_ranges' => [],
             'participant_maqra_category_ids' => [],
+            'participant_maqra_open_at' => null,
+            'participant_maqra_close_at' => null,
         ];
     }
 
@@ -237,5 +241,206 @@ class OfficialAccessSetting extends Model
     public function maqraAnyRoundEnabled(): bool
     {
         return $this->maqraRoundEnabled('Penyisihan') || $this->maqraRoundEnabled('Final');
+    }
+
+    public function getMaqraScheduleForCategory(?int $categoryId): ?array
+    {
+        $schedules = $this->getAttribute('participant_maqra_category_schedules') ?? [];
+        if (! is_array($schedules) || ! $categoryId) {
+            return null;
+        }
+        return $schedules[$categoryId] ?? null;
+    }
+
+    public function isMaqraCategoryEnabled(?int $categoryId): bool
+    {
+        $schedule = $this->getMaqraScheduleForCategory($categoryId);
+        return (bool) ($schedule['enabled'] ?? false);
+    }
+
+    public function isMaqraCategoryScheduleActive(?int $categoryId): bool
+    {
+        $schedule = $this->getMaqraScheduleForCategory($categoryId);
+        if (! $schedule) {
+            return false;
+        }
+
+        $enabled = (bool) ($schedule['enabled'] ?? false);
+        if (! $enabled) {
+            return false;
+        }
+
+        $now = now();
+        $openAt = $schedule['open_at'] ?? null;
+        $closeAt = $schedule['close_at'] ?? null;
+
+        // If no schedule set, return true (always active while enabled)
+        if (! $openAt && ! $closeAt) {
+            return true;
+        }
+
+        // Check open time if set
+        if ($openAt) {
+            $openTime = \Carbon\Carbon::parse($openAt);
+            if ($now->lt($openTime)) {
+                return false;
+            }
+        }
+
+        // Check close time if set
+        if ($closeAt) {
+            $closeTime = \Carbon\Carbon::parse($closeAt);
+            if ($now->gt($closeTime)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function getMaqraLotRangeForCategory(?int $categoryId): ?array
+    {
+        $schedule = $this->getMaqraScheduleForCategory($categoryId);
+        if (! $schedule) {
+            return null;
+        }
+
+        $lotMin = (int) ($schedule['lot_min'] ?? 0);
+        $lotMax = (int) ($schedule['lot_max'] ?? 0);
+
+        if ($lotMin <= 0 || $lotMax <= 0) {
+            return null;
+        }
+
+        if ($lotMax < $lotMin) {
+            [$lotMin, $lotMax] = [$lotMax, $lotMin];
+        }
+
+        return ['min' => $lotMin, 'max' => $lotMax];
+    }
+
+    public function getMaqraScheduleStatusForCategory(?int $categoryId): array
+    {
+        $schedule = $this->getMaqraScheduleForCategory($categoryId);
+
+        if (! $schedule) {
+            return [
+                'enabled' => false,
+                'status' => 'not_configured',
+                'label' => 'Belum Diatur',
+                'color' => 'slate',
+            ];
+        }
+
+        $enabled = (bool) ($schedule['enabled'] ?? false);
+
+        if (! $enabled) {
+            return [
+                'enabled' => false,
+                'status' => 'disabled',
+                'label' => 'Ditutup',
+                'color' => 'slate',
+            ];
+        }
+
+        $now = now();
+        $openAt = $schedule['open_at'] ?? null;
+        $closeAt = $schedule['close_at'] ?? null;
+
+        if (! $openAt && ! $closeAt) {
+            return [
+                'enabled' => true,
+                'status' => 'always_open',
+                'label' => 'Selalu Buka',
+                'color' => 'emerald',
+                'open_at' => null,
+                'close_at' => null,
+            ];
+        }
+
+        if ($openAt && $closeAt) {
+            $openTime = \Carbon\Carbon::parse($openAt);
+            $closeTime = \Carbon\Carbon::parse($closeAt);
+
+            if ($now->lt($openTime)) {
+                return [
+                    'enabled' => true,
+                    'status' => 'scheduled',
+                    'label' => 'Terjadwal',
+                    'color' => 'amber',
+                    'open_at' => $openAt,
+                    'close_at' => $closeAt,
+                ];
+            }
+            if ($now->between($openTime, $closeTime)) {
+                return [
+                    'enabled' => true,
+                    'status' => 'open',
+                    'label' => 'Sedang Buka',
+                    'color' => 'emerald',
+                    'open_at' => $openAt,
+                    'close_at' => $closeAt,
+                ];
+            }
+            return [
+                'enabled' => true,
+                'status' => 'closed',
+                'label' => 'Sudah Tutup',
+                'color' => 'slate',
+                'open_at' => $openAt,
+                'close_at' => $closeAt,
+            ];
+        }
+
+        if ($openAt) {
+            $openTime = \Carbon\Carbon::parse($openAt);
+            if ($now->lt($openTime)) {
+                return [
+                    'enabled' => true,
+                    'status' => 'scheduled',
+                    'label' => 'Terjadwal',
+                    'color' => 'amber',
+                    'open_at' => $openAt,
+                    'close_at' => null,
+                ];
+            }
+            return [
+                'enabled' => true,
+                'status' => 'open',
+                'label' => 'Buka (tanpa batas)',
+                'color' => 'emerald',
+                'open_at' => $openAt,
+                'close_at' => null,
+            ];
+        }
+
+        if ($closeAt) {
+            $closeTime = \Carbon\Carbon::parse($closeAt);
+            if ($now->gt($closeTime)) {
+                return [
+                    'enabled' => true,
+                    'status' => 'closed',
+                    'label' => 'Sudah Tutup',
+                    'color' => 'slate',
+                    'open_at' => null,
+                    'close_at' => $closeAt,
+                ];
+            }
+            return [
+                'enabled' => true,
+                'status' => 'open',
+                'label' => 'Buka sampai '.$closeTime->format('H:i'),
+                'color' => 'emerald',
+                'open_at' => null,
+                'close_at' => $closeAt,
+            ];
+        }
+
+        return [
+            'enabled' => true,
+            'status' => 'always_open',
+            'label' => 'Selalu Buka',
+            'color' => 'emerald',
+        ];
     }
 }

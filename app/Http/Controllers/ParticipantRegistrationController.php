@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MaqraAssigned;
 use App\Events\ParticipantVerificationUpdated;
 use App\Models\ArchivedParticipant;
 use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraPackage;
+use App\Models\MaqraRound;
+use App\Models\MaqraSchedule;
 use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
 use App\Models\ParticipantMaqraDraw;
@@ -1330,15 +1333,19 @@ class ParticipantRegistrationController extends Controller
             'participant_id' => ['nullable', 'integer'],
         ]);
 
-        $roundLabel = in_array((string) ($filters['round'] ?? null), ['Penyisihan', 'Final'], true)
-            ? (string) $filters['round']
-            : 'Penyisihan';
+        // Get round from MaqraRound table
+        $roundLabel = (string) ($filters['round'] ?? 'Penyisihan');
+        $round = MaqraRound::query()
+            ->where('slug', strtolower($roundLabel))
+            ->orWhere('name', $roundLabel)
+            ->first();
+        $activeRoundLabel = $round?->name ?? 'Penyisihan';
 
         if ($user?->role !== 'admin') {
             abort_unless(
-                $this->officialMaqraRoundEnabled($roundLabel),
+                $this->officialMaqraRoundEnabled($activeRoundLabel),
                 403,
-                sprintf('Masa ambil maqra babak %s untuk official sedang ditutup oleh admin.', $roundLabel)
+                sprintf('Masa ambil maqra babak %s untuk official sedang ditutup oleh admin.', $activeRoundLabel)
             );
         }
 
@@ -1346,7 +1353,13 @@ class ParticipantRegistrationController extends Controller
             ? District::query()->find($user?->district_id)
             : null;
         $allowedCategoryIds = $this->allowedMaqraCategoryIdsForUser($user);
-        $maqraOpenCategoryIds = $this->officialAccessSetting()->maqraOpenCategoryIds();
+
+        // Get open category IDs from MaqraSchedule
+        $maqraOpenCategoryIds = MaqraSchedule::currentlyOpen()
+            ->pluck('category_id')
+            ->unique()
+            ->values()
+            ->all();
         $applyMaqraCategoryFilter = $maqraOpenCategoryIds !== [];
 
         $participantsQuery = Participant::query()
@@ -1362,34 +1375,73 @@ class ParticipantRegistrationController extends Controller
             ->filter(fn (Participant $participant): bool => $this->participantUsesMaqra($participant))
             ->values();
 
-        if (in_array($user?->role, ['official', 'pendamping'], true)) {
+        // Lot range filter for official/pendamping - only apply if schedules exist
+        $hasAnySchedule = MaqraSchedule::currentlyOpen()->exists();
+        if (in_array($user?->role, ['official', 'pendamping'], true) && $hasAnySchedule) {
             $participants = $participants
                 ->filter(function (Participant $participant): bool {
-                    $maqraLotRange = $this->officialAccessSetting()->maqraOpenLotRangeForCategory((int) $participant->competition_category_id);
+                    $participantLotSequence = $this->participantLotSequenceNumber($participant);
 
-                    if (! is_array($maqraLotRange)) {
+                    if (! filled($participantLotSequence)) {
                         return true;
                     }
 
-                    $lotSequence = $this->participantLotSequenceNumber($participant);
-                    $lotMin = (int) ($maqraLotRange['min'] ?? 0);
-                    $lotMax = (int) ($maqraLotRange['max'] ?? 0);
+                    // Check if participant's lot is in any active schedule for their category
+                    $hasValidSchedule = MaqraSchedule::currentlyOpen()
+                        ->forCategory((int) $participant->competition_category_id)
+                        ->get()
+                        ->contains(fn ($schedule) => $schedule->isLotInRange((int) $participantLotSequence));
 
-                    return filled($lotSequence)
-                        && $lotSequence >= $lotMin
-                        && $lotSequence <= $lotMax;
+                    return $hasValidSchedule;
                 })
                 ->values();
         }
 
-        $categoryIds = $participants->pluck('competition_category_id')->filter()->unique()->values();
+        // Get active schedules for current round - include both active and scheduled
+        $round = MaqraRound::query()
+            ->where('name', $activeRoundLabel)
+            ->first();
+
+        $allSchedules = collect();
+        if ($round) {
+            $allSchedules = MaqraSchedule::query()
+                ->where('round_id', $round->id)
+                ->where('is_active', true)
+                ->with('round')
+                ->get();
+        }
+
+        // Get schedules grouped by category
+        $schedulesByCategory = $allSchedules->groupBy('category_id');
+
+        // Filter categories to only show those with schedules for current round
+        $scheduledCategoryIds = $schedulesByCategory->keys()->toArray();
         $categories = CompetitionCategory::query()
-            ->when($categoryIds->isNotEmpty(), fn ($query) => $query->whereIn('id', $categoryIds))
-            ->when($applyMaqraCategoryFilter, fn ($query) => $query->whereIn('id', $maqraOpenCategoryIds))
+            ->when(count($scheduledCategoryIds) > 0, fn ($query) => $query->whereIn('id', $scheduledCategoryIds))
             ->orderBy('sort_order')
             ->orderBy('branch')
             ->orderBy('name')
             ->get();
+
+        // Build category schedule data with countdown info
+        $categoryScheduleData = [];
+        foreach ($schedulesByCategory as $categoryId => $schedules) {
+            $now = now();
+            $upcomingSchedule = $schedules
+                ->filter(fn ($s) => $s->open_at && $now->lt($s->open_at))
+                ->sortBy('open_at')
+                ->first();
+            $currentSchedule = $schedules
+                ->filter(fn ($s) => $s->isCurrentlyOpen())
+                ->first();
+
+            $categoryScheduleData[$categoryId] = [
+                'schedules' => $schedules,
+                'current' => $currentSchedule,
+                'upcoming' => $upcomingSchedule,
+                'status' => $currentSchedule ? 'active' : ($upcomingSchedule ? 'scheduled' : 'closed'),
+            ];
+        }
 
         $participantsByCategory = $participants->groupBy(fn (Participant $participant) => (int) $participant->competition_category_id);
 
@@ -1434,21 +1486,15 @@ class ParticipantRegistrationController extends Controller
             'panitia' => 'Golongan sesuai hak akses',
             default => $district?->name ?? 'Semua Kecamatan',
         };
-        $maqraOpenCategoryIds = $this->officialAccessSetting()->maqraOpenCategoryIds();
-        $maqraOpenCategoriesSummary = $categories
-            ->filter(fn (CompetitionCategory $category): bool => in_array((int) $category->id, $maqraOpenCategoryIds, true))
-            ->map(function (CompetitionCategory $category): array {
-                $range = $this->officialAccessSetting()->maqraOpenLotRangeForCategory((int) $category->id);
 
-                return [
-                    'id' => (int) $category->id,
-                    'label' => trim((string) $category->branch.' - '.(string) $category->name),
-                    'range_label' => is_array($range)
-                        ? sprintf('%02d - %02d', (int) ($range['min'] ?? 0), (int) ($range['max'] ?? 0))
-                        : 'Semua lot',
-                ];
-            })
-            ->values();
+        // Check if round has any active schedule
+        $roundHasActiveSchedule = $allSchedules->isNotEmpty();
+
+        // Get lot range for selected category from active schedule
+        $selectedCategorySchedule = $allSchedules->firstWhere('category_id', (int) ($selectedCategory?->id ?? 0));
+        $selectedCategoryLotRange = $selectedCategorySchedule
+            ? ['min' => $selectedCategorySchedule->lot_min, 'max' => $selectedCategorySchedule->lot_max]
+            : null;
 
         return view('pages.pengambilan-maqra-v2', [
             'assets' => app(PageController::class)->viteAssets(),
@@ -1462,8 +1508,8 @@ class ParticipantRegistrationController extends Controller
             'participants' => $participants,
             'selectedCategory' => $selectedCategory,
             'selectedParticipant' => $selectedParticipant,
-            'roundLabel' => $roundLabel,
-            'maqraOpenCategoriesSummary' => $maqraOpenCategoriesSummary,
+            'roundLabel' => $activeRoundLabel,
+            'categoryScheduleData' => $categoryScheduleData,
             'summaryStats' => [
                 'category_total' => $categories->count(),
                 'participant_total' => $participants->count(),
@@ -1471,10 +1517,14 @@ class ParticipantRegistrationController extends Controller
             ],
             'maqraRemainingPackagesByCategory' => $maqraRemainingPackagesByCategory,
             'filters' => [
-                'round' => $roundLabel,
+                'round' => $activeRoundLabel,
                 'participant_id' => $selectedParticipant?->id ?? '',
             ],
             'judgeNameDefault' => (string) auth()->user()?->name,
+            // New variables for maqra schedule system
+            'maqraRoundHasActiveSchedule' => $roundHasActiveSchedule,
+            'maqraSelectedCategoryLotRange' => $selectedCategoryLotRange,
+            'maqraActiveSchedules' => $allSchedules,
         ]);
     }
 
@@ -1485,6 +1535,21 @@ class ParticipantRegistrationController extends Controller
         $this->authorizeParticipantLotAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar undian hanya tersedia untuk peserta yang sudah terverifikasi.');
 
+        $groupSize = $this->participantLotGroupSize($participant);
+        $isLotPerDistrict = $this->isLotPerDistrictCategory($participant->category);
+
+        // For lot-per-district categories, get all participants from same district and gender
+        $districtParticipants = collect();
+        if ($isLotPerDistrict && $participant->district_id && $participant->gender) {
+            $districtParticipants = Participant::query()
+                ->where('competition_category_id', $participant->competition_category_id)
+                ->where('district_id', $participant->district_id)
+                ->where('gender', $participant->gender)
+                ->where('verification_status', 'verified')
+                ->orderBy('name')
+                ->get(['id', 'name', 'nik', 'kk_number', 'lot_number', 'lot_assigned_at', 'document_photo']);
+        }
+
         return view('pages.participant-lot-draw', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
@@ -1492,12 +1557,16 @@ class ParticipantRegistrationController extends Controller
             'lotPrefix' => $this->participantLotPrefix($participant),
             'lotRangeLabel' => app(PageController::class)->categoryLotRangeLabel($participant->category),
             'lotRuleLabel' => app(PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender),
-            'lotGroupSize' => app(PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender),
+            'lotGroupSize' => $groupSize,
             'lotParity' => $participant->gender === 'putra' ? 'even' : 'odd',
             'photoDataUri' => $this->participantPhotoDataUri((string) ($participant->document_photo ?? '')),
             'initials' => $this->participantInitials($participant),
             'participantNik' => $participant->nik,
             'participantKkNumber' => $participant->kk_number,
+            'isLotPerDistrict' => $isLotPerDistrict,
+            'districtParticipants' => $districtParticipants,
+            'categoryLabel' => trim((string) ($participant->category?->branch ?? '-'). ' - '. (string) ($participant->category?->name ?? '-')),
+            'parityLabel' => $participant->gender === 'putra' ? 'Putra / Genap' : 'Putri / Ganjil',
         ]);
     }
 
@@ -1756,6 +1825,25 @@ class ParticipantRegistrationController extends Controller
             ]
         );
 
+        // Broadcast maqra assignment event (with fallback try-catch in case Reverb is down)
+        try {
+            if ($draw->maqraPackage) {
+                MaqraAssigned::dispatch(
+                    $participant,
+                    $draw->maqraPackage,
+                    $roundLabel,
+                    (string) (auth()->user()?->name ?? 'System'),
+                    (bool) ($drawResult['shared'] ?? false)
+                );
+            }
+        } catch (\Throwable $e) {
+            // Log error but don't fail the request - broadcast is optional
+            \Log::warning('MaqraAssigned broadcast failed: '.$e->getMessage(), [
+                'participant_id' => $participant->id,
+                'round_label' => $roundLabel,
+            ]);
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'ok',
@@ -1779,6 +1867,32 @@ class ParticipantRegistrationController extends Controller
         return redirect()
             ->route('participants.maqra.draw', ['participant' => $participant, 'round' => $roundLabel])
             ->with('status', 'Maqra peserta '.$participant->name.' berhasil diambil.');
+    }
+
+    /**
+     * API endpoint for polling maqra assignment status.
+     * Used as fallback when WebSocket (Reverb) is unavailable.
+     */
+    public function maqraStatus(Request $request, Participant $participant): JsonResponse
+    {
+        $user = auth()->user();
+        abort_unless($user, 401);
+
+        $roundLabel = (string) ($request->query('round') ?? 'Penyisihan');
+
+        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage']);
+
+        $currentDraw = $participant->maqraDraws->firstWhere('round_label', $roundLabel);
+
+        return response()->json([
+            'participant_id' => $participant->id,
+            'assigned' => $currentDraw !== null,
+            'maqra_package_id' => $currentDraw?->maqra_package_id,
+            'maqra_code' => $currentDraw?->maqraPackage?->maqra_code,
+            'maqra_title' => $currentDraw?->maqraPackage?->title,
+            'drawn_at' => optional($currentDraw?->drawn_at)?->toIso8601String(),
+            'round_label' => $roundLabel,
+        ]);
     }
 
     public function resetMaqra(Request $request, Participant $participant): RedirectResponse
@@ -2321,21 +2435,20 @@ class ParticipantRegistrationController extends Controller
             abort(403, 'Golongan peserta ini belum dibuka untuk pengambilan maqra oleh admin.');
         }
 
+        // Check lot range from MaqraSchedule
         if ($user?->role !== 'admin') {
-            $maqraLotRange = $this->officialAccessSetting()->maqraOpenLotRangeForCategory((int) $participant->competition_category_id);
-            if (is_array($maqraLotRange)) {
-                $participantLotSequence = $this->participantLotSequenceNumber($participant);
-                $lotMin = (int) ($maqraLotRange['min'] ?? 0);
-                $lotMax = (int) ($maqraLotRange['max'] ?? 0);
+            $participantLotSequence = $this->participantLotSequenceNumber($participant);
 
-                abort_unless(
-                    filled($participantLotSequence) && $participantLotSequence >= $lotMin && $participantLotSequence <= $lotMax,
-                    403,
-                    sprintf(
-                        'Pengambilan maqra untuk nomor lot %s belum dibuka oleh admin.',
-                        $participant->lot_number ?: '-'
-                    )
-                );
+            if (filled($participantLotSequence)) {
+                $hasValidSchedule = MaqraSchedule::currentlyOpen()
+                    ->forCategory((int) $participant->competition_category_id)
+                    ->get()
+                    ->contains(fn ($schedule) => $schedule->isLotInRange((int) $participantLotSequence));
+
+                abort_unless($hasValidSchedule, 403, sprintf(
+                    'Pengambilan maqra untuk nomor lot %s belum dibuka oleh admin.',
+                    $participant->lot_number ?: '-'
+                ));
             }
         }
     }
@@ -2411,10 +2524,28 @@ class ParticipantRegistrationController extends Controller
         }
 
         if ($user->role === 'admin') {
+            // Admin can see all categories if no schedule exists
+            // Return null to skip category filter
             return null;
         }
 
-        $openCategoryIds = $this->officialAccessSetting()->maqraOpenCategoryIds();
+        // Get category IDs from active maqra schedules
+        $openCategoryIds = MaqraSchedule::query()
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $now = now();
+                $query->whereNull('open_at')
+                    ->orWhere('open_at', '<=', $now);
+            })
+            ->where(function ($query) {
+                $now = now();
+                $query->whereNull('close_at')
+                    ->orWhere('close_at', '>=', $now);
+            })
+            ->pluck('category_id')
+            ->unique()
+            ->values()
+            ->all();
 
         if (in_array($user->role, ['official', 'pendamping'], true)) {
             return $openCategoryIds;
@@ -2449,7 +2580,8 @@ class ParticipantRegistrationController extends Controller
             return false;
         }
 
-        if ($role !== 'admin' && ! $this->officialAccessSetting()->maqraAnyRoundEnabled()) {
+        // Check if there's any active maqra schedule
+        if ($role !== 'admin' && ! MaqraSchedule::currentlyOpen()->exists()) {
             return false;
         }
 
@@ -2470,9 +2602,20 @@ class ParticipantRegistrationController extends Controller
 
     protected function officialMaqraRoundEnabled(string $roundLabel): bool
     {
-        $round = in_array($roundLabel, ['Penyisihan', 'Final'], true) ? $roundLabel : 'Penyisihan';
+        // Check if there's any active schedule for this round
+        $round = MaqraRound::query()
+            ->where('slug', strtolower($roundLabel))
+            ->orWhere('name', $roundLabel)
+            ->first();
 
-        return $this->officialAccessSetting()->maqraRoundEnabled($round);
+        if (! $round) {
+            return false;
+        }
+
+        return MaqraSchedule::query()
+            ->where('round_id', $round->id)
+            ->where('is_active', true)
+            ->exists();
     }
 
     protected function maqraRoundFromRequest(Request $request): string
@@ -2517,6 +2660,19 @@ class ParticipantRegistrationController extends Controller
         }
 
         return app(PageController::class)->categoryLotGroupSize($participant->category, (string) $participant->gender);
+    }
+
+    protected function isLotPerDistrictCategory(CompetitionCategory $category): bool
+    {
+        $lotPerDistrictBranches = [
+            'Fahmil Qur`an',
+            'Syarhil Qur`an',
+            'Khutbah Jumat dan Adzan',
+        ];
+
+        $branch = (string) ($category->branch ?? '');
+
+        return in_array($branch, $lotPerDistrictBranches);
     }
 
     protected function existingSharedParticipantLotNumber(Participant $participant, int $groupSize): ?string

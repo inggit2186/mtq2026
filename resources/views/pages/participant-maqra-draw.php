@@ -688,6 +688,123 @@ $districtSharedMaqra = $participant?->category
                 setTimeout(tryFullscreen, 250);
                 setTimeout(tryFullscreen, 900);
             }
+
+            // ========================================
+            // Realtime sync: Reverb broadcast + polling fallback
+            // ========================================
+
+            const participantId = <?= json_encode((int) ($participant?->id ?? 0)) ?>;
+            const maqraStatusUrl = <?= json_encode(route('participants.maqra.status', $participant), JSON_UNESCAPED_SLASHES) ?>;
+            let isLockedByOther = false;
+            let currentAssignedBy = null;
+
+            // Function to handle when maqra is assigned by another user
+            function handleMaqraLockedByOther(data) {
+                if (isLockedByOther) return; // Already handled
+
+                isLockedByOther = true;
+                currentAssignedBy = data.assigned_by || 'Official lain';
+
+                statusDisplay.textContent = 'Sudah dikunci';
+                rollingLabel.textContent = 'Dikunci oleh ' + currentAssignedBy;
+
+                // Disable button
+                button.disabled = true;
+                button.classList.add('opacity-60', 'cursor-not-allowed');
+                button.innerHTML = '&#10003; Sudah Dikunci';
+
+                // Show alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'fixed bottom-4 right-4 z-50 rounded-2xl border border-amber-400/30 bg-amber-500/20 px-4 py-3 text-sm text-amber-100 shadow-lg';
+                alertDiv.innerHTML = '<strong>Perhatian:</strong> Maqra sudah dikunci oleh ' + currentAssignedBy + '. Halaman akan di-refresh.';
+                document.body.appendChild(alertDiv);
+
+                // Refresh page after 3 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            }
+
+            // Polling fallback - check status every 5 seconds
+            let pollingInterval = null;
+            let echoConnected = false;
+
+            async function pollMaqraStatus() {
+                if (isLockedByOther) {
+                    stopPolling();
+                    return;
+                }
+
+                try {
+                    const url = new URL(maqraStatusUrl);
+                    url.searchParams.set('round', roundLabel);
+
+                    const response = await fetch(url, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.assigned && !alreadyAssigned) {
+                            // Maqra was assigned by someone else while we were watching
+                            handleMaqraLockedByOther({
+                                assigned_by: 'Official lain',
+                                maqra_code: data.maqra_code,
+                                maqra_title: data.maqra_title
+                            });
+                        }
+                    }
+                } catch (error) {
+                    // Silently ignore polling errors - it's a fallback
+                }
+            }
+
+            function startPolling() {
+                if (pollingInterval) return;
+                pollingInterval = setInterval(pollMaqraStatus, 5000);
+                pollMaqraStatus(); // Immediate first check
+            }
+
+            function stopPolling() {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+            }
+
+            // Listen for Reverb broadcast (if Echo is available)
+            if (window.Echo) {
+                window.Echo.channel('mtq-live')
+                    .listen('.maqra.assigned', (data) => {
+                        if (data.participant_id === participantId && data.round_label === roundLabel && !alreadyAssigned) {
+                            echoConnected = true;
+                            handleMaqraLockedByOther(data);
+                        }
+                    })
+                    .error((error) => {
+                        console.warn('Echo connection failed, using polling fallback:', error);
+                        startPolling();
+                    });
+            } else {
+                // Echo not available, use polling only
+                console.info('Echo not available, using polling fallback');
+                startPolling();
+            }
+
+            // Also start polling as fallback in case Echo doesn't fire
+            setTimeout(() => {
+                if (!echoConnected && !isLockedByOther) {
+                    startPolling();
+                }
+            }, 3000);
+
+            // Stop polling when user starts draw
+            button?.addEventListener('click', () => {
+                stopPolling();
+            });
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', stopPolling);
         })();
     </script>
 </body>

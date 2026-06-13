@@ -24,6 +24,9 @@ $autoFullscreen = request()->boolean('autofullscreen');
 $lotRangeLabel = (string) ($lotRangeLabel ?? '01 - 99');
 $participantNik = $participantNik ?? $participant?->nik ?? '';
 $participantKkNumber = $participantKkNumber ?? $participant?->kk_number ?? '';
+$isLotPerDistrict = $isLotPerDistrict ?? false;
+$districtParticipants = $districtParticipants ?? collect();
+$categoryLabel = $categoryLabel ?? trim((string) ($participant?->category?->branch ?? '-'). ' - '. (string) ($participant?->category?->name ?? '-'));
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -72,6 +75,57 @@ $participantKkNumber = $participantKkNumber ?? $participant?->kk_number ?? '';
 
         <section class="relative z-10 mx-auto grid w-full max-w-[1500px] flex-1 min-h-0 gap-6 px-4 pb-4 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
             <aside class="glass-card flex min-h-0 flex-col overflow-y-auto rounded-[2rem] p-5">
+                <?php if ($isLotPerDistrict): ?>
+                <?php /* Lot-per-district: show district participants list */ ?>
+                <p class="section-kicker">Asal Kecamatan</p>
+                <div class="mt-3">
+                    <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3">
+                        <p class="text-sm font-semibold text-white"><?= e($participant?->district?->name ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php if ($districtParticipants->isNotEmpty()): ?>
+                <div class="mt-4">
+                    <p class="text-xs uppercase tracking-[0.2em] text-cyan-300 font-semibold">Peserta Satu Nomor Lot</p>
+                    <p class="mt-1 text-[11px] text-slate-500"><?= e($districtParticipants->count()) ?> peserta</p>
+                    <div class="mt-3 space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                        <?php foreach ($districtParticipants as $dp): ?>
+                        <?php
+                            $dpPhoto = null;
+                            if (filled($dp->document_photo)) {
+                                $dpPhoto = asset('storage/'.ltrim(str_replace('\\', '/', $dp->document_photo), '/'));
+                            }
+                            $dpInitials = '';
+                            if ($dp->name) {
+                                $names = explode(' ', trim($dp->name));
+                                $dpInitials = strtoupper(substr($names[0] ?? '', 0, 1));
+                                if (count($names) > 1) {
+                                    $dpInitials .= strtoupper(substr($names[count($names) - 1] ?? '', 0, 1));
+                                }
+                            }
+                        ?>
+                        <div class="flex flex-col items-center rounded-2xl border p-4 <?= $dp->id === $participant->id ? 'border-cyan-400/50 bg-cyan-400/10' : 'border-slate-700/50 bg-slate-950/40' ?>">
+                            <div class="h-20 w-20 rounded-2xl border-2 border-white/20 bg-white/5 overflow-hidden flex items-center justify-center mb-3">
+                                <?php if (filled($dpPhoto)): ?>
+                                <img src="<?= e($dpPhoto) ?>" alt="" class="h-full w-full object-cover">
+                                <?php else: ?>
+                                <span class="text-2xl font-bold text-cyan-100"><?= e($dpInitials) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <p class="text-m font-semibold text-center <?= $dp->id === $participant->id ? 'text-cyan-100' : 'text-white' ?> mb-2"><?= e($dp->name) ?></p>
+                            <?php if (filled($dp->nik)): ?>
+                            <p class="text-sm <?= $dp->id === $participant->id ? 'text-cyan-300/70' : 'text-slate-400' ?> font-mono text-center">NIK: <?= e($dp->nik) ?></p>
+                            <?php endif; ?>
+                            <?php if (filled($dp->kk_number)): ?>
+                            <p class="text-sm <?= $dp->id === $participant->id ? 'text-cyan-300/70' : 'text-slate-400' ?> font-mono text-center">KK: <?= e($dp->kk_number) ?></p>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php else: ?>
+                <?php /* Regular: show single participant */ ?>
                 <p class="section-kicker">Peserta</p>
                 <div class="mt-3 overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/60">
                     <div class="aspect-[4/5] bg-slate-950/80">
@@ -121,24 +175,40 @@ $participantKkNumber = $participantKkNumber ?? $participant?->kk_number ?? '';
                     </div>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
             </aside>
 
             <section class="relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-cyan-400/20 bg-slate-950/60 p-4 shadow-[0_30px_120px_-50px_rgba(15,23,42,0.95)] backdrop-blur-xl sm:p-6">
                 <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-fuchsia-500"></div>
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                        <p class="section-kicker">Nomor Lot</p>
-                        <h2 class="mt-2 text-2xl font-black tracking-tight text-white xl:text-3xl">Angka akan berputar seperti acara TV</h2>
-                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Tekan tombol di bawah untuk memulai. Setelah putaran selesai, sistem otomatis mengunci nomor lot yang sesuai dengan aturan genap atau ganjil.</p>
+
+                <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <p class="text-center text-xs uppercase tracking-[0.2em] text-slate-400 mb-6">Info Golongan</p>
+                    <div class="flex flex-wrap items-start justify-center gap-6">
+                        <div class="flex-1 min-w-[120px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Golongan</p>
+                            <p class="text-base font-semibold text-cyan-200"><?= e($categoryLabel ?? '-') ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[100px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Aturan</p>
+                            <p class="text-base font-semibold text-white"><?= e($parityLabel ?? '-') ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[80px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Kode</p>
+                            <p class="text-2xl font-black tracking-[0.24em] text-cyan-200"><?= e($lotPrefix) ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[80px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Range</p>
+                            <p class="text-base font-semibold text-white"><?= e($lotRangeLabel) ?></p>
+                        </div>
+                        <div class="flex-1 min-w-[150px] text-center px-4 py-3">
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Aturan Khusus</p>
+                            <p class="text-sm font-semibold text-white"><?= e($lotRuleLabel) ?></p>
+                        </div>
                     </div>
-                    <div class="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-3 text-right">
-                        <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Kode Golongan</p>
-                        <p class="mt-1 text-xl font-black tracking-[0.24em] text-cyan-200"><?= e($lotPrefix) ?></p>
-                        <p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Range Nomor</p>
-                        <p class="mt-1 text-sm font-semibold text-white"><?= e($lotRangeLabel) ?></p>
-                        <p class="mt-3 text-[11px] uppercase tracking-[0.18em] text-slate-400">Aturan Khusus</p>
-                        <p class="mt-1 text-sm font-semibold text-white"><?= e($lotRuleLabel) ?></p>
-                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center justify-center gap-4">
+                    <p class="text-sm text-slate-300">Tekan tombol di bawah atau tekan <strong class="text-cyan-200">Enter</strong> untuk mengambil nomor lot.</p>
                 </div>
 
                 <div class="mt-5 grid flex-1 min-h-0 gap-5">

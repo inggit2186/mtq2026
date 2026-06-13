@@ -19,13 +19,15 @@ $maqraOpenCategoriesSummary = $maqraOpenCategoriesSummary ?? collect();
 $initialActiveCategoryId = (string) ($selectedCategory?->id ?? ($categories->first()?->id ?? ''));
 $maqraRemainingPackagesByCategory = $maqraRemainingPackagesByCategory ?? collect();
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
-$selectedMaqraLotRange = $selectedCategory
-    ? $officialAccessSetting->maqraOpenLotRangeForCategory((int) $selectedCategory->id)
-    : $officialAccessSetting->maqraOpenLotRange();
+$maqraSelectedCategoryLotRange = $maqraSelectedCategoryLotRange ?? null;
+$selectedMaqraLotRange = is_array($maqraSelectedCategoryLotRange) ? $maqraSelectedCategoryLotRange : null;
 $selectedMaqraLotRangeLabel = is_array($selectedMaqraLotRange)
     ? sprintf('%02d - %02d', (int) ($selectedMaqraLotRange['min'] ?? 0), (int) ($selectedMaqraLotRange['max'] ?? 0))
     : 'Semua lot';
-$selectedMaqraStatusLabel = $officialAccessSetting->maqraRoundEnabled($roundLabel) ? 'Dibuka' : 'Ditutup';
+$maqraRoundHasActiveSchedule = $maqraRoundHasActiveSchedule ?? false;
+$selectedMaqraStatusLabel = $maqraRoundHasActiveSchedule ? 'Dibuka' : 'Ditutup';
+$maqraActiveSchedules = $maqraActiveSchedules ?? collect();
+$categoryScheduleData = $categoryScheduleData ?? [];
 $selectedMaqraRoundStatusLabel = 'Babak '.$roundLabel.' '.$selectedMaqraStatusLabel;
 $selectedMaqraCategoryLabel = $selectedCategory
     ? trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name)
@@ -132,44 +134,13 @@ $selectedMaqraCategoryLabel = $selectedCategory
                         <p class="mt-1 text-xs text-slate-300">Status ini mengikuti pengaturan admin untuk babak yang sedang dipilih.</p>
                     </div>
 
-                    <div class="mt-6 rounded-[1.5rem] border border-slate-700/70 bg-slate-950/60 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Golongan Dibuka Admin</p>
-                                <h4 class="mt-1 text-lg font-bold text-white"><?= e($maqraOpenCategoriesSummary->count()) ?> golongan aktif</h4>
-                            </div>
-                            <span class="status-pill border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100">
-                                <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                Ringkas
-                            </span>
-                        </div>
-
-                        <?php if ($maqraOpenCategoriesSummary->isEmpty()): ?>
-                            <div class="mt-4 rounded-[1.25rem] border border-dashed border-slate-700 bg-slate-950/50 px-4 py-3 text-sm text-slate-400">
-                                Belum ada golongan maqra yang dibuka admin.
-                            </div>
-                        <?php else: ?>
-                            <div class="mt-4 space-y-2">
-                                <?php foreach ($maqraOpenCategoriesSummary as $openCategory): ?>
-                                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.1rem] border border-slate-700/70 bg-slate-950/65 px-4 py-3">
-                                        <div class="min-w-0">
-                                            <p class="truncate text-sm font-semibold text-white"><?= e($openCategory['label']) ?></p>
-                                            <p class="mt-1 text-xs text-slate-400">Golongan yang sedang dibuka admin</p>
-                                        </div>
-                                        <div class="flex shrink-0 items-center gap-2">
-                                            <span class="inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-100">
-                                                <?= e($openCategory['range_label']) ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
                     <div class="mt-6 flex flex-wrap gap-2">
-                        <?php foreach (['Penyisihan', 'Final'] as $roundOption): ?>
-                            <?php $roundEnabled = $officialAccessSetting->maqraRoundEnabled($roundOption); ?>
+                        <?php
+                        $maqraRounds = $maqraActiveSchedules ? $maqraActiveSchedules->groupBy(fn ($s) => $s->round?->name ?? 'Lainnya') : collect();
+                        foreach (['Penyisihan', 'Final'] as $roundOption):
+                            $roundHasSchedule = $maqraRounds->has($roundOption);
+                            $roundEnabled = $roundHasSchedule;
+                        ?>
                             <a href="<?= e(route('participants.maqra.menu', ['round' => $roundOption])) ?>" class="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] <?= $roundLabel === $roundOption ? ($roundEnabled ? 'border-fuchsia-300/40 bg-fuchsia-400/10 text-fuchsia-100' : 'border-rose-300/40 bg-rose-400/10 text-rose-100') : ($roundEnabled ? 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600' : 'border-rose-400/20 bg-rose-400/10 text-rose-100 hover:border-rose-300/40') ?>">
                                 <span class="block text-center"><?= e($roundOption) ?></span>
                                 <span class="mt-1 block text-[10px] font-semibold normal-case tracking-[0.14em] <?= $roundEnabled ? 'text-emerald-200/90' : 'text-rose-200/90' ?>">
@@ -181,35 +152,84 @@ $selectedMaqraCategoryLabel = $selectedCategory
                 </section>
 
                 <section class="glass-card rounded-[2rem] p-6">
+                    <?php
+                    // Filter to only show active or scheduled categories for display
+                    $visibleCategories = $categories->filter(function ($category) use ($categoryScheduleData) {
+                        $data = $categoryScheduleData[$category->id] ?? null;
+                        return $data && in_array($data['status'], ['active', 'scheduled']);
+                    });
+                    ?>
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <p class="section-kicker">Golongan Tersedia</p>
-                            <h3 class="mt-2 text-2xl font-bold text-white"><?= e($summaryStats['category_total']) ?> golongan pada babak <?= e($roundLabel) ?></h3>
+                            <p class="section-kicker">Jadwal Maqra</p>
+                            <h3 class="mt-2 text-2xl font-bold text-white"><?= e($visibleCategories->count()) ?> golongan <?= $visibleCategories->contains(fn ($c) => ($categoryScheduleData[$c->id]['status'] ?? '') === 'active') ? 'sedang buka' : 'terjadwal' ?></h3>
                             <p class="mt-2 text-sm text-slate-300">Klik kartu golongan untuk langsung lompat ke daftar peserta pada golongan tersebut.</p>
                         </div>
                     </div>
 
-                    <?php if ($categories->isEmpty()): ?>
+                    <?php if ($visibleCategories->isEmpty()): ?>
                         <div class="mt-6 rounded-[1.5rem] border border-dashed border-slate-700 bg-slate-950/50 p-6 text-sm text-slate-400">
-                            Belum ada golongan yang tersedia untuk scope akun ini.
+                            Belum ada jadwal maqra yang sedang aktif atau terjadwal untuk babak ini.
                         </div>
                     <?php else: ?>
                         <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                            <?php foreach ($categories as $category): ?>
-                                <?php $categoryParticipants = $participantsByCategory->get($category->id, collect()); ?>
-                                <button
-                                    type="button"
-                                    x-on:click="activeCategoryId = '<?= e((string) $category->id) ?>'; $nextTick(() => { const section = document.getElementById('golongan-<?= e($category->id) ?>'); section?.scrollIntoView({ behavior: 'smooth', block: 'start' }); window.flashMaqraSection?.(section); })"
-                                    x-bind:class="activeCategoryId === '<?= e((string) $category->id) ?>' ? 'border-fuchsia-300/50 bg-fuchsia-400/10 shadow-[0_0_0_1px_rgba(244,114,182,0.20)]' : 'border-slate-800 bg-slate-950/55 hover:border-fuchsia-300/30'"
-                                    class="w-full rounded-[1.5rem] border px-4 py-4 text-left transition"
+                            <?php foreach ($visibleCategories as $category): ?>
+                                <?php
+                                    $categoryParticipants = $participantsByCategory->get($category->id, collect());
+                                    $scheduleData = $categoryScheduleData[$category->id] ?? null;
+                                    $currentSchedule = $scheduleData['current'] ?? null;
+                                    $upcomingSchedule = $scheduleData['upcoming'] ?? null;
+                                    $status = $scheduleData['status'] ?? 'closed';
+
+                                    $statusConfig = match($status) {
+                                        'active' => ['label' => 'Sedang Buka', 'color' => 'emerald', 'bg' => 'bg-emerald-400/10', 'border' => 'border-emerald-400/30'],
+                                        'scheduled' => ['label' => 'Terjadwal', 'color' => 'amber', 'bg' => 'bg-amber-400/10', 'border' => 'border-amber-400/30'],
+                                        default => ['label' => 'Ditutup', 'color' => 'slate', 'bg' => 'bg-slate-700/30', 'border' => 'border-slate-700/50'],
+                                    };
+
+                                    $scheduleToShow = $currentSchedule ?? $upcomingSchedule;
+                                ?>
+                                <a
+                                    href="#golongan-<?= e((string) $category->id) ?>"
+                                    onclick="const section = document.getElementById('golongan-<?= e((string) $category->id) ?>'); if(section){section.scrollIntoView({ behavior: 'smooth', block: 'start' }); if(window.flashMaqraSection) window.flashMaqraSection(section);}"
+                                    class="block w-full rounded-[1.5rem] border px-4 py-4 transition <?= $status === 'active' ? 'border-emerald-400/30 bg-emerald-400/5 hover:border-emerald-400/50' : 'border-amber-400/30 bg-amber-400/5 hover:border-amber-400/50' ?>"
                                 >
-                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-400"><?= e((string) $category->branch) ?></p>
-                                    <p class="mt-2 text-base font-bold text-white"><?= e((string) $category->name) ?></p>
-                                    <p class="mt-2 text-xs text-slate-400"><?= e($categoryParticipants->count()) ?> peserta terverifikasi</p>
-                                </button>
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs uppercase tracking-[0.18em] text-slate-400"><?= e((string) $category->branch) ?></p>
+                                            <p class="mt-2 text-base font-bold text-white"><?= e((string) $category->name) ?></p>
+                                            <p class="mt-2 text-xs text-slate-400"><?= e($categoryParticipants->count()) ?> peserta</p>
+                                        </div>
+                                        <div class="flex flex-col items-end gap-2">
+                                            <span class="inline-flex rounded-full border <?= e($statusConfig['border'].' '.$statusConfig['bg']) ?> px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-<?= e($statusConfig['color']) ?>-100">
+                                                <?= e($statusConfig['label']) ?>
+                                            </span>
+                                            <?php if ($scheduleToShow): ?>
+                                            <span class="text-[11px] font-semibold text-slate-300">
+                                                Lot <?= e($scheduleToShow->lot_min) ?>-<?= e($scheduleToShow->lot_max) ?>
+                                            </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <?php if ($status === 'scheduled' && $upcomingSchedule): ?>
+                                    <div class="mt-3 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2">
+                                        <span class="text-amber-400"><?= mtq_icon('clock', 'h-4 w-4') ?></span>
+                                        <span class="text-[11px] font-semibold text-amber-200">
+                                            Buka <?= e($upcomingSchedule->open_at?->diffForHumans() ?? '...') ?>
+                                        </span>
+                                    </div>
+                                    <?php elseif ($status === 'active' && $currentSchedule): ?>
+                                    <div class="mt-3 flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-2">
+                                        <span class="text-emerald-400"><?= mtq_icon('zap', 'h-4 w-4') ?></span>
+                                        <span class="text-[11px] font-semibold text-emerald-200">
+                                            Sisa waktu <?= e($currentSchedule->close_at?->diffForHumans() ?? '...') ?>
+                                        </span>
+                                    </div>
+                                    <?php endif; ?>
+                                </a>
                             <?php endforeach; ?>
                         </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
                 </section>
 
                 <?php foreach ($categories as $category): ?>

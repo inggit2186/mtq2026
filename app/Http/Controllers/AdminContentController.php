@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Announcement;
 use App\Models\CompetitionCategory;
 use App\Models\District;
+use App\Models\MaqraRound;
+use App\Models\MaqraSchedule;
 use App\Models\OfficialAccessSetting;
 use App\Models\SessionSchedule;
 use App\Support\ActivityLogger;
@@ -38,6 +40,10 @@ class AdminContentController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('branch')
                 ->orderBy('name')
+                ->get(),
+            'maqraRounds' => MaqraRound::active()->orderBy('sort_order')->get(),
+            'maqraSchedules' => MaqraSchedule::with(['round', 'category'])
+                ->orderBy('open_at', 'desc')
                 ->get(),
             'announcements' => Announcement::query()
                 ->with('author')
@@ -189,6 +195,92 @@ class AdminContentController extends Controller
         return redirect()
             ->route('admin.content')
             ->with('status', 'Pengaturan akses official berhasil diperbarui.');
+    }
+
+    public function updateMaqraAccess(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        if (! Schema::hasTable('official_access_settings')) {
+            return redirect()
+                ->route('admin.content')
+                ->with('status', 'Tabel official_access_settings belum tersedia. Jalankan migrate terlebih dahulu.');
+        }
+
+        $request->validate([
+            'participant_maqra_penyisihan_open' => ['nullable', 'boolean'],
+            'participant_maqra_final_open' => ['nullable', 'boolean'],
+            'categories' => ['nullable', 'array'],
+            'categories.*.enabled' => ['nullable', 'boolean'],
+            'categories.*.open_at' => ['nullable', 'date'],
+            'categories.*.close_at' => ['nullable', 'date'],
+            'categories.*.lot_min' => ['nullable', 'integer', 'min:1'],
+            'categories.*.lot_max' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $setting = OfficialAccessSetting::current() ?? new OfficialAccessSetting();
+
+        // Process category schedules
+        $categorySchedulesInput = $request->input('categories', []);
+        $categorySchedules = [];
+        if (is_array($categorySchedulesInput)) {
+            foreach ($categorySchedulesInput as $categoryId => $schedule) {
+                if (! is_array($schedule)) {
+                    continue;
+                }
+
+                $categoryId = (int) $categoryId;
+                if ($categoryId <= 0) {
+                    continue;
+                }
+
+                $enabled = ! empty($schedule['enabled']);
+                $openAt = filled($schedule['open_at'] ?? null)
+                    ? \Carbon\Carbon::parse($schedule['open_at'])
+                    : null;
+                $closeAt = filled($schedule['close_at'] ?? null)
+                    ? \Carbon\Carbon::parse($schedule['close_at'])
+                    : null;
+                $lotMin = filled($schedule['lot_min'] ?? null) ? (int) $schedule['lot_min'] : null;
+                $lotMax = filled($schedule['lot_max'] ?? null) ? (int) $schedule['lot_max'] : null;
+
+                // Validate lot range
+                if (filled($lotMin) && filled($lotMax) && $lotMin > $lotMax) {
+                    [$lotMin, $lotMax] = [$lotMax, $lotMin];
+                }
+
+                $categorySchedules[$categoryId] = [
+                    'enabled' => $enabled,
+                    'open_at' => $openAt?->toIso8601String(),
+                    'close_at' => $closeAt?->toIso8601String(),
+                    'lot_min' => $lotMin,
+                    'lot_max' => $lotMax,
+                ];
+            }
+        }
+
+        $setting->fill([
+            'participant_maqra_open' => $request->boolean('participant_maqra_penyisihan_open') || $request->boolean('participant_maqra_final_open'),
+            'participant_maqra_penyisihan_open' => $request->boolean('participant_maqra_penyisihan_open'),
+            'participant_maqra_final_open' => $request->boolean('participant_maqra_final_open'),
+            'participant_maqra_category_schedules' => $categorySchedules,
+        ]);
+        $setting->save();
+
+        ActivityLogger::log(
+            'maqra.access.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui pengaturan akses maqra.',
+            $setting,
+            [
+                'participant_maqra_penyisihan_open' => $setting->participant_maqra_penyisihan_open,
+                'participant_maqra_final_open' => $setting->participant_maqra_final_open,
+                'categories' => $categorySchedules,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Pengaturan akses maqra berhasil diperbarui.');
     }
 
     public function syncDistricts(): RedirectResponse
@@ -473,5 +565,219 @@ POWERSHELL;
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal "'.$title.'" berhasil dihapus.');
+    }
+
+    // ======================
+    // Maqra Round CRUD
+    // ======================
+
+    public function storeMaqraRound(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']);
+        $validated['is_active'] = $request->boolean('is_active', true);
+
+        // Check duplicate slug
+        if (MaqraRound::where('slug', $validated['slug'])->exists()) {
+            return redirect()
+                ->route('admin.content')
+                ->withErrors(['name' => 'Nama babak sudah ada. Gunakan nama lain.'])
+                ->withInput();
+        }
+
+        $round = MaqraRound::create($validated);
+
+        ActivityLogger::log(
+            'maqra_round.created',
+            (auth()->user()?->name ?? 'Admin').' membuat babak maqra baru "'.$round->name.'".',
+            $round,
+            ['name' => $round->name, 'slug' => $round->slug]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Babak "'.$round->name.'" berhasil ditambahkan.');
+    }
+
+    public function updateMaqraRound(Request $request, MaqraRound $maqraRound): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $newSlug = \Illuminate\Support\Str::slug($validated['name']);
+        if ($newSlug !== $maqraRound->slug && MaqraRound::where('slug', $newSlug)->exists()) {
+            return redirect()
+                ->route('admin.content')
+                ->withErrors(['name' => 'Nama babak sudah ada. Gunakan nama lain.'])
+                ->withInput();
+        }
+
+        $validated['slug'] = $newSlug;
+        $validated['is_active'] = $request->boolean('is_active', true);
+
+        $maqraRound->update($validated);
+
+        ActivityLogger::log(
+            'maqra_round.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui babak maqra "'.$maqraRound->name.'".',
+            $maqraRound,
+            ['name' => $maqraRound->name]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Babak "'.$maqraRound->name.'" berhasil diperbarui.');
+    }
+
+    public function destroyMaqraRound(MaqraRound $maqraRound): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        // Check if round has schedules
+        if ($maqraRound->schedules()->exists()) {
+            return redirect()
+                ->route('admin.content')
+                ->withErrors(['round' => 'Babak tidak bisa dihapus karena masih memiliki jadwal. Hapus jadwal terlebih dahulu.']);
+        }
+
+        $name = $maqraRound->name;
+        $maqraRound->delete();
+
+        ActivityLogger::log(
+            'maqra_round.deleted',
+            (auth()->user()?->name ?? 'Admin').' menghapus babak maqra "'.$name.'".',
+            null,
+            ['name' => $name]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Babak "'.$name.'" berhasil dihapus.');
+    }
+
+    // ======================
+    // Maqra Schedule CRUD
+    // ======================
+
+    public function storeMaqraSchedule(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'round_id' => ['required', 'integer', 'exists:maqra_rounds,id'],
+            'category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'open_at' => ['required', 'date'],
+            'close_at' => ['required', 'date', 'after:open_at'],
+            'lot_min' => ['required', 'integer', 'min:1'],
+            'lot_max' => ['required', 'integer', 'min:1', 'gte:lot_min'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $validated['is_active'] = $request->boolean('is_active', true);
+
+        $schedule = MaqraSchedule::create($validated);
+        $schedule->load(['round', 'category']);
+
+        ActivityLogger::log(
+            'maqra_schedule.created',
+            (auth()->user()?->name ?? 'Admin').' membuat jadwal maqra untuk '.$schedule->category?->name.' ('.$schedule->round?->name.').',
+            $schedule,
+            [
+                'round_id' => $schedule->round_id,
+                'category_id' => $schedule->category_id,
+                'lot_range' => $schedule->lot_min.'-'.$schedule->lot_max,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Jadwal maqra berhasil ditambahkan.');
+    }
+
+    public function updateMaqraSchedule(Request $request, MaqraSchedule $maqraSchedule): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'round_id' => ['required', 'integer', 'exists:maqra_rounds,id'],
+            'category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'open_at' => ['required', 'date'],
+            'close_at' => ['required', 'date', 'after:open_at'],
+            'lot_min' => ['required', 'integer', 'min:1'],
+            'lot_max' => ['required', 'integer', 'min:1', 'gte:lot_min'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $validated['is_active'] = $request->boolean('is_active', true);
+
+        $maqraSchedule->update($validated);
+        $maqraSchedule->load(['round', 'category']);
+
+        ActivityLogger::log(
+            'maqra_schedule.updated',
+            (auth()->user()?->name ?? 'Admin').' memperbarui jadwal maqra untuk '.$maqraSchedule->category?->name.' ('.$maqraSchedule->round?->name.').',
+            $maqraSchedule,
+            [
+                'round_id' => $maqraSchedule->round_id,
+                'category_id' => $maqraSchedule->category_id,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Jadwal maqra berhasil diperbarui.');
+    }
+
+    public function destroyMaqraSchedule(MaqraSchedule $maqraSchedule): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $info = $maqraSchedule->category?->name.' ('.$maqraSchedule->round?->name.')';
+        $maqraSchedule->delete();
+
+        ActivityLogger::log(
+            'maqra_schedule.deleted',
+            (auth()->user()?->name ?? 'Admin').' menghapus jadwal maqra untuk '.$info.'.',
+            null,
+            ['info' => $info]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Jadwal maqra berhasil dihapus.');
+    }
+
+    public function toggleMaqraSchedule(MaqraSchedule $maqraSchedule): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $maqraSchedule->update(['is_active' => ! $maqraSchedule->is_active]);
+        $maqraSchedule->load(['round', 'category']);
+
+        $status = $maqraSchedule->is_active ? 'diaktifkan' : 'dinonaktifkan';
+        $info = $maqraSchedule->category?->name.' ('.$maqraSchedule->round?->name.')';
+
+        ActivityLogger::log(
+            'maqra_schedule.toggled',
+            (auth()->user()?->name ?? 'Admin').' '.$status.' jadwal maqra untuk '.$info.'.',
+            $maqraSchedule,
+            ['is_active' => $maqraSchedule->is_active]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Jadwal maqra untuk '.$info.' berhasil '.$status.'.');
     }
 }

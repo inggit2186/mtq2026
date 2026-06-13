@@ -16,14 +16,11 @@ $rawOfficialAccess = static function (string $feature) use ($officialAccessSetti
     return (bool) ($officialAccessSetting->getRawOriginal($feature) ?? ($officialAccessDefaults[$feature] ?? true));
 };
 $maqraCategories = $maqraCategories ?? collect();
-$selectedMaqraCategoryIds = collect($officialAccessSetting->maqraOpenCategoryIds())
-    ->map(fn (int $id): string => (string) $id)
-    ->all();
-$maqraLotMin = old('participant_maqra_lot_min', $officialAccessSetting->participant_maqra_lot_min ?? '');
-$maqraLotMax = old('participant_maqra_lot_max', $officialAccessSetting->participant_maqra_lot_max ?? '');
-$maqraLotRangesByCategory = old('participant_maqra_lot_ranges', $officialAccessSetting->maqraOpenLotRanges());
-if (! is_array($maqraLotRangesByCategory)) {
-    $maqraLotRangesByCategory = [];
+$maqraRounds = $maqraRounds ?? collect();
+$maqraSchedules = $maqraSchedules ?? collect();
+$maqraCategorySchedules = $officialAccessSetting->getAttribute('participant_maqra_category_schedules') ?? [];
+if (! is_array($maqraCategorySchedules)) {
+    $maqraCategorySchedules = [];
 }
 $maqraPenyisihanOpen = old('participant_maqra_penyisihan_open', $rawOfficialAccess('participant_maqra_penyisihan_open'));
 $maqraFinalOpen = old('participant_maqra_final_open', $rawOfficialAccess('participant_maqra_final_open'));
@@ -293,129 +290,6 @@ $impersonation = session('impersonation', []);
                                 </label>
                             <?php endforeach; ?>
 
-                            <div class="lg:col-span-2 rounded-[1.5rem] border border-fuchsia-400/14 bg-slate-950/60 p-5">
-                                <div class="flex flex-wrap items-start justify-between gap-4">
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-bold text-white">Akses Maqra per Babak</p>
-                                        <p class="mt-2 text-sm leading-6 text-slate-300">Pisahkan buka/tutup pengambilan maqra untuk Penyisihan dan Final. Pengaturan global lama tetap dipertahankan sebagai lapisan fallback, namun akses operasional mengikuti masing-masing babak.</p>
-                                    </div>
-                                    <div class="status-pill border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100">
-                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                        Per Babak
-                                    </div>
-                                </div>
-                                <div class="mt-4 grid gap-4 md:grid-cols-2">
-                                    <label class="rounded-[1.25rem] border border-fuchsia-400/14 bg-slate-950/50 p-4 transition hover:border-fuchsia-300/40">
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-white">Penyisihan</p>
-                                                <p class="mt-2 text-sm leading-6 text-slate-300">Mengaktifkan pengambilan maqra untuk babak penyisihan.</p>
-                                            </div>
-                                            <input type="checkbox" name="participant_maqra_penyisihan_open" value="1" <?= $maqraPenyisihanOpen ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-fuchsia-400 focus:ring-fuchsia-300/30">
-                                        </div>
-                                    </label>
-                                    <label class="rounded-[1.25rem] border border-violet-400/14 bg-slate-950/50 p-4 transition hover:border-violet-300/40">
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-white">Final</p>
-                                                <p class="mt-2 text-sm leading-6 text-slate-300">Mengaktifkan pengambilan maqra untuk babak final.</p>
-                                            </div>
-                                            <input type="checkbox" name="participant_maqra_final_open" value="1" <?= $maqraFinalOpen ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-violet-400 focus:ring-violet-300/30">
-                                        </div>
-                                    </label>
-                                </div>
-                                <div class="mt-4 rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-xs leading-6 text-slate-300">
-                                    Status global maqra akan mengikuti gabungan kedua babak ini. Jika salah satu babak dibuka, akses maqra global tetap dianggap aktif.
-                                </div>
-                            </div>
-
-                            <div class="lg:col-span-2 rounded-[1.5rem] border border-fuchsia-400/14 bg-slate-950/60 p-5">
-                                <div class="flex flex-wrap items-start justify-between gap-4">
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-bold text-white">Golongan Maqra untuk Official</p>
-                                        <p class="mt-2 text-sm leading-6 text-slate-300">Centang golongan yang boleh tampil di menu Pengambilan Maqra untuk official. Panitia tetap mengikuti hak akses golongan, lalu hasilnya disaring lagi dengan daftar ini.</p>
-                                    </div>
-                                    <div class="status-pill border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100">
-                                        <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                        <?= e($maqraCategories->count()) ?> golongan
-                                    </div>
-                                </div>
-
-                                <?php if ($maqraCategories->isEmpty()): ?>
-                                    <div class="mt-4 rounded-[1.25rem] border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">
-                                        Belum ada golongan yang bisa diatur untuk maqra.
-                                    </div>
-                                <?php else: ?>
-                                    <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                        <?php foreach ($maqraCategories as $category): ?>
-                                            <?php
-                                                $isChecked = in_array((string) $category->id, $selectedMaqraCategoryIds, true);
-                                                $categoryRange = $maqraLotRangesByCategory[(string) $category->id] ?? $maqraLotRangesByCategory[$category->id] ?? ['min' => '', 'max' => ''];
-                                            ?>
-                                            <label class="rounded-[1.25rem] border border-slate-700/80 bg-slate-950/50 p-4 transition hover:border-fuchsia-300/40">
-                                                <div class="flex items-start gap-3">
-                                                    <input type="checkbox" name="participant_maqra_category_ids[]" value="<?= e($category->id) ?>" <?= $isChecked ? 'checked' : '' ?> class="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-fuchsia-400 focus:ring-fuchsia-300/30">
-                                                    <div class="min-w-0 flex-1">
-                                                        <p class="text-sm font-semibold text-white"><?= e(trim((string) $category->branch.' - '.(string) $category->name)) ?></p>
-                                                        <p class="mt-1 text-xs text-slate-400"><?= e((string) $category->quota) ?> peserta | <?= e((string) $category->slug) ?></p>
-                                                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                                                            <div>
-                                                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Nomor Lot Awal</label>
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    step="1"
-                                                                    name="participant_maqra_lot_ranges[<?= e($category->id) ?>][min]"
-                                                                    value="<?= e((string) ($categoryRange['min'] ?? '')) ?>"
-                                                                    placeholder="001"
-                                                                    class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-400/20"
-                                                                >
-                                                            </div>
-                                                            <div>
-                                                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Nomor Lot Akhir</label>
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    step="1"
-                                                                    name="participant_maqra_lot_ranges[<?= e($category->id) ?>][max]"
-                                                                    value="<?= e((string) ($categoryRange['max'] ?? '')) ?>"
-                                                                    placeholder="100"
-                                                                    class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-400/20"
-                                                                >
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </label>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="mt-4 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 p-5">
-                                <div class="flex flex-wrap items-start justify-between gap-4">
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-bold text-white">Fallback Rentang Nomor Lot Maqra</p>
-                                        <p class="mt-2 text-sm leading-6 text-slate-300">Ini dipakai hanya jika sebuah golongan belum diisi rentang khusus. Jika rentang sudah diisi per golongan di atas, nilai ini akan diabaikan untuk golongan tersebut.</p>
-                                    </div>
-                                    <div class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
-                                        <?= mtq_icon('hash', 'h-4 w-4') ?>
-                                        Fallback
-                                    </div>
-                                </div>
-                                <div class="mt-4 grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Awal</label>
-                                        <input name="participant_maqra_lot_min" type="number" min="1" step="1" value="<?= e((string) $maqraLotMin) ?>" placeholder="001" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
-                                    </div>
-                                    <div>
-                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Akhir</label>
-                                        <input name="participant_maqra_lot_max" type="number" min="1" step="1" value="<?= e((string) $maqraLotMax) ?>" placeholder="100" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
-                                    </div>
-                                </div>
-                                <p class="mt-3 text-xs text-slate-400">Jika diisi, peserta tanpa nomor lot atau di luar rentang ini tidak bisa membuka pengambilan maqra untuk official/pendamping.</p>
-                            </div>
-
                             <div class="lg:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-cyan-400/14 bg-cyan-400/8 px-5 py-4">
                                 <p class="text-sm leading-6 text-slate-200">Kalau pendaftaran atau verifikasi ditutup, user yang terdampak masih bisa login ke dashboard tetapi tombol aksi yang terkait akan diblok oleh sistem.</p>
                                 <button type="submit" class="primary-button">
@@ -425,7 +299,175 @@ $impersonation = session('impersonation', []);
                             </div>
                         </form>
                     </section>
-                <?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php if ($officialAccessReady): ?>
+                    <section class="glass-card rounded-[2rem] p-6">
+                        <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                            <div class="max-w-3xl">
+                                <p class="section-kicker">Akses Maqra</p>
+                                <h3 class="mt-2 text-2xl font-bold text-white">Pengaturan jadwal pengambilan maqra</h3>
+                                <p class="mt-3 text-sm leading-6 text-slate-300">Atur jadwal pengambilan maqra per babak dan golongan. 1 golongan bisa memiliki lebih dari 1 sesi jadwal.</p>
+                            </div>
+                            <div class="flex flex-wrap gap-3">
+                                <?php if ($user?->role === 'admin'): ?>
+                                <button type="button" @click="$dispatch('open-modal', 'maqra-rounds-modal')" class="secondary-button">
+                                    <?= mtq_icon('flag', 'h-4 w-4') ?>
+                                    Kelola Babak
+                                </button>
+                                <button type="button" @click="$dispatch('open-modal', 'maqra-add-modal')" class="primary-button">
+                                    <?= mtq_icon('plus-circle', 'h-4 w-4') ?>
+                                    Tambah Jadwal
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <?php if ($user?->role === 'admin'): ?>
+                        <!-- Filter & List Jadwal Maqra -->
+                        <div class="mt-6 space-y-4">
+                            <?php
+                            $filterRound = request('filter_round');
+                            $filterCategory = request('filter_category');
+                            $filterStatus = request('filter_status');
+                            $filteredSchedules = $maqraSchedules->filter(function ($schedule) use ($filterRound, $filterCategory, $filterStatus) {
+                                if ($filterRound && $schedule->round_id != $filterRound) return false;
+                                if ($filterCategory && $schedule->category_id != $filterCategory) return false;
+                                if ($filterStatus) {
+                                    if ($filterStatus === 'active' && !$schedule->isCurrentlyOpen()) return false;
+                                    if ($filterStatus === 'scheduled' && $schedule->status !== 'scheduled') return false;
+                                    if ($filterStatus === 'closed' && $schedule->status !== 'closed') return false;
+                                }
+                                return true;
+                            });
+                            ?>
+                            <form method="GET" action="<?= e(route('admin.content')) ?>" class="flex flex-wrap gap-3 items-end">
+                                <input type="hidden" name="section" value="maqra">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Babak</label>
+                                    <select name="filter_round" class="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-fuchsia-400">
+                                        <option value="">Semua Babak</option>
+                                        <?php foreach ($maqraRounds as $round): ?>
+                                            <option value="<?= $round->id ?>" <?= $filterRound == $round->id ? 'selected' : '' ?>><?= e($round->name) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Golongan</label>
+                                    <select name="filter_category" class="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-fuchsia-400">
+                                        <option value="">Semua Golongan</option>
+                                        <?php foreach ($maqraCategories as $cat): ?>
+                                            <option value="<?= $cat->id ?>" <?= $filterCategory == $cat->id ? 'selected' : '' ?>><?= e(trim((string) $cat->branch.' - '.(string) $cat->name)) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Status</label>
+                                    <select name="filter_status" class="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-fuchsia-400">
+                                        <option value="">Semua Status</option>
+                                        <option value="active" <?= $filterStatus === 'active' ? 'selected' : '' ?>>Sedang Buka</option>
+                                        <option value="scheduled" <?= $filterStatus === 'scheduled' ? 'selected' : '' ?>>Terjadwal</option>
+                                        <option value="closed" <?= $filterStatus === 'closed' ? 'selected' : '' ?>>Selesai/Ditutup</option>
+                                    </select>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button type="submit" class="secondary-button py-2">Filter</button>
+                                    <?php if ($filterRound || $filterCategory || $filterStatus): ?>
+                                    <a href="<?= e(route('admin.content')) ?>" class="secondary-button py-2">Reset</a>
+                                    <?php endif; ?>
+                                </div>
+                            </form>
+
+                            <?php if ($filteredSchedules->isEmpty()): ?>
+                                <div class="rounded-[1.5rem] border border-dashed border-slate-700 bg-slate-950/50 p-8 text-center">
+                                    <p class="text-slate-400">Belum ada jadwal maqra. Klik "Tambah Jadwal" untuk membuat jadwal baru.</p>
+                                </div>
+                            <?php else: ?>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-700/80">
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Babak</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Golongan</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Tanggal</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Waktu</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Lot</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Status</th>
+                                                <?php if ($user?->role === 'admin'): ?>
+                                                <th class="text-right py-3 px-4 font-semibold text-slate-400">Aksi</th>
+                                                <?php endif; ?>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($filteredSchedules as $schedule): ?>
+                                            <tr class="border-b border-slate-800/60 hover:bg-slate-800/20">
+                                                <td class="py-3 px-4">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-fuchsia-500/20 text-fuchsia-300">
+                                                        <?= e($schedule->round?->name ?? '-') ?>
+                                                    </span>
+                                                </td>
+                                                <td class="py-3 px-4 text-white font-medium">
+                                                    <?= e($schedule->category?->name ?? '-') ?>
+                                                    <?php if ($schedule->category?->branch): ?>
+                                                    <span class="text-slate-500 text-xs ml-1">(<?= e($schedule->category->branch) ?>)</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="py-3 px-4 text-slate-300">
+                                                    <?= $schedule->open_at ? $schedule->open_at->format('d M Y') : '-' ?>
+                                                </td>
+                                                <td class="py-3 px-4 text-slate-300">
+                                                    <?= $schedule->open_at ? $schedule->open_at->format('H:i') : '' ?>
+                                                    -
+                                                    <?= $schedule->close_at ? $schedule->close_at->format('H:i') : '' ?>
+                                                </td>
+                                                <td class="py-3 px-4 text-slate-300">
+                                                    <?= $schedule->lot_min ?> - <?= $schedule->lot_max ?>
+                                                </td>
+                                                <td class="py-3 px-4">
+                                                    <?php
+                                                    $statusColor = match($schedule->status) {
+                                                        'open' => 'emerald',
+                                                        'scheduled' => 'amber',
+                                                        'closed' => 'slate',
+                                                        default => 'slate',
+                                                    };
+                                                    ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-<?= $statusColor ?>-500/20 text-<?= $statusColor ?>-300">
+                                                        <span class="h-1.5 w-1.5 rounded-full <?= $schedule->status === 'open' ? 'bg-emerald-400 animate-pulse' : 'bg-'.$statusColor.'-400' ?>"></span>
+                                                        <?= e($schedule->status_label) ?>
+                                                    </span>
+                                                </td>
+                                                <?php if ($user?->role === 'admin'): ?>
+                                                <td class="py-3 px-4 text-right">
+                                                    <div class="flex items-center justify-end gap-2">
+                                                        <form method="POST" action="<?= e(route('admin.content.maqra-schedules.toggle', $schedule)) ?>" class="inline">
+                                                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                            <button type="submit" class="p-1.5 rounded-lg <?= $schedule->is_active ? 'text-emerald-400 hover:bg-emerald-500/20' : 'text-slate-500 hover:bg-slate-500/20' ?>" title="<?= $schedule->is_active ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                                                <?= mtq_icon($schedule->is_active ? 'toggle-right' : 'toggle-left', 'h-5 w-5') ?>
+                                                            </button>
+                                                        </form>
+                                                        <button type="button" @click="$dispatch('open-modal', 'maqra-edit-modal-<?= $schedule->id ?>')" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-500/20 hover:text-white" title="Edit">
+                                                            <?= mtq_icon('edit', 'h-5 w-5') ?>
+                                                        </button>
+                                                        <form method="POST" action="<?= e(route('admin.content.maqra-schedules.destroy', $schedule)) ?>" class="inline" onsubmit="return confirm('Hapus jadwal ini?')">
+                                                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                            <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:bg-rose-500/20 hover:text-rose-400" title="Hapus">
+                                                                <?= mtq_icon('trash', 'h-5 w-5') ?>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                                <?php endif; ?>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p class="text-xs text-slate-500"><?= $filteredSchedules->count() ?> jadwal ditampilkan</p>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+                    </section>
 
                 <section class="glass-card rounded-[2rem] p-6">
                     <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -714,6 +756,7 @@ $impersonation = session('impersonation', []);
                         </div>
                     </div>
                 </section>
+                <?php endif; ?>
             </div>
         </div>
     </main>
@@ -722,5 +765,204 @@ $impersonation = session('impersonation', []);
     <?php foreach ($jsAssets as $src): ?>
         <script type="module" src="<?= e($src) ?>"></script>
     <?php endforeach; ?>
+
+    <!-- Modals Maqra -->
+    <?php if ($user?->role === 'admin'): ?>
+    <!-- Modal Tambah Jadwal Maqra -->
+    <div x-data="{ show: false }"
+         @open-modal.window="if ($event.detail === 'maqra-add-modal') show = true"
+         @keydown.escape.window="show = false"
+         x-show="show"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div @click.outside="show = false" class="glass-card mx-4 w-full max-w-lg rounded-[2rem] p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-white">Tambah Jadwal Maqra</h3>
+                <button @click="show = false" class="p-2 rounded-xl hover:bg-slate-700/50 text-slate-400 hover:text-white transition">
+                    <?= mtq_icon('x', 'h-5 w-5') ?>
+                </button>
+            </div>
+            <form method="POST" action="<?= e(route('admin.content.maqra-schedules.store')) ?>">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <div class="space-y-4">
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-200">Babak</label>
+                        <select name="round_id" required class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                            <option value="">Pilih Babak</option>
+                            <?php foreach ($maqraRounds as $round): ?>
+                                <option value="<?= $round->id ?>" <?= old('round_id') == $round->id ? 'selected' : '' ?>><?= e($round->name) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-200">Golongan</label>
+                        <select name="category_id" required class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                            <option value="">Pilih Golongan</option>
+                            <?php foreach ($maqraCategories as $cat): ?>
+                                <option value="<?= $cat->id ?>" <?= old('category_id') == $cat->id ? 'selected' : '' ?>><?= e(trim((string) $cat->branch.' - '.(string) $cat->name)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Tanggal & Jam Mulai</label>
+                            <input name="open_at" type="datetime-local" required value="<?= e(old('open_at')) ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Tanggal & Jam Selesai</label>
+                            <input name="close_at" type="datetime-local" required value="<?= e(old('close_at')) ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Awal</label>
+                            <input name="lot_min" type="number" min="1" required value="<?= e(old('lot_min', '1')) ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Akhir</label>
+                            <input name="lot_max" type="number" min="1" required value="<?= e(old('lot_max')) ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" name="is_active" id="maqra_schedule_active" value="1" checked class="h-5 w-5 rounded border-slate-600 bg-slate-900 text-fuchsia-400 focus:ring-fuchsia-300/30">
+                        <label for="maqra_schedule_active" class="text-sm text-slate-300">Aktifkan jadwal ini</label>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" @click="show = false" class="secondary-button">Batal</button>
+                    <button type="submit" class="primary-button">Simpan Jadwal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Kelola Babak -->
+    <div x-data="{ show: false }"
+         @open-modal.window="if ($event.detail === 'maqra-rounds-modal') show = true"
+         @keydown.escape.window="show = false"
+         x-show="show"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div @click.outside="show = false" class="glass-card mx-4 w-full max-w-lg rounded-[2rem] p-6 max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-white">Kelola Babak Maqra</h3>
+                <button @click="show = false" class="p-2 rounded-xl hover:bg-slate-700/50 text-slate-400 hover:text-white transition">
+                    <?= mtq_icon('x', 'h-5 w-5') ?>
+                </button>
+            </div>
+
+            <!-- Form Tambah Babak -->
+            <form method="POST" action="<?= e(route('admin.content.maqra-rounds.store')) ?>" class="mb-6">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <div class="flex gap-3">
+                    <input name="name" type="text" required placeholder="Nama babak baru..." class="flex-1 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                    <input name="sort_order" type="number" min="0" placeholder="Urutan" value="<?= e(old('sort_order', $maqraRounds->count() + 1)) ?>" class="w-24 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                    <button type="submit" class="primary-button">Tambah</button>
+                </div>
+            </form>
+
+            <!-- List Babak -->
+            <div class="space-y-2">
+                <?php foreach ($maqraRounds as $round): ?>
+                <div class="flex items-center justify-between rounded-xl border border-slate-700/80 bg-slate-900/50 p-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-white"><?= e($round->name) ?></span>
+                        <span class="text-xs text-slate-500">#<?= e($round->slug) ?></span>
+                        <?php if (!$round->is_active): ?>
+                        <span class="rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-400">Nonaktif</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <form method="POST" action="<?= e(route('admin.content.maqra-rounds.destroy', $round)) ?>" class="inline" onsubmit="return confirm('Hapus babak <?= e($round->name) ?>?')">
+                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                            <button type="submit" class="p-2 rounded-lg text-slate-400 hover:bg-rose-500/20 hover:text-rose-400" title="Hapus">
+                                <?= mtq_icon('trash', 'h-4 w-4') ?>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                <?php if ($maqraRounds->isEmpty()): ?>
+                <p class="text-center text-slate-500 py-4">Belum ada babak. Tambahkan babak baru di atas.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Jadwal Maqra (Generated per schedule) -->
+    <?php foreach ($maqraSchedules as $schedule): ?>
+    <div x-data="{ show: false }"
+         @open-modal.window="if ($event.detail === 'maqra-edit-modal-<?= $schedule->id ?>') show = true"
+         @keydown.escape.window="show = false"
+         x-show="show"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div @click.outside="show = false" class="glass-card mx-4 w-full max-w-lg rounded-[2rem] p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-white">Edit Jadwal Maqra</h3>
+                <button @click="show = false" class="p-2 rounded-xl hover:bg-slate-700/50 text-slate-400 hover:text-white transition">
+                    <?= mtq_icon('x', 'h-5 w-5') ?>
+                </button>
+            </div>
+            <form method="POST" action="<?= e(route('admin.content.maqra-schedules.update', $schedule)) ?>">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <div class="space-y-4">
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-200">Babak</label>
+                        <select name="round_id" required class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                            <?php foreach ($maqraRounds as $round): ?>
+                                <option value="<?= $round->id ?>" <?= $schedule->round_id == $round->id ? 'selected' : '' ?>><?= e($round->name) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-200">Golongan</label>
+                        <select name="category_id" required class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                            <?php foreach ($maqraCategories as $cat): ?>
+                                <option value="<?= $cat->id ?>" <?= $schedule->category_id == $cat->id ? 'selected' : '' ?>><?= e(trim((string) $cat->branch.' - '.(string) $cat->name)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Tanggal & Jam Mulai</label>
+                            <input name="open_at" type="datetime-local" required value="<?= e($schedule->open_at?->format('Y-m-d\TH:i') ?? '') ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Tanggal & Jam Selesai</label>
+                            <input name="close_at" type="datetime-local" required value="<?= e($schedule->close_at?->format('Y-m-d\TH:i') ?? '') ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Awal</label>
+                            <input name="lot_min" type="number" min="1" required value="<?= e((string) $schedule->lot_min) ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-slate-200">Nomor Lot Akhir</label>
+                            <input name="lot_max" type="number" min="1" required value="<?= e((string) $schedule->lot_max) ?>" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" name="is_active" id="maqra_edit_active_<?= $schedule->id ?>" value="1" <?= $schedule->is_active ? 'checked' : '' ?> class="h-5 w-5 rounded border-slate-600 bg-slate-900 text-fuchsia-400 focus:ring-fuchsia-300/30">
+                        <label for="maqra_edit_active_<?= $schedule->id ?>" class="text-sm text-slate-300">Aktifkan jadwal ini</label>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" @click="show = false" class="secondary-button">Batal</button>
+                    <button type="submit" class="primary-button">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <?php endforeach; ?>
+    <?php endif; ?>
+
 </body>
 </html>

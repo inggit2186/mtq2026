@@ -52,6 +52,16 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/panitia-cabang/{committee}/hapus', [CommitteeRegistrationController::class, 'destroy'])->middleware('role:admin')->name('committees.destroy');
     Route::get('/admin/konten', [AdminContentController::class, 'index'])->middleware('role:admin,panitia')->name('admin.content');
     Route::post('/admin/konten/akses-official', [AdminContentController::class, 'updateOfficialAccess'])->middleware('role:admin')->name('admin.content.official-access.update');
+    Route::post('/admin/konten/akses-maqra', [AdminContentController::class, 'updateMaqraAccess'])->middleware('role:admin')->name('admin.content.maqra-access.update');
+    // Maqra Rounds CRUD
+    Route::post('/admin/konten/maqra-round', [AdminContentController::class, 'storeMaqraRound'])->middleware('role:admin')->name('admin.content.maqra-rounds.store');
+    Route::post('/admin/konten/maqra-round/{maqraRound}/edit', [AdminContentController::class, 'updateMaqraRound'])->middleware('role:admin')->name('admin.content.maqra-rounds.update');
+    Route::post('/admin/konten/maqra-round/{maqraRound}/hapus', [AdminContentController::class, 'destroyMaqraRound'])->middleware('role:admin')->name('admin.content.maqra-rounds.destroy');
+    // Maqra Schedules CRUD
+    Route::post('/admin/konten/maqra-schedule', [AdminContentController::class, 'storeMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.store');
+    Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/edit', [AdminContentController::class, 'updateMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.update');
+    Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/hapus', [AdminContentController::class, 'destroyMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.destroy');
+    Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/toggle', [AdminContentController::class, 'toggleMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.toggle');
     Route::post('/admin/konten/sinkronisasi-kecamatan', [AdminContentController::class, 'syncDistricts'])->middleware('role:admin')->name('admin.content.districts.sync');
     Route::get('/admin/konten/projector-installer.ps1', [AdminContentController::class, 'projectorInstaller'])->middleware('role:admin,panitia')->name('admin.content.projector-installer');
     Route::post('/admin/konten/pengumuman', [AdminContentController::class, 'storeAnnouncement'])->middleware('role:admin,panitia')->name('admin.content.announcements.store');
@@ -133,6 +143,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'assignMaqra'])->middleware('role:admin,official,pendamping')->name('participants.maqra.assign');
     Route::post('/data-peserta/{participant}/maqra/reset', [ParticipantRegistrationController::class, 'resetMaqra'])->middleware('role:admin')->name('participants.maqra.reset');
     Route::post('/data-peserta/{participant}/maqra/tukar', [ParticipantRegistrationController::class, 'swapMaqra'])->middleware('role:admin')->name('participants.maqra.swap');
+    Route::get('/data-peserta/{participant}/maqra/status', [ParticipantRegistrationController::class, 'maqraStatus'])->middleware('role:admin,official,pendamping')->name('participants.maqra.status');
     Route::post('/data-peserta/{participant}/nomor-lot/reset', [ParticipantRegistrationController::class, 'resetLotNumber'])->middleware('role:admin')->name('participants.lot.reset');
     Route::post('/data-peserta/{participant}/nomor-lot/ubah', [ParticipantRegistrationController::class, 'updateLotNumber'])->middleware('role:admin')->name('participants.lot.update');
     Route::post('/data-peserta/{participant}/nomor-lot/tukar', [ParticipantRegistrationController::class, 'swapLotNumber'])->middleware('role:admin')->name('participants.lot.swap');
