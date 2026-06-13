@@ -685,7 +685,7 @@ class PageController extends Controller
 
         $districtBasedCategories = $categories
             ->flatten(1)
-            ->filter(fn (CompetitionCategory $category): bool => str_contains(mb_strtolower((string) $category->notes), 'kk'));
+            ->filter(fn (CompetitionCategory $category): bool => $category->uses_district_quota || str_contains(mb_strtolower((string) $category->notes), 'kk'));
 
         $districtSlotTotal = $districtBasedCategories->sum(function (CompetitionCategory $category) use ($districts): int {
             $baseQuota = (int) $category->quota;
@@ -2890,8 +2890,17 @@ class PageController extends Controller
 
     public function categoryLotGroupSize(CompetitionCategory $category, ?string $gender = null): int
     {
+        // Prioritas 1: cek kolom lot_group_type
+        if (filled($category->lot_group_type)) {
+            return match ($category->lot_group_type) {
+                'triple' => 3,
+                'pair' => 2,
+                default => 1,
+            };
+        }
+
+        // Fallback: string matching (untuk data lama)
         $branch = mb_strtolower((string) ($category->branch ?? ''));
-        $normalizedGender = mb_strtolower((string) $gender);
 
         if (str_contains($branch, 'fahmil') || str_contains($branch, 'syarhil')) {
             return 3;
@@ -2907,23 +2916,10 @@ class PageController extends Controller
     public function categoryLotRuleLabel(CompetitionCategory $category, ?string $gender = null): string
     {
         $groupSize = $this->categoryLotGroupSize($category, $gender);
-        $branch = mb_strtolower((string) ($category->branch ?? ''));
         $normalizedGender = mb_strtolower((string) $gender);
 
-        if (str_contains($branch, 'fahmil') || str_contains($branch, 'syarhil') || str_contains($branch, 'khutbah') || str_contains($branch, 'adzan')) {
+        if ($groupSize > 1) {
             return '1 kecamatan = 1 nomor lot';
-        }
-
-        if ($groupSize === 3) {
-            $genderLabel = $normalizedGender === 'putri'
-                ? '3 putri'
-                : ($normalizedGender === 'putra' ? '3 putra' : '3 putra / 3 putri');
-
-            return '1 kecamatan = '.$genderLabel.' = 1 nomor lot';
-        }
-
-        if ($groupSize === 2) {
-            return '1 kecamatan = 2 putra = 1 nomor lot';
         }
 
         return '1 peserta = 1 nomor lot';
@@ -2931,6 +2927,12 @@ class PageController extends Controller
 
     public function categoryUsesMaqra(CompetitionCategory $category): bool
     {
+        // Prioritas 1: cek kolom maqra_system_type
+        if (filled($category->maqra_system_type)) {
+            return true;
+        }
+
+        // Fallback: string matching (untuk data lama)
         $branch = mb_strtolower((string) ($category->branch ?? ''));
         $name = mb_strtolower((string) ($category->name ?? ''));
         $haystack = trim($branch.' '.$name);
@@ -2946,6 +2948,12 @@ class PageController extends Controller
 
     public function categoryMaqraSystemLabel(CompetitionCategory $category): ?string
     {
+        // Prioritas 1: cek kolom maqra_system_type
+        if (filled($category->maqra_system_type)) {
+            return ucfirst($category->maqra_system_type);
+        }
+
+        // Fallback: string matching (untuk data lama)
         $branch = mb_strtolower((string) ($category->branch ?? ''));
 
         return match (true) {
@@ -2962,6 +2970,21 @@ class PageController extends Controller
 
     public function categoryMaqraCodePrefix(CompetitionCategory $category): string
     {
+        // Prioritas 1: cek kolom maqra_system_type
+        if (filled($category->maqra_system_type)) {
+            return match ($category->maqra_system_type) {
+                'tilawah' => 'TLW',
+                'tahfizh' => 'HFZ',
+                'tafsir' => 'TFS',
+                'fahmil' => 'FHL',
+                'syarhil' => 'SYR',
+                'khatib' => 'KTB',
+                'muadzin' => 'MDZ',
+                default => 'MQR',
+            };
+        }
+
+        // Fallback: dari label
         return match ($this->categoryMaqraSystemLabel($category)) {
             'Tilawah' => 'TLW',
             'Tahfizh' => 'HFZ',
@@ -2976,6 +2999,12 @@ class PageController extends Controller
 
     public function categoryMaqraUsesDistrictSharing(CompetitionCategory $category): bool
     {
+        // Prioritas 1: cek kolom lot_group_type
+        if (filled($category->lot_group_type)) {
+            return $category->lot_group_type !== 'single';
+        }
+
+        // Fallback: dari maqra_system_type
         $systemLabel = $this->categoryMaqraSystemLabel($category);
 
         return in_array($systemLabel, ['Fahmil', 'Syarhil', 'Khatib', 'Muadzin']);

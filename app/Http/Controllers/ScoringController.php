@@ -824,6 +824,12 @@ class ScoringController extends Controller
 
     protected function isMfqCategory(CompetitionCategory $category): bool
     {
+        // Prioritas 1: cek kolom maqra_system_type
+        if (filled($category->maqra_system_type)) {
+            return $category->maqra_system_type === 'fahmil';
+        }
+
+        // Fallback: string matching (untuk data lama)
         $haystack = mb_strtolower(trim((string) $category->branch.' '.(string) $category->name.' '.(string) $category->slug));
 
         return str_contains($haystack, 'fahmil');

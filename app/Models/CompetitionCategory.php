@@ -29,11 +29,15 @@ class CompetitionCategory extends Model
         'lot_code',
         'lot_number_min',
         'lot_number_max',
+        'maqra_system_type',
+        'lot_group_type',
+        'uses_district_quota',
     ];
 
     protected $casts = [
         'lot_number_min' => 'integer',
         'lot_number_max' => 'integer',
+        'uses_district_quota' => 'boolean',
     ];
 
     public function participants(): HasMany

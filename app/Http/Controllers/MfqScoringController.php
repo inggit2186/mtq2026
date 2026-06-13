@@ -562,6 +562,17 @@ class MfqScoringController extends Controller
 
     protected function ensureMfqCategoryByCategory(CompetitionCategory $category): void
     {
+        // Prioritas 1: cek kolom maqra_system_type
+        if (filled($category->maqra_system_type)) {
+            if ($category->maqra_system_type === 'fahmil') {
+                return;
+            }
+            throw ValidationException::withMessages([
+                'competition_category_id' => 'Golongan yang dipilih bukan cabang MFQ.',
+            ]);
+        }
+
+        // Fallback: string matching (untuk data lama)
         $haystack = mb_strtolower(trim((string) $category->branch.' '.(string) $category->name.' '.(string) $category->slug));
 
         if (! str_contains($haystack, 'fahmil')) {
@@ -573,7 +584,18 @@ class MfqScoringController extends Controller
 
     protected function isMfqParticipant(Participant $participant): bool
     {
-        $haystack = mb_strtolower(trim((string) ($participant->category?->branch ?? '').' '.(string) ($participant->category?->name ?? '').' '.(string) ($participant->category?->slug ?? '')));
+        $category = $participant->category;
+        if (! $category) {
+            return false;
+        }
+
+        // Prioritas 1: cek kolom maqra_system_type
+        if (filled($category->maqra_system_type)) {
+            return $category->maqra_system_type === 'fahmil';
+        }
+
+        // Fallback: string matching (untuk data lama)
+        $haystack = mb_strtolower(trim((string) ($category->branch ?? '').' '.(string) ($category->name ?? '').' '.(string) ($category->slug ?? '')));
 
         return str_contains($haystack, 'fahmil');
     }

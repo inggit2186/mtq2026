@@ -3351,6 +3351,12 @@ class ParticipantRegistrationController extends Controller
 
     protected function isDistrictQuotaCategory(CompetitionCategory $category): bool
     {
+        // Prioritas 1: cek kolom uses_district_quota
+        if ($category->uses_district_quota) {
+            return true;
+        }
+
+        // Fallback: string matching (untuk data lama)
         return str_contains(mb_strtolower((string) $category->notes), 'kk');
     }
 
@@ -3605,6 +3611,22 @@ class ParticipantRegistrationController extends Controller
 
     protected function genderQuotaRule(CompetitionCategory $category): ?string
     {
+        // Prioritas 1: cek kolom lot_group_type
+        if (filled($category->lot_group_type)) {
+            if ($category->lot_group_type === 'pair') {
+                return 'putra_two';
+            }
+            if ($category->lot_group_type === 'triple') {
+                // Cek gender dari nama category
+                $name = mb_strtolower((string) $category->name);
+                if (str_contains($name, 'putri')) {
+                    return 'putri_three';
+                }
+                return 'putra_three';
+            }
+        }
+
+        // Fallback: string matching (untuk data lama)
         $branch = mb_strtolower((string) $category->branch);
         $name = mb_strtolower((string) $category->name);
 
