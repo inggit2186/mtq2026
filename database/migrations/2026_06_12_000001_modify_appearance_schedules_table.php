@@ -9,15 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('appearance_schedules', function (Blueprint $table) {
-            $table->date('schedule_date')->nullable()->after('number_of_days');
-            $table->time('schedule_time')->nullable()->after('schedule_date');
+            // Only modify day_schedules - keep columns as-is
+            // If you need to drop schedule_date/schedule_time, do it separately
+            $table->json('day_schedules')->nullable()->change();
         });
     }
 
     public function down(): void
     {
-        Schema::table('appearance_schedules', function (Blueprint $table) {
-            $table->dropColumn(['schedule_date', 'schedule_time']);
-        });
+        // No rollback needed for json modification
     }
 };
