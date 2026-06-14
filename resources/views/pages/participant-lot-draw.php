@@ -629,15 +629,20 @@ $categoryLabel = $categoryLabel ?? trim((string) ($participant?->category?->bran
                                 const payload = await response.json();
 
                                 if (!response.ok) {
-                                    throw new Error(payload?.message || 'Gagal mengambil nomor lot.');
+                                    const errorMessage = payload?.message || payload?.error || 'Terjadi kesalahan mengambil nomor lot.';
+                                    throw new Error(errorMessage);
                                 }
 
                                 finalizeDisplay(payload, true);
                             } catch (error) {
-                                statusDisplay.textContent = error.message || 'Terjadi kesalahan saat mengunci nomor lot.';
+                                // Clear displays to prevent confusion
+                                suffixDisplay.textContent = '--';
+                                finalDisplay.textContent = '---';
+                                statusDisplay.textContent = 'Pengambilan Gagal: ' + (error.message || 'Error tidak diketahui');
                                 rollingLabel.textContent = 'Gagal';
-                                button.disabled = false;
-                                button.innerHTML = 'Coba Lagi';
+                                button.disabled = true;
+                                button.className = 'inline-flex items-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-6 py-4 text-sm font-semibold uppercase tracking-wider text-rose-200 opacity-50 cursor-not-allowed';
+                                button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg> Gagal';
                                 drawStarted = false;
                             }
                         }, 420);
