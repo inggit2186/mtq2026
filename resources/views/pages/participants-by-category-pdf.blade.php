@@ -384,7 +384,7 @@
         <div id="loadingCategory" class="loading-category"></div>
     </div>
 
-    <!-- Download Button for Single Category -->
+    <!-- Download Button for Single Category 
     @if ($singleMode && count($categoriesData) === 1)
     <div class="download-section" style="background: linear-gradient(135deg, #059669, #047857);">
         <button class="download-btn" onclick="downloadCategoryImage(0)" style="background: white; color: #059669;">
@@ -396,7 +396,7 @@
             <span>Download sebagai Gambar (PNG)</span>
         </button>
     </div>
-    @endif
+    @endif -->
 
     <!-- Download Buttons (only show when multiple categories) -->
     @if (count($categoriesData) > 1)
