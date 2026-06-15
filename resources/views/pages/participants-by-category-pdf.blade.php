@@ -12,33 +12,29 @@
             font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
             font-size: 10pt;
             color: #1e293b;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            min-height: 100vh;
-            padding: 15pt;
+            background: #f1f5f9;
+            padding: 10pt;
         }
         .pdf-wrapper {
             max-width: 210mm;
             margin: 0 auto;
             background: white;
-            border-radius: 20pt;
-            box-shadow: 0 20pt 60pt rgba(0,0,0,0.1);
             overflow: hidden;
         }
-        /* Category Section */
-        .category-section {
-            page-break-after: always;
+        /* Category PDF - each is a separate document */
+        .category-pdf {
             min-height: 297mm;
             position: relative;
-            padding-bottom: 50pt;
+            page-break-after: always;
         }
-        .category-section:last-child {
+        .category-pdf:last-child {
             page-break-after: auto;
         }
         /* Main Header */
         .main-header {
             background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
             color: white;
-            padding: 25pt 20pt;
+            padding: 20pt 20pt 15pt 20pt;
             text-align: center;
             position: relative;
         }
@@ -54,26 +50,141 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10pt;
-            margin-bottom: 15pt;
+            gap: 8pt;
+            margin-bottom: 12pt;
         }
-        .main-logo { width: 50pt; height: 50pt; object-fit: contain; }
-        .main-logo-lg { width: 65pt; height: 65pt; }
-        .main-title { font-family: 'Playfair Display', serif; font-size: 18pt; font-weight: 600; margin-bottom: 6pt; }
-        .main-event-title { font-family: 'Playfair Display', serif; font-size: 26pt; font-weight: 700; line-height: 1.2; margin-bottom: 12pt; }
+        .main-logo { width: 40pt; height: 40pt; object-fit: contain; }
+        .main-logo-lg { width: 55pt; height: 55pt; }
+        .main-title { font-family: 'Playfair Display', serif; font-size: 14pt; font-weight: 600; margin-bottom: 4pt; }
+        .main-event-title { font-family: 'Playfair Display', serif; font-size: 22pt; font-weight: 700; line-height: 1.2; margin-bottom: 8pt; }
         .main-sk {
-            font-size: 12pt;
-            line-height: 1.5;
+            font-size: 10pt;
+            line-height: 1.4;
             opacity: 0.9;
             border-top: 1px solid rgba(255,255,255,0.3);
-            padding-top: 10pt;
-            margin-top: 10pt;
+            padding-top: 8pt;
+            margin-top: 8pt;
+        }
+        /* Venue Badge - Eye-catching location banner */
+        .venue-banner {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%);
+            color: white;
+            padding: 12pt 20pt;
+            text-align: center;
+            position: relative;
+            border-bottom: 4pt solid #fbbf24;
+        }
+        .venue-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M15 0L30 15L15 30L0 15z'/%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+        .venue-banner-content { position: relative; }
+        .venue-label {
+            display: inline-block;
+            background: #fbbf24;
+            color: #1e293b;
+            padding: 3pt 12pt;
+            border-radius: 12pt;
+            font-size: 9pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1pt;
+            margin-bottom: 8pt;
+        }
+        .venue-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 20pt;
+            font-weight: 700;
+            margin-bottom: 6pt;
+            text-shadow: 0 2pt 4pt rgba(0,0,0,0.2);
+        }
+        .venue-map-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6pt;
+            background: white;
+            color: #dc2626;
+            padding: 6pt 14pt;
+            border-radius: 20pt;
+            font-size: 10pt;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .venue-map-link:hover {
+            background: #fef3c7;
+            transform: scale(1.02);
+        }
+        .venue-map-link svg { width: 14pt; height: 14pt; }
+        /* Venue Photo & QR Section */
+        .venue-info-section {
+            display: flex;
+            gap: 15pt;
+            padding: 12pt 20pt;
+            background: #f8fafc;
+            align-items: stretch;
+        }
+        .venue-photo-wrapper {
+            flex: 1;
+            min-height: 100pt;
+            border-radius: 10pt;
+            overflow: hidden;
+            box-shadow: 0 4pt 12pt rgba(0,0,0,0.1);
+        }
+        .venue-photo {
+            width: 100%;
+            height: 100pt;
+            object-fit: cover;
+        }
+        .venue-photo-placeholder {
+            width: 100%;
+            height: 100pt;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-size: 10pt;
+        }
+        .venue-qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10pt;
+            background: white;
+            border-radius: 10pt;
+            box-shadow: 0 2pt 8pt rgba(0,0,0,0.08);
+        }
+        .venue-qr-label {
+            font-size: 8pt;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 6pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5pt;
+        }
+        .venue-qr-code {
+            width: 80pt;
+            height: 80pt;
+            background: white;
+        }
+        .venue-qr-url {
+            font-size: 7pt;
+            color: #94a3b8;
+            margin-top: 4pt;
+            max-width: 80pt;
+            word-break: break-all;
+            text-align: center;
         }
         /* Category Header */
         .category-header {
             background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
             color: white;
-            padding: 18pt 20pt;
+            padding: 15pt 20pt;
             text-align: center;
             position: relative;
         }
@@ -88,296 +199,354 @@
         .category-badge {
             display: inline-block;
             background: rgba(255,255,255,0.2);
-            padding: 4pt 14pt;
-            border-radius: 14pt;
-            font-size: 9pt;
+            padding: 3pt 12pt;
+            border-radius: 12pt;
+            font-size: 8pt;
             font-weight: 600;
-            margin-bottom: 8pt;
+            margin-bottom: 6pt;
         }
-        .category-branch { font-size: 12pt; margin-bottom: 4pt; }
-        .category-title { font-family: 'Playfair Display', serif; font-size: 20pt; font-weight: 700; line-height: 1.2; }
+        .category-branch { font-size: 11pt; margin-bottom: 3pt; }
+        .category-title { font-family: 'Playfair Display', serif; font-size: 18pt; font-weight: 700; line-height: 1.2; }
         /* Info Cards */
-        .info-cards { padding: 12pt 20pt; display: flex; gap: 10pt; flex-wrap: wrap; }
+        .info-cards { padding: 10pt 20pt; display: flex; gap: 8pt; flex-wrap: wrap; }
         .info-card {
             flex: 1;
-            min-width: 90pt;
-            padding: 10pt;
-            border-radius: 10pt;
+            min-width: 80pt;
+            padding: 8pt;
+            border-radius: 8pt;
             text-align: center;
         }
         .info-card.putra { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
         .info-card.putri { background: linear-gradient(135deg, #fce7f3, #fbcfe8); }
         .info-card.total { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
-        .info-card-label { font-size: 11pt; font-weight: 600; margin-bottom: 3pt; }
+        .info-card-label { font-size: 10pt; font-weight: 600; margin-bottom: 2pt; }
         .info-card.putra .info-card-label { color: #1d4ed8; }
         .info-card.putri .info-card-label { color: #9d174d; }
         .info-card.total .info-card-label { color: #065f46; }
-        .info-card-value { font-size: 15pt; font-weight: 700; }
+        .info-card-value { font-size: 14pt; font-weight: 700; }
         .info-card.putra .info-card-value { color: #1d4ed8; }
         .info-card.putri .info-card-value { color: #9d174d; }
         .info-card.total .info-card-value { color: #065f46; }
         /* Table */
-        .table-section { padding: 10pt 20pt; }
+        .table-section { padding: 8pt 20pt; }
         .participant-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12pt;
-            box-shadow: 0 4pt 12pt rgba(0,0,0,0.06);
-            border-radius: 10pt;
+            font-size: 11pt;
+            box-shadow: 0 2pt 8pt rgba(0,0,0,0.06);
+            border-radius: 8pt;
             overflow: hidden;
         }
         .participant-table thead th {
             background: linear-gradient(135deg, #0891b2, #0e7490);
             color: white;
-            padding: 8pt 6pt;
+            padding: 6pt 5pt;
             text-align: center;
             font-weight: 600;
-            font-size: 11pt;
+            font-size: 10pt;
             text-transform: uppercase;
         }
         .participant-table tbody td {
-            padding: 7pt 6pt;
+            padding: 6pt 5pt;
             border-bottom: 1px solid #f1f5f9;
             vertical-align: middle;
         }
         .participant-table tbody tr:last-child td { border-bottom: none; }
         .participant-table tbody tr:hover td { background: #f8fafc; }
         /* Photo cell */
-        .photo-cell { width: 35pt; text-align: center; }
+        .photo-cell { width: 30pt; text-align: center; }
         .photo-placeholder {
-            width: 70pt;
-            height: 78pt;
+            width: 55pt;
+            height: 65pt;
             background: #f1f5f9;
-            border-radius: 6pt;
+            border-radius: 5pt;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto;
             color: #94a3b8;
-            font-size: 12pt;
+            font-size: 10pt;
         }
         .photo-img {
-            width: 70pt;
-            height: 78pt;
+            width: 55pt;
+            height: 65pt;
             object-fit: cover;
-            border-radius: 6pt;
+            border-radius: 5pt;
         }
-        /* Name cell - normal size */
+        /* Name cell */
         .name-text { font-weight: 600; color: #1e293b; }
-        .name-sub { font-size: 10pt; color: #64748b; margin-top: 2pt; }
+        .name-sub { font-size: 9pt; color: #64748b; margin-top: 2pt; }
         /* District cell */
-        .district-text { font-size: 12pt; }
+        .district-text { font-size: 11pt; }
         /* Age badge */
         .age-badge {
             display: inline-block;
             background: #e0f2fe;
             color: #0369a1;
-            padding: 3pt 8pt;
-            border-radius: 8pt;
-            font-size: 12pt;
+            padding: 2pt 6pt;
+            border-radius: 6pt;
+            font-size: 11pt;
             font-weight: 600;
         }
-        /* Category spacing */
-        .category-section {
-            margin-bottom: 20pt;
-            page-break-after: always;
-        }
-        .category-section:last-of-type {
-            margin-bottom: 0;
-            page-break-after: auto;
-        }
-        /* Last category includes footer and signature - keep together */
-        .category-section.is-last {
-            page-break-after: avoid;
-            page-break-inside: avoid;
-        }
-        /* Footer - single at end */
-        .pdf-footer {
+        /* Footer - per category */
+        .category-footer {
             background: linear-gradient(135deg, #1e3a5f, #0f172a);
             color: white;
-            padding: 8pt 20pt;
+            padding: 6pt 20pt;
             text-align: center;
-            font-size: 11pt;
+            font-size: 9pt;
             page-break-inside: avoid;
         }
-        .footer-brand { font-weight: 600; margin-bottom: 2pt; }
+        .footer-brand { font-weight: 600; margin-bottom: 1pt; }
         .footer-text { opacity: 0.8; }
-        /* Column widths */
-        .col-no { width: 35pt; }
-        .col-photo { width: 80pt; }
-        .col-name { width: 60%; }
-        .col-district { width: 20%; }
-        .col-age { width: 10%; }
-        /* Signature - Only on last page */
-        .signature-final {
+        /* Signature - per category, right aligned */
+        .signature-section {
             page-break-inside: avoid;
-            page-break-before: auto;
-            padding: 40pt;
-            min-height: 150pt;
+            padding: 25pt 40pt 15pt 60pt;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-end;
         }
         .signature-right {
             text-align: right;
-            font-size: 14pt;
-            line-height: 1.8;
+            font-size: 12pt;
+            line-height: 1.6;
         }
-        .signature-date { margin-bottom: 60pt; }
+        .signature-date { margin-bottom: 45pt; }
         .signature-title { font-weight: 600; }
-        /* Download section hidden */
-        .download-section { display: none; }
+        .signature-name {
+            font-weight: 600;
+            font-size: 13pt;
+            color: #1e3a5f;
+            margin-top: 40pt;
+        }
+        .signature-role { font-size: 10pt; color: #64748b; }
+        /* Download buttons */
+        .download-section {
+            padding: 15pt;
+            background: #f1f5f9;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10pt;
+            justify-content: center;
+        }
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6pt;
+            padding: 10pt 18pt;
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+            color: white;
+            border: none;
+            border-radius: 8pt;
+            font-size: 11pt;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .download-btn:hover {
+            background: linear-gradient(135deg, #0e7490, #0891b2);
+            transform: translateY(-1pt);
+        }
+        .download-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .download-btn svg { width: 16pt; height: 16pt; }
         /* Loading overlay */
         .loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.7);
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 2000;
             color: white;
         }
+        .loading-overlay.active { display: flex; }
         .loading-spinner {
-            width: 50px; height: 50px;
+            width: 40px; height: 40px;
             border: 4px solid rgba(255,255,255,0.3);
             border-top-color: white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text { font-size: 14pt; }
+        .loading-text { font-size: 13pt; }
+        .loading-category { font-size: 11pt; opacity: 0.8; margin-top: 6pt; }
     </style>
 </head>
 <body>
     <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-spinner"></div>
         <div class="loading-text">Generating PDF...</div>
+        <div id="loadingCategory" class="loading-category"></div>
     </div>
 
-    <!-- Hidden Download Button -->
+    <!-- Download Buttons (only show when multiple categories) -->
+    @if (count($categoriesData) > 1)
     <div class="download-section">
-        <button id="downloadPdfBtn" class="download-btn" onclick="downloadPDF()">
-            <span>Download PDF</span>
+        @foreach ($categoriesData as $index => $categoryData)
+        <button class="download-btn" onclick="downloadCategoryPdf({{ $index }})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>{{ $categoryData['category']->branch }} - {{ $categoryData['category']->name }}</span>
         </button>
+        @endforeach
     </div>
+    @endif
 
-    <div id="pdfContent">
-        <!-- Main Header -->
-        <div class="main-header">
-            <div class="main-header-content">
-                <div class="main-header-logos">
-                    <img src="/images/logo-kabupaten.webp" alt="" class="main-logo">
-                    <img src="/images/favicon.webp" alt="" class="main-logo">
-                    <img src="/images/logo-lptq.webp" alt="" class="main-logo">
-                    <img src="/images/emtq-resmi.webp" alt="" class="main-logo main-logo-lg">
-                </div>
-                <div class="main-title">Daftar Nama Peserta</div>
-                <div class="main-event-title">{{ $eventTitle }}</div>
-                <div class="main-sk">
-                    Berdasarkan SK LPTQ Kabupaten Tanah Datar<br>
-                    <b>Nomor : 02/LPTQ/TD/2026</b><br>
-                    Tanggal 26 Mei 2026
-                </div>
-            </div>
-        </div>
-
-        @foreach ($categoriesData as $categoryIndex => $categoryData)
-        @php
-            $isLastCategory = ($categoryIndex === count($categoriesData) - 1);
-        @endphp
-        <div class="category-section{{ $isLastCategory ? ' is-last' : '' }}">
-            <!-- Category Header -->
-            <div class="category-header">
-                <div class="category-header-content">
-                    <div class="category-badge">Daftar Peserta</div>
-                    <div class="category-branch">{{ $categoryData['category']->branch }}</div>
-                    <div class="category-title">{{ $categoryData['category']->name }}</div>
-                </div>
-            </div>
-
-            <!-- Info Cards -->
-            <div class="info-cards">
-                <div class="info-card putra">
-                    <div class="info-card-label">PUTRA</div>
-                    <div class="info-card-value">{{ $categoryData['putra_count'] }}</div>
-                </div>
-                <div class="info-card putri">
-                    <div class="info-card-label">PUTRI</div>
-                    <div class="info-card-value">{{ $categoryData['putri_count'] }}</div>
-                </div>
-                <div class="info-card total">
-                    <div class="info-card-label">TOTAL</div>
-                    <div class="info-card-value">{{ $categoryData['total'] }}</div>
-                </div>
-            </div>
-
-            <!-- Participant Table -->
-            <div class="table-section">
-                <table class="participant-table">
-                    <thead>
-                        <tr>
-                            <th class="col-no">No</th>
-                            <th class="col-photo">Foto</th>
-                            <th class="col-name">Nama Peserta</th>
-                            <th class="col-district">Kecamatan</th>
-                            <th class="col-age">Umur (per 1 Juli)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @php $rowNumber = 1; @endphp
-                        @foreach ($categoryData['participants'] as $participant)
-                        <tr>
-                            <td style="text-align:center;font-weight:600;color:#0891b2;">{{ $rowNumber }}</td>
-                            <td class="photo-cell">
-                                @if ($participant['photo'] && file_exists(public_path('storage/' . $participant['photo'])))
-                                    <img src="{{ asset('storage/' . $participant['photo']) }}" alt="" class="photo-img">
-                                @else
-                                    <div class="photo-placeholder">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                            <circle cx="12" cy="7" r="4"></circle>
-                                        </svg>
-                                    </div>
-                                @endif
-                            </td>
-                            <td>
-                                <div class="name-text">{{ $participant['name'] }}</div>
-                                <div class="name-sub">{{ ucfirst($participant['gender']) }}</div>
-                            </td>
-                            <td class="district-text">{{ $participant['district'] }}</td>
-                            <td style="text-align:center;font-size:12pt;">
-                                @if ($participant['age'])
-                                    {{ $participant['age']['years'] }} Tahun
-                                    <span style="color:#64748b;font-size:9pt;">{{ $participant['age']['months'] }} Bln {{ $participant['age']['days'] }} Hr</span>
-                                @else
-                                    <span style="color:#94a3b8;font-size:12pt;">-</span>
-                                @endif
-                            </td>
-                        </tr>
-                        @php $rowNumber++; @endphp
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-            {{-- Footer dan Tanda Tangan - hanya di kategori terakhir --}}
-            @if ($isLastCategory)
-                <!-- Single Footer at end -->
-                <div class="pdf-footer">
-                    <div class="footer-brand">e-MTQ {{ $eventTitle }} | Dicetak: {{ $generatedAt->translatedFormat('d F Y H:i') }} WIB</div>
+    <!-- PDF Content Container -->
+    <div id="pdfContainer">
+        @foreach ($categoriesData as $index => $categoryData)
+        <div class="pdf-wrapper">
+            <div class="category-pdf" id="categoryPdf{{ $index }}">
+                <!-- Main Header -->
+                <div class="main-header">
+                    <div class="main-header-content">
+                        <div class="main-header-logos">
+                            <img src="/images/logo-kabupaten.webp" alt="" class="main-logo">
+                            <img src="/images/favicon.webp" alt="" class="main-logo">
+                            <img src="/images/logo-lptq.webp" alt="" class="main-logo">
+                            <img src="/images/emtq-resmi.webp" alt="" class="main-logo main-logo-lg">
+                        </div>
+                        <div class="main-title">Daftar Nama Peserta</div>
+                        <div class="main-event-title">{{ $eventTitle }}</div>
+                        <div class="main-sk">
+                            Berdasarkan SK LPTQ Kabupaten Tanah Datar<br>
+                            <b>Nomor : 02/LPTQ/TD/2026</b><br>
+                            Tanggal 26 Mei 2026
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Signature - Only on last page -->
-                <div class="signature-final">
+                <!-- Venue Banner - Eye-catching location -->
+                <div class="venue-banner">
+                    <div class="venue-banner-content">
+                        <div class="venue-label">Lokasi Lomba</div>
+                        <div class="venue-name">{{ $categoryData['venue_name'] }}</div>
+                    </div>
+                </div>
+
+                <!-- Venue Photo & QR Code Section -->
+                <div class="venue-info-section">
+                    <!-- Venue Photo -->
+                    <div class="venue-photo-wrapper">
+                        @if ($categoryData['photo_path'] && file_exists(public_path($categoryData['photo_path'])))
+                            <img src="{{ asset($categoryData['photo_path']) }}" alt="Foto Lokasi" class="venue-photo">
+                        @else
+                            <div class="venue-photo-placeholder">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <span style="margin-top:6pt;">Foto Lokasi</span>
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- QR Code Section -->
+                    @if (!empty($categoryData['map_url']))
+                    <div class="venue-qr-section">
+                        <div class="venue-qr-label">Scan untuk peta</div>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data={{ urlencode($categoryData['map_url']) }}" alt="QR Code Peta" class="venue-qr-code">
+                        <div class="venue-qr-url">{{ strlen($categoryData['map_url']) > 30 ? substr($categoryData['map_url'], 0, 30) . '...' : $categoryData['map_url'] }}</div>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Category Header -->
+                <div class="category-header">
+                    <div class="category-header-content">
+                        <div class="category-badge">Daftar Peserta</div>
+                        <div class="category-branch">{{ $categoryData['category']->branch }}</div>
+                        <div class="category-title">{{ $categoryData['category']->name }}</div>
+                    </div>
+                </div>
+
+                <!-- Info Cards -->
+                <div class="info-cards">
+                    <div class="info-card putra">
+                        <div class="info-card-label">PUTRA</div>
+                        <div class="info-card-value">{{ $categoryData['putra_count'] }}</div>
+                    </div>
+                    <div class="info-card putri">
+                        <div class="info-card-label">PUTRI</div>
+                        <div class="info-card-value">{{ $categoryData['putri_count'] }}</div>
+                    </div>
+                    <div class="info-card total">
+                        <div class="info-card-label">TOTAL</div>
+                        <div class="info-card-value">{{ $categoryData['total'] }}</div>
+                    </div>
+                </div>
+
+                <!-- Participant Table -->
+                <div class="table-section">
+                    <table class="participant-table">
+                        <thead>
+                            <tr>
+                                <th class="col-no">No</th>
+                                <th class="col-photo">Foto</th>
+                                <th class="col-name">Nama Peserta</th>
+                                <th class="col-district">Kecamatan</th>
+                                <th class="col-age">Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php $rowNumber = 1; @endphp
+                            @foreach ($categoryData['participants'] as $participant)
+                            <tr>
+                                <td style="text-align:center;font-weight:600;color:#0891b2;">{{ $rowNumber }}</td>
+                                <td class="photo-cell">
+                                    @if ($participant['photo'] && file_exists(public_path('storage/' . $participant['photo'])))
+                                        <img src="{{ asset('storage/' . $participant['photo']) }}" alt="" class="photo-img">
+                                    @else
+                                        <div class="photo-placeholder">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                <circle cx="12" cy="7" r="4"></circle>
+                                            </svg>
+                                        </div>
+                                    @endif
+                                </td>
+                                <td>
+                                    <div class="name-text">{{ $participant['name'] }}</div>
+                                    <div class="name-sub">{{ ucfirst($participant['gender']) }}</div>
+                                </td>
+                                <td class="district-text">{{ $participant['district'] }}</td>
+                                <td style="text-align:center;font-size:11pt;">
+                                    &nbsp; &nbsp; &nbsp; &nbsp;
+                                </td>
+                            </tr>
+                            @php $rowNumber++; @endphp
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div class="category-footer">
+                    <div class="footer-brand">e-MTQ {{ $eventTitle }} | {{ $categoryData['category']->name }} | Dicetak: {{ $generatedAt->translatedFormat('d F Y H:i') }} WIB</div>
+                </div>
+
+                <!-- Signature Section - Right aligned -->
+                <div class="signature-section">
                     <div class="signature-right">
                         <div class="signature-date">Tanah Datar, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ $generatedAt->translatedFormat('F Y') }}</div>
                         <div style="height:50pt;">&nbsp;</div>
-                        <div class="signature-title">Pengurus LPTQ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+                        <div class="signature-title">Pengurus LPTQ &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div>
                         <div>Kabupaten Tanah Datar</div>
                     </div>
                 </div>
-            @endif
+            </div>
         </div>
         @endforeach
     </div>
@@ -387,16 +556,23 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
-        async function downloadPDF() {
-            const btn = document.getElementById('downloadPdfBtn');
-            const overlay = document.getElementById('loadingOverlay');
+        const categoriesData = {!! json_encode(collect($categoriesData)->map(fn($c) => [
+            'name' => $c['category']->name,
+            'branch' => $c['category']->branch,
+        ])->values()) !!};
+        const isSingleMode = {{ $singleMode ? 'true' : 'false' }};
 
-            btn.disabled = true;
-            overlay.style.display = 'flex';
+        async function downloadCategoryPdf(index) {
+            const overlay = document.getElementById('loadingOverlay');
+            const categoryLabel = document.getElementById('loadingCategory');
+            const category = categoriesData[index];
+
+            overlay.classList.add('active');
+            categoryLabel.textContent = `${category.branch} - ${category.name}`;
 
             try {
                 const { jsPDF } = window.jspdf;
-                const element = document.getElementById('pdfContent');
+                const element = document.getElementById('categoryPdf' + index);
 
                 const canvas = await html2canvas(element, {
                     scale: 2,
@@ -435,29 +611,25 @@
                     pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
                 }
 
-                const now = new Date();
-                const timestamp = now.getFullYear() +
-                    String(now.getMonth() + 1).padStart(2, '0') +
-                    String(now.getDate()).padStart(2, '0') + '_' +
-                    String(now.getHours()).padStart(2, '0') +
-                    String(now.getMinutes()).padStart(2, '0') +
-                    String(now.getSeconds()).padStart(2, '0');
-                const filename = 'Daftar_Peserta_MTQ_' + timestamp + '.pdf';
-
+                const filename = 'Daftar_Peserta_' + category.branch.replace(/\s+/g, '_') + '_' + category.name.replace(/\s+/g, '_') + '.pdf';
                 pdf.save(filename);
 
             } catch (error) {
                 console.error('PDF generation error:', error);
                 alert('Gagal generate PDF: ' + error.message);
             } finally {
-                overlay.style.display = 'none';
+                overlay.classList.remove('active');
             }
         }
 
-        // Auto download on page load
-        /* window.onload = function() {
-            setTimeout(downloadPDF, 500);
-        }; */
+        // Auto-download when only one category and NOT in single mode (i.e. not accessed via /pdf/{id})
+        if (categoriesData.length === 1 && !isSingleMode) {
+            window.onload = function() {
+                setTimeout(function() {
+                    downloadCategoryPdf(0);
+                }, 500);
+            };
+        }
     </script>
 </body>
 </html>

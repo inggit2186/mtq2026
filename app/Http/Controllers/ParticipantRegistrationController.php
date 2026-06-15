@@ -4217,7 +4217,7 @@ class ParticipantRegistrationController extends Controller
         ];
     }
 
-    public function exportByCategoryPdf(Request $request): View
+    public function exportByCategoryPdf(Request $request, ?int $id = null): View
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
 
@@ -4226,16 +4226,26 @@ class ParticipantRegistrationController extends Controller
         $verificationDistrictIds = $this->verificationDistrictIdsForUser($user);
         $restrictPanitiaDistricts = $user?->role === 'panitia';
 
-        // Get all categories
-        $categories = CompetitionCategory::query()
+        // Build category query
+        $categoryQuery = CompetitionCategory::query()
+            ->with(['locations' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('sort_order')
-            ->orderBy('branch')
-            ->get();
+            ->orderBy('branch');
+
+        // Filter by specific category if id provided
+        if ($id !== null) {
+            $categoryQuery->where('id', $id);
+        }
+
+        $categories = $categoryQuery->get();
+
+        // Abort if specific category not found
+        if ($id !== null && $categories->isEmpty()) {
+            abort(404, 'Kategori tidak ditemukan');
+        }
 
         // Get verified participants grouped by category
         $participantsByCategory = [];
-        $totalPutra = 0;
-        $totalPutri = 0;
 
         foreach ($categories as $category) {
             $participantsQuery = Participant::query()
@@ -4254,9 +4264,6 @@ class ParticipantRegistrationController extends Controller
 
             $putraCount = $participants->where('gender', 'putra')->count();
             $putriCount = $participants->where('gender', 'putri')->count();
-
-            $totalPutra += $putraCount;
-            $totalPutri += $putriCount;
 
             // Calculate ages for each participant - age reference: July 1, 2026
             $participantsWithAge = $participants->map(function ($p) {
@@ -4307,26 +4314,34 @@ class ParticipantRegistrationController extends Controller
                 }
             });
 
+            // Get location venue for this category
+            $location = $category->locations->first();
+            $venueName = $location?->venue_name ?? config('juknis.host', 'Lokasi Acara');
+            $mapUrl = $location?->map_url ?? null;
+            $photoPath = $location?->photo_path ?? null;
+            $photoThumbPath = $location?->photo_thumb_path ?? $photoPath;
+
             $participantsByCategory[] = [
                 'category' => $category,
                 'participants' => $participantsWithAge,
                 'putra_count' => $putraCount,
                 'putri_count' => $putriCount,
                 'total' => $participants->count(),
+                'venue_name' => $venueName,
+                'map_url' => $mapUrl,
+                'photo_path' => $photoPath,
+                'photo_thumb_path' => $photoThumbPath,
             ];
         }
 
         $eventTitle = config('juknis.title', 'MTQ');
-        $eventLocation = config('juknis.host', 'Lokasi');
+        $singleMode = $id !== null && count($participantsByCategory) === 1;
 
         return view('pages.participants-by-category-pdf', [
             'eventTitle' => $eventTitle,
-            'eventLocation' => $eventLocation,
             'categoriesData' => $participantsByCategory,
-            'totalPutra' => $totalPutra,
-            'totalPutri' => $totalPutri,
-            'totalAll' => $totalPutra + $totalPutri,
             'generatedAt' => now(),
+            'singleMode' => $singleMode,
         ]);
     }
 }
