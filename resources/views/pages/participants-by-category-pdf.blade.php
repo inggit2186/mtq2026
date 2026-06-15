@@ -253,8 +253,8 @@
         /* Photo cell */
         .photo-cell { width: 30pt; text-align: center; }
         .photo-placeholder {
-            width: 55pt;
-            height: 65pt;
+            width: 450pt;
+            height: 55pt;
             background: #f1f5f9;
             border-radius: 5pt;
             display: flex;
@@ -265,8 +265,8 @@
             font-size: 10pt;
         }
         .photo-img {
-            width: 55pt;
-            height: 65pt;
+            width: 45pt;
+            height: 55pt;
             object-fit: cover;
             border-radius: 5pt;
         }
