@@ -30,11 +30,11 @@
         .category-pdf:last-child {
             page-break-after: auto;
         }
-        /* Main Header */
+        /* Main Header - Compact */
         .main-header {
             background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
             color: white;
-            padding: 20pt 20pt 15pt 20pt;
+            padding: 12pt 20pt 10pt 20pt;
             text-align: center;
             position: relative;
         }
@@ -50,29 +50,39 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 8pt;
-            margin-bottom: 12pt;
+            gap: 6pt;
+            margin-bottom: 6pt;
         }
-        .main-logo { width: 40pt; height: 40pt; object-fit: contain; }
-        .main-logo-lg { width: 55pt; height: 55pt; }
-        .main-title { font-family: 'Playfair Display', serif; font-size: 14pt; font-weight: 600; margin-bottom: 4pt; }
-        .main-event-title { font-family: 'Playfair Display', serif; font-size: 22pt; font-weight: 700; line-height: 1.2; margin-bottom: 8pt; }
+        .main-logo { width: 30pt; height: 30pt; object-fit: contain; }
+        .main-logo-lg { width: 40pt; height: 40pt; }
+        .main-title { font-family: 'Playfair Display', serif; font-size: 11pt; font-weight: 600; margin-bottom: 2pt; }
+        .main-event-title { font-family: 'Playfair Display', serif; font-size: 16pt; font-weight: 700; line-height: 1.2; margin-bottom: 4pt; }
         .main-sk {
-            font-size: 10pt;
-            line-height: 1.4;
+            font-size: 8pt;
+            line-height: 1.3;
             opacity: 0.9;
             border-top: 1px solid rgba(255,255,255,0.3);
-            padding-top: 8pt;
-            margin-top: 8pt;
+            padding-top: 4pt;
+            margin-top: 4pt;
         }
-        /* Venue Badge - Eye-catching location banner */
+        /* Combined Venue Section - One Row */
+        .venue-combined {
+            display: flex;
+            gap: 0;
+            padding: 0;
+            background: #f8fafc;
+        }
         .venue-banner {
             background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%);
             color: white;
-            padding: 12pt 20pt;
+            padding: 10pt 15pt;
             text-align: center;
             position: relative;
-            border-bottom: 4pt solid #fbbf24;
+            flex: 0 0 35%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-right: 3pt solid #fbbf24;
         }
         .venue-banner::before {
             content: '';
@@ -86,97 +96,84 @@
             display: inline-block;
             background: #fbbf24;
             color: #1e293b;
-            padding: 3pt 12pt;
-            border-radius: 12pt;
-            font-size: 9pt;
+            padding: 2pt 10pt;
+            border-radius: 10pt;
+            font-size: 8pt;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1pt;
-            margin-bottom: 8pt;
+            letter-spacing: 0.5pt;
+            margin-bottom: 4pt;
         }
         .venue-name {
             font-family: 'Playfair Display', serif;
-            font-size: 20pt;
+            font-size: 14pt;
             font-weight: 700;
-            margin-bottom: 6pt;
+            line-height: 1.2;
             text-shadow: 0 2pt 4pt rgba(0,0,0,0.2);
         }
-        .venue-map-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6pt;
-            background: white;
-            color: #dc2626;
-            padding: 6pt 14pt;
-            border-radius: 20pt;
-            font-size: 10pt;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-        .venue-map-link:hover {
-            background: #fef3c7;
-            transform: scale(1.02);
-        }
-        .venue-map-link svg { width: 14pt; height: 14pt; }
-        /* Venue Photo & QR Section */
+        /* Venue Photo & QR Section - Combined in one row */
         .venue-info-section {
             display: flex;
-            gap: 15pt;
-            padding: 12pt 20pt;
+            gap: 10pt;
+            padding: 10pt 15pt;
             background: #f8fafc;
-            align-items: stretch;
+            flex: 1;
+            align-items: center;
         }
         .venue-photo-wrapper {
             flex: 1;
-            min-height: 100pt;
-            border-radius: 10pt;
+            min-height: 60pt;
+            border-radius: 6pt;
             overflow: hidden;
-            box-shadow: 0 4pt 12pt rgba(0,0,0,0.1);
+            box-shadow: 0 2pt 6pt rgba(0,0,0,0.1);
+            flex: 1;
         }
         .venue-photo {
             width: 100%;
-            height: 100pt;
+            height: 60pt;
             object-fit: cover;
         }
         .venue-photo-placeholder {
             width: 100%;
-            height: 100pt;
+            height: 60pt;
             background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
             display: flex;
             align-items: center;
             justify-content: center;
             color: #64748b;
-            font-size: 10pt;
+            font-size: 9pt;
+            flex-direction: column;
         }
         .venue-qr-section {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
-            justify-content: center;
-            padding: 10pt;
+            gap: 8pt;
+            padding: 6pt 8pt;
             background: white;
-            border-radius: 10pt;
-            box-shadow: 0 2pt 8pt rgba(0,0,0,0.08);
+            border-radius: 6pt;
+            box-shadow: 0 1pt 4pt rgba(0,0,0,0.08);
+            flex: 0 0 auto;
         }
         .venue-qr-label {
-            font-size: 8pt;
+            font-size: 7pt;
             font-weight: 600;
             color: #64748b;
-            margin-bottom: 6pt;
             text-transform: uppercase;
             letter-spacing: 0.5pt;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
         }
         .venue-qr-code {
-            width: 80pt;
-            height: 80pt;
+            width: 55pt;
+            height: 55pt;
             background: white;
         }
         .venue-qr-url {
-            font-size: 7pt;
+            font-size: 6pt;
             color: #94a3b8;
-            margin-top: 4pt;
-            max-width: 80pt;
+            max-width: 55pt;
             word-break: break-all;
             text-align: center;
         }
@@ -387,11 +384,25 @@
         <div id="loadingCategory" class="loading-category"></div>
     </div>
 
+    <!-- Download Button for Single Category -->
+    @if ($singleMode && count($categoriesData) === 1)
+    <div class="download-section" style="background: linear-gradient(135deg, #059669, #047857);">
+        <button class="download-btn" onclick="downloadCategoryImage(0)" style="background: white; color: #059669;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>Download sebagai Gambar (PNG)</span>
+        </button>
+    </div>
+    @endif
+
     <!-- Download Buttons (only show when multiple categories) -->
     @if (count($categoriesData) > 1)
     <div class="download-section">
         @foreach ($categoriesData as $index => $categoryData)
-        <button class="download-btn" onclick="downloadCategoryPdf({{ $index }})">
+        <button class="download-btn" onclick="downloadCategoryImage({{ $index }})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
@@ -427,48 +438,50 @@
                     </div>
                 </div>
 
-                <!-- Venue Banner - Eye-catching location -->
-                <div class="venue-banner">
-                    <div class="venue-banner-content">
-                        <div class="venue-label">Lokasi Lomba</div>
-                        <div class="venue-name">{{ $categoryData['venue_name'] }}</div>
-                    </div>
-                </div>
-
-                <!-- Venue Photo & QR Code Section -->
-                <div class="venue-info-section">
-                    <!-- Venue Photo -->
-                    <div class="venue-photo-wrapper">
-                        @if ($categoryData['photo_path'] && file_exists(public_path($categoryData['photo_path'])))
-                            <img src="{{ asset($categoryData['photo_path']) }}" alt="Foto Lokasi" class="venue-photo">
-                        @else
-                            <div class="venue-photo-placeholder">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                    <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                                <span style="margin-top:6pt;">Foto Lokasi</span>
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- QR Code Section -->
-                    @if (!empty($categoryData['map_url']))
-                    <div class="venue-qr-section">
-                        <div class="venue-qr-label">Scan untuk peta</div>
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data={{ urlencode($categoryData['map_url']) }}" alt="QR Code Peta" class="venue-qr-code">
-                        <div class="venue-qr-url">{{ strlen($categoryData['map_url']) > 30 ? substr($categoryData['map_url'], 0, 30) . '...' : $categoryData['map_url'] }}</div>
-                    </div>
-                    @endif
-                </div>
-
-                <!-- Category Header -->
+                <!-- Category Header - Branch & Category First -->
                 <div class="category-header">
                     <div class="category-header-content">
                         <div class="category-badge">Daftar Peserta</div>
                         <div class="category-branch">{{ $categoryData['category']->branch }}</div>
                         <div class="category-title">{{ $categoryData['category']->name }}</div>
+                    </div>
+                </div>
+
+                <!-- Combined Venue Section - Location Second -->
+                <div class="venue-combined">
+                    <!-- Venue Banner -->
+                    <div class="venue-banner">
+                        <div class="venue-banner-content">
+                            <div class="venue-label">Lokasi Lomba</div>
+                            <div class="venue-name">{{ $categoryData['venue_name'] }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Venue Photo & QR Code Section -->
+                    <div class="venue-info-section">
+                        <!-- Venue Photo -->
+                        <div class="venue-photo-wrapper">
+                            @if ($categoryData['photo_path'] && file_exists(public_path($categoryData['photo_path'])))
+                                <img src="{{ asset($categoryData['photo_path']) }}" alt="Foto Lokasi" class="venue-photo">
+                            @else
+                                <div class="venue-photo-placeholder">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                    </svg>
+                                    <span style="margin-top:4pt;font-size:8pt;">Foto</span>
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- QR Code Section -->
+                        @if (!empty($categoryData['map_url']))
+                        <div class="venue-qr-section">
+                            <div class="venue-qr-label">Peta</div>
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=55x55&data={{ urlencode($categoryData['map_url']) }}" alt="QR Code Peta" class="venue-qr-code">
+                        </div>
+                        @endif
                     </div>
                 </div>
 
@@ -551,8 +564,7 @@
         @endforeach
     </div>
 
-    <!-- jsPDF and html2canvas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- html2canvas only -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
@@ -562,7 +574,7 @@
         ])->values()) !!};
         const isSingleMode = {{ $singleMode ? 'true' : 'false' }};
 
-        async function downloadCategoryPdf(index) {
+        async function downloadCategoryImage(index) {
             const overlay = document.getElementById('loadingOverlay');
             const categoryLabel = document.getElementById('loadingCategory');
             const category = categoriesData[index];
@@ -571,52 +583,44 @@
             categoryLabel.textContent = `${category.branch} - ${category.name}`;
 
             try {
-                const { jsPDF } = window.jspdf;
                 const element = document.getElementById('categoryPdf' + index);
 
+                // Get actual element dimensions
+                const scale = 2;
+                const width = element.scrollWidth || element.offsetWidth;
+                const height = element.scrollHeight;
+
                 const canvas = await html2canvas(element, {
-                    scale: 2,
+                    scale: scale,
                     useCORS: true,
                     allowTaint: true,
                     backgroundColor: '#ffffff',
                     logging: false,
                     imageTimeout: 0,
-                });
-
-                const pdfWidth = 210;
-                const pdfHeight = 297;
-                const pageHeightInCanvasPixels = (pdfHeight / pdfWidth) * canvas.width;
-
-                const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4'
-                });
-
-                const totalPages = Math.ceil(canvas.height / pageHeightInCanvasPixels);
-
-                for (let i = 0; i < totalPages; i++) {
-                    const sourceY = i * pageHeightInCanvasPixels;
-
-                    const pageCanvas = document.createElement('canvas');
-                    pageCanvas.width = canvas.width;
-                    pageCanvas.height = pageHeightInCanvasPixels;
-                    const ctx = pageCanvas.getContext('2d');
-
-                    ctx.drawImage(canvas, 0, sourceY, canvas.width, pageHeightInCanvasPixels, 0, 0, canvas.width, pageHeightInCanvasPixels);
-
-                    if (i > 0) {
-                        pdf.addPage();
+                    width: width,
+                    height: height,
+                    windowWidth: width,
+                    windowHeight: height,
+                    onclone: function(clonedDoc) {
+                        const clonedElement = clonedDoc.getElementById('categoryPdf' + index);
+                        if (clonedElement) {
+                            clonedElement.style.height = 'auto';
+                            clonedElement.style.minHeight = 'auto';
+                            clonedElement.style.pageBreakAfter = 'auto';
+                            clonedElement.style.pageBreakInside = 'avoid';
+                        }
                     }
-                    pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
-                }
+                });
 
-                const filename = 'Daftar_Peserta_' + category.branch.replace(/\s+/g, '_') + '_' + category.name.replace(/\s+/g, '_') + '.pdf';
-                pdf.save(filename);
+                // Download as PNG image
+                const link = document.createElement('a');
+                link.download = 'Daftar_Peserta_' + category.branch.replace(/\s+/g, '_') + '_' + category.name.replace(/\s+/g, '_') + '.png';
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
 
             } catch (error) {
-                console.error('PDF generation error:', error);
-                alert('Gagal generate PDF: ' + error.message);
+                console.error('Image generation error:', error);
+                alert('Gagal generate gambar: ' + error.message);
             } finally {
                 overlay.classList.remove('active');
             }
@@ -626,7 +630,7 @@
         if (categoriesData.length === 1 && !isSingleMode) {
             window.onload = function() {
                 setTimeout(function() {
-                    downloadCategoryPdf(0);
+                    downloadCategoryImage(0);
                 }, 500);
             };
         }

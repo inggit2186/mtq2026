@@ -4254,7 +4254,10 @@ class ParticipantRegistrationController extends Controller
                 ->where('verification_status', 'verified')
                 ->when($restrictPanitiaDistricts, fn ($query) => $query->whereIn('district_id', $verificationDistrictIds))
                 ->when($districtId, fn ($query) => $query->where('district_id', $districtId))
-                ->orderBy('name');
+                ->join('districts', 'participants.district_id', '=', 'districts.id')
+                ->orderBy('districts.name')
+                ->orderBy('participants.name')
+                ->select('participants.*');
 
             $participants = $participantsQuery->get();
 
