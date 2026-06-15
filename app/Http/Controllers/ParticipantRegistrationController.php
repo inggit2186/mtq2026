@@ -1226,103 +1226,14 @@ class ParticipantRegistrationController extends Controller
 
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia', 'official', 'pendamping'], true), 403);
 
-        // Load template
-        $templatePath = public_path('images/templates/kokarde-template.jpg');
-        if (!file_exists($templatePath)) {
-            abort(404, 'Template kokarde tidak ditemukan');
-        }
-
-        $template = imagecreatefromjpeg($templatePath);
-        $width = imagesx($template);
-        $height = imagesy($template);
-
-        // Colors
-        $white = imagecolorallocate($template, 255, 255, 255);
-        $darkBlue = imagecolorallocate($template, 15, 23, 42);
-        $gold = imagecolorallocate($template, 251, 191, 36);
-        $green = imagecolorallocate($template, 22, 163, 74);
-        $black = imagecolorallocate($template, 0, 0, 0);
-        $gray = imagecolorallocate($template, 107, 114, 128);
-
-        // Template is 1043x1508 pixels
-        // Photo area - bottom left area
-        $photoX = (int) ($width * 0.05);
-        $photoY = (int) ($height * 0.27);
-        $photoW = (int) ($width * 0.38);
-        $photoH = (int) ($height * 0.28);
-
-        // If participant has photo, overlay it
-        if ($participant->document_photo) {
-            $photoPath = public_path('storage/' . $participant->document_photo);
-            if (file_exists($photoPath)) {
-                $ext = strtolower(pathinfo($photoPath, PATHINFO_EXTENSION));
-                if ($ext === 'jpg' || $ext === 'jpeg') {
-                    $srcImg = imagecreatefromjpeg($photoPath);
-                } elseif ($ext === 'png') {
-                    $srcImg = imagecreatefrompng($photoPath);
-                } else {
-                    $srcImg = null;
-                }
-
-                if ($srcImg) {
-                    // Create temp canvas for photo
-                    $photoCanvas = imagecreatetruecolor($photoW, $photoH);
-                    imagefill($photoCanvas, 0, 0, $white);
-
-                    // Resize and center photo
-                    $srcW = imagesx($srcImg);
-                    $srcH = imagesy($srcImg);
-                    $ratio = min($photoW / $srcW, $photoH / $srcH);
-                    $newW = (int) ($srcW * $ratio);
-                    $newH = (int) ($srcH * $ratio);
-                    $destX = (int) (($photoW - $newW) / 2);
-                    $destY = (int) (($photoH - $newH) / 2);
-
-                    imagecopyresampled($photoCanvas, $srcImg, $destX, $destY, 0, 0, $newW, $newH, $srcW, $srcH);
-
-                    // Copy to main template
-                    imagecopy($template, $photoCanvas, $photoX, $photoY, 0, 0, $photoW, $photoH);
-
-                    imagedestroy($srcImg);
-                    imagedestroy($photoCanvas);
-                }
-            }
-        }
-
-        // Text data area - right side of photo
-        $textX = (int) ($width * 0.48);
-        $textStartY = (int) ($height * 0.29);
-        $lineHeight = (int) ($height * 0.045);
-
-        // Draw participant info
-        $data = [
-            'NAMA' => strtoupper(mb_substr($participant->name ?? '-', 0, 22)),
-            'CABANG' => strtoupper(mb_substr($participant->category?->branch ?? '-', 0, 22)),
-            'GOLONGAN' => strtoupper($participant->gender ?? '-'),
-            'KECAMATAN' => strtoupper(mb_substr($participant->district?->name ?? '-', 0, 18)),
-        ];
-
-        $y = $textStartY;
-        foreach ($data as $label => $value) {
-            // Label (smaller font)
-            imagestring($template, 3, $textX, $y, $label, $gray);
-            // Value (larger font)
-            imagestring($template, 5, $textX, $y + 25, $value, $darkBlue);
-            $y += $lineHeight;
-        }
-
-        // Add event year from config
+        $eventTitle = config('juknis.title', 'MTQ');
         $eventYear = config('juknis.year', date('Y'));
-        imagestring($template, 3, $textX, $y + 25, 'TAHUN', $gray);
-        imagestring($template, 5, $textX, $y + 50, $eventYear, $darkBlue);
 
-        // Output image
-        header('Content-Type: image/png');
-        header('Content-Disposition: attachment; filename="kokarde-' . Str::slug($participant->name) . '.png"');
-
-        imagepng($template);
-        imagedestroy($template);
-        exit;
+        return view('pages.kokarde-html', [
+            'participant' => $participant,
+            'eventTitle' => $eventTitle,
+            'eventYear' => $eventYear,
+        ]);
     }
 
     protected function accessibleCategoryIdsForUser($user): array
