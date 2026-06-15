@@ -496,7 +496,8 @@ class ScoringController extends Controller
         // Collect all judge scores into JSON format (single row per participant per round)
         $allJudgeScores = [];
         foreach ($judgeNames as $judgeName) {
-            $scores = collect(data_get($scorePayload, 'scores.'.$judgeName, []))
+            $escapedJudgeName = $this->escapeDottedKey($judgeName);
+            $scores = collect(data_get($scorePayload, 'scores.'.$escapedJudgeName, []))
                 ->map(fn ($value) => round((float) $value, 2))
                 ->all();
             $totalScore = round(collect($scores)->avg() ?? 0, 2);
@@ -504,7 +505,7 @@ class ScoringController extends Controller
             $allJudgeScores[$judgeName] = [
                 'score' => $totalScore,
                 'breakdown' => $scores,
-                'remarks' => data_get($scorePayload, 'remarks.'.$judgeName),
+                'remarks' => data_get($scorePayload, 'remarks.'.$escapedJudgeName),
             ];
         }
 
@@ -608,7 +609,8 @@ class ScoringController extends Controller
         $requestedScores = [];
         $requestedRemarks = [];
         foreach ($judgeNames as $judgeName) {
-            $scores = collect(data_get($scorePayload, 'scores.'.$judgeName, []))
+            $escapedJudgeName = $this->escapeDottedKey($judgeName);
+            $scores = collect(data_get($scorePayload, 'scores.'.$escapedJudgeName, []))
                 ->map(fn ($value) => round((float) $value, 2))
                 ->all();
 
@@ -616,9 +618,9 @@ class ScoringController extends Controller
                 'judge_name' => $judgeName,
                 'score' => round(collect($scores)->avg() ?? 0, 2),
                 'score_breakdown' => $scores,
-                'remarks' => data_get($scorePayload, 'remarks.'.$judgeName),
+                'remarks' => data_get($scorePayload, 'remarks.'.$escapedJudgeName),
             ];
-            $requestedRemarks[$judgeName] = data_get($scorePayload, 'remarks.'.$judgeName);
+            $requestedRemarks[$judgeName] = data_get($scorePayload, 'remarks.'.$escapedJudgeName);
         }
 
         $note = trim((string) ($validated['note'] ?? ''));
@@ -745,10 +747,13 @@ class ScoringController extends Controller
         $scoreRules = [];
 
         foreach ($judgeNames as $judgeName) {
-            $scoreRules['remarks.'.$judgeName] = ['nullable', 'string', 'max:1000'];
+            $escapedJudgeName = $this->escapeDottedKey($judgeName);
+
+            $scoreRules['remarks.'.$escapedJudgeName] = ['nullable', 'string', 'max:1000'];
 
             foreach (array_keys($criteria) as $key) {
-                $scoreRules['scores.'.$judgeName.'.'.$key] = ['required', 'numeric', 'min:0', 'max:100'];
+                $escapedKey = $this->escapeDottedKey($key);
+                $scoreRules['scores.'.$escapedJudgeName.'.'.$escapedKey] = ['required', 'numeric', 'min:0', 'max:100'];
             }
         }
 
@@ -789,6 +794,11 @@ class ScoringController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    protected function escapeDottedKey(string $key): string
+    {
+        return str_replace('.', '\\.', trim($key));
     }
 
     protected function currentParticipantCacheKey(int $categoryId): string

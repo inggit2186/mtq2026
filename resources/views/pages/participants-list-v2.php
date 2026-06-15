@@ -724,6 +724,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                 <?= mtq_icon('download', 'h-4 w-4') ?>
                                                                 Download CV
                                                             </a>
+                                                            <a href="<?= e(route('participants.kokarde', $participant)) ?>" class="secondary-button w-full justify-center rounded-xl px-2.5 py-2 text-[11px] leading-tight text-center" target="_blank">
+                                                                <?= mtq_icon('id-card', 'h-4 w-4') ?>
+                                                                Kokarde
+                                                            </a>
                                                         <?php endif; ?>
                                                     </div>
                                                 </td>
