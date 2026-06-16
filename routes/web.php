@@ -170,6 +170,13 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/request-perbaikan', [ScoringController::class, 'storeCorrectionRequest'])->middleware('role:admin,panitia')->name('scoring.corrections.store');
     Route::get('/penilaian/poll', [ScoringController::class, 'poll'])->middleware('role:admin,panitia')->name('scoring.poll');
     Route::get('/penilaian/mfq', [MfqScoringController::class, 'index'])->middleware('role:admin,panitia')->name('scoring.mfq');
+    Route::post('/penilaian/mfq/sesi', [MfqScoringController::class, 'storeSession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.store');
+    Route::post('/penilaian/mfq/sesi/{sessionId}/kecamatan', [MfqScoringController::class, 'selectDistricts'])->middleware('role:admin,panitia')->name('scoring.mfq.districts.store');
+    Route::get('/penilaian/mfq/sesi/{sessionId}/nilai', [MfqScoringController::class, 'scoring'])->middleware('role:admin,panitia')->name('scoring.mfq.scoring');
+    Route::post('/penilaian/mfq/sesi/{sessionId}/nilai', [MfqScoringController::class, 'storeScore'])->middleware('role:admin,panitia')->name('scoring.mfq.score.store');
+    Route::post('/penilaian/mfq/sesi/{sessionId}/selesai', [MfqScoringController::class, 'completeSession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.complete');
+    Route::post('/penilaian/mfq/sesi/{sessionId}/hapus', [MfqScoringController::class, 'destroySession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.destroy');
+    // Legacy routes (for backward compatibility)
     Route::post('/penilaian/mfq/pilih-regu', [MfqScoringController::class, 'storeSelection'])->middleware('role:admin,panitia')->name('scoring.mfq.selection.store');
     Route::post('/penilaian/mfq/pilih-regu/hapus', [MfqScoringController::class, 'clearSelection'])->middleware('role:admin,panitia')->name('scoring.mfq.selection.clear');
     Route::post('/penilaian/mfq', [MfqScoringController::class, 'store'])->middleware('role:admin,panitia')->name('scoring.mfq.store');

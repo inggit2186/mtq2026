@@ -43,6 +43,13 @@ if (! function_exists('mtq_icon')) {
             'link-external' => '<path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 14 19 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 13v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6"/>',
             'file-text' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v4a2 2 0 0 0 2 2h4"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 12h4"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 16h4"/>',
             'file-spreadsheet' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v4a2 2 0 0 0 2 2h4"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 13h2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 17h2"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 13h2"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 17h2"/>',
+            'user' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+            'hash' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 9h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 15h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 3 8 21"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3 14 21"/>',
+            'calculator' => '<rect width="20" height="14" x="2" y="5" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 9h.01M10 9h.01M14 9h.01M6 13h.01M10 13h.01M14 13h.01M6 17h.01M10 17h.01M14 17h.01M18 9h.01M18 13h.01M18 17h.01"/>',
+            'check' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"/>',
+            'info' => '<circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8h.01"/>',
+            'send' => '<path stroke-linecap="round" stroke-linejoin="round" d="m22 2-7 20-4-9-9-4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M22 2 11 13"/>',
+            'map' => '<path stroke-linecap="round" stroke-linejoin="round" d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3-6-3V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 4v13"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 7v13"/>',
         ];
 
         $svg = $icons[$name] ?? $icons['spark'];

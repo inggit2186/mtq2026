@@ -68,6 +68,80 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
     <?php foreach ($cssAssets as $href): ?>
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
+    <style>
+        .glass-card {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 40px rgba(34, 211, 238, 0.05);
+        }
+
+        .glow-emerald {
+            box-shadow: 0 0 20px rgba(52, 211, 153, 0.15), 0 0 40px rgba(52, 211, 153, 0.05);
+        }
+
+        .glow-amber {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 0 40px rgba(251, 191, 36, 0.05);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #22d3ee 0%, #34d399 50%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .district-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .district-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .form-input {
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+        }
+
+        .modal-overlay {
+            background: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(8px);
+        }
+
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
@@ -161,12 +235,17 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                             <?= mtq_icon('menu', 'h-4 w-4') ?>
                         </button>
                         <div>
-                            <p class="section-kicker">Ruang Penilaian MFQ</p>
-                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Tahap 2: nilai regu yang sudah dipilih</h2>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('book-open', 'h-4 w-4 text-cyan-300') ?>
+                                <p class="section-kicker">Ruang Penilaian MFQ</p>
+                            </div>
+                            <h2 class="mt-2 text-3xl font-black tracking-tight">
+                                <span class="gradient-text">Tahap 2: nilai regu yang sudah dipilih</span>
+                            </h2>
                             <p class="mt-2 text-sm text-slate-300"><?= e($mfqSheetSummary ?? 'Format penilaian mengikuti lembar Excel MFQ dengan kolom paket, lontaran, rebutan, dan jumlah.') ?></p>
                             <?php if ($selectedCategory): ?>
                             <div class="mt-3 flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-200">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs font-semibold text-cyan-200">
                                     <?= mtq_icon('check-circle', 'h-3 w-3') ?>
                                     Golongan: <?= e(trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name)) ?>
                                 </span>
@@ -176,12 +255,12 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
                         <div class="status-pill">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300 animate-pulse"></span>
                             Tahap Penilaian
                         </div>
                         <form method="POST" action="<?= e(route('scoring.mfq.selection.clear')) ?>">
                             <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                            <button type="submit" class="secondary-button rounded-xl px-4 py-3">
+                            <button type="submit" class="secondary-button rounded-xl px-4 py-3 flex items-center gap-2">
                                 <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                                 Kembali Memilih Regu
                             </button>
@@ -202,63 +281,123 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                 <?php endif; ?>
 
                 <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Regu Dipilih</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('book-open') ?></div><p class="mt-4 text-sm text-slate-400">Regu Lawan</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($opponents->count()) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Kecamatan Aktif</p><p class="mt-2 text-xl font-extrabold text-cyan-200"><?= e($selectedDistrict?->name ?? '-') ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('spark') ?></div><p class="mt-4 text-sm text-slate-400">Skor Terakhir</p><p class="mt-2 text-3xl font-extrabold text-emerald-300"><?= e($summaryStats['selected_latest']) ?></p></div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/20">
+                                <?= mtq_icon('users', 'h-6 w-6 text-cyan-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Regu Dipilih</p>
+                                <p class="mt-1 text-3xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/20">
+                                <?= mtq_icon('layers', 'h-6 w-6 text-violet-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Regu Lawan</p>
+                                <p class="mt-1 text-3xl font-extrabold text-white"><?= e($opponents->count()) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/20">
+                                <?= mtq_icon('map-pin', 'h-6 w-6 text-emerald-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Kecamatan Aktif</p>
+                                <p class="mt-1 text-lg font-bold text-cyan-200"><?= e($selectedDistrict?->name ?? '-') ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400/20">
+                                <?= mtq_icon('spark', 'h-6 w-6 text-amber-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Skor Terakhir</p>
+                                <p class="mt-1 text-3xl font-extrabold text-emerald-300"><?= e($summaryStats['selected_latest']) ?></p>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
-                <section class="glass-card rounded-[2rem] p-6">
-                    <div class="flex flex-wrap items-start justify-between gap-4">
+                <section class="glass-card rounded-[2rem] p-6 glow-emerald">
+                    <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                         <div>
-                            <p class="section-kicker">Regu MFQ</p>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                                <p class="section-kicker">Regu MFQ</p>
+                            </div>
                             <h3 class="mt-2 text-2xl font-bold text-white">Kartu regu tetap di halaman utama</h3>
-                            <p class="mt-2 text-sm text-slate-300">Klik tombol di bawah kartu untuk membuka modal input satu baris untuk regu tersebut.</p>
+                            <p class="mt-2 text-sm text-slate-400">Klik tombol di bawah kartu untuk membuka modal input satu baris untuk regu tersebut.</p>
                         </div>
                         <div class="status-pill">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300 animate-pulse"></span>
                             <?= e(count($selectedDistrictCards)) ?> regu
                         </div>
                     </div>
 
-                    <div class="mt-5 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))]">
+                    <div class="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]">
                         <?php foreach ($selectedDistrictCards as $index => $districtCard): ?>
                             <?php $reguNumber = $index + 1; ?>
                             <?php $isActiveDistrictCard = (int) ($selectedDistrict?->id ?? 0) === (int) $districtCard['district_id']; ?>
-                            <div class="group flex h-full flex-col rounded-[1.35rem] border px-4 py-4 transition <?= $isActiveDistrictCard ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_12px_35px_-20px_rgba(34,211,238,0.75)] ring-1 ring-cyan-300/40' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30' ?>">
+                            <div class="district-card group flex h-full flex-col rounded-[1.5rem] border px-5 py-5 transition <?= $isActiveDistrictCard ? 'border-cyan-300 bg-gradient-to-br from-cyan-500/15 to-emerald-500/5 shadow-[0_12px_35px_-20px_rgba(34,211,238,0.75)]' : 'border-slate-800 bg-gradient-to-br from-slate-900/80 to-slate-800/40 hover:border-cyan-400/30' ?>">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
-                                        <p class="text-[11px] uppercase tracking-[0.2em] text-cyan-200/80">Regu <?= e($reguNumber) ?></p>
-                                        <p class="mt-1 text-lg font-bold text-white"><?= e($districtCard['district_name']) ?></p>
-                                        <p class="mt-1 text-xs text-slate-400"><?= e($districtCard['participant_count']) ?> peserta regu</p>
-                                        <p class="mt-2 text-xs uppercase tracking-[0.18em] text-fuchsia-200/80">Nomor Lot</p>
-                                        <p class="mt-1 text-sm font-bold text-fuchsia-100"><?= e($districtCard['representative_lot_number'] ?? '-') ?></p>
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <?= mtq_icon('building', 'h-4 w-4 text-cyan-300/70') ?>
+                                            <p class="text-[11px] uppercase tracking-[0.2em] text-cyan-200/80">Regu <?= e($reguNumber) ?></p>
+                                        </div>
+                                        <p class="text-xl font-bold text-white"><?= e($districtCard['district_name']) ?></p>
+                                        <p class="mt-1 text-sm text-slate-400 flex items-center gap-1">
+                                            <?= mtq_icon('users', 'h-3 w-3') ?>
+                                            <?= e($districtCard['participant_count']) ?> peserta regu
+                                        </p>
+                                        <div class="mt-3 flex items-center gap-3">
+                                            <span class="text-[10px] uppercase tracking-[0.18em] text-fuchsia-200/80">Nomor Lot</span>
+                                            <span class="flex items-center gap-1 rounded-lg border border-fuchsia-400/30 bg-fuchsia-400/10 px-2.5 py-1 text-sm font-bold text-fuchsia-100">
+                                                <?= mtq_icon('hash', 'h-3 w-3') ?>
+                                                <?= e($districtCard['representative_lot_number'] ?? '-') ?>
+                                            </span>
+                                        </div>
                                     </div>
-                                    <span class="status-pill <?= $isActiveDistrictCard ? 'border-cyan-300/30 bg-cyan-300/15 text-cyan-100' : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100' ?>">
+                                    <span class="status-pill <?= $isActiveDistrictCard ? 'border-emerald-300/30 bg-emerald-300/15 text-emerald-100' : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100' ?>">
                                         <?= $isActiveDistrictCard ? 'Aktif' : 'Klik' ?>
                                     </span>
                                 </div>
-                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                <div class="mt-4 flex flex-wrap items-center gap-2">
                                     <span class="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
-                                        <span class="inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300"></span>
+                                        <span class="inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse"></span>
                                         Total Saat Ini
                                     </span>
                                     <span class="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-white" <?= $isActiveDistrictCard ? 'x-text="totalScore().toFixed(2)"' : 'x-text="districtDraftTotal(' . (int) $districtCard['representative_id'] . ', ' . e(json_encode($districtCard['score_value'] ?? '0.00')) . ')"' ?>>
                                         <?= e($districtCard['score_value'] ?? '0.00') ?>
                                     </span>
                                 </div>
-                                <div class="mt-3 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-3">
-                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Perwakilan</p>
-                                    <p class="mt-1 font-semibold text-white"><?= e($districtCard['representative_name']) ?></p>
+                                <div class="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <?= mtq_icon('user', 'h-4 w-4 text-slate-400') ?>
+                                        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Perwakilan</p>
+                                    </div>
+                                    <p class="mt-2 font-semibold text-white"><?= e($districtCard['representative_name']) ?></p>
                                     <p class="mt-1 text-xs text-slate-400"><?= e($districtCard['representative_registration_number']) ?></p>
                                 </div>
-                                <button type="button" class="mt-4 secondary-button w-full justify-center rounded-xl px-4 py-3" @click="openSheetModal('<?= e($districtCard['representative_id']) ?>')">
+                                <button type="button" class="mt-4 secondary-button w-full justify-center rounded-xl px-4 py-3 flex items-center gap-2" @click="openSheetModal('<?= e($districtCard['representative_id']) ?>')">
                                     <?= mtq_icon('pencil', 'h-4 w-4') ?>
                                     Tombol Input Nilai (Modal)
                                 </button>
-                                <div class="mt-4 rounded-[1.25rem] border border-slate-800 bg-slate-950/55 px-3 py-3">
+                                <div class="mt-4 rounded-[1.25rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
                                     <div class="flex items-center justify-between gap-3">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Rincian Nilai</p>
+                                        <div class="flex items-center gap-2">
+                                            <?= mtq_icon('file-text', 'h-4 w-4 text-slate-400') ?>
+                                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Rincian Nilai</p>
+                                        </div>
                                         <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200" x-text="districtDraftRows(<?= (int) $districtCard['representative_id'] ?>).length ? `${districtDraftRows(<?= (int) $districtCard['representative_id'] ?>).length} soal` : 'Belum ada'"></span>
                                     </div>
                                     <div class="mt-3 overflow-hidden rounded-xl border border-slate-800">
@@ -275,15 +414,15 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                                     <thead>
                                                         <tr class="bg-slate-900/90 text-slate-300">
                                                             <th class="border border-slate-800 px-2 py-2 text-left whitespace-nowrap">Soal</th>
-                                                            <th class="border border-slate-800 px-2 py-2">Paket</th>
-                                                            <th class="border border-slate-800 px-2 py-2">L1</th>
-                                                            <th class="border border-slate-800 px-2 py-2">L2</th>
-                                                            <th class="border border-slate-800 px-2 py-2">Reb</th>
+                                                            <th class="border border-slate-800 px-2 py-2 text-orange-200"><?= mtq_icon('star', 'h-3 w-3 inline') ?> Paket</th>
+                                                            <th class="border border-slate-800 px-2 py-2 text-emerald-200">L1</th>
+                                                            <th class="border border-slate-800 px-2 py-2 text-sky-200">L2</th>
+                                                            <th class="border border-slate-800 px-2 py-2 text-rose-200"><?= mtq_icon('zap', 'h-3 w-3 inline') ?> Reb</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         <template x-for="(row, rowIndex) in districtDraftRows(<?= (int) $districtCard['representative_id'] ?>)" :key="row.id">
-                                                            <tr class="text-slate-200">
+                                                            <tr class="text-slate-200 hover:bg-slate-800/50 transition-colors">
                                                                 <td class="border border-slate-800 px-2 py-2 text-left align-top relative">
                                                                     <div class="pr-8">
                                                                         <span class="text-[11px] whitespace-nowrap" x-text="`Soal ${rowIndex + 1}`"></span>
@@ -295,18 +434,19 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                                                         <?= mtq_icon('pencil', 'h-3 w-3') ?>
                                                                     </button>
                                                                 </td>
-                                                                <td class="border border-slate-800 px-2 py-2" x-text="row.package_score || '-'"></td>
-                                                                <td class="border border-slate-800 px-2 py-2" x-text="row.throw_scores?.[0] || '-'"></td>
-                                                                <td class="border border-slate-800 px-2 py-2" x-text="row.throw_scores?.[1] || '-'"></td>
-                                                                <td class="border border-slate-800 px-2 py-2" x-text="row.rebuttal_score || '-'"></td>
+                                                                <td class="border border-slate-800 px-2 py-2 text-center text-orange-200" x-text="row.package_score || '-'"></td>
+                                                                <td class="border border-slate-800 px-2 py-2 text-center text-emerald-200" x-text="row.throw_scores?.[0] || '-'"></td>
+                                                                <td class="border border-slate-800 px-2 py-2 text-center text-sky-200" x-text="row.throw_scores?.[1] || '-'"></td>
+                                                                <td class="border border-slate-800 px-2 py-2 text-center text-rose-200" x-text="row.rebuttal_score || '-'"></td>
                                                             </tr>
                                                         </template>
                                                     </tbody>
                                                 </table>
                                             </div>
                                         </template>
-                                        <div class="px-2 py-3 text-xs text-slate-500" x-show="districtDraftRows(<?= (int) $districtCard['representative_id'] ?>).length === 0">
-                                            Belum ada nilai yang diinput.
+                                        <div class="px-2 py-4 text-xs text-slate-500 text-center" x-show="districtDraftRows(<?= (int) $districtCard['representative_id'] ?>).length === 0">
+                                            <?= mtq_icon('file-text', 'h-6 w-6 mx-auto mb-2 opacity-50') ?>
+                                            <p>Belum ada nilai yang diinput.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -314,18 +454,21 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                         <?php endforeach; ?>
                     </div>
 
-                    <div class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-cyan-400/16 bg-cyan-400/10 px-5 py-4">
+                    <div class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-cyan-400/16 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 px-6 py-5">
                         <div>
-                            <p class="section-kicker">Finish Tahap 2</p>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('check-circle', 'h-5 w-5 text-cyan-300') ?>
+                                <p class="section-kicker">Finish Tahap 2</p>
+                            </div>
                             <p class="mt-2 text-sm text-slate-200">Nilai modal disimpan dulu sebagai draft di kartu regu. Tombol ini mengirim seluruh draft aktif ke database.</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-3">
-                            <div class="rounded-[1rem] border border-slate-800 bg-slate-950/60 px-3 py-2 text-right">
+                            <div class="rounded-[1rem] border border-slate-800 bg-slate-950/60 px-4 py-3 text-right">
                                 <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Regu Aktif</p>
                                 <p class="mt-1 text-sm font-bold text-white" x-text="activeDistrictName()"></p>
                             </div>
-                            <button type="button" class="primary-button justify-center px-5 py-3" @click="showRankingModal()">
-                                <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                            <button type="button" class="primary-button justify-center px-6 py-3 flex items-center gap-2 shadow-lg shadow-emerald-400/20" @click="showRankingModal()">
+                                <?= mtq_icon('trophy', 'h-4 w-4') ?>
                                 Finish & Kirim DB
                             </button>
                         </div>
@@ -353,13 +496,16 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
 
                 <section class="space-y-6">
                     <div x-show="sheetModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-3 py-4 sm:px-4 sm:py-6">
-                        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" @click="closeSheetModal()"></div>
-                        <div class="relative w-full max-w-[min(96vw,1100px)] overflow-hidden rounded-[2rem] border border-slate-700 bg-slate-950 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)]">
+                        <div class="absolute inset-0 modal-overlay" @click="closeSheetModal()"></div>
+                        <div class="relative w-full max-w-[min(96vw,1100px)] overflow-hidden rounded-[2rem] border border-slate-700 bg-gradient-to-b from-slate-950 to-slate-900 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)]">
                             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-5">
                                 <div>
-                                    <p class="section-kicker">Modal Input Nilai</p>
+                                    <div class="flex items-center gap-2">
+                                        <?= mtq_icon('pencil', 'h-5 w-5 text-cyan-300') ?>
+                                        <p class="section-kicker">Modal Input Nilai</p>
+                                    </div>
                                     <h4 class="mt-2 text-2xl font-bold text-white" x-text="activeDistrictName()"><?= e($selectedDistrict?->name ?? 'Kecamatan Aktif') ?></h4>
-                                    <p class="mt-2 text-sm text-slate-300">Isi satu baris nilai untuk regu aktif, lalu simpan draft. Modal akan tertutup dan tabel rincian di kartu langsung ter-update.</p>
+                                    <p class="mt-2 text-sm text-slate-400">Isi satu baris nilai untuk regu aktif, lalu simpan draft. Modal akan tertutup dan tabel rincian di kartu langsung ter-update.</p>
                                 </div>
                                 <button type="button" class="secondary-button rounded-xl px-3 py-2" @click="closeSheetModal()">
                                     <?= mtq_icon('x', 'h-4 w-4') ?>
@@ -383,60 +529,71 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                     </div>
                                 </template>
 
-                                <div class="rounded-[1.5rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-                                    Format ini mengikuti lembar Excel MFQ. Isi satu soal per submit, lalu lanjut ke soal berikutnya untuk regu yang sama.
+                                <div class="rounded-[1.5rem] border border-cyan-400/16 bg-gradient-to-r from-cyan-500/15 to-emerald-500/10 px-4 py-3 text-sm text-cyan-100">
+                                    <div class="flex items-center gap-2">
+                                        <?= mtq_icon('info', 'h-4 w-4') ?>
+                                        <span>Format ini mengikuti lembar Excel MFQ. Isi satu soal per submit, lalu lanjut ke soal berikutnya untuk regu yang sama.</span>
+                                    </div>
                                 </div>
 
                                 <div class="overflow-x-auto rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
                                     <table class="min-w-[760px] w-full border-collapse text-center">
                                         <thead>
                                             <tr class="text-sm font-semibold">
-                                                <th class="border border-slate-700 bg-slate-900/80 px-3 py-3 text-orange-200">Soal Paket</th>
-                                                <th class="border border-slate-700 bg-slate-900/80 px-3 py-3 text-emerald-200">Lontaran 1</th>
-                                                <th class="border border-slate-700 bg-slate-900/80 px-3 py-3 text-sky-200">Lontaran 2</th>
-                                                <th class="border border-slate-700 bg-slate-900/80 px-3 py-3 text-rose-200">Rebutan</th>
+                                                <th class="border border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-800/50 px-3 py-3 text-orange-200">
+                                                    <?= mtq_icon('star', 'h-4 w-4 inline mr-1') ?> Soal Paket
+                                                </th>
+                                                <th class="border border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-800/50 px-3 py-3 text-emerald-200">
+                                                    <?= mtq_icon('layers', 'h-4 w-4 inline mr-1') ?> Lontaran 1
+                                                </th>
+                                                <th class="border border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-800/50 px-3 py-3 text-sky-200">
+                                                    <?= mtq_icon('layers', 'h-4 w-4 inline mr-1') ?> Lontaran 2
+                                                </th>
+                                                <th class="border border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-800/50 px-3 py-3 text-rose-200">
+                                                    <?= mtq_icon('zap', 'h-4 w-4 inline mr-1') ?> Rebutan
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr class="text-sm">
-                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-3">
+                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-4">
                                                     <div class="text-xs uppercase tracking-[0.18em] text-orange-200/70">Soal <span x-text="activeQuestionIndex + 1"></span></div>
-                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].package_score" class="mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-center text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Nilai paket">
+                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].package_score" class="form-input mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5 text-center text-white outline-none focus:border-cyan-300" placeholder="0">
                                                 </td>
-                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-3">
+                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-4">
                                                     <div class="text-xs uppercase tracking-[0.18em] text-emerald-200/70">Lontaran 1</div>
-                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].throw_scores[0]" class="mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-center text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Nilai">
+                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].throw_scores[0]" class="form-input mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5 text-center text-white outline-none focus:border-cyan-300" placeholder="0">
                                                 </td>
-                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-3">
+                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-4">
                                                     <div class="text-xs uppercase tracking-[0.18em] text-sky-200/70">Lontaran 2</div>
-                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].throw_scores[1]" class="mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-center text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Nilai">
+                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].throw_scores[1]" class="form-input mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5 text-center text-white outline-none focus:border-cyan-300" placeholder="0">
                                                 </td>
-                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-3">
+                                                <td class="border border-slate-700 bg-slate-950/80 px-3 py-4">
                                                     <div class="text-xs uppercase tracking-[0.18em] text-rose-200/70">Rebutan</div>
-                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].rebuttal_score" class="mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-center text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Nilai">
+                                                    <input type="number" step="1" min="1" max="100" x-model="questions[activeQuestionIndex].rebuttal_score" class="form-input mt-3 w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5 text-center text-white outline-none focus:border-cyan-300" placeholder="0">
                                                 </td>
                                             </tr>
                                         </tbody>
                                     </table>
                                 </div>
 
-                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-5 py-4">
                                     <div class="text-sm text-slate-300">
                                         <p>Total akan tersimpan sebagai draft untuk regu yang sedang aktif.</p>
                                         <p class="mt-1 text-xs text-slate-500">Setelah simpan, modal ditutup dan kamu bisa lanjut soal berikutnya.</p>
                                     </div>
-                                    <div class="rounded-[1rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-right">
+                                    <div class="rounded-[1rem] border border-cyan-400/16 bg-gradient-to-br from-cyan-500/15 to-emerald-500/10 px-5 py-3 text-right">
                                         <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-100/70">Total Regu</p>
                                         <p class="mt-1 text-3xl font-black text-cyan-100" x-text="totalScore().toFixed(2)"></p>
                                     </div>
                                 </div>
 
                                 <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-5">
-                                    <button type="button" class="secondary-button px-5 py-3" @click="closeSheetModal()">
+                                    <button type="button" class="secondary-button px-5 py-3 flex items-center gap-2" @click="closeSheetModal()">
                                         <?= mtq_icon('x', 'h-4 w-4') ?>
                                         Tutup
                                     </button>
-                                    <button type="button" class="primary-button justify-center px-5 py-3" @click="saveQuestionDraft()">
+                                    <button type="button" class="primary-button justify-center px-5 py-3 flex items-center gap-2 shadow-lg shadow-cyan-400/20" @click="saveQuestionDraft()">
                                         <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                         Simpan Draft
                                     </button>
@@ -448,13 +605,19 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
 
                 <!-- Modal Ranking -->
                 <section x-show="rankingModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-3 py-4 sm:px-4 sm:py-6">
-                    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" @click="rankingModalOpen = false"></div>
-                    <div class="relative w-full max-w-[min(96vw,600px)] overflow-hidden rounded-[2rem] border border-cyan-400/30 bg-slate-950 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)]">
+                    <div class="absolute inset-0 modal-overlay" @click="rankingModalOpen = false"></div>
+                    <div class="relative w-full max-w-[min(96vw,600px)] overflow-hidden rounded-[2rem] border border-cyan-400/30 bg-gradient-to-b from-slate-950 to-slate-900 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)]">
                         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-5">
                             <div>
-                                <p class="section-kicker">Peringkat Sesi</p>
+                                <div class="flex items-center gap-2">
+                                    <?= mtq_icon('trophy', 'h-5 w-5 text-amber-300') ?>
+                                    <p class="section-kicker">Peringkat Sesi</p>
+                                </div>
                                 <h4 class="mt-2 text-2xl font-bold text-white"><?= e($selectionSessionName ?: 'Sesi MFQ') ?></h4>
-                                <p class="mt-2 text-sm text-slate-300"><?= e($selectionJudgingRound) ?></p>
+                                <p class="mt-2 text-sm text-slate-400 flex items-center gap-2">
+                                    <?= mtq_icon('spark', 'h-3 w-3 text-amber-300') ?>
+                                    <?= e($selectionJudgingRound) ?>
+                                </p>
                             </div>
                             <button type="button" class="secondary-button rounded-xl px-3 py-2" @click="rankingModalOpen = false">
                                 <?= mtq_icon('x', 'h-4 w-4') ?>
@@ -467,13 +630,17 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                                     :class="index === 0 ? 'border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-transparent shadow-[0_8px_30px_-10px_rgba(251,191,36,0.4)]' : 'border-slate-700/80 bg-slate-900/50'">
                                     <div class="flex items-center justify-between gap-4">
                                         <div class="flex items-center gap-4">
-                                            <div class="flex h-12 w-12 items-center justify-center rounded-full border-2 font-black"
-                                                :class="index === 0 ? 'border-amber-400 bg-amber-400/20 text-2xl text-amber-300' : index === 1 ? 'border-slate-400 bg-slate-400/10 text-xl text-slate-300' : index === 2 ? 'border-orange-600 bg-orange-600/10 text-lg text-orange-400' : 'border-slate-600 bg-slate-600/10 text-base text-slate-400'">
-                                                <span x-text="index + 1"></span>
+                                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl border-2 font-black shadow-lg"
+                                                :class="index === 0 ? 'border-amber-400 bg-gradient-to-br from-amber-400 to-orange-400 text-2xl text-amber-100' : index === 1 ? 'border-slate-400 bg-slate-400/10 text-xl text-slate-300' : index === 2 ? 'border-orange-600 bg-orange-600/10 text-lg text-orange-400' : 'border-slate-600 bg-slate-600/10 text-base text-slate-400'">
+                                                <span x-show="index > 0" x-text="index + 1"></span>
+                                                <span x-show="index === 0"><?= mtq_icon('trophy', 'h-6 w-6') ?></span>
                                             </div>
                                             <div>
                                                 <p class="text-lg font-bold text-white" x-text="rank.districtName"></p>
-                                                <p class="text-sm text-slate-400" x-text="rank.representativeName"></p>
+                                                <p class="text-sm text-slate-400 flex items-center gap-1">
+                                                    <?= mtq_icon('user', 'h-3 w-3') ?>
+                                                    <span x-text="rank.representativeName"></span>
+                                                </p>
                                             </div>
                                         </div>
                                         <div class="text-right">
@@ -492,11 +659,11 @@ $opponentCards = $opponents->map(function (array $opponent, int $index): array {
                         </div>
 
                         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 px-6 py-5">
-                            <button type="button" class="secondary-button px-5 py-3" @click="rankingModalOpen = false">
+                            <button type="button" class="secondary-button px-5 py-3 flex items-center gap-2" @click="rankingModalOpen = false">
                                 <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                                 Kembali Edit
                             </button>
-                            <button type="button" class="primary-button justify-center px-6 py-3" @click="submitRanking()">
+                            <button type="button" class="primary-button justify-center px-6 py-3 flex items-center gap-2 shadow-lg shadow-emerald-400/20" @click="submitRanking()">
                                 <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                 Konfirmasi & Simpan
                             </button>
