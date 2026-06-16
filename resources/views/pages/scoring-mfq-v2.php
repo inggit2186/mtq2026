@@ -50,6 +50,65 @@ $selectedParticipantCategory = $selectedParticipant?->category ? trim((string) $
     <?php foreach ($cssAssets as $href): ?>
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
+    <style>
+        .glass-card {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 40px rgba(34, 211, 238, 0.05);
+        }
+
+        .glow-emerald {
+            box-shadow: 0 0 20px rgba(52, 211, 153, 0.15), 0 0 40px rgba(52, 211, 153, 0.05);
+        }
+
+        .glow-amber {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 0 40px rgba(251, 191, 36, 0.05);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #22d3ee 0%, #34d399 50%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .form-input {
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+        }
+
+        .question-card {
+            transition: all 0.3s ease;
+        }
+
+        .question-card:hover {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+    </style>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
@@ -59,74 +118,85 @@ $selectedParticipantCategory = $selectedParticipant?->category ? trim((string) $
         <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
 
         <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
+            <!-- Sidebar -->
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block glass-card"
                 x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
-                <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <div class="icon-chip"><?= mtq_icon('chart') ?></div>
+                <!-- Logo -->
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="icon-chip"><?= mtq_icon('chart') ?></div>
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
+                        <h1 class="mt-1 text-lg font-bold text-white">Penilaian MFQ</h1>
+                    </div>
+                </div>
+
+                <!-- User Info -->
+                <div class="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-sky-500/10 p-4 mb-6">
+                    <div class="flex items-center gap-2">
+                        <?= mtq_icon('user', 'h-4 w-4 text-cyan-300') ?>
+                        <p class="text-sm font-semibold text-white"><?= e($user?->name) ?></p>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                        <span class="text-xs text-slate-300">Siap Input</span>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="grid gap-3 mb-6">
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/30">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-400/20">
+                            <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                        </div>
                         <div>
-                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
-                            <h1 class="mt-1 text-lg font-bold text-white">Penilaian MFQ</h1>
+                            <p class="text-xs text-slate-400">Golongan</p>
+                            <p class="text-lg font-bold text-white"><?= e($summaryStats['category_total']) ?></p>
                         </div>
                     </div>
-                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
-                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                    </button>
-                </div>
-
-                <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
-                    <p class="section-kicker">Status Operator</p>
-                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($user?->name) ?></h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-300">Form ini dirancang untuk skor MFQ beregu, dengan perhitungan yang mengikuti paket regu dan rebutan.</p>
-                    <div class="mt-4 status-pill">
-                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                        Siap Input
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/30">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-400/20">
+                            <?= mtq_icon('check-circle', 'h-5 w-5 text-emerald-300') ?>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400">Terverifikasi</p>
+                            <p class="text-lg font-bold text-white"><?= e($summaryStats['verified_total']) ?></p>
+                        </div>
                     </div>
                 </div>
 
-                <nav class="mt-8 space-y-2">
+                <nav class="space-y-2 mb-6">
                     <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
                     <?php require __DIR__.'/../partials/console-navigation.php'; ?>
                 </nav>
 
-                <div class="mt-8 grid gap-3">
-                    <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Golongan MFQ</p>
-                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['category_total']) ?></p>
-                    </div>
-                    <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Peserta Terverifikasi</p>
-                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['verified_total']) ?></p>
-                    </div>
-                    <a href="<?= e(route('dashboard')) ?>" class="secondary-button w-full">
-                        <?= mtq_icon('home', 'h-4 w-4') ?>
-                        Kembali ke Dashboard
-                    </a>
-                    <form method="POST" action="<?= e(route('logout')) ?>">
-                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                        <button type="submit" class="secondary-button w-full">
-                            <?= mtq_icon('logout', 'h-4 w-4') ?>
-                            Keluar
-                        </button>
-                    </form>
-                </div>
+                <a href="<?= e(route('dashboard')) ?>" class="secondary-button w-full flex items-center justify-center gap-2">
+                    <?= mtq_icon('home', 'h-4 w-4') ?>
+                    Dashboard
+                </a>
             </aside>
 
             <div class="min-w-0 space-y-6">
-                <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
-                            <?= mtq_icon('menu', 'h-4 w-4') ?>
-                        </button>
-                        <div>
-                            <p class="section-kicker">Ruang Penilaian MFQ</p>
-                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Form khusus cabang Fahmil Qur'an</h2>
-                            <p class="mt-2 text-sm text-slate-300">Isi tiap soal sesuai hasil keputusan hakim, lalu total dihitung otomatis sesuai aturan paket regu dan rebutan.</p>
+                <!-- Header -->
+                <header class="glass-card rounded-[2rem] p-6 glow-emerald">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                                <?= mtq_icon('menu', 'h-4 w-4') ?>
+                            </button>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <?= mtq_icon('book-open', 'h-4 w-4 text-cyan-300') ?>
+                                    <p class="section-kicker">Ruang Penilaian MFQ</p>
+                                </div>
+                                <h2 class="mt-2 text-3xl font-black tracking-tight">
+                                    <span class="gradient-text">Fahmil Qur'an</span>
+                                </h2>
+                            </div>
                         </div>
-                    </div>
-                    <div class="status-pill">
-                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                        Mode MFQ Aktif
+                        <div class="status-pill">
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
+                            Mode MFQ Aktif
+                        </div>
                     </div>
                 </header>
 
@@ -136,40 +206,59 @@ $selectedParticipantCategory = $selectedParticipant?->category ? trim((string) $
                     </div>
                 <?php endif; ?>
 
-                <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Peserta MFQ</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('book-open') ?></div><p class="mt-4 text-sm text-slate-400">Golongan Aktif</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($summaryStats['category_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Siap Dinilai</p><p class="mt-2 text-3xl font-extrabold text-cyan-200"><?= e($summaryStats['verified_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('spark') ?></div><p class="mt-4 text-sm text-slate-400">Skor Terakhir</p><p class="mt-2 text-3xl font-extrabold text-emerald-300"><?= e($summaryStats['selected_latest']) ?></p></div>
-                </section>
+                <!-- Metric Cards -->
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/20">
+                                <?= mtq_icon('users', 'h-6 w-6 text-cyan-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Peserta MFQ</p>
+                                <p class="mt-1 text-2xl font-extrabold text-white"><?= e($summaryStats['participant_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/20">
+                                <?= mtq_icon('check-circle', 'h-6 w-6 text-emerald-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Terverifikasi</p>
+                                <p class="mt-1 text-2xl font-extrabold text-white"><?= e($summaryStats['verified_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/20">
+                                <?= mtq_icon('book-open', 'h-6 w-6 text-violet-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Golongan</p>
+                                <p class="mt-1 text-2xl font-extrabold text-white"><?= e($summaryStats['category_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400/20">
+                                <?= mtq_icon('spark', 'h-6 w-6 text-amber-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Skor Terakhir</p>
+                                <p class="mt-1 text-2xl font-extrabold text-emerald-300"><?= e($summaryStats['selected_latest']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <section class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
                     <div class="space-y-6">
-                        <div class="glass-card rounded-[2rem] p-6">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="icon-chip"><?= mtq_icon('fingerprint') ?></div>
-                                    <div>
-                                        <p class="section-kicker">Identitas Sesi</p>
-                                        <h3 class="mt-2 text-2xl font-bold text-white">Pilih peserta, hakim, dan babak</h3>
-                                        <p class="mt-2 text-sm text-slate-300">MFQ biasanya berjalan dengan ritme cepat, jadi bagian identitas sesi dibuat sederhana dan mudah dibaca.</p>
-                                    </div>
-                                </div>
-                                <?php if ($selectedCategory): ?>
-                                    <div class="status-pill">
-                                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                                        <?= e(trim((string) $selectedCategory->branch.' - '.(string) $selectedCategory->name)) ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <?php if (session('errors')?->any()): ?>
-                                <div class="mt-6 rounded-[1.25rem] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-                                    Periksa kembali isian form, lalu kirim ulang setelah semua status dan nilai per soal sudah benar.
-                                </div>
-                            <?php endif; ?>
-
-                            <form method="POST" action="<?= e(route('scoring.mfq.store')) ?>" class="mt-6 space-y-5"
+                        <!-- Scoring Form -->
+                        <div class="glass-card rounded-[2rem] p-6 glow-cyan">
+                            <form method="POST" action="<?= e(route('scoring.mfq.store')) ?>" class="space-y-5"
                                 x-data="mfqScoringForm({
                                     questions: <?= e(json_encode($initialQuestions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                     modeOptions: <?= e(json_encode($modeOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
@@ -177,220 +266,199 @@ $selectedParticipantCategory = $selectedParticipant?->category ? trim((string) $
                                 })">
                                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
 
+                                <!-- Identity Fields -->
                                 <div class="grid gap-4 md:grid-cols-2">
                                     <div>
                                         <label class="mb-2 block text-sm font-semibold text-slate-200">Peserta / Regu</label>
-                                        <select name="participant_id" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20">
-                                            <option value="">Pilih peserta MFQ</option>
+                                        <select name="participant_id" class="form-input w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
+                                            <option value="">Pilih peserta</option>
                                             <?php foreach ($participants as $participant): ?>
                                                 <option value="<?= e($participant->id) ?>" <?= (string) old('participant_id', $filters['participant_id'] ?? '') === (string) $participant->id ? 'selected' : '' ?>>
                                                     <?= e($participant->name.' - '.trim((string) ($participant->category?->branch ?? '-').' | '.(string) ($participant->category?->name ?? '-'))) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <?php if ($errors->has('participant_id')): ?>
-                                            <p class="mt-2 text-sm text-rose-300"><?= e($errors->first('participant_id')) ?></p>
-                                        <?php endif; ?>
                                     </div>
-
                                     <div>
-                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nama Dewan Hakim / Operator</label>
-                                        <input name="judge_name" type="text" value="<?= e(old('judge_name', $judgeNameDefault)) ?>" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20" placeholder="Nama dewan hakim">
-                                        <?php if ($errors->has('judge_name')): ?>
-                                            <p class="mt-2 text-sm text-rose-300"><?= e($errors->first('judge_name')) ?></p>
-                                        <?php endif; ?>
+                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nama Hakim</label>
+                                        <input name="judge_name" type="text" value="<?= e(old('judge_name', $judgeNameDefault)) ?>" class="form-input w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400" placeholder="Nama hakim">
                                     </div>
                                 </div>
 
                                 <div class="grid gap-4 md:grid-cols-2">
                                     <div>
-                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Babak penilaian</label>
-                                        <select name="judging_round" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20">
+                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Babak</label>
+                                        <select name="judging_round" class="form-input w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                                             <?php foreach (['Penyisihan', 'Final'] as $roundLabel): ?>
                                                 <option value="<?= e($roundLabel) ?>" <?= (string) old('judging_round', $selectedJudgingRound) === $roundLabel ? 'selected' : '' ?>>
                                                     <?= e($roundLabel) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <?php if ($errors->has('judging_round')): ?>
-                                            <p class="mt-2 text-sm text-rose-300"><?= e($errors->first('judging_round')) ?></p>
-                                        <?php endif; ?>
                                     </div>
-
                                     <div>
-                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan umum</label>
-                                        <textarea name="remarks" rows="3" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20" placeholder="Contoh: sesi berlangsung lancar, ada revisi kecil pada soal ke-5."><?= e(old('remarks')) ?></textarea>
-                                        <?php if ($errors->has('remarks')): ?>
-                                            <p class="mt-2 text-sm text-rose-300"><?= e($errors->first('remarks')) ?></p>
-                                        <?php endif; ?>
+                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan</label>
+                                        <textarea name="remarks" rows="2" class="form-input w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400" placeholder="Opsional"><?= e(old('remarks')) ?></textarea>
                                     </div>
                                 </div>
 
-                                <div class="rounded-[1.5rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-                                    Nilai per soal mengikuti keputusan akhir hakim. Untuk paket regu, pilih status yang sesuai dengan hasil akhir soal. Untuk rebutan, nilai mutlaknya 100 untuk benar dan -100 untuk salah.
-                                </div>
-
-                                <div class="rounded-[1.7rem] border border-slate-800 bg-slate-950/55 p-4">
-                                    <div class="flex flex-wrap items-center justify-between gap-3">
-                                        <div>
-                                            <p class="section-kicker">Builder Soal</p>
-                                            <h4 class="mt-2 text-xl font-bold text-white">Satu kartu per soal</h4>
+                                <!-- Questions -->
+                                <div class="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-5">
+                                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                        <div class="flex items-center gap-2">
+                                            <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                                            <h3 class="font-bold text-white">Builder Soal</h3>
                                         </div>
-                                        <div class="flex flex-wrap items-center gap-3">
-                                            <button type="button" class="secondary-button px-4 py-2" x-on:click="addQuestion()">
+                                        <div class="flex items-center gap-3">
+                                            <button type="button" class="secondary-button px-4 py-2 text-sm flex items-center gap-2" x-on:click="addQuestion()">
                                                 <?= mtq_icon('plus', 'h-4 w-4') ?>
-                                                Tambah Soal
+                                                Tambah
                                             </button>
-                                            <div class="status-pill">
-                                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                                                <span x-text="summaryLabel()"></span>
+                                            <div class="flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1">
+                                                <span class="h-2 w-2 rounded-full bg-cyan-400 pulse-dot"></span>
+                                                <span class="text-xs text-cyan-200" x-text="summaryLabel()"></span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="mt-5 space-y-4">
+                                    <div class="space-y-4">
                                         <template x-for="(question, index) in questions" :key="question.id">
-                                            <section class="rounded-[1.5rem] border border-slate-800 bg-slate-950/60 p-4">
-                                                <div class="flex flex-wrap items-start justify-between gap-3">
-                                                    <div>
-                                                        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Soal <span x-text="index + 1"></span></p>
-                                                        <input :name="`questions[${index}][label]`" x-model="question.label" type="text" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Judul soal">
+                                            <div class="question-card rounded-xl border border-slate-700/50 bg-slate-900/50 p-4">
+                                                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400/20 text-sm font-bold text-cyan-200" x-text="index + 1"></span>
+                                                        <input :name="`questions[${index}][label]`" x-model="question.label" type="text" class="form-input w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" placeholder="Judul soal">
                                                     </div>
-                                                    <button type="button" class="secondary-button px-3 py-2" x-on:click="removeQuestion(index)" x-bind:disabled="questions.length === 1" :class="questions.length === 1 ? 'cursor-not-allowed opacity-50' : ''">
+                                                    <button type="button" class="secondary-button px-3 py-1.5 text-xs" x-on:click="removeQuestion(index)" :disabled="questions.length === 1" :class="questions.length === 1 ? 'opacity-50 cursor-not-allowed' : ''">
                                                         <?= mtq_icon('trash', 'h-4 w-4') ?>
-                                                        Hapus
                                                     </button>
                                                 </div>
 
-                                                <div class="mt-4 grid gap-4 lg:grid-cols-[180px_1fr_1fr]">
+                                                <div class="grid gap-4 lg:grid-cols-3">
                                                     <div>
-                                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Jenis Soal</label>
-                                                        <select :name="`questions[${index}][mode]`" x-model="question.mode" x-on:change="normalizeRow(question)" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20">
+                                                        <label class="mb-1 block text-xs font-semibold text-slate-300">Jenis</label>
+                                                        <select :name="`questions[${index}][mode]`" x-model="question.mode" x-on:change="normalizeRow(question)" class="form-input w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400">
                                                             <template x-for="(label, value) in modeOptions" :key="value">
                                                                 <option :value="value" x-text="label"></option>
                                                             </template>
                                                         </select>
                                                     </div>
-
                                                     <div>
-                                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Status Jawaban</label>
-                                                        <select :name="`questions[${index}][status]`" x-model="question.status" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20">
+                                                        <label class="mb-1 block text-xs font-semibold text-slate-300">Status</label>
+                                                        <select :name="`questions[${index}][status]`" x-model="question.status" class="form-input w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400">
                                                             <template x-for="(item, value) in statusOptionsFor(question.mode)" :key="value">
                                                                 <option :value="value" x-text="item.label"></option>
                                                             </template>
                                                         </select>
                                                     </div>
-
                                                     <div>
-                                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Skor Soal</label>
-                                                        <div class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-lg font-bold text-cyan-200" x-text="questionScore(question).toFixed(2)"></div>
+                                                        <label class="mb-1 block text-xs font-semibold text-slate-300">Skor</label>
+                                                        <div class="flex h-[42px] items-center justify-center rounded-lg border border-slate-700 bg-slate-900/80 px-3 text-lg font-bold text-cyan-200" x-text="questionScore(question).toFixed(0)"></div>
                                                     </div>
                                                 </div>
 
-                                                <div class="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
-                                                    <div x-show="question.status === 'partial'" x-cloak>
-                                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Nilai Proporsional</label>
-                                                        <input :name="`questions[${index}][partial_score]`" x-model="question.partial_score" type="number" min="0" max="79.99" step="0.01" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20" placeholder="0 - 79.99">
-                                                    </div>
-
+                                                <div class="mt-3 grid gap-3 lg:grid-cols-2" x-show="question.status === 'partial'" x-cloak>
                                                     <div>
-                                                        <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan Soal</label>
-                                                        <textarea :name="`questions[${index}][notes]`" x-model="question.notes" rows="3" class="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20" placeholder="Opsional, misalnya alasan lemparan atau catatan jawaban."></textarea>
+                                                        <label class="mb-1 block text-xs font-semibold text-slate-300">Nilai Proporsional</label>
+                                                        <input :name="`questions[${index}][partial_score]`" x-model="question.partial_score" type="number" min="0" max="79.99" step="0.01" class="form-input w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" placeholder="0-79.99">
+                                                    </div>
+                                                    <div>
+                                                        <label class="mb-1 block text-xs font-semibold text-slate-300">Catatan</label>
+                                                        <textarea :name="`questions[${index}][notes]`" x-model="question.notes" rows="2" class="form-input w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" placeholder="Opsional"></textarea>
                                                     </div>
                                                 </div>
-                                            </section>
+                                            </div>
                                         </template>
                                     </div>
                                 </div>
 
-                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-slate-800 bg-slate-950/45 px-4 py-3">
-                                    <div>
-                                        <p class="text-sm text-slate-300">Total dihitung otomatis dari seluruh kartu soal.</p>
-                                        <p class="mt-1 text-xs text-slate-500">Simpan setelah semua soal, status, dan nilai proporsional sudah lengkap.</p>
+                                <!-- Submit -->
+                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/50 px-5 py-4">
+                                    <div class="text-sm text-slate-300">
+                                        <p>Total dihitung otomatis</p>
                                     </div>
-                                    <div class="rounded-[1rem] border border-slate-800 bg-slate-950/60 px-3 py-2 text-right">
-                                        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Total Akhir</p>
-                                        <p class="mt-1 text-sm font-bold text-white" x-text="totalScore().toFixed(2)"></p>
+                                    <div class="flex items-center gap-4">
+                                        <div class="text-right">
+                                            <p class="text-xs text-slate-400">Total</p>
+                                            <p class="text-2xl font-black text-cyan-200" x-text="totalScore().toFixed(0)"></p>
+                                        </div>
+                                        <button type="submit" class="primary-button px-6 py-3 flex items-center gap-2 shadow-lg shadow-cyan-400/20">
+                                            <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                            Simpan
+                                        </button>
                                     </div>
-                                    <button type="submit" class="primary-button justify-center px-5 py-3">
-                                        <?= mtq_icon('check-circle', 'h-4 w-4') ?>
-                                        Simpan Penilaian MFQ
-                                    </button>
                                 </div>
                             </form>
                         </div>
 
+                        <!-- Score History -->
                         <div class="glass-card rounded-[2rem] p-6">
-                            <div class="flex items-center gap-3">
-                                <div class="icon-chip"><?= mtq_icon('clock') ?></div>
-                                <div>
-                                    <p class="section-kicker">Riwayat Nilai</p>
-                                    <p class="mt-1 text-sm text-slate-300">Entri terbaru untuk peserta yang dipilih.</p>
-                                </div>
+                            <div class="flex items-center gap-3 mb-4">
+                                <?= mtq_icon('clock', 'h-5 w-5 text-cyan-300') ?>
+                                <h3 class="font-bold text-white">Riwayat Nilai</h3>
                             </div>
 
-                            <div class="mt-4 space-y-3">
-                                <?php if ($recentScores->isEmpty()): ?>
-                                    <div class="data-card text-sm text-slate-300">Belum ada riwayat penilaian untuk peserta ini.</div>
-                                <?php endif; ?>
-
-                                <?php foreach ($recentScores as $score): ?>
-                                    <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/45 p-4">
-                                        <div class="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
-                                                <p class="font-semibold text-white"><?= e($score->judge_name) ?></p>
-                                                <p class="mt-1 text-xs text-slate-400"><?= e(optional($score->submitted_at)->format('d M Y H:i')) ?></p>
-                                            </div>
-                                            <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
-                                                <?= e(number_format((float) $score->score, 2)) ?>
+                            <?php if ($recentScores->isEmpty()): ?>
+                                <div class="rounded-xl border border-slate-700/50 bg-slate-900/50 p-6 text-center text-slate-400">
+                                    Belum ada riwayat penilaian
+                                </div>
+                            <?php else: ?>
+                                <div class="space-y-3">
+                                    <?php foreach ($recentScores as $score): ?>
+                                        <div class="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p class="font-semibold text-white"><?= e($score->judge_name) ?></p>
+                                                    <p class="text-xs text-slate-400"><?= e(optional($score->submitted_at)->format('d M Y H:i')) ?></p>
+                                                </div>
+                                                <div class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-lg font-bold text-cyan-200">
+                                                    <?= e(number_format((float) $score->score, 0)) ?>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <?php if (! empty($score->score_breakdown['summary'] ?? null)): ?>
-                                            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
-                                                <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-slate-300">Soal: <?= e((string) ($score->score_breakdown['summary']['total_questions'] ?? 0)) ?></span>
-                                                <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-slate-300">Mode Regu: <?= e((string) ($score->score_breakdown['summary']['mode_counts']['paket_regu'] ?? 0)) ?></span>
-                                                <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-slate-300">Mode Rebutan: <?= e((string) ($score->score_breakdown['summary']['mode_counts']['rebutan'] ?? 0)) ?></span>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
 
                     <div class="space-y-6">
+                        <!-- Guide -->
                         <div class="glass-card rounded-[2rem] p-6">
-                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Panduan Teknis MFQ</p>
-                            <div class="mt-5 space-y-4">
-                                <?php foreach ([
-                                    ['title' => 'Paket Soal Regu', 'body' => $mfqModeSummary['paket_regu'] ?? 'Setiap soal regu dapat bernilai 100 untuk sempurna, 50 jika dilempar dan dijawab benar, -25 jika dilempar dan dijawab salah, atau nilai proporsional jika jawaban masih kurang sempurna.'],
-                                    ['title' => 'Paket Soal Rebutan', 'body' => $mfqModeSummary['rebutan'] ?? 'Jawaban benar bernilai 100 dan jawaban salah dikurangi 100. Yang dihitung adalah jawaban pertama setelah bel.' ],
-                                    ['title' => 'Isi final, bukan proses', 'body' => 'Di form ini, panitia mencatat nilai akhir per soal sesuai keputusan hakim. Itu membuat rekap lebih cepat dan lebih mudah diaudit.'],
-                                ] as $step): ?>
-                                    <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
-                                        <p class="font-semibold text-white"><?= e($step['title']) ?></p>
-                                        <p class="mt-2 text-sm leading-6 text-slate-300"><?= e($step['body']) ?></p>
-                                    </div>
-                                <?php endforeach; ?>
+                            <div class="flex items-center gap-3 mb-4">
+                                <?= mtq_icon('info', 'h-5 w-5 text-amber-300') ?>
+                                <h3 class="font-bold text-white">Panduan MFQ</h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4">
+                                    <p class="font-semibold text-white">Paket Regu</p>
+                                    <p class="mt-1 text-sm text-slate-400">100=Sempurna, 50=Lempar Benar, -25=Lempar Salah, proporsional=parsial</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4">
+                                    <p class="font-semibold text-white">Rebutan</p>
+                                    <p class="mt-1 text-sm text-slate-400">100=Benar, -100=Salah</p>
+                                </div>
                             </div>
                         </div>
 
+                        <!-- Session Summary -->
                         <div class="glass-card rounded-[2rem] p-6">
-                            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Ringkasan Sesi</p>
-                            <div class="mt-5 grid gap-3">
-                                <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Peserta Dipilih</p>
-                                    <p class="mt-1 text-sm font-semibold text-white"><?= e($selectedParticipant?->name ?? 'Belum dipilih') ?></p>
-                                    <p class="mt-1 text-xs text-slate-400"><?= e($selectedParticipantCategory) ?></p>
+                            <div class="flex items-center gap-3 mb-4">
+                                <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                                <h3 class="font-bold text-white">Ringkasan</h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/50 px-4 py-3">
+                                    <span class="text-sm text-slate-400">Peserta</span>
+                                    <span class="font-semibold text-white"><?= e($selectedParticipant?->name ?? 'Belum') ?></span>
                                 </div>
-                                <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Babak Aktif</p>
-                                    <p class="mt-1 text-sm font-semibold text-white"><?= e($selectedJudgingRound) ?></p>
+                                <div class="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/50 px-4 py-3">
+                                    <span class="text-sm text-slate-400">Babak</span>
+                                    <span class="font-semibold text-white"><?= e($selectedJudgingRound) ?></span>
                                 </div>
-                                <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Skor Rata-rata Riwayat</p>
-                                    <p class="mt-1 text-sm font-semibold text-white"><?= e($summaryStats['selected_average']) ?></p>
+                                <div class="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/50 px-4 py-3">
+                                    <span class="text-sm text-slate-400">Rata-rata</span>
+                                    <span class="font-semibold text-cyan-200"><?= e($summaryStats['selected_average']) ?></span>
                                 </div>
                             </div>
                         </div>

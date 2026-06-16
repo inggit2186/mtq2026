@@ -28,6 +28,7 @@ if (! function_exists('mtq_icon')) {
             'home' => '<path stroke-linecap="round" stroke-linejoin="round" d="m3 11 9-8 9 8"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 10v10h14V10"/>',
             'clock' => '<circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/>',
             'plus' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14"/>',
+            'plus-circle' => '<circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v8"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8"/>',
             'layers' => '<path stroke-linecap="round" stroke-linejoin="round" d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 12 9 4.5 9-4.5"/><path stroke-linecap="round" stroke-linejoin="round" d="m3 16.5 9 4.5 9-4.5"/>',
             'book-open' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2 6.5A2.5 2.5 0 0 1 4.5 4H10v16H4.5A2.5 2.5 0 0 0 2 22V6.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M22 6.5A2.5 2.5 0 0 0 19.5 4H14v16h5.5A2.5 2.5 0 0 1 22 22V6.5Z"/>',
             'pencil' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12.5 5.5 18.5 11.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M14.5 3.5a2.1 2.1 0 0 1 3 0l3 3a2.1 2.1 0 0 1 0 3L9 20H5v-4L14.5 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l6 6"/>',

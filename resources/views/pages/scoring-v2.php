@@ -97,13 +97,13 @@ $defaultRoundForms = [];
 foreach ($roundFormKeys as $roundLabel => $roundKey) {
     $roundConfig = $roundSetupConfigs[$roundLabel] ?? [
         'judge_count' => 1,
-        'judge_names' => [$user?->name],
+        'judge_names' => $availableJudgeNames ?: [$user?->name],
         'scoring_points' => $defaultCriteria,
     ];
-    $judgeNamesValue = preg_split('/\r\n|\r|\n/', (string) old('rounds.'.$roundKey.'.judge_names_text', implode("\n", $roundConfig['judge_names'] ?? [$user?->name]))) ?: [];
+    $judgeNamesValue = preg_split('/\r\n|\r|\n/', (string) old('rounds.'.$roundKey.'.judge_names_text', implode("\n", $roundConfig['judge_names'] ?? ($availableJudgeNames ?: [$user?->name])))) ?: [];
     $judgeNamesValue = array_values(array_filter(array_map(static fn ($value) => trim((string) $value), $judgeNamesValue)));
     if ($judgeNamesValue === []) {
-        $judgeNamesValue = [(string) ($user?->name ?? 'Hakim 1')];
+        $judgeNamesValue = $availableJudgeNames ?: [(string) ($user?->name ?? 'Hakim 1')];
     }
 
     $pointLabelsValue = preg_split('/\r\n|\r|\n/', (string) old('rounds.'.$roundKey.'.scoring_points_text', implode("\n", array_values($roundConfig['scoring_points'] ?? $defaultCriteria)))) ?: [];
@@ -158,6 +158,96 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
     <?php foreach ($cssAssets as $href): ?>
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
+    <style>
+        .glass-card {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 40px rgba(34, 211, 238, 0.05);
+        }
+
+        .glow-emerald {
+            box-shadow: 0 0 20px rgba(52, 211, 153, 0.15), 0 0 40px rgba(52, 211, 153, 0.05);
+        }
+
+        .glow-amber {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 0 40px rgba(251, 191, 36, 0.05);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #22d3ee 0%, #34d399 50%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .step-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .category-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .category-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .form-input {
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+        }
+
+        .participant-card {
+            transition: all 0.2s ease;
+        }
+
+        .participant-card:hover {
+            background: rgba(34, 211, 238, 0.08);
+        }
+
+        .modal-overlay {
+            background: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(8px);
+        }
+
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+    </style>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
     <script>
@@ -176,366 +266,340 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
         <div class="hero-orb hero-orb-cyan right-[-7rem] top-10 h-72 w-72"></div>
 
         <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
+            <!-- Sidebar -->
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block glass-card"
                 x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
-                <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <div class="icon-chip"><?= mtq_icon('chart') ?></div>
+                <!-- Logo -->
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="icon-chip"><?= mtq_icon('chart') ?></div>
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
+                        <h1 class="mt-1 text-lg font-bold text-white">Penilaian</h1>
+                    </div>
+                </div>
+
+                <!-- User Info -->
+                <div class="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-sky-500/10 p-4 mb-6">
+                    <div class="flex items-center gap-2">
+                        <?= mtq_icon('user', 'h-4 w-4 text-cyan-300') ?>
+                        <p class="text-sm font-semibold text-white"><?= e($user?->name) ?></p>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="inline-flex h-2 w-2 rounded-full <?= $setupReady ? 'bg-emerald-400' : 'bg-amber-400' ?>"></span>
+                        <span class="text-xs text-slate-300"><?= $setupReady ? 'Setting Siap' : 'Butuh Setup' ?></span>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="grid gap-3 mb-6">
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/30">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-400/20">
+                            <?= mtq_icon('users', 'h-5 w-5 text-cyan-300') ?>
+                        </div>
                         <div>
-                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
-                            <h1 class="mt-1 text-lg font-bold text-white">Ruang Penilaian</h1>
+                            <p class="text-xs text-slate-400">Peserta</p>
+                            <p class="text-lg font-bold text-white"><?= e($scoreStats['participant_total']) ?></p>
                         </div>
                     </div>
-                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
-                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                    </button>
-                </div>
-
-                <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
-                    <p class="section-kicker">Status Operator</p>
-                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($user?->name) ?></h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-300">Operator wajib menyiapkan konfigurasi penilaian sebelum sesi dimulai.</p>
-                    <div class="mt-4 <?= $setupReady ? 'status-pill' : 'inline-flex items-center gap-2 rounded-full border border-amber-400/18 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-100' ?>">
-                        <span class="inline-flex h-2.5 w-2.5 rounded-full <?= $setupReady ? 'bg-emerald-300' : 'bg-amber-300' ?>"></span>
-                        <?= $setupReady ? 'Setting Siap' : 'Butuh Setup' ?>
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/30">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-400/20">
+                            <?= mtq_icon('check-circle', 'h-5 w-5 text-emerald-300') ?>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400">Terverifikasi</p>
+                            <p class="text-lg font-bold text-white"><?= e($scoreStats['verified_total']) ?></p>
+                        </div>
                     </div>
                 </div>
 
-                <nav class="mt-8 space-y-2">
+                <nav class="space-y-2 mb-6">
                     <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
                     <?php require __DIR__.'/../partials/console-navigation.php'; ?>
                 </nav>
 
-                <div class="mt-8 grid gap-3">
-                    <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Prioritas</p>
-                        <p class="mt-2 text-sm font-semibold text-white">Setting lebih dulu, nilai kemudian</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-300">Pastikan jumlah hakim, nama hakim, babak, dan poin penilaian sudah final sebelum peserta dipilih.</p>
-                    </div>
-                    <a href="<?= e(route('dashboard')) ?>" class="secondary-button w-full">
-                        <?= mtq_icon('home', 'h-4 w-4') ?>
-                        Kembali ke Dashboard
-                    </a>
-                    <form method="POST" action="<?= e(route('logout')) ?>">
-                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                        <button type="submit" class="secondary-button w-full">
-                            <?= mtq_icon('logout', 'h-4 w-4') ?>
-                            Keluar
-                        </button>
-                    </form>
-                </div>
+                <a href="<?= e(route('dashboard')) ?>" class="secondary-button w-full flex items-center justify-center gap-2">
+                    <?= mtq_icon('home', 'h-4 w-4') ?>
+                    Dashboard
+                </a>
             </aside>
 
             <div class="min-w-0 space-y-6">
-                <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
-                            <?= mtq_icon('menu', 'h-4 w-4') ?>
-                        </button>
-                        <div>
-                            <p class="section-kicker">Ruang Penilaian</p>
-                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Panel operator untuk <?= e($user?->roleLabel()) ?></h2>
-                            <p class="mt-2 text-sm text-slate-300">Operator menyiapkan setting penilaian per golongan, lalu baru menginput nilai peserta.</p>
-                            <?php if ($user?->role === 'panitia'): ?>
-                                <p class="mt-2 text-xs leading-6 text-cyan-200">Golongan yang bisa diakses akun ini: <?= e($restrictedCategories !== [] ? implode(', ', $restrictedCategories) : 'belum diatur admin') ?></p>
+                <!-- Header -->
+                <header class="glass-card rounded-[2rem] p-6 glow-cyan">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                                <?= mtq_icon('menu', 'h-4 w-4') ?>
+                            </button>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <?= mtq_icon('book-open', 'h-4 w-4 text-cyan-300') ?>
+                                    <p class="section-kicker">Ruang Penilaian</p>
+                                </div>
+                                <h2 class="mt-2 text-3xl font-black tracking-tight">
+                                    <span class="gradient-text"><?= e($user?->roleLabel()) ?></span>
+                                </h2>
+                                <?php if ($selectedCategory): ?>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <span class="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200">
+                                            <?= mtq_icon('layers', 'h-3 w-3') ?>
+                                            <?= e(trim(($selectedCategory->branch ?? '-').' | '.($selectedCategory->name ?? '-'))) ?>
+                                        </span>
+                                        <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+                                            <?= mtq_icon('spark', 'h-3 w-3') ?>
+                                            <?= e($selectedJudgingRound) ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="<?= $setupReady ? 'status-pill' : 'inline-flex items-center gap-2 rounded-full border border-amber-400/18 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-100' ?>">
+                                <span class="inline-flex h-2.5 w-2.5 rounded-full <?= $setupReady ? 'bg-emerald-300' : 'bg-amber-300' ?>"></span>
+                                <?= $setupReady ? 'Penilaian Siap' : 'Setup Belum Lengkap' ?>
+                            </div>
+                            <?php if ($selectedCategory): ?>
+                                <a href="<?= e($bigScreenUrl) ?>" target="_blank" rel="noreferrer" class="secondary-button flex items-center gap-2">
+                                    <?= mtq_icon('eye', 'h-4 w-4') ?>
+                                    Big Screen
+                                </a>
                             <?php endif; ?>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div class="<?= $setupReady ? 'status-pill' : 'inline-flex items-center gap-2 rounded-full border border-amber-400/18 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-100' ?>">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full <?= $setupReady ? 'bg-emerald-300' : 'bg-amber-300' ?>"></span>
-                            <?= $setupReady ? 'Penilaian Siap' : 'Setup Belum Lengkap' ?>
-                        </div>
-                        <div x-data="{ liveConnected: window.Alpine?.store('ui')?.liveConnected ?? false, pollingActive: window.Alpine?.store('ui')?.pollingActive ?? false }"
-                             x-init="$watch('$store.ui.liveConnected', v => liveConnected = v); $watch('$store.ui.pollingActive', v => pollingActive = v);"
-                             class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]"
-                             :class="liveConnected ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : (pollingActive ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-slate-700 bg-slate-900/70 text-slate-400')">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full"
-                                  :class="liveConnected ? 'bg-emerald-300' : (pollingActive ? 'bg-amber-300 animate-pulse' : 'bg-slate-500')"></span>
-                            <span x-text="liveConnected ? 'Live' : (pollingActive ? 'Polling' : 'Offline')"></span>
-                        </div>
-                        <?php if ($selectedCategory): ?>
-                            <a href="<?= e($bigScreenUrl) ?>" target="_blank" rel="noreferrer" class="secondary-button">
-                                <?= mtq_icon('eye', 'h-4 w-4') ?>
-                                Big Screen Golongan
-                            </a>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="grid w-full gap-3 md:grid-cols-2">
-                        <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                            <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Golongan Aktif</p>
-                            <p class="mt-1 text-sm font-semibold text-white"><?= e($selectedCategory ? trim(($selectedCategory->branch ?? '-').' | '.($selectedCategory->name ?? '-')) : 'Belum dipilih') ?></p>
-                        </div>
-                        <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 px-4 py-3">
-                            <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Babak Aktif</p>
-                            <p class="mt-1 text-sm font-semibold text-white"><?= e($selectedJudgingRound) ?></p>
                         </div>
                     </div>
                 </header>
 
-                <section class="glass-card rounded-[2rem] p-5">
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <p class="section-kicker">Alur Penilaian</p>
-                            <h2 class="mt-2 text-2xl font-bold text-white">Tiga langkah, satu layar kerja</h2>
-                            <p class="mt-2 text-sm text-slate-300">Pilih golongan dulu, atur babak, lalu buka form penilaian. MFQ tersedia dari langkah pertama supaya operator tetap masuk dari satu pintu.</p>
-                        </div>
-                        <div class="rounded-[1.25rem] border border-slate-800 bg-slate-950/60 px-4 py-3 text-right">
-                            <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Langkah aktif</p>
-                            <p class="mt-1 text-xl font-bold text-white" x-text="stepLabel(currentStep)"></p>
+                <?php if (session('status')): ?>
+                    <div class="glass-card rounded-[1.5rem] border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+                        <?= e(session('status')) ?>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Metric Cards -->
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/20">
+                                <?= mtq_icon('users', 'h-6 w-6 text-cyan-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Peserta</p>
+                                <p class="mt-1 text-2xl font-extrabold text-white"><?= e($scoreStats['participant_total']) ?></p>
+                            </div>
                         </div>
                     </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/20">
+                                <?= mtq_icon('check-circle', 'h-6 w-6 text-emerald-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Terverifikasi</p>
+                                <p class="mt-1 text-2xl font-extrabold text-white"><?= e($scoreStats['verified_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/20">
+                                <?= mtq_icon('shield', 'h-6 w-6 text-violet-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Hakim</p>
+                                <p class="mt-1 text-2xl font-extrabold text-cyan-200"><?= e($scoreStats['judge_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card rounded-2xl p-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400/20">
+                                <?= mtq_icon('spark', 'h-6 w-6 text-amber-300') ?>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400">Poin</p>
+                                <p class="mt-1 text-2xl font-extrabold text-emerald-300"><?= e($scoreStats['criteria_total']) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                    <div class="mt-5 grid gap-3 lg:grid-cols-3">
-                        <button type="button" class="rounded-[1.35rem] border px-4 py-4 text-left transition"
-                            :class="currentStep === 1 ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_14px_40px_-28px_rgba(34,211,238,0.7)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30'"
+                <!-- Workflow Steps -->
+                <section class="glass-card rounded-[2rem] p-6 glow-emerald">
+                    <div class="flex items-center gap-3 mb-4">
+                        <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                        <h2 class="text-xl font-bold text-white">Alur Penilaian</h2>
+                    </div>
+                    <div class="grid gap-3 lg:grid-cols-3">
+                        <button type="button" class="step-card rounded-2xl border px-5 py-4 text-left transition"
+                            :class="currentStep === 1 ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_14px_40px_-28px_rgba(34,211,238,0.7)]' : 'border-slate-700/50 bg-slate-800/30 hover:border-cyan-400/30'"
                             x-on:click="goToStep(1)">
-                            <p class="text-xs uppercase tracking-[0.24em]" :class="currentStep === 1 ? 'text-cyan-100' : 'text-slate-500'">Step 1</p>
-                            <p class="mt-2 text-lg font-bold text-white">Pilih cabang / golongan</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-300">Masuk dari filter golongan utama, dan lihat juga jalur MFQ di kartu khusus.</p>
+                            <div class="flex items-center gap-3">
+                                <span class="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
+                                      :class="currentStep === 1 ? 'bg-gradient-to-br from-cyan-400 to-sky-400 text-slate-900' : 'bg-slate-700 text-slate-300'">1</span>
+                                <div>
+                                    <p class="font-semibold text-white">Pilih Golongan</p>
+                                    <p class="text-xs text-slate-400">Step 1</p>
+                                </div>
+                            </div>
                         </button>
-                        <button type="button" class="rounded-[1.35rem] border px-4 py-4 text-left transition"
-                            :class="currentStep === 2 ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_14px_40px_-28px_rgba(34,211,238,0.7)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30'"
+                        <button type="button" class="step-card rounded-2xl border px-5 py-4 text-left transition"
+                            :class="currentStep === 2 ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_14px_40px_-28px_rgba(34,211,238,0.7)]' : 'border-slate-700/50 bg-slate-800/30 hover:border-cyan-400/30'"
                             x-on:click="goToStep(<?= $setupCreated ? ($setupEditable ? 2 : 3) : 2 ?>)">
-                            <p class="text-xs uppercase tracking-[0.24em]" :class="currentStep === 2 ? 'text-cyan-100' : 'text-slate-500'">Step 2</p>
-                            <p class="mt-2 text-lg font-bold text-white">Tab setting babak</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-300"><?= $setupCreated ? ($setupEditable ? 'Setting sedang terbuka lagi untuk diperbarui.' : 'Setting sudah tersimpan, klik untuk lanjut ke peserta.') : 'Rapikan hakim dan poin per babak sebelum masuk form penilaian.' ?></p>
+                            <div class="flex items-center gap-3">
+                                <span class="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
+                                      :class="currentStep === 2 ? 'bg-gradient-to-br from-cyan-400 to-sky-400 text-slate-900' : 'bg-slate-700 text-slate-300'">2</span>
+                                <div>
+                                    <p class="font-semibold text-white">Atur Setting</p>
+                                    <p class="text-xs text-slate-400">Step 2</p>
+                                </div>
+                            </div>
                         </button>
-                        <button type="button" class="rounded-[1.35rem] border px-4 py-4 text-left transition"
-                            :class="currentStep === 3 ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_14px_40px_-28px_rgba(34,211,238,0.7)]' : 'border-slate-800 bg-slate-950/55 hover:border-cyan-400/30'"
+                        <button type="button" class="step-card rounded-2xl border px-5 py-4 text-left transition"
+                            :class="currentStep === 3 ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_14px_40px_-28px_rgba(34,211,238,0.7)]' : 'border-slate-700/50 bg-slate-800/30 hover:border-cyan-400/30'"
                             x-on:click="goToStep(3)">
-                            <p class="text-xs uppercase tracking-[0.24em]" :class="currentStep === 3 ? 'text-cyan-100' : 'text-slate-500'">Step 3</p>
-                            <p class="mt-2 text-lg font-bold text-white">Form penilaian</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-300">Isi nilai hakim per peserta, lalu simpan tanpa pindah halaman.</p>
+                            <div class="flex items-center gap-3">
+                                <span class="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
+                                      :class="currentStep === 3 ? 'bg-gradient-to-br from-cyan-400 to-sky-400 text-slate-900' : 'bg-slate-700 text-slate-300'">3</span>
+                                <div>
+                                    <p class="font-semibold text-white">Input Nilai</p>
+                                    <p class="text-xs text-slate-400">Step 3</p>
+                                </div>
+                            </div>
                         </button>
                     </div>
-                </section>
-
-                <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Siap Dinilai</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($scoreStats['participant_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('check-circle') ?></div><p class="mt-4 text-sm text-slate-400">Peserta Terverifikasi</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($scoreStats['verified_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('shield') ?></div><p class="mt-4 text-sm text-slate-400">Hakim Tersetting</p><p class="mt-2 text-3xl font-extrabold text-cyan-200"><?= e($scoreStats['judge_total']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('spark') ?></div><p class="mt-4 text-sm text-slate-400">Poin Penilaian</p><p class="mt-2 text-3xl font-extrabold text-emerald-300"><?= e($scoreStats['criteria_total']) ?></p></div>
                 </section>
 
                 <section id="step-1" class="glass-card rounded-[2rem] p-6" x-show="currentStep === 1" x-cloak>
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <p class="section-kicker">Step 1</p>
-                            <h2 class="text-2xl font-bold text-white">Pilih cabang dan golongan MTQ</h2>
-                            <p class="mt-2 text-sm text-slate-300">Pilih cabang besar terlebih dahulu. Setelah itu baru pilih golongan di dalam cabang tersebut. Jika ada golongan tanpa cabang, pilihannya tampil langsung di awal.</p>
+                    <!-- Round Tabs -->
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div class="flex items-center gap-3">
+                            <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                            <h2 class="text-xl font-bold text-white">Pilih Golongan</h2>
                         </div>
-                        <div class="<?= $setupEditable ? 'status-pill border-cyan-300/20 bg-cyan-400/10 text-cyan-100' : ($setupRequested ? 'status-pill border-amber-300/20 bg-amber-400/10 text-amber-100' : 'status-pill') ?>">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full <?= $selectedCategory ? 'bg-emerald-300' : 'bg-amber-300' ?>"></span>
-                            <?= $setupEditable ? 'Setting dibuka' : ($setupRequested ? 'Menunggu admin' : ($selectedCategory ? 'Golongan dipilih' : 'Pilih golongan')) ?>
+                        <div class="flex gap-2">
+                            <?php foreach ($judgingRounds as $roundLabel): ?>
+                                <a href="<?= e(route('scoring', array_filter([
+                                    'branch' => $filters['branch'] ?? null,
+                                    'keyword' => $filters['keyword'] ?? null,
+                                    'competition_category_id' => $filters['competition_category_id'] ?? null,
+                                    'judging_round' => $roundLabel,
+                                    'step' => 1,
+                                ]))) ?>"
+                                    class="rounded-xl px-4 py-2 text-sm font-semibold transition <?= $selectedJudgingRound === $roundLabel ? 'bg-cyan-400/15 text-cyan-100 border border-cyan-400/30' : 'text-slate-400 hover:text-white border border-slate-700' ?>">
+                                    <?= e($roundLabel) ?>
+                                </a>
+                            <?php endforeach; ?>
                         </div>
                     </div>
 
-                    <div class="mt-6 space-y-6">
-                        <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/55 p-4">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
-                                <div>
-                                    <p class="section-kicker">Babak Golongan</p>
-                                    <h3 class="mt-2 text-xl font-bold text-white">Pilih tab Penyisihan atau Final dulu</h3>
-                                    <p class="mt-2 text-sm text-slate-300">Kartu golongan di bawah akan menyesuaikan tab babak yang sedang aktif.</p>
-                                </div>
-                                <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/80 p-1.5">
-                                    <div class="flex flex-wrap gap-2">
-                                        <?php foreach ($judgingRounds as $roundLabel): ?>
-                                            <a href="<?= e(route('scoring', array_filter([
-                                                'branch' => $filters['branch'] ?? null,
-                                                'keyword' => $filters['keyword'] ?? null,
-                                                'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                                'judging_round' => $roundLabel,
-                                                'step' => 1,
-                                            ]))) ?>"
-                                                class="rounded-[1rem] px-4 py-3 text-left text-sm font-semibold transition <?= $selectedJudgingRound === $roundLabel ? 'bg-cyan-400/15 text-cyan-100 shadow-[0_12px_30px_-18px_rgba(34,211,238,0.7)]' : 'text-slate-400 hover:bg-slate-900/70 hover:text-white' ?>">
-                                                <span class="flex items-center gap-2">
-                                                    <span><?= e($roundLabel) ?></span>
-                                                    <span class="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] <?= $selectedJudgingRound === $roundLabel ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 bg-slate-900/70 text-slate-400' ?>">
-                                                        Pilih
-                                                    </span>
-                                                </span>
-                                            </a>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
+                    <!-- Search Form -->
+                    <form method="GET" action="<?= e(route('scoring')) ?>" class="mb-6">
+                        <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
+                        <input type="hidden" name="step" value="1">
+                        <div class="flex flex-wrap gap-3">
+                            <div class="flex-1 min-w-[200px]">
+                                <input name="keyword" value="<?= e($filters['keyword'] ?? '') ?>" type="text" placeholder="Cari golongan..."
+                                    class="form-input w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                             </div>
+                            <button type="submit" class="primary-button px-5 py-3 flex items-center gap-2">
+                                <?= mtq_icon('search', 'h-4 w-4') ?>
+                                Cari
+                            </button>
                         </div>
 
-                        <div class="grid gap-6">
-                            <div class="rounded-[1.75rem] border border-slate-800 bg-slate-950/55 p-5">
-                                <div class="flex flex-wrap items-start justify-between gap-4">
-                                    <div>
-                                        <p class="section-kicker">Cari Golongan</p>
-                                        <h3 class="mt-2 text-xl font-bold text-white">Pilih cabang seperti saat pendaftaran</h3>
-                                        <p class="mt-2 text-sm text-slate-300">Gunakan tab cabang di bawah untuk mempercepat pencarian golongan pada babak <?= e($selectedJudgingRound) ?>.</p>
-                                    </div>
-                                    <div class="rounded-[1.25rem] border border-slate-800 bg-slate-950/70 px-4 py-3 text-right">
-                                        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Golongan babak ini</p>
-                                        <p class="mt-1 text-2xl font-black text-white"><?= e($selectedRoundCategories->count()) ?></p>
-                                    </div>
-                                </div>
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            <a href="<?= e(route('scoring', array_filter([
+                                'keyword' => $filters['keyword'] ?? null,
+                                'competition_category_id' => $filters['competition_category_id'] ?? null,
+                                'judging_round' => $selectedJudgingRound,
+                                'step' => 1,
+                            ]))) ?>"
+                                class="rounded-full border px-4 py-2 text-sm font-semibold transition <?= filled($filters['branch'] ?? null) ? 'border-slate-700 bg-slate-900/70 text-slate-300 hover:border-cyan-400/30' : 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' ?>">
+                                Semua
+                            </a>
+                            <?php foreach ($branches as $branch): ?>
+                                <a href="<?= e(route('scoring', array_filter([
+                                    'branch' => $branch,
+                                    'keyword' => $filters['keyword'] ?? null,
+                                    'competition_category_id' => $filters['competition_category_id'] ?? null,
+                                    'judging_round' => $selectedJudgingRound,
+                                    'step' => 1,
+                                ]))) ?>"
+                                    class="rounded-full border px-4 py-2 text-sm font-semibold transition <?= (string) ($filters['branch'] ?? '') === (string) $branch ? 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:border-cyan-400/30' ?>">
+                                    <?= e($branch) ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
 
-                                <form method="GET" action="<?= e(route('scoring')) ?>" class="mt-5 grid gap-4">
-                                    <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
-                                    <input type="hidden" name="step" value="1">
-                                    <div class="grid gap-4 md:grid-cols-[1fr_auto]">
-                                        <div>
-                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Cari cabang atau golongan</label>
-                                            <input name="keyword" value="<?= e($filters['keyword'] ?? '') ?>" type="text" placeholder="Ketik nama cabang, golongan, atau keterangan" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
-                                        </div>
-                                        <div class="flex items-end">
-                                            <button type="submit" class="secondary-button px-5 py-3">
-                                                <?= mtq_icon('search', 'h-4 w-4') ?>
-                                                Cari
-                                            </button>
-                                        </div>
+                    <!-- Category Cards -->
+                    <div class="space-y-6">
+                        <?php if ($selectedRoundCategories->isEmpty()): ?>
+                            <div class="rounded-2xl border border-slate-700 bg-slate-900/50 p-8 text-center">
+                                <p class="text-slate-400">Tidak ada golongan untuk babak ini.</p>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($selectedRoundBranchGroups as $branchName => $categoryGroup): ?>
+                                <?php if (filled($filters['branch'] ?? null) && (string) $filters['branch'] !== (string) $branchName) continue; ?>
+                                <div class="space-y-4">
+                                    <div class="flex items-center gap-3">
+                                        <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
+                                        <h3 class="text-lg font-bold text-white"><?= e($branchName) ?></h3>
+                                        <span class="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-slate-300"><?= e($categoryGroup->count()) ?></span>
                                     </div>
-
-                                    <div class="flex flex-wrap gap-2">
-                                        <a href="<?= e(route('scoring', array_filter([
-                                            'keyword' => $filters['keyword'] ?? null,
-                                            'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                            'judging_round' => $selectedJudgingRound,
-                                            'step' => 1,
-                                        ]))) ?>"
-                                            class="rounded-full border px-4 py-2 text-sm font-semibold transition <?= filled($filters['branch'] ?? null) ? 'border-slate-700 bg-slate-950/70 text-slate-300 hover:border-cyan-400/30 hover:text-white' : 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' ?>">
-                                            Semua cabang
-                                        </a>
-                                        <?php foreach ($branches as $branch): ?>
-                                            <?php $branchCount = $selectedRoundCategories->where('branch', $branch)->count(); ?>
-                                            <a href="<?= e(route('scoring', array_filter([
-                                                'branch' => $branch,
-                                                'keyword' => $filters['keyword'] ?? null,
-                                                'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                                'judging_round' => $selectedJudgingRound,
-                                                'step' => 1,
-                                            ]))) ?>"
-                                                class="rounded-full border px-4 py-2 text-sm font-semibold transition <?= (string) ($filters['branch'] ?? '') === (string) $branch ? 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 bg-slate-950/70 text-slate-300 hover:border-cyan-400/30 hover:text-white' ?>">
-                                                <?= e($branch) ?> <span class="ml-1 text-xs opacity-70"><?= e($branchCount) ?></span>
-                                            </a>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </form>
-
-                                <div class="mt-6 space-y-6">
-                                    <?php if ($selectedRoundCategories->isEmpty()): ?>
-                                        <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/55 px-4 py-5 text-sm text-slate-300">Tidak ada golongan yang cocok untuk babak <?= e($selectedJudgingRound) ?>.</div>
-                                    <?php else: ?>
-                                        <?php foreach ($selectedRoundBranchGroups as $branchName => $categoryGroup): ?>
+                                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                        <?php foreach ($categoryGroup as $categoryCard): ?>
                                             <?php
-                                                if (filled($filters['branch'] ?? null) && (string) $filters['branch'] !== (string) $branchName) {
-                                                    continue;
-                                                }
+                                                $isMfqCard = $isMfqCategoryCard($categoryCard);
+                                                $cardSetting = $categorySettings[$categoryCard->id] ?? null;
+                                                $cardSetupCreated = (bool) $cardSetting;
+                                                $cardSetupEditable = (bool) ($cardSetting?->isEditable() ?? false);
+                                                $cardSetupRequested = (bool) ($cardSetting?->isEditRequested() ?? false);
+                                                $cardSetupReady = (bool) ($cardSetting?->isReady() ?? false);
+                                                $categoryCardUsage = $categoryUsage[$categoryCard->id] ?? [];
+                                                $availableSlots = (int) ($categoryCardUsage['available_slots'] ?? $categoryCard->quota ?? 0);
+                                                $registered = (int) ($categoryCardUsage['registered'] ?? 0);
+                                                $categoryLink = $isMfqCard
+                                                    ? route('scoring.mfq', ['competition_category_id' => $categoryCard->id])
+                                                    : route('scoring', array_filter([
+                                                        'competition_category_id' => $categoryCard->id,
+                                                        'branch' => $categoryCard->branch,
+                                                        'keyword' => $filters['keyword'] ?? null,
+                                                        'judging_round' => $selectedJudgingRound,
+                                                        'step' => 2,
+                                                    ]));
+                                                $isSelectedCard = (int) ($selectedCategory?->id ?? 0) === (int) $categoryCard->id;
                                             ?>
-                                            <div class="rounded-[1.75rem] border border-slate-800 bg-slate-950/45 p-5">
-                                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                                    <div>
-                                                        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">Cabang</p>
-                                                        <h4 class="mt-1 text-xl font-bold text-white"><?= e($branchName) ?></h4>
-                                                        <p class="mt-1 text-sm text-slate-400"><?= e($categoryGroup->count()) ?> golongan tersedia pada babak ini.</p>
+                                            <?php $categoryVisual = mtq_category_visual((string) $categoryCard->branch, (string) $categoryCard->name); ?>
+                                            <a href="<?= e($categoryLink) ?>"
+                                                class="category-card group overflow-hidden rounded-2xl border bg-slate-900/80 text-left transition hover:-translate-y-1 hover:shadow-lg <?= $isSelectedCard ? 'ring-2 ring-cyan-300/30 border-cyan-300/60' : 'border-slate-700/80' ?>">
+                                                <div class="aspect-[16/9] overflow-hidden bg-slate-950/70 p-3">
+                                                    <img src="<?= e($categoryVisual) ?>" alt="<?= e($categoryCard->name) ?>" loading="lazy" class="h-full w-full object-contain">
+                                                </div>
+                                                <div class="p-4">
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <div>
+                                                            <p class="text-[10px] uppercase tracking-[0.2em] text-cyan-200/70"><?= e($categoryCard->branch) ?></p>
+                                                            <h4 class="mt-1 text-base font-bold text-white group-hover:text-cyan-200"><?= e($categoryCard->name) ?></h4>
+                                                        </div>
+                                                        <span class="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase <?= $isMfqCard ? 'border-amber-400/20 bg-amber-400/10 text-amber-200' : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200' ?>">
+                                                            <?= $isMfqCard ? 'MFQ' : e($availableSlots).' slot' ?>
+                                                        </span>
                                                     </div>
-                                                    <span class="status-pill border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
-                                                        <?= e($categoryGroup->count()) ?> kartu
-                                                    </span>
+                                                    <div class="mt-3 flex items-center gap-2">
+                                                        <span class="rounded-full border px-2.5 py-1 text-[10px] font-semibold <?= $cardSetupReady ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200' : 'border-slate-700 bg-slate-800 text-slate-400' ?>">
+                                                            <?= $cardSetupReady ? 'Siap' : 'Belum' ?>
+                                                        </span>
+                                                        <?php if ($isSelectedCard): ?>
+                                                            <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold text-cyan-100">Aktif</span>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </div>
-
-                                                <div class="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                                                    <?php foreach ($categoryGroup as $categoryCard): ?>
-                                                        <?php
-                                                            $isMfqCard = $isMfqCategoryCard($categoryCard);
-                                                            $cardSetting = $categorySettings[$categoryCard->id] ?? null;
-                                                            $cardSetupCreated = (bool) $cardSetting;
-                                                            $cardSetupEditable = (bool) ($cardSetting?->isEditable() ?? false);
-                                                            $cardSetupRequested = (bool) ($cardSetting?->isEditRequested() ?? false);
-                                                            $cardSetupReady = (bool) ($cardSetting?->isReady() ?? false);
-                                                            $categoryCardUsage = $categoryUsage[$categoryCard->id] ?? [];
-                                                            $availableSlots = (int) ($categoryCardUsage['available_slots'] ?? $categoryCard->quota ?? 0);
-                                                            $registered = (int) ($categoryCardUsage['registered'] ?? 0);
-                                                            $remainingSlots = (int) ($categoryCardUsage['remaining_slots'] ?? max($availableSlots - $registered, 0));
-                                                            $categoryLink = $isMfqCard
-                                                                ? route('scoring.mfq', ['competition_category_id' => $categoryCard->id])
-                                                                : route('scoring', array_filter([
-                                                                    'competition_category_id' => $categoryCard->id,
-                                                                    'branch' => $categoryCard->branch,
-                                                                    'keyword' => $filters['keyword'] ?? null,
-                                                                    'judging_round' => $selectedJudgingRound,
-                                                                    'step' => 2,
-                                                                ]));
-                                                            $isSelectedCard = (int) ($selectedCategory?->id ?? 0) === (int) $categoryCard->id;
-                                                        ?>
-                                                        <?php $categoryVisual = mtq_category_visual((string) $categoryCard->branch, (string) $categoryCard->name); ?>
-                                                        <a href="<?= e($categoryLink) ?>"
-                                                            class="group overflow-hidden rounded-[1.75rem] border border-slate-700/80 bg-slate-900/80 text-left transition duration-200 hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_18px_55px_-28px_rgba(34,211,238,0.55)] <?= $isSelectedCard ? 'ring-2 ring-cyan-300/30 border-cyan-300/60' : '' ?>">
-                                                            <div class="aspect-[16/9] overflow-hidden bg-slate-950/70">
-                                                                <img src="<?= e($categoryVisual) ?>" alt="<?= e($categoryCard->name) ?>" loading="lazy" decoding="async" class="h-full w-full object-contain p-2">
-                                                            </div>
-                                                            <div class="space-y-3 p-5">
-                                                                <div class="flex items-start justify-between gap-3">
-                                                                    <div>
-                                                                        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">Golongan MTQ</p>
-                                                                        <h4 class="mt-2 text-lg font-bold text-white"><?= e($categoryCard->name) ?></h4>
-                                                                    </div>
-                                                                    <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= $isMfqCard ? 'border-amber-400/20 bg-amber-400/10 text-amber-200' : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200' ?>">
-                                                                        <?= $isMfqCard ? 'MFQ' : e($availableSlots).' slot' ?>
-                                                                    </span>
-                                                                </div>
-
-                                                                <div class="flex flex-wrap gap-2">
-                                                                    <span class="inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] <?= $cardSetupEditable ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100' : ($cardSetupRequested ? 'border-amber-300/20 bg-amber-400/10 text-amber-100' : ($cardSetupCreated ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100' : 'border-slate-700 bg-slate-950/70 text-slate-400')) ?>">
-                                                                        <?= $cardSetupEditable ? 'Setting dibuka' : ($cardSetupRequested ? 'Request terkirim' : ($cardSetupCreated ? 'Setting tersimpan' : 'Belum disiapkan')) ?>
-                                                                    </span>
-                                                                    <?php if ($isSelectedCard): ?>
-                                                                        <span class="inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
-                                                                            Aktif
-                                                                        </span>
-                                                                    <?php endif; ?>
-                                                                </div>
-
-                                                                <div class="grid grid-cols-3 gap-3 rounded-2xl border border-white/10 bg-slate-950/50 p-3">
-                                                                    <div>
-                                                                        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Slot</p>
-                                                                        <p class="mt-1 text-lg font-bold text-white"><?= e($availableSlots) ?></p>
-                                                                    </div>
-                                                                    <div>
-                                                                        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Terdaftar</p>
-                                                                        <p class="mt-1 text-lg font-bold text-cyan-200"><?= e($registered) ?></p>
-                                                                    </div>
-                                                                    <div>
-                                                                        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Tersisa</p>
-                                                                        <p class="mt-1 text-lg font-bold <?= $remainingSlots > 0 ? 'text-emerald-300' : 'text-rose-200' ?>"><?= e($remainingSlots) ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-                                                                    <p class="text-xs text-slate-400">
-                                                                        <?= $cardSetupEditable
-                                                                            ? 'Step 2 terbuka kembali.'
-                                                                            : ($cardSetupRequested
-                                                                                ? 'Menunggu admin membuka Step 2.'
-                                                                                : ($cardSetupReady
-                                                                                    ? 'Siap lanjut ke Step 3.'
-                                                                                    : ($cardSetupCreated
-                                                                                        ? 'Setting tersimpan, siap dipakai.'
-                                                                                        : 'Belum ada setting babak.'))) ?>
-                                                                    </p>
-                                                                    <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                                                                        <?= $isMfqCard ? 'Buka MFQ' : 'Klik kartu' ?>
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </a>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </div>
+                                            </a>
                                         <?php endforeach; ?>
-                                    <?php endif; ?>
+                                    </div>
                                 </div>
-                            </div>
-
-                        </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </section>
 
@@ -560,6 +624,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         x-data="scoringRoundSetupForm({
                             rounds: <?= e(json_encode($defaultRoundForms, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                             activeRound: <?= e(json_encode(array_key_exists(strtolower($selectedJudgingRound), $roundFormKeys) ? strtolower($selectedJudgingRound) : 'penyisihan', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                            availableJudges: <?= e(json_encode($availableJudges, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                            categoryJudgeIds: <?= e(json_encode($categoryJudgeIds ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                         })">
                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                         <?php foreach ($roundFormKeys as $roundLabel => $roundKey): ?>
@@ -626,13 +692,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             <div class="flex flex-wrap items-center justify-between gap-3">
                                                 <div>
                                                     <label class="mb-2 block text-sm font-semibold text-slate-200">Nama hakim</label>
-                                                    <p class="text-xs text-slate-400">Tambah atau hapus hakim sesuai kebutuhan babak ini.</p>
+                                                    <p class="text-xs text-slate-400">Pilih hakim dari database untuk babak ini.</p>
                                                 </div>
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200">
-                                                        <span x-text="roundJudgeCount('<?= e($roundKey) ?>')"></span> hakim
+                                                        <span x-text="roundJudgeCount('<?= e($roundKey) ?>"></span> hakim
                                                     </span>
-                                                    <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="addJudge('<?= e($roundKey) ?>')">
+                                                    <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="judgeSearchQuery = ''; judgeModalOpen = '<?= e($roundKey) ?>'">
                                                         <?= mtq_icon('plus', 'h-4 w-4') ?>
                                                         Tambah Hakim
                                                     </button>
@@ -641,36 +707,129 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_count]" :value="rounds.<?= e($roundKey) ?>.judgeCount">
                                             <div class="mt-4 space-y-3">
                                                 <template x-for="(judgeName, index) in rounds.<?= e($roundKey) ?>.judgeNames" :key="'<?= e($roundKey) ?>-judge-' + index">
-                                                    <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/60 p-4">
-                                                        <div class="flex items-start gap-3">
-                                                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/18 bg-cyan-400/10 text-sm font-bold text-cyan-100" x-text="index + 1"></div>
-                                                            <div class="min-w-0 flex-1">
-                                                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                                                    <div>
-                                                                        <label class="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500" x-text="'Hakim ' + (index + 1)"></label>
-                                                                        <p class="mt-1 text-xs text-slate-400">Nama harus unik dalam satu babak.</p>
-                                                                    </div>
-                                                                    <button type="button"
-                                                                        class="secondary-button rounded-xl px-3 py-2 text-xs"
-                                                                        x-on:click="removeJudge('<?= e($roundKey) ?>', index)"
-                                                                        x-bind:disabled="rounds.<?= e($roundKey) ?>.judgeNames.length <= 1"
-                                                                        :class="rounds.<?= e($roundKey) ?>.judgeNames.length <= 1 ? 'cursor-not-allowed opacity-50' : ''">
-                                                                        <?= mtq_icon('trash', 'h-4 w-4') ?>
-                                                                        Hapus
-                                                                    </button>
-                                                                </div>
-                                                                <input type="text"
-                                                                    x-model="rounds.<?= e($roundKey) ?>.judgeNames[index]"
-                                                                    class="mt-3 w-full rounded-2xl border bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
-                                                                    :class="judgeNameState('<?= e($roundKey) ?>', index).valid ? 'border-slate-700' : 'border-rose-400/50 focus:border-rose-300 focus:ring-rose-400/20'"
-                                                                    :placeholder="'Nama hakim ' + (index + 1)">
-                                                                <p x-show="!judgeNameState('<?= e($roundKey) ?>', index).valid" x-text="judgeNameState('<?= e($roundKey) ?>', index).message" class="mt-2 text-xs text-rose-200"></p>
-                                                            </div>
+                                                    <div class="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 flex items-center justify-between">
+                                                        <div class="flex items-center gap-3">
+                                                            <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/18 bg-cyan-400/10 text-sm font-bold text-cyan-200" x-text="index + 1"></div>
+                                                            <span class="font-semibold text-white" x-text="judgeName"></span>
                                                         </div>
+                                                        <button type="button"
+                                                            class="secondary-button rounded-xl px-3 py-2 text-xs"
+                                                            x-on:click="rounds.<?= e($roundKey) ?>.judgeNames.splice(index, 1)"
+                                                            x-show="rounds.<?= e($roundKey) ?>.judgeNames.length > 1">
+                                                            <?= mtq_icon('trash', 'h-4 w-4') ?>
+                                                            Hapus
+                                                        </button>
                                                     </div>
                                                 </template>
                                             </div>
                                             <p x-show="hasJudgeNameIssues('<?= e($roundKey) ?>')" class="mt-3 text-xs text-rose-200">Semua nama hakim babak <?= e($roundLabel) ?> wajib terisi dan tidak boleh ada yang sama.</p>
+                                        </div>
+
+                                        <!-- Modal Tambah Hakim -->
+                                        <div x-show="judgeModalOpen === '<?= e($roundKey) ?>'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
+                                            x-on:keydown.escape.window="judgeModalOpen = null">
+                                            <div class="absolute inset-0" x-on:click="judgeModalOpen = null"></div>
+                                            <div class="relative z-10 w-full max-w-lg rounded-2xl border border-cyan-400/20 bg-slate-900 shadow-xl max-h-[85vh] flex flex-col">
+                                                <div class="flex items-center justify-between border-b border-slate-700 px-6 py-4 shrink-0">
+                                                    <div>
+                                                        <h3 class="text-lg font-bold text-white">Tambah Hakim - <?= e($roundLabel) ?></h3>
+                                                        <p class="mt-1 text-xs text-slate-400" x-text="`${availableJudges.filter(j => !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama)).length} hakim tersedia`"></p>
+                                                    </div>
+                                                    <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="judgeModalOpen = null">
+                                                        <?= mtq_icon('x', 'h-4 w-4') ?>
+                                                    </button>
+                                                </div>
+
+                                                <!-- Notice SK -->
+                                                <div class="px-6 py-3 border-b border-slate-700/50 shrink-0">
+                                                    <div class="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2.5">
+                                                        <?= mtq_icon('info', 'h-4 w-4 text-amber-300 shrink-0 mt-0.5') ?>
+                                                        <p class="text-xs text-amber-100 leading-relaxed">
+                                                            Daftar Dewan Hakim berdasarkan <strong>SK Bupati Tanah Datar Nomor 100.3.3.2/165/KESRA-2026</strong>. Jika ada/ingin menambahkan Hakim di luar SK, Hubungi Admin.
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Search -->
+                                                <div class="px-6 py-3 border-b border-slate-700/50 shrink-0">
+                                                    <div class="relative">
+                                                        <?= mtq_icon('search', 'h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none') ?>
+                                                        <input type="text"
+                                                            x-model="judgeSearchQuery"
+                                                            placeholder="Cari nama hakim..."
+                                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/80 pl-10 pr-4 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20"
+                                                            x-on:focus="judgeSearchQuery = judgeSearchQuery">
+                                                    </div>
+                                                </div>
+
+                                                <div class="p-6 overflow-y-auto flex-1 min-h-0">
+                                                    <!-- Hakim Berdasarkan SK -->
+                                                    <div class="mb-4">
+                                                        <div class="flex items-center gap-2 mb-3">
+                                                            <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/30 to-transparent"></span>
+                                                            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300 bg-slate-900/80 px-2 py-1 rounded-full border border-cyan-400/20">
+                                                                Hakim Berdasarkan SK
+                                                            </span>
+                                                            <span class="h-px flex-1 bg-gradient-to-l from-cyan-400/30 to-transparent"></span>
+                                                        </div>
+                                                        <div class="grid gap-2">
+                                                            <template x-for="judge in availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'sk-' + judge.id">
+                                                                <button type="button"
+                                                                    class="flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3 text-left transition hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:scale-[1.01]"
+                                                                    x-on:click="rounds.<?= e($roundKey) ?>.judgeNames.push(judge.nama); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
+                                                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/15 text-xs font-bold text-cyan-200">
+                                                                        <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
+                                                                    </span>
+                                                                    <div class="min-w-0 flex-1">
+                                                                        <p class="text-sm font-semibold text-white truncate" x-text="judge.nama"></p>
+                                                                        <p class="text-xs text-slate-400 truncate" x-text="judge.asal || '-'"></p>
+                                                                    </div>
+                                                                    <?= mtq_icon('plus-circle', 'h-5 w-5 text-cyan-400 shrink-0') ?>
+                                                                </button>
+                                                            </template>
+                                                            <p x-show="availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-500">
+                                                                <span x-text="judgeSearchQuery ? 'Tidak ada hasil pencarian' : 'Semua hakim SK sudah ditambahkan'"></span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Hakim Lainnya (di luar SK) -->
+                                                    <div>
+                                                        <div class="flex items-center gap-2 mb-3">
+                                                            <span class="h-px flex-1 bg-gradient-to-r from-slate-600/40 to-transparent"></span>
+                                                            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-600/30">
+                                                                Hakim Lainnya (di luar SK)
+                                                            </span>
+                                                            <span class="h-px flex-1 bg-gradient-to-l from-slate-600/40 to-transparent"></span>
+                                                        </div>
+                                                        <div class="grid gap-2">
+                                                            <template x-for="judge in availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'other-' + judge.id">
+                                                                <button type="button"
+                                                                    class="flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-800/30 p-3 text-left transition hover:border-amber-400/30 hover:bg-amber-400/5 hover:scale-[1.01]"
+                                                                    x-on:click="rounds.<?= e($roundKey) ?>.judgeNames.push(judge.nama); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
+                                                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-600/40 bg-slate-800/50 text-xs font-bold text-slate-400">
+                                                                        <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
+                                                                    </span>
+                                                                    <div class="min-w-0 flex-1">
+                                                                        <p class="text-sm font-semibold text-slate-200 truncate" x-text="judge.nama"></p>
+                                                                        <p class="text-xs text-slate-500 truncate" x-text="judge.asal || '-'"></p>
+                                                                    </div>
+                                                                    <?= mtq_icon('plus-circle', 'h-5 w-5 text-amber-400/70 shrink-0') ?>
+                                                                </button>
+                                                            </template>
+                                                            <p x-show="availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-600">
+                                                                <span x-text="judgeSearchQuery ? 'Tidak ada hasil pencarian' : 'Tidak ada hakim lain'"></span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="flex items-center justify-end gap-3 border-t border-slate-700 px-6 py-4 shrink-0">
+                                                    <button type="button" class="secondary-button" x-on:click="judgeModalOpen = null">
+                                                        Tutup
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/50 p-4">
@@ -680,8 +839,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     <div class="flex items-center gap-3">
                                                         <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/18 bg-emerald-400/10 text-sm font-bold text-emerald-100" x-text="index + 1"></div>
                                                         <input type="text" x-model="rounds.<?= e($roundKey) ?>.scoringPoints[index]" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" :placeholder="'Poin penilaian ' + (index + 1)">
-                                                        <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="movePointUp('<?= e($roundKey) ?>', index)" x-bind:disabled="index === 0">
-                                                            Naik
+                                                        <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="movePointUp('<?= e($roundKey) ?>', index)" x-bind:disabled="index === 0" title="Naik">
+                                                            <?= mtq_icon('arrow-up', 'h-4 w-4') ?>
                                                         </button>
                                                         <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="removePoint('<?= e($roundKey) ?>', index)" x-bind:disabled="rounds.<?= e($roundKey) ?>.scoringPoints.length <= 1">
                                                             Hapus
@@ -970,7 +1129,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <div class="mt-6 data-card text-sm text-slate-300">Belum ada peserta dipilih untuk dinilai.</div>
                             <?php else: ?>
                                 <div x-data="{ correctionRequestOpen: false, correctionRequestName: '', correctionRequestLot: '', correctionRequestRound: '', correctionRequestDraft: {}, init() { window.addEventListener('open-scoring-correction-request', (event) => { const detail = event?.detail ?? {}; this.correctionRequestOpen = true; this.correctionRequestName = detail.name || this.correctionRequestName; this.correctionRequestLot = detail.lot || this.correctionRequestLot; this.correctionRequestRound = detail.round || this.correctionRequestRound; this.correctionRequestDraft = detail.draft || this.correctionRequestDraft; }); } }">
-                                <form method="POST" action="<?= e(route('scoring.store')) ?>" class="mt-6 grid gap-4 <?= $participantHasScores ? 'pointer-events-none opacity-45' : '' ?>"
+                                <form method="POST" action="<?= e(route('scoring.store')) ?>" x-ref="scoreForm" class="mt-6 grid gap-4 <?= $participantHasScores ? 'pointer-events-none opacity-45' : '' ?>"
                                     x-data="judgeBatchForm({
                                         judgeNames: <?= e(json_encode(array_values($judgeNames), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                         initialJudgeIndex: <?= e($initialJudgeIndex) ?>,
@@ -1441,19 +1600,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 dropdownOpen: false,
                 highlightedIndex: 0,
                 init() {
-                    // Sync with URL parameter on page load
+                    // Keep search empty on page load - user must search explicitly
+                    // Only sync selectedId from URL if needed
                     const urlParams = new URLSearchParams(window.location.search);
                     const urlParticipantId = urlParams.get('participant_id');
                     if (urlParticipantId) {
                         this.selectedId = String(urlParticipantId);
-                        // Find the participant in the list to set the search
-                        const found = this.participants.find(p => String(p.id) === this.selectedId);
-                        if (found) {
-                            this.search = found.name;
-                        }
-                    } else if (this.selectedParticipant) {
-                        this.search = this.selectedParticipant.name;
                     }
+                    // Search stays empty until user types
                 },
                 get selectedParticipant() {
                     return this.participants.find((participant) => String(participant.id) === String(this.selectedId)) ?? null;
@@ -1661,18 +1815,24 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
             return {
                 rounds: initialState.rounds ?? {},
                 activeRound: initialState.activeRound ?? 'penyisihan',
+                availableJudges: initialState.availableJudges ?? [],
+                categoryJudgeIds: initialState.categoryJudgeIds ?? [],
+                judgeModalOpen: null,
+                judgeSearchQuery: '',
                 init() {
                     Object.keys(this.rounds).forEach((roundKey) => {
                         const round = this.rounds[roundKey] ?? {};
-                        round.judgeCount = Math.max(1, Math.min(15, Number(round.judge_count ?? round.judgeCount ?? 1)));
-                        round.judgeNames = Array.isArray(round.judge_names ?? round.judgeNames) && (round.judge_names ?? round.judgeNames).length
-                            ? (round.judge_names ?? round.judgeNames)
+
+                        // Initialize judgeNames from PHP data (judge_names contains actual names)
+                        round.judgeNames = Array.isArray(round.judge_names) && round.judge_names.length
+                            ? round.judge_names
                             : [''];
+
                         round.scoringPoints = Array.isArray(round.scoring_points ?? round.scoringPoints) && (round.scoring_points ?? round.scoringPoints).length
                             ? (round.scoring_points ?? round.scoringPoints)
                             : [''];
+                        round.judgeCount = Math.max(1, Math.min(15, round.judgeNames.length || 1));
                         this.rounds[roundKey] = round;
-                        this.syncJudgeCount(roundKey);
                         this.rounds[roundKey].scoringPoints = this.rounds[roundKey].scoringPoints
                             .map((value) => String(value ?? '').trim())
                             .filter(Boolean);
@@ -1952,12 +2112,52 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 },
                 submitConfirmed() {
                     this.previewOpen = false;
-                    if (this.$root.requestSubmit) {
-                        this.$root.requestSubmit();
+                    const form = this.$refs.scoreForm;
+                    if (!form) {
+                        // Fallback
+                        this.$root.submit();
                         return;
                     }
 
-                    this.$root.submit();
+                    // Submit form and show success on complete
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    }).then(response => {
+                        if (response.ok || response.redirected) {
+                            // Show success notification
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                html: '<p class="text-slate-200">Nilai berhasil disimpan.</p>',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#22c55e',
+                                background: '#1e293b',
+                                color: '#f1f5f9',
+                                allowOutsideClick: false
+                            }).then(() => {
+                                // Refresh page to show updated data
+                                window.location.reload();
+                            });
+                        } else {
+                            // Show error
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal!',
+                                html: '<p class="text-slate-200">Terjadi kesalahan saat menyimpan nilai.</p>',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#ef4444',
+                                background: '#1e293b',
+                                color: '#f1f5f9'
+                            });
+                        }
+                    }).catch(() => {
+                        // Fallback to regular form submit
+                        form.submit();
+                    });
                 },
                 goToJudge(index) {
                     this.activeJudgeIndex = Math.max(0, Math.min(index, this.maxJudgeIndex()));

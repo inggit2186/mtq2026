@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\ParticipantSelected;
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
+use App\Models\Hakim;
 use App\Models\ScoreCorrectionRequest;
 use App\Models\Participant;
 use App\Models\ScoringSetting;
@@ -139,10 +140,17 @@ class ScoringController extends Controller
         $setupCreated = (bool) $scoringSetting;
         $setupEditable = (bool) ($scoringSetting?->isEditable() ?? false);
         $setupRequested = (bool) ($scoringSetting?->isEditRequested() ?? false);
+
+        // Get available judges from database for this category
+        $availableJudgeNames = $selectedCategory
+            ? Hakim::byGolongan($selectedCategory->id)->pluck('nama')->values()->all()
+            : [];
+
         $roundSetupConfigs = $this->roundSetupConfigs(
             $selectedCategory?->branch,
             $scoringSetting,
-            (string) auth()->user()?->name
+            (string) auth()->user()?->name,
+            $availableJudgeNames
         );
         $participantHasScores = (bool) ($selectedParticipant?->scores?->isNotEmpty() ?? false);
         $participantScoreRound = (string) ($selectedParticipant?->scores?->first()?->judging_round ?? $selectedJudgingRound);
@@ -231,6 +239,16 @@ class ScoringController extends Controller
             'bigScreenUrl' => $bigScreenUrl,
             'selectedCategoryIsMfq' => $selectedCategoryIsMfq,
             'initialStep' => (int) ($selectedCategoryIsMfq ? 1 : ($filters['step'] ?? 1)),
+            'availableJudges' => Hakim::query()
+                ->orderBy('nama')
+                ->get()
+                ->map(fn ($h) => ['id' => $h->id, 'nama' => $h->nama, 'asal' => $h->asal])
+                ->values()
+                ->all(),
+            'categoryJudgeIds' => $selectedCategory
+                ? Hakim::byGolongan($selectedCategory->id)->pluck('id')->values()->all()
+                : [],
+            'availableJudgeNames' => $availableJudgeNames,
             'filters' => [
                 'participant_id' => $selectedParticipant?->id ?: ($filters['participant_id'] ?? ''),
                 'competition_category_id' => $filters['competition_category_id'] ?? '',
@@ -701,18 +719,18 @@ class ScoringController extends Controller
         return self::ALLOWED_JUDGING_ROUNDS;
     }
 
-    protected function roundSetupConfigs(?string $branch, ?ScoringSetting $scoringSetting, string $fallbackName): array
+    protected function roundSetupConfigs(?string $branch, ?ScoringSetting $scoringSetting, string $fallbackName, array $availableJudgeNames = []): array
     {
         $configs = [];
 
         foreach (self::ROUND_KEYS as $roundLabel) {
-            $configs[$roundLabel] = $this->roundConfigForSetting($branch, $scoringSetting, $roundLabel, $fallbackName);
+            $configs[$roundLabel] = $this->roundConfigForSetting($branch, $scoringSetting, $roundLabel, $fallbackName, $availableJudgeNames);
         }
 
         return $configs;
     }
 
-    protected function roundConfigForSetting(?string $branch, ?ScoringSetting $scoringSetting, string $roundLabel, string $fallbackName): array
+    protected function roundConfigForSetting(?string $branch, ?ScoringSetting $scoringSetting, string $roundLabel, string $fallbackName, array $availableJudgeNames = []): array
     {
         $defaultCriteria = $this->criteriaForBranch($branch);
         $roundSettings = $scoringSetting?->round_settings ?? [];
@@ -725,14 +743,14 @@ class ScoringController extends Controller
 
             return [
                 'judge_count' => (int) ($config['judge_count'] ?? count($judgeNames) ?: 1),
-                'judge_names' => $judgeNames !== [] ? $judgeNames : [$fallbackName],
+                'judge_names' => $judgeNames !== [] ? $judgeNames : ($availableJudgeNames ?: [$fallbackName]),
                 'scoring_points' => $scoringPoints !== [] ? $scoringPoints : $defaultCriteria,
                 'scoring_priorities' => $scoringPriorities !== [] ? $scoringPriorities : array_keys($scoringPoints ?: $defaultCriteria),
             ];
         }
 
         $fallbackCriteria = $this->criteriaForContext($branch, $scoringSetting);
-        $fallbackJudgeNames = $this->judgeNamesForSetting($scoringSetting, $fallbackName);
+        $fallbackJudgeNames = $availableJudgeNames ?: $this->judgeNamesForSetting($scoringSetting, $fallbackName);
 
         return [
             'judge_count' => (int) ($scoringSetting?->judge_count ?? count($fallbackJudgeNames) ?: 1),
