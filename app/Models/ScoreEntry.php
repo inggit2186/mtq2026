@@ -72,17 +72,29 @@ class ScoreEntry extends Model
 
     /**
      * Backward compatibility accessor: Get score breakdown from JSON
-     * Returns first judge's breakdown if using new format
+     * Returns first judge's scores if using new format
      */
     public function getScoreBreakdownAttribute(): ?array
     {
-        // If using new JSON format, return first judge's breakdown
+        // If using new JSON format, return first judge's scores (now it's 'scores' not 'breakdown')
         if ($this->scores && is_array($this->scores) && count($this->scores) > 0) {
             $firstJudge = array_key_first($this->scores);
-            return $this->scores[$firstJudge]['breakdown'] ?? null;
+            return $this->scores[$firstJudge]['scores'] ?? null;
         }
         // Fallback to old field
         return $this->getAttributes()['score_breakdown'] ?? null;
+    }
+
+    /**
+     * Get point totals (sum of all judges per point) from JSON format
+     */
+    public function getPointTotals(): array
+    {
+        if ($this->scores && is_array($this->scores) && count($this->scores) > 0) {
+            $firstJudge = array_key_first($this->scores);
+            return $this->scores[$firstJudge]['point_totals'] ?? [];
+        }
+        return [];
     }
 
     /**
@@ -109,8 +121,9 @@ class ScoreEntry extends Model
 
         return [
             $judgeName => [
+                'judge_id' => null,
                 'score' => (float) $score,
-                'breakdown' => $breakdown,
+                'scores' => $breakdown,
                 'remarks' => $remarks,
             ]
         ];
@@ -126,5 +139,32 @@ class ScoreEntry extends Model
         }
         // Fallback to old field (only works for single judge entries)
         return $this->getAttributes()['remarks'] ?? null;
+    }
+
+    /**
+     * Get judge ID for a specific judge from JSON format
+     */
+    public function getJudgeIdForJudge(string $judgeName): mixed
+    {
+        if ($this->scores && is_array($this->scores) && isset($this->scores[$judgeName])) {
+            return $this->scores[$judgeName]['judge_id'] ?? null;
+        }
+        return null;
+    }
+
+    /**
+     * Get all judge IDs from JSON format
+     */
+    public function getAllJudgeIds(): array
+    {
+        $ids = [];
+        if ($this->scores && is_array($this->scores)) {
+            foreach ($this->scores as $judgeName => $data) {
+                if (isset($data['judge_id'])) {
+                    $ids[$judgeName] = $data['judge_id'];
+                }
+            }
+        }
+        return $ids;
     }
 }

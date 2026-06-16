@@ -136,15 +136,27 @@ class ScoringController extends Controller
         );
         $criteria = $activeRoundConfig['scoring_points'];
         $judgeNames = $activeRoundConfig['judge_names'];
+
+        // Build judge ID to name mapping for this category
+        $availableJudges = $selectedCategory
+            ? Hakim::byGolongan($selectedCategory->id)->get()
+            : collect();
+        $availableJudgeNames = $availableJudges->pluck('nama')->values()->all();
+        $judgeIdToName = [];
+        $judgeIds = [];
+        foreach ($availableJudges as $h) {
+            $judgeIdToName[$h->nama] = $h->id;
+        }
+        foreach ($judgeNames as $name) {
+            $judgeIds[] = $judgeIdToName[$name] ?? null;
+        }
         $setupReady = $selectedCategory && $scoringSetting?->isReady();
         $setupCreated = (bool) $scoringSetting;
         $setupEditable = (bool) ($scoringSetting?->isEditable() ?? false);
         $setupRequested = (bool) ($scoringSetting?->isEditRequested() ?? false);
 
         // Get available judges from database for this category
-        $availableJudgeNames = $selectedCategory
-            ? Hakim::byGolongan($selectedCategory->id)->pluck('nama')->values()->all()
-            : [];
+        $availableJudgeNames = $availableJudges->pluck('nama')->values()->all();
 
         $roundSetupConfigs = $this->roundSetupConfigs(
             $selectedCategory?->branch,
@@ -226,6 +238,7 @@ class ScoringController extends Controller
             'participantScoreRound' => $participantScoreRound,
             'participantScoreDraft' => $participantScoreDraft,
             'judgeNames' => $judgeNames,
+            'judgeIds' => $judgeIds,
             'criteria' => $criteria,
             'initialJudgeIndex' => (int) ($filters['judge_index'] ?? 0),
             'roundSetupConfigs' => $roundSetupConfigs,
@@ -508,26 +521,94 @@ class ScoringController extends Controller
         );
         $judgeNames = $roundConfig['judge_names'];
         $criteria = $roundConfig['scoring_points'];
-        $scoreRules = $this->scoreInputRules($judgeNames, $criteria);
+
+        // Build judge ID to name mapping from database
+        $availableJudges = Hakim::byGolongan($participant->competition_category_id)->get()->keyBy('id');
+        $judgeIdToName = [];
+        $judgeNameToId = [];
+        foreach ($availableJudges as $h) {
+            $judgeIdToName[$h->id] = $h->nama;
+            $judgeNameToId[$h->nama] = $h->id;
+        }
+
+        // Get submitted judge IDs (using numeric keys from form)
+        $submittedJudgeIds = array_keys($request->input('scores', []));
+        $judgeIds = [];
+        foreach ($submittedJudgeIds as $id) {
+            if (isset($judgeIdToName[$id])) {
+                $judgeIds[$id] = $judgeIdToName[$id];
+            }
+        }
+
+        // If no valid judge IDs found, fall back to using judge names from config
+        if (empty($judgeIds)) {
+            foreach ($judgeNames as $name) {
+                $id = $judgeNameToId[$name] ?? $name;
+                $judgeIds[$id] = $name;
+            }
+        }
+
+        // Build validation rules using judge IDs (scores can be empty, treated as 0)
+        $scoreRules = [];
+        foreach ($judgeIds as $judgeId => $judgeName) {
+            $scoreRules['remarks.'.$judgeId] = ['nullable', 'string', 'max:1000'];
+            foreach (array_keys($criteria) as $key) {
+                $scoreRules['scores.'.$judgeId.'.'.$key] = ['nullable', 'numeric', 'min:0', 'max:100'];
+            }
+        }
         $scorePayload = $request->validate($scoreRules);
 
-        // Collect all judge scores into JSON format (single row per participant per round)
+        // Normalize scores: treat empty/null as 0
+        foreach ($scorePayload['scores'] ?? [] as $judgeId => &$pointScores) {
+            foreach ($pointScores as $pointKey => &$value) {
+                if ($value === '' || $value === null) {
+                    $value = 0;
+                } else {
+                    $value = round((float) $value, 2);
+                }
+            }
+        }
+
+        // Collect all judge scores into JSON format
+        // Perpoin: jumlah semua hakim, bukan rata-rata
+        // Total: jumlah semua poin / jumlah poin
         $allJudgeScores = [];
-        foreach ($judgeNames as $judgeName) {
-            $escapedJudgeName = $this->escapeDottedKey($judgeName);
-            $scores = collect(data_get($scorePayload, 'scores.'.$escapedJudgeName, []))
+        $pointTotals = []; // Menyimpan jumlah per poin
+
+        // First pass: collect scores per judge and calculate point totals
+        foreach ($judgeIds as $judgeId => $judgeName) {
+            $scores = collect(data_get($scorePayload, 'scores.'.$judgeId, []))
                 ->map(fn ($value) => round((float) $value, 2))
                 ->all();
-            $totalScore = round(collect($scores)->avg() ?? 0, 2);
+
+            // Accumulate point totals
+            foreach ($scores as $pointKey => $pointValue) {
+                if (!isset($pointTotals[$pointKey])) {
+                    $pointTotals[$pointKey] = 0;
+                }
+                $pointTotals[$pointKey] += $pointValue;
+            }
 
             $allJudgeScores[$judgeName] = [
-                'score' => $totalScore,
-                'breakdown' => $scores,
-                'remarks' => data_get($scorePayload, 'remarks.'.$escapedJudgeName),
+                'judge_id' => $judgeId,
+                'scores' => $scores,
+                'remarks' => data_get($scorePayload, 'remarks.'.$judgeId),
             ];
         }
 
-        // Calculate average across all judges
+        // Calculate total score: sum of point totals / number of points
+        $totalScore = count($pointTotals) > 0
+            ? round(array_sum($pointTotals) / count($pointTotals), 2)
+            : 0;
+
+        // Add per-point totals and final score to each judge entry
+        foreach ($allJudgeScores as $judgeName => &$data) {
+            $data['point_totals'] = $pointTotals;
+            $data['score'] = $totalScore;
+        }
+        unset($data);
+
+        // Calculate average score (for display purposes - average of judge scores)
         $averageScore = round(
             collect($allJudgeScores)->avg(fn ($s) => $s['score']) ?? 0,
             2
@@ -545,6 +626,7 @@ class ScoringController extends Controller
         // Broadcast single event
         RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
 
+        // Log dengan detail lengkap untuk backup/jaga-jaga jika ada error sistem
         ActivityLogger::log(
             'scoring.score.created',
             (auth()->user()?->name ?? 'Panitia').' menginput nilai '.$validated['judging_round'].' untuk peserta '.$participant->name.'.',
@@ -553,11 +635,19 @@ class ScoringController extends Controller
                 'participant_id' => $participant->id,
                 'participant_name' => $participant->name,
                 'registration_number' => $participant->registration_number,
+                'lot_number' => $participant->lot_number,
                 'category_id' => $participant->competition_category_id,
                 'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
                 'judging_round' => $validated['judging_round'],
                 'judge_total' => count($allJudgeScores),
-                'average_score' => $averageScore,
+                'total_score' => $averageScore,
+                'point_totals' => $pointTotals,
+                'judge_scores' => $allJudgeScores,
+                'submitted_at' => now()->toIso8601String(),
+                'input_by_user_id' => auth()->id(),
+                'input_by_user_name' => auth()->user()?->name,
+                'input_by_user_role' => auth()->user()?->role,
+                'ip_address' => $request->ip(),
             ]
         );
 
@@ -622,23 +712,58 @@ class ScoringController extends Controller
         );
         $judgeNames = $roundConfig['judge_names'];
         $criteria = $roundConfig['scoring_points'];
-        $scorePayload = $request->validate($this->scoreInputRules($judgeNames, $criteria));
+
+        // Build judge ID to name mapping from database
+        $availableJudges = Hakim::byGolongan($participant->competition_category_id)->get()->keyBy('id');
+        $judgeIdToName = [];
+        $judgeNameToId = [];
+        foreach ($availableJudges as $h) {
+            $judgeIdToName[$h->id] = $h->nama;
+            $judgeNameToId[$h->nama] = $h->id;
+        }
+
+        // Get submitted judge IDs (using numeric keys from form)
+        $submittedJudgeIds = array_keys($request->input('scores', []));
+        $judgeIds = [];
+        foreach ($submittedJudgeIds as $id) {
+            if (isset($judgeIdToName[$id])) {
+                $judgeIds[$id] = $judgeIdToName[$id];
+            }
+        }
+
+        // If no valid judge IDs found, fall back to using judge names from config
+        if (empty($judgeIds)) {
+            foreach ($judgeNames as $name) {
+                $id = $judgeNameToId[$name] ?? $name;
+                $judgeIds[$id] = $name;
+            }
+        }
+
+        // Build validation rules using judge IDs
+        $scoreRules = [];
+        foreach ($judgeIds as $judgeId => $judgeName) {
+            $scoreRules['remarks.'.$judgeId] = ['nullable', 'string', 'max:1000'];
+            foreach (array_keys($criteria) as $key) {
+                $scoreRules['scores.'.$judgeId.'.'.$key] = ['nullable', 'numeric', 'min:0', 'max:100'];
+            }
+        }
+        $scorePayload = $request->validate($scoreRules);
 
         $requestedScores = [];
         $requestedRemarks = [];
-        foreach ($judgeNames as $judgeName) {
-            $escapedJudgeName = $this->escapeDottedKey($judgeName);
-            $scores = collect(data_get($scorePayload, 'scores.'.$escapedJudgeName, []))
+        foreach ($judgeIds as $judgeId => $judgeName) {
+            $scores = collect(data_get($scorePayload, 'scores.'.$judgeId, []))
                 ->map(fn ($value) => round((float) $value, 2))
                 ->all();
 
             $requestedScores[] = [
+                'judge_id' => $judgeId,
                 'judge_name' => $judgeName,
                 'score' => round(collect($scores)->avg() ?? 0, 2),
                 'score_breakdown' => $scores,
-                'remarks' => data_get($scorePayload, 'remarks.'.$escapedJudgeName),
+                'remarks' => data_get($scorePayload, 'remarks.'.$judgeId),
             ];
-            $requestedRemarks[$judgeName] = data_get($scorePayload, 'remarks.'.$escapedJudgeName);
+            $requestedRemarks[$judgeName] = data_get($scorePayload, 'remarks.'.$judgeId);
         }
 
         $note = trim((string) ($validated['note'] ?? ''));

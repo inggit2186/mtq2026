@@ -165,6 +165,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
             border: 1px solid rgba(148, 163, 184, 0.1);
         }
 
+        #step-3 {
+            grid-template-columns: 1fr;
+        }
+
+        @media (max-width: 1279px) {
+            #step-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .glow-cyan {
             box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 40px rgba(34, 211, 238, 0.05);
         }
@@ -918,7 +928,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     <?php endif; ?>
                 </section>
 
-                <section id="step-3" class="grid gap-6 xl:grid-cols-[0.48fr_1.52fr]" x-show="currentStep === 3" x-cloak>
+                <section id="step-3" class="grid gap-6" x-show="currentStep === 3" x-cloak>
                     <div class="glass-card rounded-[2rem] p-6"
                         x-data="participantPicker({
                             participants: <?= e(json_encode($participantOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
@@ -1132,6 +1142,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <form method="POST" action="<?= e(route('scoring.store')) ?>" x-ref="scoreForm" class="mt-6 grid gap-4 <?= $participantHasScores ? 'pointer-events-none opacity-45' : '' ?>"
                                     x-data="judgeBatchForm({
                                         judgeNames: <?= e(json_encode(array_values($judgeNames), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                                        judgeIds: <?= e(json_encode(array_values($judgeIds ?? []), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                         initialJudgeIndex: <?= e($initialJudgeIndex) ?>,
                                         selectedParticipantName: <?= e(json_encode($selectedParticipant->name ?? '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                         selectedParticipantLot: <?= e(json_encode($selectedParticipant->lot_number ?? '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
@@ -1174,76 +1185,89 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         </div>
                                     </div>
 
-                                    <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/40 p-3">
-                                        <div id="judge_name_field" class="flex gap-3 overflow-x-auto pb-1 pr-1 scroll-smooth [scrollbar-width:thin] [scrollbar-color:rgba(34,211,238,0.55)_transparent]">
-                                            <?php foreach ($judgeNames as $index => $judgeName): ?>
-                                                <button type="button"
-                                                    class="min-w-[210px] flex-1 rounded-[1.2rem] border px-4 py-3 text-left transition sm:min-w-[230px] lg:min-w-[250px]"
-                                                    :class="activeJudgeIndex === <?= e($index) ?> ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_18px_35px_-24px_rgba(34,211,238,0.7)]' : 'border-slate-800 bg-slate-950/45 hover:border-cyan-400/25 hover:bg-slate-950/70'"
-                                                    x-on:click="goToJudge(<?= e($index) ?>)">
-                                                    <div class="flex items-start justify-between gap-3">
-                                                        <div class="min-w-0">
-                                                            <p class="text-[11px] uppercase tracking-[0.18em]" :class="activeJudgeIndex === <?= e($index) ?> ? 'text-cyan-200' : 'text-slate-500'">Hakim <?= e($index + 1) ?></p>
-                                                            <p class="mt-1 truncate text-sm font-semibold text-white"><?= e($judgeName) ?></p>
-                                                        </div>
-                                                        <span class="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
-                                                            :class="judgeStatusDotClass(<?= e($index) ?>)"
-                                                            :title="judgeStatusLabel(<?= e($index) ?>)"></span>
-                                                    </div>
-                                                    <div class="mt-3 flex items-center justify-between gap-3">
-                                                        <p class="text-xs text-slate-400" :class="activeJudgeIndex === <?= e($index) ?> ? 'text-cyan-100/80' : 'text-slate-500'">
-                                                            Klik untuk buka panel nilai
-                                                        </p>
-                                                        <span class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                                                            :class="activeJudgeIndex === <?= e($index) ?> ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 bg-slate-900/70 text-slate-400'">
-                                                            Panel
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    </div>
-
                                     <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/45 p-3">
                                         <?php foreach ($judgeNames as $index => $judgeName): ?>
                                             <section x-show="activeJudgeIndex === <?= e($index) ?>" x-cloak data-judge-panel="<?= e($index) ?>" class="space-y-4">
-                                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.1rem] border border-slate-800 bg-slate-950/45 px-4 py-3">
-                                                    <div>
-                                                        <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Panel Nilai</p>
-                                                        <h3 class="mt-1 text-xl font-bold text-white"><?= e($judgeName) ?></h3>
-                                                    </div>
-                                                    <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
-                                                        Hakim <?= e($index + 1) ?> dari <?= e(count($judgeNames)) ?>
-                                                    </div>
-                                                </div>
-
-                                                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                                    <?php foreach ($criteria as $key => $label): ?>
-                                                        <div class="rounded-[1.1rem] border border-slate-800 bg-slate-950/55 p-3">
-                                                            <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"><?= e($label) ?></label>
-                                                            <input
-                                                                name="scores[<?= e($judgeName) ?>][<?= e($key) ?>]"
-                                                                data-score-label="<?= e($label) ?>"
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
-                                                                step="0.01"
-                                                                value="<?= e(data_get(old('scores', []), str_replace('.', '\\.', $judgeName).'.'.str_replace('.', '\\.', $key))) ?>"
-                                                                class="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
-                                                                placeholder="0 - 100">
+                                                <!-- Tab Hakim (max 3 per row) -->
+                                                <div class="rounded-[1.1rem] border border-slate-800 bg-slate-950/40 p-3">
+                                                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                                                        <div>
+                                                            <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Pilih Hakim</p>
+                                                            <p class="mt-1 text-sm font-semibold text-white"><?= e(count($judgeNames)) ?> Hakim</p>
                                                         </div>
-                                                    <?php endforeach; ?>
+                                                        <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                                                            Panel: <?= e($judgeName) ?>
+                                                        </div>
+                                                    </div>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                        <?php foreach ($judgeNames as $idx => $jn): ?>
+                                                            <button type="button"
+                                                                class="rounded-[0.9rem] border px-3 py-2.5 text-left transition"
+                                                                :class="activeJudgeIndex === <?= e($idx) ?> ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_8px_24px_-10px_rgba(34,211,238,0.5)]' : 'border-slate-800 bg-slate-950/45 hover:border-cyan-400/25'"
+                                                                x-on:click="goToJudge(<?= e($idx) ?>)">
+                                                                <div class="flex items-center justify-between gap-2">
+                                                                    <div class="min-w-0 flex-1">
+                                                                        <p class="text-[10px] uppercase tracking-[0.18em]" :class="activeJudgeIndex === <?= e($idx) ?> ? 'text-cyan-200' : 'text-slate-500'">Hakim <?= e($idx + 1) ?></p>
+                                                                        <p class="mt-0.5 truncate text-sm font-semibold text-white"><?= e($jn) ?></p>
+                                                                    </div>
+                                                                    <span class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+                                                                        :class="judgeStatusDotClass(<?= e($idx) ?>)"
+                                                                        :title="judgeStatusLabel(<?= e($idx) ?>)"></span>
+                                                                </div>
+                                                            </button>
+                                                        <?php endforeach; ?>
+                                                    </div>
                                                 </div>
 
+                                                <!-- Info Pemberitahuan (single line, bigger) -->
+                                                <div class="flex items-center gap-3 rounded-[1rem] border border-amber-400/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-5 py-4">
+                                                    <div class="shrink-0">
+                                                        <?= mtq_icon('info', 'h-5 w-5 text-amber-300') ?>
+                                                    </div>
+                                                    <div class="flex-1 text-sm text-amber-50">
+                                                        <span class="font-semibold text-amber-100">Penting:</span>
+                                                        Bilangan berkoma pakai <span class="font-bold text-amber-100">titik (.)</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Poin Penilaian -->
+                                                <div class="rounded-[1.1rem] border-2 border-cyan-400/30 bg-gradient-to-br from-cyan-500/8 to-sky-500/5 p-4 shadow-[0_8px_30px_-12px_rgba(34,211,238,0.25)]">
+                                                    <div class="flex items-center gap-2 mb-3">
+                                                        <?= mtq_icon('spark', 'h-4 w-4 text-cyan-300') ?>
+                                                        <h4 class="text-sm font-bold text-cyan-100 uppercase tracking-[0.18em]">Poin Penilaian</h4>
+                                                    </div>
+                                                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                                        <?php foreach ($criteria as $key => $label): ?>
+                                                            <div class="rounded-[1rem] border border-cyan-400/20 bg-slate-950/80 p-3 shadow-[0_4px_16px_-8px_rgba(34,211,238,0.15)]">
+                                                                <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                                                                    <?= e($label) ?>
+                                                                </label>
+                                                                <input
+                                                                    name="scores[<?= e($judgeIds[$index] ?? '') ?>][<?= e($key) ?>]"
+                                                                    data-score-label="<?= e($label) ?>"
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.01"
+                                                                    value="<?= e(data_get(old('scores', []), ($judgeIds[$index] ?? '').'.'.str_replace('.', '\\.', $key))) ?>"
+                                                                    class="w-full rounded-xl border-2 border-cyan-400/30 bg-slate-900/90 px-3.5 py-3 text-center text-lg font-bold text-white outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20 focus:bg-slate-900"
+                                                                    placeholder="0">
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Catatan -->
                                                 <div>
-                                                    <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Catatan <?= e($judgeName) ?></label>
+                                                    <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan <?= e($judgeName) ?></label>
                                                     <textarea
-                                                        name="remarks[<?= e($judgeName) ?>]"
-                                                        rows="3"
+                                                        name="remarks[<?= e($judgeIds[$index] ?? '') ?>]"
+                                                        rows="2"
                                                         class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
-                                                        placeholder="Opsional, misalnya catatan performa atau keputusan teknis."><?= e(data_get(old('remarks', []), str_replace('.', '\\.', $judgeName))) ?></textarea>
+                                                        placeholder="Opsional, misalnya catatan performa atau keputusan teknis."><?= e(data_get(old('remarks', []), $judgeIds[$index] ?? '')) ?></textarea>
                                                 </div>
 
+                                                <!-- Navigation Buttons -->
                                                 <div class="flex flex-wrap justify-between gap-3 border-t border-slate-800 pt-3">
                                                     <button type="button"
                                                         class="secondary-button px-4 py-3"
@@ -1260,7 +1284,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             :class="activeJudgeIndex === maxJudgeIndex() ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100' : 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100'">
                                                             <span x-text="activeJudgeIndex === maxJudgeIndex() ? 'Akhir' : 'Lanjut'"></span>
                                                         </span>
-                                                        <span x-text="activeJudgeIndex === maxJudgeIndex() ? 'Pratinjau Sebelum Simpan' : 'Lanjut'"></span>
+                                                        <span x-text="activeJudgeIndex === maxJudgeIndex() ? 'Pratinjau' : 'Lanjut'"></span>
                                                         <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                                     </button>
                                                 </div>
@@ -1277,9 +1301,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Kelengkapan Batch</p>
                                             <p class="mt-1 text-sm font-bold text-white" x-text="completionSummary()"></p>
                                         </div>
-                                        <button type="button" class="primary-button justify-center px-5 py-3" x-on:click="openPreview()">
+                                        <button type="button" class="primary-button justify-center px-5 py-3" x-on:click="openPreview()" :disabled="isSubmitting" :class="isSubmitting ? 'opacity-60 cursor-not-allowed' : ''">
                                             <?= mtq_icon('check-circle', 'h-4 w-4') ?>
-                                            Pratinjau Sebelum Simpan
+                                            <span x-show="!isSubmitting">Pratinjau Sebelum Simpan</span>
+                                            <span x-show="isSubmitting">Menyimpan...</span>
                                         </button>
                                     </div>
 
@@ -1299,29 +1324,54 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             </div>
 
                                             <div class="max-h-[60vh] overflow-y-auto px-6 py-5">
-                                                <div class="grid gap-4 xl:grid-cols-2">
-                                                    <template x-for="judge in previewData" :key="judge.name">
-                                                        <section class="rounded-[1.35rem] border border-slate-800 bg-slate-900/55 p-4">
-                                                            <div class="flex items-center justify-between gap-3">
+                                                <!-- Summary: Total Nilai -->
+                                                <div class="mb-6 rounded-2xl border-2 border-cyan-400/30 bg-gradient-to-br from-cyan-500/15 to-sky-500/10 p-5 shadow-[0_12px_40px_-20px_rgba(34,211,238,0.3)]">
+                                                    <div class="flex items-center justify-between">
+                                                        <div>
+                                                            <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Total Nilai</p>
+                                                            <p class="mt-1 text-xs text-slate-400">Jumlah semua poin / jumlah poin</p>
+                                                        </div>
+                                                        <div class="text-right">
+                                                            <p class="text-4xl font-black text-white" x-text="calculateTotalScore()"></p>
+                                                            <p class="mt-1 text-sm text-cyan-200" x-text="`dari ${judgeNames.length} hakim`"></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Rincian Poin per Hakim -->
+                                                <h4 class="mb-3 text-sm font-semibold text-slate-300">Rincian Nilai per Hakim</h4>
+                                                <div class="grid gap-4 xl:grid-cols-2 mb-6">
+                                                    <template x-for="(judgeData, judgeIdx) in previewData" :key="judgeData.name">
+                                                        <section class="rounded-[1.35rem] border border-slate-700/50 bg-slate-900/40 p-4">
+                                                            <div class="flex items-center justify-between gap-3 mb-3">
                                                                 <div>
                                                                     <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Hakim</p>
-                                                                    <h4 class="mt-1 text-lg font-bold text-white" x-text="judge.name"></h4>
+                                                                    <h4 class="mt-1 text-base font-bold text-white" x-text="judgeData.name"></h4>
                                                                 </div>
-                                                                <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100" x-text="judge.total"></div>
                                                             </div>
-                                                            <div class="mt-4 grid gap-2">
-                                                                <template x-for="item in judge.scores" :key="item.label">
-                                                                    <div class="flex items-center justify-between gap-3 rounded-[1rem] border px-3 py-2"
-                                                                        :class="scorePreviewClass(item.numericValue)">
+                                                            <div class="grid gap-2">
+                                                                <template x-for="item in judgeData.scores" :key="item.label">
+                                                                    <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
                                                                         <span class="text-sm text-slate-300" x-text="item.label"></span>
                                                                         <span class="text-sm font-bold text-white" x-text="item.value"></span>
                                                                     </div>
                                                                 </template>
                                                             </div>
-                                                            <template x-if="judge.remarks">
-                                                                <div class="mt-4 rounded-[1rem] border border-slate-800 bg-slate-950/55 px-3 py-3 text-sm text-slate-300" x-text="judge.remarks"></div>
-                                                            </template>
                                                         </section>
+                                                    </template>
+                                                </div>
+
+                                                <!-- Total per Poin -->
+                                                <h4 class="mb-3 text-sm font-semibold text-slate-300">Total per Poin (Jumlah Semua Hakim)</h4>
+                                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                                    <template x-for="item in previewPointTotals" :key="item.label">
+                                                        <div class="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+                                                            <div class="flex items-center justify-between gap-2">
+                                                                <span class="text-xs text-emerald-200" x-text="item.label"></span>
+                                                                <span class="text-lg font-bold text-emerald-300" x-text="item.total"></span>
+                                                            </div>
+                                                            <p class="mt-1 text-[10px] text-emerald-200/60" x-text="`(${judgeNames.length} hakim)`"></p>
+                                                        </div>
                                                     </template>
                                                 </div>
                                             </div>
@@ -1378,28 +1428,50 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                 <div class="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200">Usulan nilai baru</div>
                                                             </div>
 
-                                                            <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                                                <?php foreach ($criteria as $key => $label): ?>
-                                                                    <div class="rounded-[1.1rem] border border-slate-800 bg-slate-950/55 p-3">
-                                                                        <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"><?= e($label) ?></label>
-                                                                        <input
-                                                                            name="scores[<?= e($judgeName) ?>][<?= e($key) ?>]"
-                                                                            type="number"
-                                                                            min="0"
-                                                                            max="100"
-                                                                            step="0.01"
-                                                                            x-bind:value="correctionRequestDraft?.[<?= e(json_encode($judgeName)) ?>]?.scores?.[<?= e(json_encode($key)) ?>] ?? ''"
-                                                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-slate-100 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-400/20"
-                                                                            placeholder="0 - 100">
-                                                                    </div>
-                                                                <?php endforeach; ?>
+                                                            <!-- Info Pemberitahuan (single line, bigger) -->
+                                                            <div class="flex items-center gap-3 rounded-[1rem] border border-amber-400/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-5 py-4">
+                                                                <div class="shrink-0">
+                                                                    <?= mtq_icon('info', 'h-5 w-5 text-amber-300') ?>
+                                                                </div>
+                                                                <div class="flex-1 text-sm text-amber-50">
+                                                                    <span class="font-semibold text-amber-100">Penting:</span>
+                                                                    Bilangan berkoma pakai <span class="font-bold text-amber-100">titik (.)</span> ·
+                                                                    Nilai kosong diisi <span class="font-bold text-amber-100">nol (0)</span>
+                                                                </div>
                                                             </div>
 
-                                                            <div class="mt-4">
-                                                                <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Catatan <?= e($judgeName) ?></label>
+                                                            <!-- Poin Penilaian -->
+                                                            <div class="rounded-[1.1rem] border-2 border-amber-400/30 bg-gradient-to-br from-amber-500/8 to-orange-500/5 p-4 shadow-[0_8px_30px_-12px_rgba(251,191,36,0.2)]">
+                                                                <div class="flex items-center gap-2 mb-3">
+                                                                    <?= mtq_icon('spark', 'h-4 w-4 text-amber-300') ?>
+                                                                    <h4 class="text-sm font-bold text-amber-100 uppercase tracking-[0.18em]">Poin Penilaian</h4>
+                                                                </div>
+                                                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                                                    <?php foreach ($criteria as $key => $label): ?>
+                                                                        <div class="rounded-[1rem] border border-amber-400/20 bg-slate-950/80 p-3 shadow-[0_4px_16px_-8px_rgba(251,191,36,0.12)]">
+                                                                            <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
+                                                                                <?= e($label) ?>
+                                                                            </label>
+                                                                            <input
+                                                                                name="scores[<?= e($judgeIds[$index] ?? '') ?>][<?= e($key) ?>]"
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max="100"
+                                                                                step="0.01"
+                                                                                x-bind:value="correctionRequestDraft?.[<?= e(json_encode($judgeName)) ?>]?.scores?.[<?= e(json_encode($key)) ?>] ?? ''"
+                                                                                class="w-full rounded-xl border-2 border-amber-400/30 bg-slate-900/90 px-3.5 py-3 text-center text-lg font-bold text-white outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-400/20 focus:bg-slate-900"
+                                                                                placeholder="0">
+                                                                        </div>
+                                                                    <?php endforeach; ?>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- Catatan -->
+                                                            <div>
+                                                                <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan <?= e($judgeName) ?></label>
                                                                 <textarea
-                                                                    name="remarks[<?= e($judgeName) ?>]"
-                                                                    rows="3"
+                                                                    name="remarks[<?= e($judgeIds[$index] ?? '') ?>]"
+                                                                    rows="2"
                                                                     class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-400/20"
                                                                     placeholder="Opsional, jelaskan alasan perbaikan nilai."
                                                                     x-bind:value="correctionRequestDraft?.[<?= e(json_encode($judgeName)) ?>]?.remarks ?? ''"></textarea>
@@ -1455,72 +1527,91 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <?php foreach ($recentScores->groupBy(fn ($score) => $score->judging_round ?: 'Tanpa Babak') as $roundLabel => $roundScores): ?>
                                     <?php
                                         // Get the first score entry for this round (new format: 1 row with all judges)
-                                        // Old format: first row is sufficient, accessor will handle it
                                         $firstScore = $roundScores->first();
                                         $isNewFormat = $firstScore && $firstScore->scores && is_array($firstScore->scores);
-                                        $judgeCount = $isNewFormat ? count($firstScore->scores) : ($roundScores->count() ?: 1);
+                                        $allJudgeScores = $firstScore?->getAllJudgeScores() ?? [];
+                                        $judgeCount = count($allJudgeScores);
+
+                                        // Calculate point totals for new format
+                                        $pointTotals = $firstScore?->getPointTotals() ?? [];
+                                        $criteriaKeys = $isNewFormat && !empty($allJudgeScores) ? array_keys(reset($allJudgeScores)['scores'] ?? []) : [];
                                     ?>
                                     <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/45 p-4">
-                                        <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                                             <div>
                                                 <p class="font-semibold text-white"><?= e($roundLabel) ?></p>
                                                 <p class="mt-1 text-xs text-slate-400">
                                                     <?= e($selectedParticipant?->name ?? '-') ?> · Lot <?= e($selectedParticipant?->lot_number ?: '-') ?>
                                                 </p>
                                             </div>
-                                            <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
-                                                <?= e($judgeCount) ?> hakim
+                                            <div class="flex items-center gap-3">
+                                                <div class="rounded-full border border-emerald-400/18 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                                                    Total: <?= e(number_format((float) ($firstScore?->average_score ?? 0), 2)) ?>
+                                                </div>
+                                                <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                                                    <?= e($judgeCount) ?> hakim
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div class="mt-4 grid gap-3">
-                                            <?php if ($isNewFormat): ?>
-                                                <?php // New format: iterate over judges in the JSON scores ?>
-                                                <?php foreach ($firstScore->scores as $judgeName => $judgeData): ?>
-                                                    <div class="rounded-[1rem] border border-slate-800 bg-slate-950/55 px-3 py-2.5">
-                                                        <div class="flex flex-wrap items-center justify-between gap-3">
-                                                            <div>
-                                                                <p class="text-sm font-semibold text-white"><?= e($judgeName) ?></p>
-                                                                <p class="mt-1 text-xs text-slate-400"><?= e(optional($firstScore->submitted_at)->format('d M Y H:i')) ?></p>
-                                                            </div>
-                                                            <p class="text-base font-bold text-cyan-200"><?= e(number_format((float) ($judgeData['score'] ?? 0), 2)) ?></p>
-                                                        </div>
-                                                        <?php if (! empty($judgeData['breakdown'] ?? [])): ?>
-                                                            <div class="mt-2 flex flex-wrap gap-1.5">
-                                                                <?php foreach ($judgeData['breakdown'] as $label => $value): ?>
-                                                                    <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
-                                                                        <span class="uppercase tracking-[0.12em] text-slate-500"><?= e(str_replace('_', ' ', ucfirst((string) $label))) ?></span>
-                                                                        <span class="text-slate-100"><?= e(number_format((float) $value, 2)) ?></span>
-                                                                    </span>
-                                                                <?php endforeach; ?>
+                                        <?php if ($isNewFormat && !empty($pointTotals)): ?>
+                                            <!-- Total Per Poin (Jumlah Semua Hakim) -->
+                                            <div class="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
+                                                <p class="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">Total per Poin (Jumlah Semua Hakim)</p>
+                                                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                                    <?php foreach ($pointTotals as $pointKey => $pointTotal): ?>
+                                                        <?php if ((float) $pointTotal > 0): ?>
+                                                            <div class="flex items-center justify-between rounded-lg border border-emerald-400/15 bg-emerald-500/5 px-3 py-2">
+                                                                <span class="text-xs text-slate-300">
+                                                                    <?= e(str_replace('_', ' ', ucfirst((string) $pointKey))) ?>
+                                                                </span>
+                                                                <span class="text-sm font-bold text-emerald-200">
+                                                                    <?= e(number_format((float) $pointTotal, 2)) ?>
+                                                                </span>
                                                             </div>
                                                         <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            <?php else: ?>
-                                                <?php // Old format: iterate over each score entry row ?>
-                                                <?php foreach ($roundScores as $score): ?>
-                                                    <div class="rounded-[1rem] border border-slate-800 bg-slate-950/55 px-3 py-2.5">
-                                                        <div class="flex flex-wrap items-center justify-between gap-3">
-                                                            <div>
-                                                                <p class="text-sm font-semibold text-white"><?= e($score->judge_name) ?></p>
-                                                                <p class="mt-1 text-xs text-slate-400"><?= e(optional($score->submitted_at)->format('d M Y H:i')) ?></p>
-                                                            </div>
-                                                            <p class="text-base font-bold text-cyan-200"><?= e(number_format((float) $score->score, 2)) ?></p>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <!-- Rincian Per Hakim -->
+                                        <p class="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Rincian Nilai per Hakim</p>
+                                        <div class="space-y-3">
+                                            <?php foreach ($allJudgeScores as $judgeName => $judgeData): ?>
+                                                <div class="rounded-[1rem] border border-slate-700/50 bg-slate-900/30 p-3">
+                                                    <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+                                                        <div>
+                                                            <p class="text-sm font-semibold text-white"><?= e($judgeName) ?></p>
+                                                            <p class="mt-0.5 text-[10px] text-slate-500"><?= e(optional($firstScore->submitted_at)->format('d M Y H:i')) ?></p>
                                                         </div>
-                                                        <?php if (! empty($score->score_breakdown)): ?>
-                                                            <div class="mt-2 flex flex-wrap gap-1.5">
-                                                                <?php foreach ($score->score_breakdown as $label => $value): ?>
-                                                                    <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
-                                                                        <span class="uppercase tracking-[0.12em] text-slate-500"><?= e(str_replace('_', ' ', ucfirst((string) $label))) ?></span>
-                                                                        <span class="text-slate-100"><?= e(number_format((float) $value, 2)) ?></span>
-                                                                    </span>
-                                                                <?php endforeach; ?>
-                                                            </div>
-                                                        <?php endif; ?>
+                                                        <div class="rounded-full border border-cyan-400/18 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                                                            Nilai: <?= e(number_format((float) ($judgeData['score'] ?? 0), 2)) ?>
+                                                        </div>
                                                     </div>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
+                                                    <?php if (! empty($judgeData['scores'] ?? [])): ?>
+                                                        <div class="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                                                            <?php foreach ($judgeData['scores'] as $pointKey => $pointValue): ?>
+                                                                <?php if ((float) $pointValue > 0): ?>
+                                                                    <div class="flex items-center justify-between rounded-md border border-slate-800/50 bg-slate-950/50 px-2.5 py-1.5">
+                                                                        <span class="text-[10px] text-slate-400 truncate mr-2">
+                                                                            <?= e(str_replace('_', ' ', ucfirst((string) $pointKey))) ?>
+                                                                        </span>
+                                                                        <span class="text-xs font-semibold text-slate-200">
+                                                                            <?= e(number_format((float) $pointValue, 2)) ?>
+                                                                        </span>
+                                                                    </div>
+                                                                <?php endif; ?>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <?php if (! empty($judgeData['remarks'] ?? '')): ?>
+                                                        <div class="mt-2 rounded-md border border-slate-700/30 bg-slate-900/30 px-3 py-2 text-xs text-slate-400 italic">
+                                                            <?= e($judgeData['remarks']) ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -1589,6 +1680,58 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     }
                 },
             };
+        }
+
+        // Loading overlay helper functions (inline version)
+        function ensureScoringOverlay() {
+            let overlay = document.getElementById('mtq-submit-loading-overlay');
+            if (overlay) return overlay;
+
+            overlay = document.createElement('div');
+            overlay.id = 'mtq-submit-loading-overlay';
+            overlay.className = 'mtq-submit-overlay';
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.innerHTML = `
+                <div class="mtq-submit-overlay__panel" role="status" aria-live="polite">
+                    <div class="mtq-submit-overlay__spinner" aria-hidden="true"></div>
+                    <div class="mtq-submit-overlay__copy">
+                        <p class="mtq-submit-overlay__title" data-loading-title>Menyimpan data</p>
+                        <p class="mtq-submit-overlay__text" data-loading-text>Mohon tunggu, data sedang diproses.</p>
+                        <div class="mtq-submit-overlay__progress">
+                            <div class="mtq-submit-overlay__progress-row">
+                                <span class="mtq-submit-overlay__progress-label">Progres</span>
+                                <span class="mtq-submit-overlay__progress-percent" data-loading-percent>0%</span>
+                            </div>
+                            <div class="mtq-submit-overlay__progress-track" aria-hidden="true">
+                                <div class="mtq-submit-overlay__progress-fill" data-loading-fill></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        function showLoadingOverlay(message) {
+            const overlay = ensureScoringOverlay();
+            const isUpload = Boolean(message && String(message).toLowerCase().includes('unggah'));
+            const titleNode = overlay.querySelector('[data-loading-title]');
+            const textNode = overlay.querySelector('[data-loading-text]');
+            if (titleNode) titleNode.textContent = isUpload ? 'Mengunggah berkas' : 'Menyimpan data';
+            if (textNode) textNode.textContent = message || (isUpload ? 'Mohon tunggu, berkas sedang diunggah.' : 'Mohon tunggu, data sedang diproses.');
+            overlay.classList.add('is-visible');
+            document.body.classList.add('mtq-loading-active');
+            const fillNode = overlay.querySelector('[data-loading-fill]');
+            const percentNode = overlay.querySelector('[data-loading-percent]');
+            if (fillNode) fillNode.style.width = '0%';
+            if (percentNode) percentNode.textContent = '0%';
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('mtq-submit-loading-overlay');
+            if (overlay) overlay.classList.remove('is-visible');
+            document.body.classList.remove('mtq-loading-active');
         }
 
         function participantPicker(initialState) {
@@ -1682,6 +1825,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         return; // User cancelled
                     }
 
+                    // Show loading using existing app loading overlay
+                    showLoadingOverlay(`Mempersiapkan form penilaian untuk ${participant.name}...`);
+
+                    // Process participant selection
+                    this.processParticipantSelection(participant);
+                },
+                async processParticipantSelection(participant) {
                     this.selectedId = String(participant.id);
                     this.search = participant.name;
                     this.dropdownOpen = false;
@@ -1700,9 +1850,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     window.currentParticipantId = participant.id;
                     window.dispatchEvent(new CustomEvent('current-participant-changed', { detail: { id: participant.id } }));
 
-                    // Update Big Screen - await to ensure broadcast completes before page reload
+                    // Update Big Screen
                     await this.updateBigScreen(participant);
 
+                    // Hide loading overlay and navigate
+                    hideLoadingOverlay();
                     this.goToSelected();
                 },
                 async updateBigScreen(participant) {
@@ -1987,12 +2139,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
         function judgeBatchForm(initialState) {
             return {
                 judgeNames: initialState.judgeNames ?? [],
+                judgeIds: initialState.judgeIds ?? [],
                 activeJudgeIndex: Math.max(0, Number(initialState.initialJudgeIndex ?? 0)),
                 selectedParticipantName: String(initialState.selectedParticipantName ?? ''),
                 selectedParticipantLot: String(initialState.selectedParticipantLot ?? ''),
                 selectedJudgingRound: String(initialState.selectedJudgingRound ?? ''),
                 previewOpen: false,
                 previewData: [],
+                isSubmitting: false,
                 init() {
                     window.addEventListener('scoring-participant-selected', (event) => {
                         const detail = event?.detail ?? {};
@@ -2066,7 +2220,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     return `${completed} / ${Math.max(1, this.judgeNames.length)} hakim lengkap`;
                 },
                 collectPreviewData() {
-                    return this.judgeNames.map((judgeName, index) => {
+                    const judgeData = this.judgeNames.map((judgeName, index) => {
                         const panel = this.judgePanel(index);
                         const scoreInputs = panel ? [...panel.querySelectorAll('input[type="number"]')] : [];
                         const scores = scoreInputs.map((input) => ({
@@ -2074,19 +2228,43 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             value: input.value || '0',
                             numericValue: Number(input.value || 0),
                         }));
-                        const numericValues = scoreInputs.map((input) => Number(input.value || 0));
-                        const total = numericValues.length
-                            ? (numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length).toFixed(2)
-                            : '0.00';
                         const remarksField = panel ? panel.querySelector('textarea') : null;
 
                         return {
                             name: judgeName,
-                            total: `Rata-rata ${total}`,
                             scores,
                             remarks: remarksField && String(remarksField.value || '').trim() !== '' ? remarksField.value.trim() : '',
                         };
                     });
+
+                    // Calculate point totals (sum of all judges per point)
+                    if (judgeData.length > 0 && judgeData[0].scores.length > 0) {
+                        const pointTotals = judgeData[0].scores.map((score, idx) => {
+                            let sum = 0;
+                            judgeData.forEach(judge => {
+                                sum += judge.scores[idx]?.numericValue || 0;
+                            });
+                            return {
+                                label: score.label,
+                                total: sum.toFixed(2),
+                                numericTotal: sum,
+                            };
+                        });
+                        this.previewPointTotals = pointTotals;
+                    } else {
+                        this.previewPointTotals = [];
+                    }
+
+                    return judgeData;
+                },
+                previewPointTotals: [],
+                calculateTotalScore() {
+                    if (!this.previewPointTotals || this.previewPointTotals.length === 0) {
+                        return '0.00';
+                    }
+                    const sum = this.previewPointTotals.reduce((acc, pt) => acc + pt.numericTotal, 0);
+                    const avg = sum / this.previewPointTotals.length;
+                    return avg.toFixed(2);
                 },
                 openPreview() {
                     this.previewData = this.collectPreviewData();
@@ -2111,15 +2289,21 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     return 'border-slate-800 bg-slate-950/55';
                 },
                 submitConfirmed() {
+                    if (this.isSubmitting) return;
                     this.previewOpen = false;
+                    this.isSubmitting = true;
+
                     const form = this.$refs.scoreForm;
                     if (!form) {
-                        // Fallback
+                        this.isSubmitting = false;
                         this.$root.submit();
                         return;
                     }
 
-                    // Submit form and show success on complete
+                    // Show loading using existing app loading overlay
+                    showLoadingOverlay('Mohon tunggu, data penilaian sedang disimpan.');
+
+                    // Submit form
                     fetch(form.action, {
                         method: 'POST',
                         body: new FormData(form),
@@ -2128,35 +2312,74 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         }
                     }).then(response => {
                         if (response.ok || response.redirected) {
-                            // Show success notification
+                            // Hide loading overlay
+                            hideLoadingOverlay();
+
+                            // Show beautiful success notification
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Berhasil!',
-                                html: '<p class="text-slate-200">Nilai berhasil disimpan.</p>',
-                                confirmButtonText: 'OK',
+                                title: '<span class="text-2xl">Berhasil!</span>',
+                                html: `
+                                    <div class="flex flex-col items-center py-3">
+                                        <div class="w-20 h-20 mb-4 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                                            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                        </div>
+                                        <p class="text-slate-300 text-center mb-2">Nilai berhasil disimpan!</p>
+                                        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm">
+                                            <p class="text-emerald-300 font-semibold">${this.selectedParticipantName || 'Peserta'}</p>
+                                            <p class="text-emerald-200/70">Lot ${this.selectedParticipantLot || '-'} · ${this.selectedJudgingRound || 'Babak aktif'}</p>
+                                        </div>
+                                    </div>
+                                `,
+                                confirmButtonText: 'OK, Mengerti',
                                 confirmButtonColor: '#22c55e',
                                 background: '#1e293b',
                                 color: '#f1f5f9',
-                                allowOutsideClick: false
+                                allowOutsideClick: false,
+                                customClass: {
+                                    popup: 'rounded-3xl !max-w-md !w-full',
+                                    confirmButton: '!rounded-xl !px-8 !py-3 !font-bold !shadow-lg',
+                                },
+                                timer: 5000,
+                                timerProgressBar: true,
                             }).then(() => {
-                                // Refresh page to show updated data
                                 window.location.reload();
                             });
                         } else {
-                            // Show error
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                html: '<p class="text-slate-200">Terjadi kesalahan saat menyimpan nilai.</p>',
-                                confirmButtonText: 'OK',
-                                confirmButtonColor: '#ef4444',
-                                background: '#1e293b',
-                                color: '#f1f5f9'
+                            hideLoadingOverlay();
+                            return response.json().then(err => {
+                                throw new Error(err.message || 'Terjadi kesalahan');
                             });
                         }
-                    }).catch(() => {
-                        // Fallback to regular form submit
-                        form.submit();
+                    }).catch((error) => {
+                        // Hide loading and show error
+                        hideLoadingOverlay();
+                        Swal.fire({
+                            icon: 'error',
+                            title: '<span class="text-2xl">Gagal!</span>',
+                            html: `
+                                <div class="flex flex-col items-center py-3">
+                                    <div class="w-20 h-20 mb-4 rounded-full bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
+                                        <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </div>
+                                    <p class="text-slate-300 text-center">${error.message || 'Terjadi kesalahan saat menyimpan nilai.'}</p>
+                                </div>
+                            `,
+                            confirmButtonText: 'Coba Lagi',
+                            confirmButtonColor: '#ef4444',
+                            background: '#1e293b',
+                            color: '#f1f5f9',
+                            customClass: {
+                                popup: 'rounded-3xl !max-w-md !w-full',
+                                confirmButton: '!rounded-xl !px-8 !py-3 !font-bold',
+                            },
+                        });
+                    }).finally(() => {
+                        this.isSubmitting = false;
                     });
                 },
                 goToJudge(index) {
