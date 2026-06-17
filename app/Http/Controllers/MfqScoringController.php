@@ -171,7 +171,7 @@ class MfqScoringController extends Controller
                     $displayedLotNumbers = $displayedParticipants;
                 }
             }
-            \log::info('$sessions 1: ' . $sessions->count());
+            
             // Build rankings by district/lot number for each round
             foreach ($completedSessionsByRound as $round => $roundSessions) {
                 if ($roundSessions->isEmpty()) continue;
@@ -228,7 +228,7 @@ class MfqScoringController extends Controller
 
                 $rankingsDataByRound[$round] = $rankingsByDistrict;
             }
-            \log::info('$sessions 2: ' . $sessions->count());
+            
         }
 
         $completedSessions = $completedSessionsByRound;
@@ -833,14 +833,8 @@ class MfqScoringController extends Controller
     protected function getMfqCategories($user): Collection
     {
         $query = CompetitionCategory::query()
-            ->where(function ($q): void {
-                $q->whereRaw('LOWER(branch) like ?', ['%fahmil%'])
-                    ->orWhereRaw('LOWER(name) like ?', ['%fahmil%'])
-                    ->orWhere('maqra_system_type', 'fahmil');
-            })
-            ->orderBy('sort_order')
-            ->orderBy('branch')
-            ->orderBy('name');
+            ->whereIn('id', [24, 25])
+            ->orderBy('id');
 
         if ($user?->role === 'panitia') {
             $restrictedIds = $user->accessibleCategoryIds();

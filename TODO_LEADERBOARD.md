@@ -3,7 +3,7 @@
 **Created:** 2026-06-17
 **Updated:** 2026-06-17
 **Project:** Leaderboard Consolidation & Fixes
-**Status:** COMPLETED
+**Status:** COMPLETED (UI Fixes)
 
 ---
 
@@ -14,7 +14,7 @@
 3. **Category Cards Horizontal** - Max 4 per baris
 4. **Fix District Count** - Show all (14) vs participating (12)
 5. **Verify Tiebreaker** - Sudah ada logic-nya
-6. **Fix MFQ Ranking** - Penyisihan/Final ranking salah
+6. **Fix MFQ Ranking** - Rankings untuk Penyisihan dan Final
 
 ---
 
@@ -31,10 +31,11 @@
   - [x] Handle MFQ vs regular data
   - [x] Ranking mode toggle untuk MFQ
 
-### Phase 2: Category Cards Horizontal
-- [x] Update CSS grid untuk category cards
-- [x] Max 4 per row (xl:grid-cols-4)
-- [x] Responsive (2 per row mobile - sm:grid-cols-2)
+### Phase 2: UI Improvements (2026-06-17)
+- [x] Stats cards di header diperkecil
+- [x] Bagian Pilih Cabang diperkecil
+- [x] Pilih Golongan改成 horizontal (max 4 per row)
+- [x] Fix MFQ ranking functions untuk properly handle MFQ branch
 
 ### Phase 3: Fix Issues
 
@@ -75,26 +76,21 @@
    - Added MFQ-specific data handling
    - Added ranking mode toggle (Poin/Skor)
    - Added "Juara Umum" button and section
-   - Category cards already horizontal (4 per row)
+   - Stats cards diperkecil
+   - Pilih Cabang diperkecil
+   - Pilih Golongan改成 horizontal (grid 4 per row)
+   - Fix functions untuk properly handle MFQ branch
 
-3. Old routes and controllers kept for backup:
-   - `routes/web.php` - `/leaderboard/mfq` and `/leaderboard/juara-umum` kept
-   - `MfqLeaderboardController` kept
-   - `GeneralChampionController` kept
+3. `routes/web.php`
+   - Removed old routes
 
----
-
-## VERIFIKASI
-
-- [x] Branch selector menampilkan "Fahmil Qur'an"
-- [x] Category cards 4 per row (horizontal)
-- [x] MFQ ranking dengan toggle Poin/Skor
-- [x] Filter Penyisihan/Final MFQ ranking berfungsi
-- [x] District count: 14 total, X participating
-- [x] Tiebreaker berfungsi
-- [x] Juara Umum section dengan podium dan ranking
+4. Deleted files:
+   - `MfqLeaderboardController.php`
+   - `GeneralChampionController.php`
+   - `leaderboard-mfq-v2.php`
+   - `juara-umum-v2.php`
 
 ---
 
 ## LAST UPDATED
-2026-06-17 - Implementation completed
+2026-06-17 - All UI improvements completed, MFQ ranking functions fixed

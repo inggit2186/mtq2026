@@ -760,7 +760,9 @@ class PageController extends Controller
         ]);
 
         // ========== REGULAR MTQ CATEGORIES ==========
+        // Exclude MFQ categories (id 24 and 25) - they are handled separately
         $categories = CompetitionCategory::query()
+            ->whereNotIn('id', [24, 25])
             ->orderBy('sort_order')
             ->orderBy('branch')
             ->orderBy('name')
@@ -780,6 +782,14 @@ class PageController extends Controller
                 }
 
                 $rounds = [];
+
+                // Count score entries per round for status display
+                $penyisihanEntries = $categoryParticipants->flatMap->scores
+                    ->filter(fn (ScoreEntry $entry): bool => (string) $entry->judging_round === 'Penyisihan')
+                    ->count();
+                $finalEntries = $categoryParticipants->flatMap->scores
+                    ->filter(fn (ScoreEntry $entry): bool => (string) $entry->judging_round === 'Final')
+                    ->count();
 
                 // Build Penyisihan and Final rankings
                 foreach (['Penyisihan', 'Final'] as $roundLabel) {
@@ -826,6 +836,12 @@ class PageController extends Controller
                     'category_name' => $category->name,
                     'participant_total' => $categoryParticipants->count(),
                     'score_entries' => $categoryParticipants->flatMap->scores->count(),
+                    'score_entry_status' => [
+                        'penyisihan' => $penyisihanEntries > 0,
+                        'final' => $finalEntries > 0,
+                        'penyisihan_count' => $penyisihanEntries,
+                        'final_count' => $finalEntries,
+                    ],
                     'overall_leaders' => $overallLeaders,
                     'putra_leaders' => $putraLeaders,
                     'putri_leaders' => $putriLeaders,
@@ -841,22 +857,32 @@ class PageController extends Controller
         $branchGroups = $categoryGroups
             ->groupBy('branch')
             ->map(function ($branchCategories, string $branch): array {
+                // Calculate score entry status from all categories in this branch
+                $penyisihanCount = $branchCategories->sum(fn ($cat) => $cat['score_entry_status']['penyisihan_count'] ?? 0);
+                $finalCount = $branchCategories->sum(fn ($cat) => $cat['score_entry_status']['final_count'] ?? 0);
+
                 return [
                     'branch' => $branch,
                     'is_mfq' => false,
                     'category_total' => $branchCategories->count(),
                     'participant_total' => $branchCategories->sum('participant_total'),
                     'score_entries' => $branchCategories->sum('score_entries'),
+                    'score_entry_status' => [
+                        'penyisihan' => $penyisihanCount > 0,
+                        'final' => $finalCount > 0,
+                        'penyisihan_count' => $penyisihanCount,
+                        'final_count' => $finalCount,
+                    ],
                     'categories' => $branchCategories->values()->all(),
                 ];
             })
             ->values();
 
         // ========== MFQ DATA ==========
+        // Get MFQ categories specifically id 24 and 25 (Fahmil Qur'an Golongan Putra & Putri)
         $mfqCategories = CompetitionCategory::query()
-            ->where('branch', 'MFQ')
-            ->orderBy('sort_order')
-            ->orderBy('name')
+            ->whereIn('id', [24, 25])
+            ->orderBy('id')
             ->get();
 
         $mfqSessions = \App\Models\MfqSession::query()
@@ -864,22 +890,68 @@ class PageController extends Controller
             ->where('status', 'completed')
             ->get();
 
+        // Debug: Log MFQ sessions count
+        \Log::info('MFQ Leaderboard Debug', [
+            'mfq_categories_count' => $mfqCategories->count(),
+            'mfq_categories' => $mfqCategories->pluck('id', 'name')->toArray(),
+            'mfq_sessions_count' => $mfqSessions->count(),
+            'mfq_sessions_by_category' => $mfqSessions->groupBy('competition_category_id')->map->count()->toArray(),
+        ]);
+
         $mfqRankings = $this->buildMfqRankingsData($mfqSessions);
 
+        // Count MFQ sessions per round for status display
+        $mfqSessionCounts = [
+            'penyisihan' => $mfqSessions->where('round', 'Penyisihan')->count(),
+            'final' => $mfqSessions->where('round', 'Final')->count(),
+        ];
+
         // Add "Fahmil Qur'an" as a special branch
+        $mfqBranchName = $mfqCategories->first()?->branch ?? 'Fahmil Qur\'an';
         $mfqBranch = [
-            'branch' => 'Fahmil Qur\'an',
+            'branch' => $mfqBranchName,
             'is_mfq' => true,
             'category_total' => $mfqCategories->count(),
             'participant_total' => $mfqRankings['participant_count'] ?? 0,
             'score_entries' => $mfqRankings['session_count'] ?? 0,
-            'categories' => $mfqCategories->map(function ($cat) use ($mfqRankings) {
+            'score_entry_status' => [
+                'penyisihan' => $mfqSessionCounts['penyisihan'] > 0,
+                'final' => $mfqSessionCounts['final'] > 0,
+                'penyisihan_count' => $mfqSessionCounts['penyisihan'],
+                'final_count' => $mfqSessionCounts['final'],
+            ],
+            'completed_sessions' => $mfqSessions->map(function ($session) {
+                return [
+                    'id' => $session->id,
+                    'name' => $session->name,
+                    'round' => $session->round,
+                    'district_ids' => $session->district_ids ?? [],
+                    'created_at' => $session->created_at?->format('d M Y, H:i'),
+                ];
+            })->values()->all(),
+            'categories' => $mfqCategories->map(function ($cat) use ($mfqRankings, $mfqSessions) {
+                $catSessions = $mfqSessions->where('competition_category_id', $cat->id);
                 return [
                     'category_id' => $cat->id,
                     'category_name' => $cat->name,
-                    'branch' => 'Fahmil Qur\'an',
+                    'branch' => $cat->branch, // Use actual branch from DB
                     'is_mfq' => true,
                     'rankings' => $mfqRankings[$cat->id] ?? [],
+                    'completed_sessions' => $catSessions->map(function ($session) {
+                        return [
+                            'id' => $session->id,
+                            'name' => $session->name,
+                            'round' => $session->round,
+                            'district_ids' => $session->district_ids ?? [],
+                            'created_at' => $session->created_at?->format('d M Y, H:i'),
+                        ];
+                    })->values()->all(),
+                    'score_entry_status' => [
+                        'penyisihan' => $catSessions->where('round', 'Penyisihan')->count() > 0,
+                        'final' => $catSessions->where('round', 'Final')->count() > 0,
+                        'penyisihan_count' => $catSessions->where('round', 'Penyisihan')->count(),
+                        'final_count' => $catSessions->where('round', 'Final')->count(),
+                    ],
                 ];
             })->values()->all(),
         ];
@@ -925,95 +997,132 @@ class PageController extends Controller
 
     /**
      * Build MFQ rankings data for all categories
+     * Format: ranking per district (sesuai dengan scoring-mfq-new.php)
      */
     protected function buildMfqRankingsData($sessions): array
     {
         $result = [];
-
         $allParticipants = collect();
         $categoryIds = $sessions->pluck('competition_category_id')->unique();
 
         foreach ($categoryIds as $catId) {
             $catSessions = $sessions->where('competition_category_id', $catId);
+            $catResults = $catSessions->map(fn ($s) => $s->results)->flatten();
 
-            $catAllParticipants = collect();
-            foreach ($catSessions as $session) {
-                foreach ($session->results as $r) {
-                    if ($r->participant) {
-                        $catAllParticipants->push($r->participant->id);
-                        $allParticipants->push($r->participant->id);
-                    }
+            // Count participants
+            foreach ($catResults as $r) {
+                if ($r->participant) {
+                    $allParticipants->push($r->participant->id);
                 }
             }
 
-            $catResults = [
-                'participant_count' => $catAllParticipants->unique()->count(),
+            $catData = [
+                'participant_count' => $catResults->pluck('participant_id')->unique()->count(),
                 'session_count' => $catSessions->count(),
                 'rounds' => [],
             ];
 
-            // Build rounds per category
+            // Build rounds per category - grouping by district
             foreach (['Penyisihan', 'Final'] as $round) {
                 $roundSessions = $catSessions->where('round', $round);
-                $allResults = collect();
+                $roundResults = collect();
 
                 foreach ($roundSessions as $session) {
-                    $sessionResults = $session->results->map(function ($r) use ($session) {
-                        return [
-                            'participant_id' => $r->participant_id,
-                            'name' => $r->participant?->name ?? '-',
-                            'district' => $r->participant?->district?->name ?? '-',
-                            'district_id' => $r->participant?->district_id ?? null,
-                            'institution' => $r->participant?->institution ?? '-',
-                            'total_score' => (float) ($r->total_score ?? 0),
-                            'rank' => $r->rank ?? 0,
-                            'session_name' => $session->name,
-                            'session_id' => $session->id,
-                            'category_id' => $session->competition_category_id,
-                        ];
-                    });
-                    $allResults = $allResults->merge($sessionResults);
+                    $roundResults = $roundResults->merge($session->results);
                 }
 
-                $catResults['rounds'][$round] = [
-                    'by_rank' => $allResults->sortBy('rank')->values()->all(),
-                    'by_score' => $allResults->sortByDesc('total_score')->values()->all(),
+                // Group by district
+                $rankingsByDistrict = $roundResults->groupBy(fn ($r) => $r->participant->district_id ?? 0)->map(function ($districtResults) use ($round) {
+                    $district = $districtResults->first()->participant->district;
+                    $districtName = $district?->name ?? 'Tanpa Kecamatan';
+
+                    // Get all lot numbers in this district
+                    $lotNumbers = $districtResults->map(fn ($r) => $r->participant->lot_number)->filter()->unique()->values();
+
+                    // Get session names and points
+                    $sessionNames = [];
+                    $sessionPoints = [];
+                    $sessionScores = [];
+
+                    foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
+                        $session = $sessionResults->first()->session;
+                        $sessionNames[$sessionId] = $session?->name ?? 'Sesi ' . $sessionId;
+
+                        $sessionResults->sortBy('rank');
+                        foreach ($sessionResults as $rank) {
+                            $point = match ($rank->rank) {
+                                1 => 3,
+                                2 => 2,
+                                3 => 1,
+                                default => 0,
+                            };
+                            $sessionPoints[$sessionId] = ($sessionPoints[$sessionId] ?? 0) + $point;
+                        }
+
+                        // Best score per session
+                        $sessionScores[$sessionId] = $sessionResults->sortByDesc('total_score')->first()->total_score ?? 0;
+                    }
+
+                    return [
+                        'district_id' => $district->id ?? 0,
+                        'district_name' => $districtName,
+                        'lot_numbers' => $lotNumbers->toArray(),
+                        'session_names' => $sessionNames,
+                        'session_points' => $sessionPoints,
+                        'total_points' => array_sum($sessionPoints),
+                        'session_scores' => $sessionScores,
+                        'total_score' => array_sum($sessionScores),
+                        'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
+                    ];
+                })->filter()->values();
+
+                // Sort by points (for Poin Ranking mode) and by score (for Total Skor mode)
+                $byPoints = $rankingsByDistrict->sortByDesc('total_points')->values()->all();
+                $byScore = $rankingsByDistrict->sortByDesc('total_score')->values()->all();
+
+                $catData['rounds'][$round] = [
+                    'by_rank' => $byPoints,
+                    'by_score' => $byScore,
                     'session_count' => $roundSessions->count(),
                 ];
             }
 
-            // Build "Semua" combined ranking for this category
+            // Build "Semua" combined ranking (Final above Penyisihan)
             $semuaResults = [];
-            $seenParticipants = [];
+            $seenDistricts = [];
 
-            $finalResults = $catResults['rounds']['Final']['by_score'] ?? [];
+            // Add Final results first
+            $finalResults = $catData['rounds']['Final']['by_score'] ?? [];
             foreach ($finalResults as $r) {
-                $key = $r['participant_id'];
-                if (!isset($seenParticipants[$key])) {
-                    $seenParticipants[$key] = true;
+                $key = $r['district_id'];
+                if (!isset($seenDistricts[$key])) {
+                    $seenDistricts[$key] = true;
                     $r['current_round'] = 'Final';
                     $semuaResults[$key] = $r;
                 }
             }
 
-            $penyisihanResults = $catResults['rounds']['Penyisihan']['by_score'] ?? [];
+            // Add Penyisihan results (only if not in Final)
+            $penyisihanResults = $catData['rounds']['Penyisihan']['by_score'] ?? [];
             foreach ($penyisihanResults as $r) {
-                $key = $r['participant_id'];
-                if (!isset($seenParticipants[$key])) {
-                    $seenParticipants[$key] = true;
+                $key = $r['district_id'];
+                if (!isset($seenDistricts[$key])) {
+                    $seenDistricts[$key] = true;
                     $r['current_round'] = 'Penyisihan';
                     $semuaResults[$key] = $r;
                 }
             }
 
-            $semuaSorted = collect($semuaResults)->sortByDesc('total_score')->values()->all();
-            $catResults['rounds']['Semua'] = [
-                'by_rank' => $semuaSorted,
-                'by_score' => $semuaSorted,
-                'session_count' => ($catResults['rounds']['Penyisihan']['session_count'] ?? 0) + ($catResults['rounds']['Final']['session_count'] ?? 0),
+            $semuaByPoints = collect($semuaResults)->sortByDesc('total_points')->values()->all();
+            $semuaByScore = collect($semuaResults)->sortByDesc('total_score')->values()->all();
+
+            $catData['rounds']['Semua'] = [
+                'by_rank' => $semuaByPoints,
+                'by_score' => $semuaByScore,
+                'session_count' => ($catData['rounds']['Penyisihan']['session_count'] ?? 0) + ($catData['rounds']['Final']['session_count'] ?? 0),
             ];
 
-            $result[$catId] = $catResults;
+            $result[$catId] = $catData;
         }
 
         $result['participant_count'] = $allParticipants->unique()->count();
@@ -2202,6 +2311,7 @@ class PageController extends Controller
                     'district' => $participant->district?->name ?? '-',
                     'category' => $participant->category?->name ?? '-',
                     'branch' => $participant->category?->branch ?? '-',
+                    'gender' => $participant->gender ?? null,
                     'round_label' => $roundLabel,
                     'latest_score' => number_format($latestScoreValue, 2),
                     'average_score' => number_format($averageScore, 2),
