@@ -45,6 +45,11 @@ class MfqSession extends Model
         return $this->hasMany(ScoreEntry::class);
     }
 
+    public function results(): HasMany
+    {
+        return $this->hasMany(MfqResult::class);
+    }
+
     public function getJudgesList(): array
     {
         return $this->judges ?? [];

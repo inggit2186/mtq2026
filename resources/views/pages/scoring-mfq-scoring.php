@@ -14,6 +14,7 @@ $summaryStats = $summaryStats ?? ['total_districts' => 0, 'total_participants' =
 $defaultQuestionCount = 12;
 $districtCardsJson = json_encode($districtCards->toArray());
 $judgesJson = json_encode($judges);
+$participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -46,6 +47,26 @@ $judgesJson = json_encode($judges);
         .glow-emerald {
             box-shadow: 0 0 20px rgba(52, 211, 153, 0.15), 0 0 40px rgba(52, 211, 153, 0.05);
         }
+
+        /* Modal Animations */
+        .modal-overlay {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .modal-enter { animation: modalIn 0.3s ease-out forwards; }
+        .modal-leave { animation: modalOut 0.2s ease-in forwards; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes modalOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+
+        .ranking-card-animate { animation: slideUp 0.4s ease-out forwards; opacity: 0; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .podium-1 { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .podium-2 { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); }
+        .podium-3 { background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%); }
+
+        .glow-gold { box-shadow: 0 0 30px rgba(251, 191, 36, 0.4), 0 0 60px rgba(251, 191, 36, 0.2); }
 
         .district-card {
             background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
@@ -114,10 +135,214 @@ $judgesJson = json_encode($judges);
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
 
     <div class="mx-auto max-w-[1920px] px-4 py-6 sm:px-6 lg:px-8"
-         x-data="mfqScoringSheet()" x-init="init()">
+         x-data="mfqScoringSheet()"
+         x-init="init()"
+         x-data>
 
         <div class="hero-orb hero-orb-cyan right-[-7rem] top-10 h-72 w-72 opacity-30 pointer-events-none fixed"></div>
         <div class="hero-orb hero-orb-emerald left-[-5rem] top-1/2 h-96 w-96 -translate-y-1/2 opacity-20 pointer-events-none fixed"></div>
+
+        <!-- Ranking Preview Modal -->
+        <div x-show="showRankingModal"
+             x-cloak
+             class="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+            <div class="modal-enter glass-card w-full max-w-2xl rounded-3xl border border-amber-400/20 overflow-hidden"
+                 x-show="showRankingModal"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 @click.outside="showRankingModal = false">
+
+                <!-- Modal Header -->
+                <div class="relative bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-6 py-5">
+                    <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjAzIi8+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+                    <div class="relative flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
+                                <?php echo mtq_icon('trophy', 'h-6 w-6 text-amber-300'); ?>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-black text-white">Ranking Akhir</h2>
+                                <p class="text-sm text-emerald-100/80">Preview Hasil Lomba MFQ</p>
+                            </div>
+                        </div>
+                        <button @click="showRankingModal = false"
+                                class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white/70 transition-all hover:bg-white/20 hover:text-white">
+                            <?php echo mtq_icon('x', 'h-5 w-5'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="max-h-[60vh] overflow-y-auto p-6">
+                    <!-- Podium Rankings 1-3 -->
+                    <div class="mb-6">
+                        <div class="flex items-end justify-center gap-4">
+                            <!-- 2nd Place -->
+                            <div x-show="getRankings().length > 1" class="flex-1 ranking-card-animate" style="animation-delay: 0.1s">
+                                <div class="rounded-2xl border border-slate-400/30 bg-gradient-to-b from-slate-700/80 to-slate-800/60 p-4 text-center">
+                                    <div class="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-gradient-to-br from-slate-300 to-slate-500 shadow-lg shadow-slate-400/30 mb-3">
+                                        <span class="text-2xl font-black text-white">2</span>
+                                    </div>
+                                    <?php echo mtq_icon('medal', 'h-8 w-8 text-slate-400 mx-auto mb-2'); ?>
+
+                                    <!-- Participants Photos -->
+                                    <div class="flex justify-center gap-1 mb-2">
+                                        <template x-for="p in getDistrictParticipants(getRankings()[1]?.districtId)" :key="p.id">
+                                            <div class="relative group">
+                                                <div class="h-8 w-8 rounded-full overflow-hidden border-2 border-slate-500 bg-slate-700"
+                                                     :class="p.photo_url ? '' : 'flex items-center justify-center'">
+                                                    <img x-show="p.photo_url" :src="p.photo_url" class="h-full w-full object-cover" @error="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                                    <span x-show="!p.photo_url" class="text-[10px] font-bold text-slate-400" x-text="p.name?.charAt(0) || '?'"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <p class="text-lg font-black text-slate-200" x-text="getRankings()[1]?.lotNumber || '-'">-</p>
+                                    <p class="text-sm text-slate-300 font-medium" x-text="getRankings()[1]?.representativeName || '-'">Nama</p>
+                                    <div class="mt-3 rounded-xl bg-slate-900/50 px-3 py-2">
+                                        <p class="text-2xl font-black text-slate-300" x-text="(getRankings()[1]?.total || 0).toLocaleString()">0</p>
+                                        <p class="text-[10px] text-slate-500 uppercase tracking-wider">Poin</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 1st Place -->
+                            <div class="flex-1 ranking-card-animate">
+                                <div class="rounded-2xl border-2 border-amber-400/50 bg-gradient-to-b from-amber-500/20 to-amber-600/10 p-5 text-center glow-gold">
+                                    <div class="relative inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-xl shadow-amber-400/40 mb-3">
+                                        <span class="text-3xl font-black text-white">1</span>
+                                        <?php echo mtq_icon('crown', 'h-6 w-6 text-amber-200 absolute -top-3 -right-1'); ?>
+                                    </div>
+                                    <?php echo mtq_icon('trophy', 'h-10 w-10 text-amber-400 mx-auto mb-2'); ?>
+
+                                    <!-- Participants Photos -->
+                                    <div class="flex justify-center gap-1 mb-2">
+                                        <template x-for="p in getDistrictParticipants(getRankings()[0]?.districtId)" :key="p.id">
+                                            <div class="relative group">
+                                                <div class="h-10 w-10 rounded-full overflow-hidden border-2 border-amber-400 bg-amber-700"
+                                                     :class="p.photo_url ? '' : 'flex items-center justify-center'">
+                                                    <img x-show="p.photo_url" :src="p.photo_url" class="h-full w-full object-cover" @error="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                                    <span x-show="!p.photo_url" class="text-xs font-bold text-amber-300" x-text="p.name?.charAt(0) || '?'"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <p class="text-xl font-black text-amber-200" x-text="getRankings()[0]?.lotNumber || '-'">-</p>
+                                    <p class="text-sm text-amber-300 font-semibold" x-text="getRankings()[0]?.representativeName || '-'">Nama</p>
+                                    <div class="mt-3 rounded-xl bg-amber-900/30 px-4 py-2">
+                                        <p class="text-3xl font-black text-amber-300" x-text="(getRankings()[0]?.total || 0).toLocaleString()">0</p>
+                                        <p class="text-[10px] text-amber-400/60 uppercase tracking-wider">Poin</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3rd Place -->
+                            <div x-show="getRankings().length > 2" class="flex-1 ranking-card-animate" style="animation-delay: 0.2s">
+                                <div class="rounded-2xl border border-orange-400/30 bg-gradient-to-b from-orange-700/80 to-orange-800/60 p-4 text-center">
+                                    <div class="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shadow-orange-400/30 mb-3">
+                                        <span class="text-2xl font-black text-white">3</span>
+                                    </div>
+                                    <?php echo mtq_icon('medal', 'h-8 w-8 text-orange-400 mx-auto mb-2'); ?>
+
+                                    <!-- Participants Photos -->
+                                    <div class="flex justify-center gap-1 mb-2">
+                                        <template x-for="p in getDistrictParticipants(getRankings()[2]?.districtId)" :key="p.id">
+                                            <div class="relative group">
+                                                <div class="h-8 w-8 rounded-full overflow-hidden border-2 border-orange-500 bg-orange-700"
+                                                     :class="p.photo_url ? '' : 'flex items-center justify-center'">
+                                                    <img x-show="p.photo_url" :src="p.photo_url" class="h-full w-full object-cover" @error="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                                    <span x-show="!p.photo_url" class="text-[10px] font-bold text-orange-300" x-text="p.name?.charAt(0) || '?'"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <p class="text-lg font-black text-orange-200" x-text="getRankings()[2]?.lotNumber || '-'">-</p>
+                                    <p class="text-sm text-orange-300 font-medium" x-text="getRankings()[2]?.representativeName || '-'">Nama</p>
+                                    <div class="mt-3 rounded-xl bg-orange-900/30 px-3 py-2">
+                                        <p class="text-2xl font-black text-orange-300" x-text="(getRankings()[2]?.total || 0).toLocaleString()">0</p>
+                                        <p class="text-[10px] text-orange-500/60 uppercase tracking-wider">Poin</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Other Rankings -->
+                    <div x-show="getRankings().length > 3" class="space-y-2">
+                        <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            <?php echo mtq_icon('list', 'h-4 w-4'); ?>
+                            <span>Peringkat Lainnya</span>
+                        </div>
+                        <template x-for="(rank, index) in getRankings().slice(3)" :key="rank.districtId">
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-800/30 px-4 py-3">
+                                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-700 text-sm font-bold text-slate-400" x-text="index + 4">-</div>
+                                <div class="flex-1 min-w-0">
+                                    <!-- Photos and Name -->
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <!-- Participant Photos -->
+                                        <div class="flex -space-x-2">
+                                            <template x-for="p in getDistrictParticipants(rank.districtId).slice(0, 3)" :key="p.id">
+                                                <div class="h-6 w-6 rounded-full overflow-hidden border-2 border-slate-600 bg-slate-700"
+                                                     :class="p.photo_url ? '' : 'flex items-center justify-center'">
+                                                    <img x-show="p.photo_url" :src="p.photo_url" class="h-full w-full object-cover" @error="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                                    <span x-show="!p.photo_url" class="text-[8px] font-bold text-slate-400" x-text="p.name?.charAt(0) || '?'"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <?php echo mtq_icon('hash', 'h-3 w-3 text-amber-500'); ?>
+                                            <span class="font-semibold text-white" x-text="rank.lotNumber">-</span>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-slate-400 font-medium" x-text="rank.representativeName">Nama</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-lg font-black text-emerald-400" x-text="rank.total.toLocaleString()">0</p>
+                                    <p class="text-[10px] text-slate-600 uppercase">Poin</p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div x-show="getRankings().length === 0" class="rounded-2xl border border-slate-700 bg-slate-800/50 p-8 text-center">
+                        <?php echo mtq_icon('file-question', 'h-12 w-12 text-slate-500 mx-auto mb-3'); ?>
+                        <p class="text-slate-400">Belum ada nilai yang dimasukkan</p>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="border-t border-slate-700/50 bg-slate-900/50 px-6 py-4">
+                    <div class="flex items-center justify-end gap-3">
+                        <button @click="showRankingModal = false"
+                                class="group secondary-button px-6 py-3 flex items-center gap-2">
+                            <?php echo mtq_icon('edit', 'h-4 w-4 text-slate-400 group-hover:text-slate-200'); ?>
+                            Edit Lagi
+                        </button>
+                        <form method="POST" action="<?php echo e(route('scoring.mfq.session.complete', $session?->id)); ?>" class="inline">
+                            <?php echo csrf_field(); ?>
+                            <button type="submit" class="primary-button px-6 py-3 flex items-center gap-2 shadow-lg shadow-emerald-400/20">
+                                <?php echo mtq_icon('check-circle', 'h-4 w-4'); ?>
+                                Selesaikan
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Header Section -->
         <header class="mb-8 rounded-3xl glass-card px-6 py-5 glow-cyan">
@@ -155,13 +380,20 @@ $judgesJson = json_encode($judges);
                             </div>
                         </div>
                     </div>
-                    <form method="POST" action="<?php echo e(route('scoring.mfq.session.complete', $session?->id)); ?>">
-                        <?php echo csrf_field(); ?>
-                        <button type="submit" class="primary-button px-5 py-2.5 flex items-center gap-2" onclick="return confirm('Selesaikan sesi ini?')">
-                            <?php echo mtq_icon('check-circle', 'h-4 w-4'); ?>
-                            Selesaikan
-                        </button>
-                    </form>
+                    <button @click="submitScores()"
+                            :disabled="isSubmitting"
+                            class="primary-button px-5 py-2.5 flex items-center gap-2 shadow-lg shadow-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <template x-if="isSubmitting">
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </template>
+                        <template x-if="!isSubmitting">
+                            <?php echo mtq_icon('send', 'h-4 w-4'); ?>
+                        </template>
+                        <span x-text="isSubmitting ? 'Mengirim...' : 'Kirim Semua Nilai'"></span>
+                    </button>
                 </div>
             </div>
         </header>
@@ -431,9 +663,17 @@ $judgesJson = json_encode($judges);
                 <?php echo mtq_icon('save', 'h-4 w-4 text-slate-400 group-hover:text-slate-200'); ?>
                 Simpan Draft
             </button>
-            <button @click="submitScores()" class="primary-button px-6 py-3 flex items-center gap-2 shadow-lg shadow-emerald-400/20">
-                <?php echo mtq_icon('send', 'h-4 w-4'); ?>
-                Kirim Semua Nilai
+            <button @click="submitScores()" :disabled="isSubmitting" class="primary-button px-6 py-3 flex items-center gap-2 shadow-lg shadow-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="isSubmitting">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </template>
+                <template x-if="!isSubmitting">
+                    <?php echo mtq_icon('send', 'h-4 w-4'); ?>
+                </template>
+                <span x-text="isSubmitting ? 'Mengirim...' : 'Kirim Semua Nilai'"></span>
             </button>
         </div>
     </div>
@@ -450,6 +690,9 @@ $judgesJson = json_encode($judges);
             activeJudge: '',
             questions: [],
             districts: <?php echo $districtCardsJson; ?>,
+            showRankingModal: false,
+            isSubmitting: false,
+            participantsByDistrict: <?php echo $participantsByDistrictJson; ?>,
 
             init: function() {
                 this.questions = [];
@@ -553,9 +796,20 @@ $judgesJson = json_encode($judges);
                         districtName: d.district_name,
                         lotNumber: d.representative ? d.representative.lot_number : '-',
                         representativeName: d.representative ? d.representative.name : '-',
+                        representativePhoto: d.representative ? d.representative.photo_url : null,
                         total: self.getDistrictTotal(d.district_id)
                     };
                 }).sort(function(a, b) { return b.total - a.total; });
+            },
+
+            // Alias for rankings - used by modal
+            getRankings: function() {
+                return this.rankings();
+            },
+
+            // Get participants for a district (used by modal)
+            getDistrictParticipants: function(districtId) {
+                return this.participantsByDistrict[districtId] || [];
             },
 
             clearAllScores: function() {
@@ -585,19 +839,28 @@ $judgesJson = json_encode($judges);
             submitScores: function() {
                 var self = this;
                 var filled = this.questions.filter(function(q) {
-                    if (!q.districtId || !q.paket && !q.rebutan) return false;
+                    if (!q.districtId || (!q.paket && !q.rebutan)) return false;
                     return true;
                 });
-                if (filled.length === 0) { alert('Belum ada nilai yang diisi!'); return; }
+                if (filled.length === 0) {
+                    alert('Belum ada nilai yang diisi!');
+                    return;
+                }
 
+                this.isSubmitting = true;
                 var byDistrict = {};
                 filled.forEach(function(q) { if (!byDistrict[q.districtId]) byDistrict[q.districtId] = []; byDistrict[q.districtId].push(q); });
-                var ids = Object.keys(byDistrict), submitted = 0;
+                var ids = Object.keys(byDistrict), submitted = 0, total = ids.length;
 
                 ids.forEach(function(districtId) {
                     var qs = byDistrict[districtId], district = null;
-                    for (var i = 0; i < self.districts.length; i++) { if (self.districts[i].district_id == districtId) { district = self.districts[i]; break; } }
-                    if (!district || !district.representative || !district.representative.id) return;
+                    for (var i = 0; i < self.districts.length; i++) {
+                        if (self.districts[i].district_id == districtId) { district = self.districts[i]; break; }
+                    }
+                    if (!district || !district.representative || !district.representative.id) {
+                        submitted++;
+                        return;
+                    }
 
                     var oppCount = self.getOpponentCount(districtId);
                     var fd = new FormData();
@@ -610,9 +873,22 @@ $judgesJson = json_encode($judges);
                         return { label: 'Soal ' + (idx + 1), package_score: q.paket || 0, throw_scores: throws, rebuttal_score: q.rebutan || 0 };
                     })));
 
-                    fetch('/penilaian/mfq/sesi/' + self.sessionId + '/nilai', { method: 'POST', body: fd }).then(function() {
+                    fetch('/penilaian/mfq/sesi/' + self.sessionId + '/nilai', { method: 'POST', body: fd })
+                    .then(function(response) {
                         submitted++;
-                        if (submitted === ids.length) { localStorage.removeItem(self.getStorageKey()); alert('Semua nilai berhasil disimpan!'); window.location.reload(); }
+                        if (submitted === total) {
+                            localStorage.removeItem(self.getStorageKey());
+                            self.isSubmitting = false;
+                            self.showRankingModal = true;
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error submitting scores:', error);
+                        submitted++;
+                        if (submitted === total) {
+                            self.isSubmitting = false;
+                            self.showRankingModal = true;
+                        }
                     });
                 });
             }

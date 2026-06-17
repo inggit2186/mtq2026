@@ -14,6 +14,9 @@ $districts = $districts ?? collect();
 $summaryStats = $summaryStats ?? ['participant_total' => 0, 'category_total' => 0, 'session_active' => 0];
 $availableJudges = $availableJudges ?? [];
 $categoryJudgeIds = $categoryJudgeIds ?? [];
+$completedSessions = $completedSessions ?? collect();
+$rankingsData = $rankingsData ?? collect();
+$displayedLotNumbers = $displayedLotNumbers ?? [];
 
 // Default judges passed from controller (pre-populated with official judges from category)
 $defaultJudges = $defaultJudges ?? [$user?->name ?? ''];
@@ -569,6 +572,122 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                 </section>
                 <?php endif; ?>
 
+                <!-- Completed Sessions & Rankings -->
+                <?php if (!$activeSession && $selectedCategory): ?>
+                <section class="glass-card rounded-[2rem] p-6 mt-6" x-show="showStep >= 1">
+                    <div class="flex items-start gap-4 mb-6">
+                        <div class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-amber-400/30 bg-amber-400/10">
+                            <?= mtq_icon('trophy', 'h-7 w-7 text-amber-300') ?>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-white">Hasil & Ranking</h3>
+                            <p class="mt-2 text-sm text-slate-400">Rekap hasil sesi MFQ dan ranking berdasarkan poin serta total nilai.</p>
+                        </div>
+                    </div>
+
+                    <?php if ($completedSessions->isEmpty()): ?>
+                    <div class="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-8 text-center">
+                        <?= mtq_icon('inbox', 'h-12 w-12 text-slate-600 mx-auto mb-3') ?>
+                        <p class="text-slate-500">Belum ada sesi yang diselesaikan.</p>
+                    </div>
+                    <?php else: ?>
+
+                    <!-- Completed Sessions List -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                            <?= mtq_icon('check-circle', 'h-4 w-4 text-emerald-400') ?>
+                            Sesi yang Sudah Selesai
+                        </h4>
+                        <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            <?php foreach ($completedSessions as $session): ?>
+                            <div class="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <p class="font-semibold text-white"><?= e($session->name) ?></p>
+                                        <p class="text-xs text-slate-400 mt-1">
+                                            <?= e($session->round) ?> |
+                                            <?= e($session->created_at->format('d M Y, H:i')) ?>
+                                        </p>
+                                    </div>
+                                    <span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                                        <?= e($session->district_ids ? count($session->district_ids) : 0) ?> Kec.
+                                    </span>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
+                    <!-- Rankings Table -->
+                    <?php if ($rankingsData->isNotEmpty()): ?>
+                    <div>
+                        <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                            <?= mtq_icon('hash', 'h-4 w-4 text-amber-400') ?>
+                            Ranking per Kecamatan
+                        </h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b border-slate-700">
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">No</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Nomor Lot</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Kecamatan</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">Poin Ranking</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Total Nilai</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-700/50">
+                                    <?php foreach ($rankingsData as $index => $rank): ?>
+                                    <tr class="hover:bg-slate-800/50 transition-colors <?= $index < 3 ? 'bg-amber-500/5' : '' ?>">
+                                        <td class="px-4 py-3">
+                                            <div class="flex h-8 w-8 items-center justify-center rounded-lg font-bold <?= $index === 0 ? 'bg-amber-500 text-white' : ($index === 1 ? 'bg-slate-400 text-slate-900' : ($index === 2 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300')) ?>">
+                                            <?= $index + 1 ?>
+                                        </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex flex-wrap gap-1">
+                                                <?php foreach ($rank['lot_numbers'] as $lot): ?>
+                                                <span class="inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-300">
+                                                    <?= e($lot) ?>
+                                                </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="text-sm font-medium text-white"><?= e($rank['district_name']) ?></span>
+                                            <span class="text-xs text-slate-500 ml-2">(<?= $rank['participant_count'] ?> peserta)</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="text-xl font-black text-amber-300"><?= $rank['total_points'] ?></span>
+                                            <div class="flex justify-center gap-1 mt-1">
+                                                <?php foreach ($rank['session_points'] as $points): ?>
+                                                <span class="inline-flex rounded-full bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                                                    <?= $points ?> pts
+                                                </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="text-xl font-black text-emerald-400"><?= number_format($rank['total_score'], 0) ?></span>
+                                            <div class="flex justify-end gap-1 mt-1">
+                                                <?php foreach ($rank['session_scores'] as $score): ?>
+                                                <span class="inline-flex rounded-full bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                                                    <?= number_format($score, 0) ?>
+                                                </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php endif; ?>
+                </section>
+                <?php endif; ?>
+
                 <!-- Step 2: Select Districts -->
                 <?php if ($activeSession && empty($activeSession->district_ids) && $currentStep >= 2): ?>
                 <section class="glass-card rounded-[2rem] p-6">
@@ -637,7 +756,10 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                     $district = $districts->get($districtId);
                                     $districtName = $district?->name ?? 'Tanpa Kecamatan';
                                     $participantCount = $participants->count();
-                                    $representative = $participants->first();
+                                    // Find participant with lot_number first, fallback to first participant
+                                    $representative = $participants->firstWhere('lot_number', '!=', null)
+                                        ?? $participants->firstWhere('lot_number', '!=', '')
+                                        ?? $participants->first();
                                     $lotNumber = $representative?->lot_number ?? '-';
                                     ?>
                                     <label class="group block cursor-pointer">
@@ -652,6 +774,12 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                                     <div class="flex items-center gap-2 mb-2">
                                                         <?= mtq_icon('hash', 'h-4 w-4 text-amber-400') ?>
                                                         <p class="font-bold text-amber-300 text-lg" x-text="'<?= e($lotNumber) ?>'"><?= e($lotNumber) ?></p>
+                                                        <?php if (in_array($lotNumber, $displayedLotNumbers)): ?>
+                                                        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300" title="Sudah tampil di sesi sebelumnya">
+                                                            <?= mtq_icon('check-circle', 'h-3 w-3') ?>
+                                                            Sudah Tampil
+                                                        </span>
+                                                        <?php endif; ?>
                                                     </div>
                                                     <div class="flex items-center gap-3 text-sm text-slate-400">
                                                         <span class="flex items-center gap-1">
@@ -748,7 +876,7 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                         $districts = \App\Models\District::whereIn('id', $districtIds)->get()->keyBy('id');
 
                         // Build district cards data for display (similar to scoring page)
-                        $districtCardsData = collect($districtIds)->map(function ($districtId) use ($districts) {
+                        $districtCardsData = collect($districtIds)->map(function ($districtId) use ($districts, $activeSession) {
                             $district = $districts->get($districtId);
                             $districtParticipants = \App\Models\Participant::with('district')
                                 ->where('competition_category_id', $activeSession->competition_category_id)
@@ -760,7 +888,10 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                 return null;
                             }
 
-                            $representative = $districtParticipants->first();
+                            // Find participant with lot_number first, fallback to first participant
+                            $representative = $districtParticipants->firstWhere('lot_number', '!=', null)
+                                ?? $districtParticipants->firstWhere('lot_number', '!=', '')
+                                ?? $districtParticipants->first();
                             $scores = \App\Models\ScoreEntry::where('participant_id', $representative->id)->get();
 
                             return [

@@ -18,11 +18,9 @@ class ScoreEntry extends Model
         'scores',
         'average_score',
         'submitted_at',
-        // Legacy fields - kept for reference only (not used in new aggregated format)
-        // 'judge_name',
-        // 'score',
-        // 'score_breakdown',
-        // 'remarks',
+        'judge_name',
+        'score',
+        'score_breakdown',
     ];
 
     protected function casts(): array
