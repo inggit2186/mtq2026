@@ -80,7 +80,8 @@
             font-size: 18px;
             font-weight: 700;
             color: white;
-            line-height: 1.2;
+            line-height: 1.4;
+            white-space: pre-line;
         }
         .header-year {
             display: inline-flex;
@@ -122,11 +123,12 @@
         .photo-placeholder svg { width: 32px; height: 32px; opacity: 0.5; margin-bottom: 6px; }
         .info-section { flex: 1; display: flex; flex-direction: column; gap: 8px; }
         .lot-card {
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            background: #ffffff;
             padding: 12px 14px;
             border-radius: 12px;
             text-align: center;
             position: relative;
+            border: 2px solid #e2e8f0;
         }
         .lot-card::before {
             content: '';
@@ -137,7 +139,7 @@
         .lot-label {
             font-size: 9px;
             font-weight: 600;
-            color: rgba(255,255,255,0.5);
+            color: #64748b;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             display: flex;
@@ -145,17 +147,17 @@
             justify-content: center;
             gap: 6px;
         }
-        .lot-label svg { width: 12px; height: 12px; color: #fbbf24; }
+        .lot-label svg { width: 12px; height: 12px; color: #0ea5e9; }
         .lot-number {
             font-family: 'Playfair Display', serif;
             font-size: 28px;
             font-weight: 700;
-            color: #fbbf24;
-            text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+            color: #0ea5e9;
+            text-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
             line-height: 1.2;
             margin-top: 4px;
         }
-        .lot-empty { color: rgba(255,255,255,0.2); }
+        .lot-empty { color: #cbd5e1; }
         .info-item {
             display: flex;
             align-items: center;
@@ -230,6 +232,13 @@
         }
         .footer-brand { font-weight: 600; color: #fbbf24; }
         .footer-brand svg { width: 16px; height: 16px; }
+        .footer-credit {
+            font-size: 6px;
+            color: rgba(255,255,255,0.25);
+            margin-top: 4px;
+            font-style:italic;
+            letter-spacing: 0.3px;
+        }
         .corner-deco {
             position: absolute;
             width: 40px; height: 40px;
@@ -253,11 +262,6 @@
             <div class="header-logos">
                 <img src="/images/logo-kabupaten.webp" alt="" class="header-logo">
                 <img src="/images/favicon.webp" alt="" class="header-logo">
-                <div class="header-star">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                </div>
                 <img src="/images/logo-lptq.webp" alt="" class="header-logo">
                 <img src="/images/emtq-resmi.webp" alt="" class="header-logo header-logo-main">
             </div>
@@ -354,8 +358,9 @@
 
         <div class="kokarde-footer">
             <div class="footer-text">
-                <span class="footer-brand" id="footerBrand"></span> | LPTQ Kabupaten Tanah Datar
+                <span class="footer-brand" id="footerBrand"></span>
             </div>
+            <div class="footer-credit">Ridho Saputra @Kankemenag Tanah Datar</div>
         </div>
     </div>
 
@@ -375,9 +380,9 @@
             ],
         ]); ?>
 
-        document.getElementById('headerTitle').textContent = 'Kokarde Peserta';
-        document.getElementById('headerEvent').textContent = kokardeData.eventTitle;
-        document.getElementById('footerBrand').textContent = 'e-MTQ ' + kokardeData.eventTitle;
+        document.getElementById('headerTitle').textContent = 'Peserta';
+        document.getElementById('headerEvent').innerHTML = 'MTQ Nasional ke XLIII\nTingkat Kabupaten Tanah Datar\nTahun 2026';
+        document.getElementById('footerBrand').textContent = 'e-MTQ Kabupaten Tanah Datar Tahun 2026';
 
         const p = kokardeData.participant;
         document.getElementById('participantName').textContent = p.name;
