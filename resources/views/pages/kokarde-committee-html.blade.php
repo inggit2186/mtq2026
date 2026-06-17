@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
+            background: linear-gradient(135deg, #14532d 0%, #166534 50%, #14532d 100%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -21,7 +21,7 @@
             background: linear-gradient(165deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
             border-radius: 28px;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 100px rgba(139, 92, 246, 0.15);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 100px rgba(22, 163, 74, 0.15);
             position: relative;
             display: flex;
             flex-direction: column;
@@ -31,10 +31,10 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 6px;
-            background: linear-gradient(90deg, #8b5cf6, #a78bfa, #c4b5fd, #a78bfa, #8b5cf6);
+            background: linear-gradient(90deg, #22c55e, #4ade80, #86efac, #4ade80, #22c55e);
         }
         .kokarde-header {
-            background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+            background: linear-gradient(180deg, #14532d 0%, #15803d 100%);
             padding: 24px 24px 18px;
             text-align: center;
             position: relative;
@@ -44,7 +44,7 @@
             position: absolute;
             bottom: 0; left: 50%; transform: translateX(-50%);
             width: 60%; height: 3px;
-            background: linear-gradient(90deg, transparent, #c4b5fd, transparent);
+            background: linear-gradient(90deg, transparent, #fbbf24, transparent);
         }
         .header-logos {
             display: flex;
@@ -63,7 +63,7 @@
         .header-title {
             font-size: 10px;
             font-weight: 600;
-            color: #c4b5fd;
+            color: #fbbf24;
             text-transform: uppercase;
             letter-spacing: 3px;
             margin-bottom: 6px;
@@ -82,8 +82,8 @@
             gap: 6px;
             margin-top: 10px;
             padding: 5px 14px;
-            background: rgba(139, 92, 246, 0.2);
-            border: 1px solid rgba(139, 92, 246, 0.4);
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.4);
             border-radius: 20px;
             font-size: 11px;
             color: rgba(255,255,255,0.9);
@@ -100,7 +100,7 @@
             border-radius: 14px;
             overflow: hidden;
             border: 3px solid transparent;
-            background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #8b5cf6, #a78bfa) border-box;
+            background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #22c55e, #4ade80) border-box;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -115,23 +115,23 @@
         .photo-placeholder svg { width: 36px; height: 36px; opacity: 0.5; margin-bottom: 6px; }
         .info-section { flex: 1; display: flex; flex-direction: column; gap: 8px; }
         .role-card {
-            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
             padding: 14px 16px;
             border-radius: 12px;
             text-align: center;
             position: relative;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 15px rgba(22, 163, 74, 0.3);
         }
         .role-card::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, #c4b5fd, #ddd6fe, #c4b5fd);
+            background: linear-gradient(90deg, #fbbf24, #fcd34d, #fbbf24);
         }
         .role-label {
             font-size: 9px;
             font-weight: 600;
-            color: rgba(255,255,255,0.6);
+            color: rgba(255,255,255,0.7);
             text-transform: uppercase;
             letter-spacing: 1.5px;
             display: flex;
@@ -139,7 +139,7 @@
             justify-content: center;
             gap: 6px;
         }
-        .role-label svg { width: 12px; height: 12px; color: #c4b5fd; }
+        .role-label svg { width: 12px; height: 12px; color: #fbbf24; }
         .role-name {
             font-family: 'Playfair Display', serif;
             font-size: 22px;
@@ -155,13 +155,13 @@
             align-items: center;
             gap: 10px;
             padding: 8px 12px;
-            background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
             border-radius: 10px;
-            border-left: 3px solid #8b5cf6;
+            border-left: 3px solid #22c55e;
         }
         .info-icon {
             width: 30px; height: 30px;
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            background: linear-gradient(135deg, #22c55e, #16a34a);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -170,7 +170,7 @@
         }
         .info-icon svg { width: 14px; height: 14px; color: white; }
         .info-icon.admin { background: linear-gradient(135deg, #f59e0b, #d97706); }
-        .info-icon.panitia { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .info-icon.panitia { background: linear-gradient(135deg, #22c55e, #16a34a); }
         .info-content { flex: 1; min-width: 0; }
         .info-label {
             font-size: 8px;
@@ -182,21 +182,21 @@
         .info-value {
             font-size: 12px;
             font-weight: 600;
-            color: #1e1b4b;
+            color: #14532d;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .categories-section {
-            background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
             border-radius: 12px;
             padding: 12px;
-            border: 1px solid #e9d5ff;
+            border: 1px solid #bbf7d0;
         }
         .categories-label {
             font-size: 9px;
             font-weight: 600;
-            color: #7c3aed;
+            color: #15803d;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 8px;
@@ -215,14 +215,14 @@
             align-items: center;
             gap: 4px;
             padding: 4px 10px;
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            background: linear-gradient(135deg, #22c55e, #16a34a);
             border-radius: 20px;
             font-size: 9px;
             font-weight: 600;
             color: white;
         }
         .kokarde-footer {
-            background: linear-gradient(180deg, #1e1b4b, #312e81);
+            background: linear-gradient(180deg, #14532d, #15803d);
             padding: 12px 24px;
             text-align: center;
             position: relative;
@@ -232,7 +232,7 @@
             position: absolute;
             top: 0; left: 50%; transform: translateX(-50%);
             width: 50%; height: 2px;
-            background: linear-gradient(90deg, transparent, rgba(196, 181, 253, 0.5), transparent);
+            background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.5), transparent);
         }
         .footer-text {
             display: flex;
@@ -242,7 +242,7 @@
             font-size: 10px;
             color: rgba(255,255,255,0.8);
         }
-        .footer-brand { font-weight: 600; color: #c4b5fd; }
+        .footer-brand { font-weight: 600; color: #fbbf24; }
         .footer-credit {
             font-size: 7px;
             color: rgba(255,255,255,0.25);
@@ -254,10 +254,10 @@
             width: 40px; height: 40px;
             opacity: 0.08;
         }
-        .corner-tl { top: 8px; left: 8px; border-top: 2px solid #8b5cf6; border-left: 2px solid #8b5cf6; border-radius: 6px 0 0 0; }
-        .corner-tr { top: 8px; right: 8px; border-top: 2px solid #8b5cf6; border-right: 2px solid #8b5cf6; border-radius: 0 6px 0 0; }
-        .corner-bl { bottom: 8px; left: 8px; border-bottom: 2px solid #8b5cf6; border-left: 2px solid #8b5cf6; border-radius: 0 0 0 6px; }
-        .corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid #8b5cf6; border-right: 2px solid #8b5cf6; border-radius: 0 0 6px 0; }
+        .corner-tl { top: 8px; left: 8px; border-top: 2px solid #22c55e; border-left: 2px solid #22c55e; border-radius: 6px 0 0 0; }
+        .corner-tr { top: 8px; right: 8px; border-top: 2px solid #22c55e; border-right: 2px solid #22c55e; border-radius: 0 6px 0 0; }
+        .corner-bl { bottom: 8px; left: 8px; border-bottom: 2px solid #22c55e; border-left: 2px solid #22c55e; border-radius: 0 0 0 6px; }
+        .corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid #22c55e; border-right: 2px solid #22c55e; border-radius: 0 0 6px 0; }
         @media print { body { background: white; padding: 0; } .kokarde-card { box-shadow: none; } }
     </style>
 </head>

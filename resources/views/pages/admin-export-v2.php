@@ -161,14 +161,14 @@ $branches = $branches ?? [];
                 </form>
             </div>
 
-            <!-- Download KokardePanitia -->
+            <!-- Download Kokarde Panitia -->
             <div class="export-card glass-card rounded-3xl p-6 glow-violet">
                 <div class="mb-4 flex items-center gap-3">
                     <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/20">
                         <?= mtq_icon('users', 'h-6 w-6 text-violet-300') ?>
                     </div>
                     <div>
-                        <h3 class="text-lg font-bold text-white">Download KokardePanitia</h3>
+                        <h3 class="text-lg font-bold text-white">Download Kokarde Panitia</h3>
                         <p class="text-xs text-slate-400">Admin &Panitia</p>
                     </div>
                 </div>
