@@ -6,6 +6,7 @@ use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\Participant;
 use App\Models\ScoreEntry;
+use App\Models\User;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
@@ -174,6 +175,36 @@ class AdminExportController extends Controller
             'assets' => app(PageController::class)->viteAssets(),
             'participants' => $participants,
             'category' => $category,
+        ]);
+    }
+
+    public function kokardeCommitteePage(): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia']), 403);
+
+        $committees = User::query()
+            ->with(['categoryAccesses.category'])
+            ->whereIn('role', ['admin', 'panitia'])
+            ->orderBy('role')
+            ->orderBy('name')
+            ->get();
+
+        return view('pages/admin-kokarde-committee-download', [
+            'assets' => app(PageController::class)->viteAssets(),
+            'committees' => $committees,
+        ]);
+    }
+
+    public function downloadCommitteeKokarde(User $user): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia']), 403);
+        abort_unless(in_array($user->role, ['admin', 'panitia']), 403);
+
+        $categories = $user->categoryAccesses->map(fn ($access) => $access->category)->filter();
+
+        return view('pages/kokarde-committee-html', [
+            'user' => $user,
+            'categories' => $categories,
         ]);
     }
 }

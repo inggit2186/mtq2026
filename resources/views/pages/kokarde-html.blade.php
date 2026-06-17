@@ -17,11 +17,14 @@
         }
         .kokarde-card {
             width: 420px;
+            height: 630px;
             background: linear-gradient(165deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
             border-radius: 28px;
             overflow: hidden;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 100px rgba(8, 145, 178, 0.15);
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
         .kokarde-card::before {
             content: '';
@@ -96,7 +99,7 @@
             color: rgba(255,255,255,0.9);
         }
         .header-year svg { width: 14px; height: 14px; color: #fbbf24; }
-        .kokarde-body { padding: 20px 24px; }
+        .kokarde-body { padding: 20px 24px; flex: 1; overflow: hidden; }
         .kokarde-photo-section {
             display: flex;
             gap: 16px;
@@ -323,7 +326,8 @@
                         </div>
                         <div class="info-content">
                             <div class="info-label">Cabang / Golongan</div>
-                            <div class="info-value small" id="categoryName"></div>
+                            <div class="info-value" id="categoryName"></div>
+                            <div class="info-value small" id="categoryGol"></div>
                         </div>
                     </div>
 
@@ -395,7 +399,8 @@
         }
 
         const catText = [p.category_branch, p.category_name].filter(Boolean).join(' / ');
-        document.getElementById('categoryName').textContent = catText || '-';
+        document.getElementById('categoryName').textContent = p.category_branch || '-';
+        document.getElementById('categoryGol').textContent = p.category_name || '-';
 
         document.getElementById('districtName').textContent = p.district_name;
 

@@ -20,6 +20,7 @@ $districtPayload = $districtOptions->map(fn ($district): array => [
 $committeePayload = $committees->map(fn ($committee): array => [
     'id' => $committee->id,
     'name' => $committee->name,
+    'role' => $committee->role,
     'category_ids' => $committee->categoryAccesses->pluck('competition_category_id')->map(fn ($id): string => (string) $id)->values()->all(),
     'district_ids' => $committee->districtAccesses->pluck('district_id')->map(fn ($id): string => (string) $id)->values()->all(),
     'updateUrl' => route('committees.branches.update', $committee),
@@ -127,7 +128,7 @@ $committeePayload = $committees->map(fn ($committee): array => [
 
                 <?php if ($generatedCredentials): ?>
                     <section class="rounded-[2rem] border border-emerald-400/20 bg-emerald-400/10 p-6">
-                        <p class="section-kicker text-emerald-200">Akun Panitia Berhasil Dibuat</p>
+                        <p class="section-kicker text-emerald-200">Akun Berhasil Dibuat</p>
                         <h3 class="mt-2 text-2xl font-bold text-white"><?= e($generatedCredentials['name'] ?? '-') ?></h3>
                         <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                             <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Email</p><p class="mt-2 text-sm font-semibold text-white"><?= e($generatedCredentials['email'] ?? '-') ?></p></div>
@@ -242,6 +243,9 @@ $committeePayload = $committees->map(fn ($committee): array => [
                                         <div class="min-w-0">
                                             <p class="font-semibold text-white"><?= e($committee->name) ?></p>
                                             <p class="mt-1 truncate text-xs text-slate-400"><?= e($committee->email ?: '-') ?></p>
+                                            <div class="mt-1 flex items-center gap-2">
+                                                <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold <?= $committee->role === 'admin' ? 'border border-amber-400/30 bg-amber-400/10 text-amber-200' : 'border border-cyan-400/30 bg-cyan-400/10 text-cyan-200' ?>"><?= e(ucfirst($committee->role)) ?></span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="mt-4 space-y-1 text-sm text-slate-300">
@@ -319,6 +323,13 @@ $committeePayload = $committees->map(fn ($committee): array => [
                                         <div class="data-card md:col-span-2">
                                             <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Unit Kerja SILATAR</p>
                                             <p class="mt-1.5 text-sm leading-6 text-slate-200" x-text="preview.unit_label || '-'"></p>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="mb-2 block text-sm font-semibold text-slate-200">Role Akun</label>
+                                            <select name="role" x-model="selectedRole" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20">
+                                                <option value="panitia">Panitia</option>
+                                                <option value="admin">Admin</option>
+                                            </select>
                                         </div>
                                         <div class="md:col-span-2">
                                             <label class="mb-2 block text-sm font-semibold text-slate-200">Hak Akses Golongan</label>
@@ -476,6 +487,7 @@ $committeePayload = $committees->map(fn ($committee): array => [
                 nip: initialState.initialNip || '',
                 selectedCategoryIds: Array.isArray(initialState.initialCategoryIds) ? initialState.initialCategoryIds : [],
                 selectedDistrictIds: Array.isArray(initialState.initialDistrictIds) ? initialState.initialDistrictIds : [],
+                selectedRole: 'panitia',
                 categorySearch: '',
                 districtSearch: '',
                 previewOpen: false,

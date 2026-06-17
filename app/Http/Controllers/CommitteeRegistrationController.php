@@ -28,7 +28,7 @@ class CommitteeRegistrationController extends Controller
 
         $committees = User::query()
             ->with(['categoryAccesses.category', 'districtAccesses.district'])
-            ->where('role', 'panitia')
+            ->whereIn('role', ['panitia', 'admin'])
             ->orderBy('name')
             ->get();
 
@@ -85,6 +85,7 @@ class CommitteeRegistrationController extends Controller
 
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:32'],
+            'role' => ['required', 'string', 'in:admin,panitia'],
             'category_ids' => ['nullable', 'array'],
             'category_ids.*' => ['required', 'integer', 'exists:competition_categories,id'],
             'district_ids' => ['nullable', 'array'],
@@ -105,6 +106,7 @@ class CommitteeRegistrationController extends Controller
 
         $categories = $this->validatedCategories((array) ($validated['category_ids'] ?? []));
         $districts = $this->validatedDistricts((array) ($validated['district_ids'] ?? []));
+        $selectedRole = (string) ($validated['role'] ?? 'panitia');
 
         $silatarUserId = (int) data_get($employee, 'id', 0);
         $nomorInduk = (string) data_get($employee, 'nomor_induk', $nip);
@@ -114,21 +116,21 @@ class CommitteeRegistrationController extends Controller
             ->when($silatarUserId > 0, fn ($query) => $query->orWhere('silatar_user_id', $silatarUserId))
             ->first();
 
-        if ($existing && $existing->role !== 'panitia') {
+        if ($existing && ! in_array($existing->role, ['panitia', 'admin'])) {
             return back()
                 ->withInput()
-                ->withErrors(['nip' => 'NIP ini sudah terdaftar pada akun '.$existing->roleLabel().' sehingga tidak bisa didaftarkan ulang sebagai panitia.']);
+                ->withErrors(['nip' => 'NIP ini sudah terdaftar pada akun '.$existing->roleLabel().' sehingga tidak bisa didaftarkan ulang sebagai admin/panitia.']);
         }
 
         $generatedPassword = $this->generateSimplePassword();
         $profilePhotoPath = $this->syncProfilePhoto($employee, $existing?->profile_photo_path);
         $payload = [
-            'name' => (string) data_get($employee, 'name', 'Panitia SILATAR'),
-            'email' => $this->resolveEmail($employee, $nomorInduk, $silatarUserId, 'panitia'),
+            'name' => (string) data_get($employee, 'name', 'SILATAR'),
+            'email' => $this->resolveEmail($employee, $nomorInduk, $silatarUserId, $selectedRole),
             'phone' => $this->normalizePhoneNumber((string) data_get($employee, 'telp', '')),
             'nomor_induk' => $nomorInduk,
             'silatar_user_id' => $silatarUserId > 0 ? $silatarUserId : null,
-            'role' => 'panitia',
+            'role' => $selectedRole,
             'district_id' => null,
         ];
 
@@ -153,15 +155,17 @@ class CommitteeRegistrationController extends Controller
                 $generatedPassword,
                 $categories->map(fn (CompetitionCategory $category): string => trim($category->branch.' - '.$category->name))->all(),
                 $districts->pluck('name')->all(),
+                $selectedRole,
             );
 
             ActivityLogger::log(
                 'user.committee.created',
-                (auth()->user()?->name ?? 'Admin').' membuat akun panitia '.$committee->name.'.',
+                (auth()->user()?->name ?? 'Admin').' membuat akun '.$selectedRole.' '.$committee->name.'.',
                 $committee,
                 [
                     'committee_id' => $committee->id,
                     'committee_name' => $committee->name,
+                    'role' => $selectedRole,
                     'categories' => $categories->map(fn (CompetitionCategory $category): string => trim($category->branch.' - '.$category->name))->values()->all(),
                     'districts' => $districts->pluck('name')->values()->all(),
                     'whatsapp_sent' => $whatsappSent,
@@ -171,13 +175,14 @@ class CommitteeRegistrationController extends Controller
             return redirect()
                 ->route('committees.index')
                 ->with('status', $whatsappSent
-                    ? 'Panitia berhasil didaftarkan dari SILATAR dan pesan WhatsApp sudah dikirim.'
-                    : 'Panitia berhasil didaftarkan dari SILATAR, tetapi pesan WhatsApp belum berhasil dikirim.')
+                    ? 'Akun '.$selectedRole.' berhasil didaftarkan dari SILATAR dan pesan WhatsApp sudah dikirim.'
+                    : 'Akun '.$selectedRole.' berhasil didaftarkan dari SILATAR, tetapi pesan WhatsApp belum berhasil dikirim.')
                 ->with('generated_credentials', [
                     'name' => $payload['name'],
                     'email' => $payload['email'],
                     'phone' => $payload['phone'],
                     'nomor_induk' => $payload['nomor_induk'],
+                    'role' => $selectedRole,
                     'categories' => $categories->map(fn (CompetitionCategory $category): string => trim($category->branch.' - '.$category->name))->all(),
                     'districts' => $districts->pluck('name')->all(),
                     'password' => $generatedPassword,
@@ -196,7 +201,7 @@ class CommitteeRegistrationController extends Controller
 
         ActivityLogger::log(
             'user.committee.updated',
-            (auth()->user()?->name ?? 'Admin').' memperbarui data panitia '.$existing->name.'.',
+            (auth()->user()?->name ?? 'Admin').' memperbarui data '.$existing->role.' '.$existing->name.'.',
             $existing,
             [
                 'committee_id' => $existing->id,
@@ -208,13 +213,13 @@ class CommitteeRegistrationController extends Controller
 
         return redirect()
             ->route('committees.index')
-            ->with('status', 'Data panitia beserta hak akses golongan dan kecamatan verifikator berhasil diperbarui dari SILATAR. Password akun lama tetap dipertahankan.');
+            ->with('status', 'Data '.$selectedRole.' beserta hak akses golongan dan kecamatan verifikator berhasil diperbarui dari SILATAR. Password akun lama tetap dipertahankan.');
     }
 
     public function updateBranches(Request $request, User $committee): RedirectResponse
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
-        abort_unless($committee->role === 'panitia', 404);
+        abort_unless(in_array($committee->role, ['panitia', 'admin']), 404);
 
         $validated = $request->validate([
             'category_ids' => ['nullable', 'array'],
@@ -255,15 +260,16 @@ class CommitteeRegistrationController extends Controller
     public function destroy(User $committee): RedirectResponse
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
-        abort_unless($committee->role === 'panitia', 404);
+        abort_unless(in_array($committee->role, ['panitia', 'admin']), 404);
 
         if ($committee->is(auth()->user())) {
-            return back()->withErrors(['committee' => 'Akun panitia yang sedang dipakai tidak bisa dihapus.']);
+            return back()->withErrors(['committee' => 'Akun '.$committee->role.' yang sedang dipakai tidak bisa dihapus.']);
         }
 
         $profilePhotoPath = (string) ($committee->profile_photo_path ?? '');
         $committeeName = $committee->name;
         $committeeId = $committee->id;
+        $committeeRole = $committee->role;
         $committee->categoryAccesses()->delete();
         $committee->districtAccesses()->delete();
         $committee->delete();
@@ -274,7 +280,7 @@ class CommitteeRegistrationController extends Controller
 
         ActivityLogger::log(
             'user.committee.deleted',
-            (auth()->user()?->name ?? 'Admin').' menghapus akun panitia '.$committeeName.'.',
+            (auth()->user()?->name ?? 'Admin').' menghapus akun '.$committeeRole.' '.$committeeName.'.',
             $committee,
             [
                 'committee_id' => $committeeId,
@@ -284,7 +290,7 @@ class CommitteeRegistrationController extends Controller
 
         return redirect()
             ->route('committees.index')
-            ->with('status', 'Akun panitia '.$committeeName.' berhasil dihapus.');
+            ->with('status', 'Akun '.$committeeRole.' '.$committeeName.' berhasil dihapus.');
     }
 
     private function fetchSilatarEmployee(string $nip): ?array

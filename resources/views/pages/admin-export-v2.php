@@ -27,6 +27,7 @@ $branches = $branches ?? [];
         .glow-emerald { box-shadow: 0 0 20px rgba(52, 211, 153, 0.15), 0 0 40px rgba(52, 211, 153, 0.05); }
         .glow-amber { box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 0 40px rgba(251, 191, 36, 0.05); }
         .glow-rose { box-shadow: 0 0 20px rgba(251, 113, 133, 0.15), 0 0 40px rgba(251, 113, 133, 0.05); }
+        .glow-violet { box-shadow: 0 0 20px rgba(167, 139, 250, 0.15), 0 0 40px rgba(167, 139, 250, 0.05); }
         .gradient-text {
             background: linear-gradient(135deg, #22d3ee 0%, #34d399 50%, #a78bfa 100%);
             -webkit-background-clip: text;
@@ -122,14 +123,14 @@ $branches = $branches ?? [];
                 </form>
             </div>
 
-            <!-- Download Kokarde -->
+            <!-- Download Kokarde Peserta -->
             <div class="export-card glass-card rounded-3xl p-6 glow-amber">
                 <div class="mb-4 flex items-center gap-3">
                     <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400/20">
                         <?= mtq_icon('award', 'h-6 w-6 text-amber-300') ?>
                     </div>
                     <div>
-                        <h3 class="text-lg font-bold text-white">Download Kokarde</h3>
+                        <h3 class="text-lg font-bold text-white">Download Kokarde Peserta</h3>
                         <p class="text-xs text-slate-400">Semua Peserta</p>
                     </div>
                 </div>
@@ -155,9 +156,30 @@ $branches = $branches ?? [];
                     </div>
                     <button type="submit" class="primary-button w-full justify-center px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-400/20">
                         <?= mtq_icon('award', 'h-4 w-4') ?>
-                        Download Kokarde
+                        Download Kokarde Peserta
                     </button>
                 </form>
+            </div>
+
+            <!-- Download KokardePanitia -->
+            <div class="export-card glass-card rounded-3xl p-6 glow-violet">
+                <div class="mb-4 flex items-center gap-3">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/20">
+                        <?= mtq_icon('users', 'h-6 w-6 text-violet-300') ?>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Download KokardePanitia</h3>
+                        <p class="text-xs text-slate-400">Admin &Panitia</p>
+                    </div>
+                </div>
+                <p class="mb-4 text-sm text-slate-300">
+                    Download kokarde untuk seluruh admin dan panitia MTQ yang sudah terdaftar.
+                </p>
+                <a href="<?= e(route('admin.export.kokarde.committee.page')) ?>"
+                   class="primary-button w-full justify-center px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-400 hover:to-purple-400 shadow-lg shadow-violet-400/20">
+                    <?= mtq_icon('users', 'h-4 w-4') ?>
+                    Download Kokarde Panitia
+                </a>
             </div>
 
             <!-- Export PDF Peserta -->

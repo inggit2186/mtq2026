@@ -20,9 +20,9 @@ class WhatsAppRegistrationSender
      * @param  array<int, string>  $categories
      * @param  array<int, string>  $districts
      */
-    public static function sendCommitteeWelcome(User $user, string $password, array $categories, array $districts): bool
+    public static function sendCommitteeWelcome(User $user, string $password, array $categories, array $districts, string $role = 'panitia'): bool
     {
-        $message = self::buildCommitteeWelcomeMessage($user, $password, $categories, $districts);
+        $message = self::buildCommitteeWelcomeMessage($user, $password, $categories, $districts, $role);
 
         return self::sendMessage((string) ($user->phone ?? ''), $message);
     }
@@ -67,22 +67,22 @@ class WhatsAppRegistrationSender
      * @param  array<int, string>  $categories
      * @param  array<int, string>  $districts
      */
-    private static function buildCommitteeWelcomeMessage(User $user, string $password, array $categories, array $districts): string
+    private static function buildCommitteeWelcomeMessage(User $user, string $password, array $categories, array $districts, string $role = 'panitia'): string
     {
         $websiteUrl = rtrim((string) config('app.url'), '/');
+        $roleLabel = ucfirst($role);
 
         return implode("\n", [
             '*Assalamu\'alaikum warahmatullahi wabarakatuh.*',
             '',
-            'Selamat, akun panitia e-MTQ Anda sudah berhasil didaftarkan.',
+            'Selamat, akun '.$roleLabel.' e-MTQ Anda sudah berhasil didaftarkan.',
             '',
             '*Website e-MTQ*',
             $websiteUrl !== '' ? $websiteUrl : '-',
             '',
-            '',
             '*Data Akun*',
             '- Nama: '.($user->name ?: '-'),
-            '- Role: Panitia',
+            '- Role: '.$roleLabel,
             '- NIP/Nomor Induk: '.($user->nomor_induk ?: '-'),
             '- Email: '.($user->email ?: '-'),
             '- Password: *'.$password.'*',
