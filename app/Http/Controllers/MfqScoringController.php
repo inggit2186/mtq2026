@@ -119,17 +119,26 @@ class MfqScoringController extends Controller
         }
 
         // Get completed sessions and rankings for the selected category
-        $completedSessions = collect();
-        $rankingsData = collect();
+        $completedSessionsByRound = ['Penyisihan' => collect(), 'Final' => collect()];
+        $rankingsDataByRound = ['Penyisihan' => collect(), 'Final' => collect()];
         $displayedLotNumbers = []; // Lot numbers that have been displayed in previous sessions
 
         if ($categoryId) {
-            $completedSessions = MfqSession::with(['category', 'creator'])
+            $allCompletedSessions = MfqSession::with(['category', 'creator'])
                 ->where('competition_category_id', $categoryId)
                 ->where('status', 'completed')
                 ->orderByDesc('created_at')
                 ->limit(20)
                 ->get();
+
+            // Group by round
+            foreach ($allCompletedSessions as $session) {
+                $round = $session->round ?? 'Penyisihan';
+                if (!isset($completedSessionsByRound[$round])) {
+                    $completedSessionsByRound[$round] = collect();
+                }
+                $completedSessionsByRound[$round]->push($session);
+            }
 
             // Get lot numbers that have been displayed in previous sessions
             // (same category, same round, but different session)
@@ -154,54 +163,61 @@ class MfqScoringController extends Controller
                 }
             }
 
-            // Build rankings by district/lot number
-            $results = MfqResult::with(['participant.district', 'session'])
-                ->whereIn('mfq_session_id', $completedSessions->pluck('id'))
-                ->get();
+            // Build rankings by district/lot number for each round
+            foreach ($completedSessionsByRound as $round => $sessions) {
+                if ($sessions->isEmpty()) continue;
 
-            // Group by district
-            $rankingsByDistrict = $results->groupBy(fn ($r) => $r->participant->district_id)->map(function ($districtResults) {
-                $district = $districtResults->first()->participant->district;
-                $districtName = $district?->name ?? 'Tanpa Kecamatan';
+                $results = MfqResult::with(['participant.district', 'session'])
+                    ->whereIn('mfq_session_id', $sessions->pluck('id'))
+                    ->get();
 
-                // Get all lot numbers in this district across sessions
-                $lotNumbers = $districtResults->map(fn ($r) => $r->participant->lot_number)->filter()->unique()->values();
+                // Group by district
+                $rankingsByDistrict = $results->groupBy(fn ($r) => $r->participant->district_id)->map(function ($districtResults) use ($round) {
+                    $district = $districtResults->first()->participant->district;
+                    $districtName = $district?->name ?? 'Tanpa Kecamatan';
 
-                // Calculate points per session
-                $sessionPoints = [];
-                foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
-                    $sessionResults->sortBy('rank');
-                    foreach ($sessionResults as $rank) {
-                        $point = match ($rank->rank) {
-                            1 => 3,
-                            2 => 2,
-                            3 => 1,
-                            default => 0,
-                        };
-                        $sessionPoints[$sessionId] = ($sessionPoints[$sessionId] ?? 0) + $point;
+                    // Get all lot numbers in this district across sessions
+                    $lotNumbers = $districtResults->map(fn ($r) => $r->participant->lot_number)->filter()->unique()->values();
+
+                    // Calculate points per session
+                    $sessionPoints = [];
+                    foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
+                        $sessionResults->sortBy('rank');
+                        foreach ($sessionResults as $rank) {
+                            $point = match ($rank->rank) {
+                                1 => 3,
+                                2 => 2,
+                                3 => 1,
+                                default => 0,
+                            };
+                            $sessionPoints[$sessionId] = ($sessionPoints[$sessionId] ?? 0) + $point;
+                        }
                     }
-                }
 
-                // Get best scores per session
-                $sessionScores = [];
-                foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
-                    $sessionScores[$sessionId] = $sessionResults->sortByDesc('total_score')->first()->total_score ?? 0;
-                }
+                    // Get best scores per session
+                    $sessionScores = [];
+                    foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
+                        $sessionScores[$sessionId] = $sessionResults->sortByDesc('total_score')->first()->total_score ?? 0;
+                    }
 
-                return [
-                    'district_id' => $district->id ?? 0,
-                    'district_name' => $districtName,
-                    'lot_numbers' => $lotNumbers->toArray(),
-                    'session_points' => $sessionPoints,
-                    'total_points' => array_sum($sessionPoints),
-                    'session_scores' => $sessionScores,
-                    'total_score' => array_sum($sessionScores),
-                    'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
-                ];
-            })->filter()->sortByDesc('total_points')->values();
+                    return [
+                        'district_id' => $district->id ?? 0,
+                        'district_name' => $districtName,
+                        'lot_numbers' => $lotNumbers->toArray(),
+                        'session_points' => $sessionPoints,
+                        'total_points' => array_sum($sessionPoints),
+                        'session_scores' => $sessionScores,
+                        'total_score' => array_sum($sessionScores),
+                        'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
+                    ];
+                })->filter()->sortByDesc('total_score')->values();
 
-            $rankingsData = $rankingsByDistrict;
+                $rankingsDataByRound[$round] = $rankingsByDistrict;
+            }
         }
+
+        $completedSessions = $completedSessionsByRound;
+        $rankingsData = $rankingsDataByRound;
 
         return view('pages.scoring-mfq-new', [
             'assets' => app(PageController::class)->viteAssets(),
