@@ -50,7 +50,20 @@ if (! function_exists('mtq_icon')) {
             'check' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"/>',
             'info' => '<circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8h.01"/>',
             'send' => '<path stroke-linecap="round" stroke-linejoin="round" d="m22 2-7 20-4-9-9-4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M22 2 11 13"/>',
-            'map' => '<path stroke-linecap="round" stroke-linejoin="round" d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3-6-3V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 4v13"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 7v13"/>',
+            'map' => '<path stroke-linecap="round" stroke-linejoin="round" d="m3 7 6-3 3 6 3 6-3v13l-6 3-6-3-6 3V7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 4v13"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 7v13"/>',
+            'crown' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2 17l3-7 5 4 2-8 2 8 5-4 3 7H2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2 17v4h20v-4"/><circle cx="12" cy="8" r="2"/>',
+            'medal-gold' => '<circle cx="12" cy="14" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7V3l3 3 4-1-2 5h4l-4 5"/>',
+            'medal-silver' => '<circle cx="12" cy="14" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7V3l3 3 4-1-2 5h4l-4 5"/>',
+            'medal-bronze' => '<circle cx="12" cy="14" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7V3l3 3 4-1-2 5h4l-4 5"/>',
+            'gender-male' => '<circle cx="10" cy="14" r="4"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 10V6"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 10h8"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 14l4-4"/>',
+            'gender-female' => '<circle cx="12" cy="10" r="4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14v6"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 6h8"/>',
+            'fire' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 22c-4 0-7-3-7-7 0-2 1-4 2-5l1-1c1-1 2-3 2-5 0 2 1 4 3 6 0-3 2-5 2-8 3 3 5 7 5 12 0 4-3 8-8 8Z"/>',
+            'star' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 2l3.1 6.3 7 1-5 4.9 1.2 6.8L12 17.8l-6.3 3.2L9 14.2 4 9.3l7-1L12 2Z"/>',
+            'trophy-gold' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 17v4"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 6H5a2 2 0 0 0-2 2 5 5 0 0 0 5 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M17 6h2a2 2 0 0 1 2 2 5 5 0 0 1-5 5"/>',
+            'chart-bar' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 20V10"/><path stroke-linecap="round" stroke-linejoin="round" d="M18 20V4"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 20v-4"/>',
+            'award' => '<circle cx="12" cy="8" r="6"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14v8"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8"/><path stroke-linecap="round" stroke-linejoin="round" d="m9 12 2 2 4-4"/>',
+            'target' => '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+            'search' => '<circle cx="11" cy="11" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35"/>',
         ];
 
         $svg = $icons[$name] ?? $icons['spark'];

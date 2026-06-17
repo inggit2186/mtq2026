@@ -6,6 +6,7 @@ use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\Hakim;
+use App\Models\MfqDraft;
 use App\Models\MfqResult;
 use App\Models\MfqSession;
 use App\Models\Participant;
@@ -64,6 +65,14 @@ class MfqScoringController extends Controller
             ->limit(10)
             ->get();
 
+            \Log::info($sessions->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'category' => $s->category?->branch.' - '.$s->category?->name,
+                'round' => $s->round,
+                'district_ids' => $s->district_ids,
+                'status' => $s->status,
+            ]));
         // Get participants grouped by district
         $categoryId = $request->query('competition_category_id')
             ?? ($activeSession?->competition_category_id);
@@ -162,13 +171,13 @@ class MfqScoringController extends Controller
                     $displayedLotNumbers = $displayedParticipants;
                 }
             }
-
+            \log::info('$sessions 1: ' . $sessions->count());
             // Build rankings by district/lot number for each round
-            foreach ($completedSessionsByRound as $round => $sessions) {
-                if ($sessions->isEmpty()) continue;
+            foreach ($completedSessionsByRound as $round => $roundSessions) {
+                if ($roundSessions->isEmpty()) continue;
 
                 $results = MfqResult::with(['participant.district', 'session'])
-                    ->whereIn('mfq_session_id', $sessions->pluck('id'))
+                    ->whereIn('mfq_session_id', $roundSessions->pluck('id'))
                     ->get();
 
                 // Group by district
@@ -179,9 +188,13 @@ class MfqScoringController extends Controller
                     // Get all lot numbers in this district across sessions
                     $lotNumbers = $districtResults->map(fn ($r) => $r->participant->lot_number)->filter()->unique()->values();
 
-                    // Calculate points per session
+                    // Get session names for display
+                    $sessionNames = [];
                     $sessionPoints = [];
                     foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
+                        $session = $sessionResults->first()->session;
+                        $sessionNames[$sessionId] = $session?->name ?? 'Sesi ' . $sessionId;
+
                         $sessionResults->sortBy('rank');
                         foreach ($sessionResults as $rank) {
                             $point = match ($rank->rank) {
@@ -204,16 +217,18 @@ class MfqScoringController extends Controller
                         'district_id' => $district->id ?? 0,
                         'district_name' => $districtName,
                         'lot_numbers' => $lotNumbers->toArray(),
+                        'session_names' => $sessionNames,
                         'session_points' => $sessionPoints,
                         'total_points' => array_sum($sessionPoints),
                         'session_scores' => $sessionScores,
                         'total_score' => array_sum($sessionScores),
                         'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
                     ];
-                })->filter()->sortByDesc('total_score')->values();
+                })->filter()->values();
 
                 $rankingsDataByRound[$round] = $rankingsByDistrict;
             }
+            \log::info('$sessions 2: ' . $sessions->count());
         }
 
         $completedSessions = $completedSessionsByRound;
@@ -519,42 +534,63 @@ class MfqScoringController extends Controller
             ];
         }
 
-        // Store score entry
-        \Log::info('MFQ StoreScore - Creating ScoreEntry for participant: ' . $participant->id . ', score: ' . $totalScore);
+        // IDEMPOTENCY: Find existing score entry for this session + participant + judge
+        // This prevents duplicate entries if the user submits multiple times
+        $existingEntry = ScoreEntry::where('participant_id', $participant->id)
+            ->where('judge_name', $validated['judge_name'])
+            ->get()
+            ->first(function ($entry) use ($sessionId) {
+                $scores = $entry->scores;
+                return is_array($scores) && ($scores['session_id'] ?? null) == $sessionId;
+            });
+
+        $scoreData = [
+            'participant_id' => $participant->id,
+            'judge_name' => $validated['judge_name'],
+            'score' => $totalScore,
+            'scores' => [
+                'session_id' => $session->id,
+                'session_name' => $session->name,
+                'round' => $session->round,
+                'category' => $session->category?->branch.' - '.$session->category?->name,
+                'participant_name' => $participant->name,
+                'district_name' => $participant->district?->name,
+            ],
+            'score_breakdown' => [
+                'type' => 'MFQ',
+                'summary' => [
+                    'total_questions' => count($questions),
+                    'total_score' => $totalScore,
+                    'package_total' => $packageTotal,
+                    'throw_totals' => $throwTotals,
+                    'rebuttal_total' => $rebuttalTotal,
+                ],
+                'questions' => $questions,
+            ],
+            'submitted_at' => Carbon::now(),
+        ];
 
         try {
-            $scoreEntry = ScoreEntry::create([
-                'participant_id' => $participant->id,
-                'judge_name' => $validated['judge_name'],
-                'score' => $totalScore,
-                'scores' => [
-                    'session_id' => $session->id,
-                    'session_name' => $session->name,
-                    'round' => $session->round,
-                    'category' => $session->category?->branch.' - '.$session->category?->name,
-                    'participant_name' => $participant->name,
-                    'district_name' => $participant->district?->name,
-                ],
-                'score_breakdown' => [
-                    'type' => 'MFQ',
-                    'summary' => [
-                        'total_questions' => count($questions),
-                        'total_score' => $totalScore,
-                        'package_total' => $packageTotal,
-                        'throw_totals' => $throwTotals,
-                        'rebuttal_total' => $rebuttalTotal,
-                    ],
-                    'questions' => $questions,
-                ],
-                'submitted_at' => Carbon::now(),
-            ]);
-            \Log::info('MFQ StoreScore - ScoreEntry created with ID: ' . $scoreEntry->id);
+            if ($existingEntry) {
+                // UPDATE existing entry (idempotent - safe to retry)
+                $existingEntry->update($scoreData);
+                $scoreEntry = $existingEntry;
+                \Log::info('MFQ StoreScore - ScoreEntry UPDATED with ID: ' . $scoreEntry->id);
+            } else {
+                // CREATE new entry
+                $scoreEntry = ScoreEntry::create($scoreData);
+                \Log::info('MFQ StoreScore - ScoreEntry CREATED with ID: ' . $scoreEntry->id);
+            }
         } catch (\Exception $e) {
-            \Log::error('MFQ StoreScore - Failed to create ScoreEntry: ' . $e->getMessage());
+            \Log::error('MFQ StoreScore - Failed to save ScoreEntry: ' . $e->getMessage());
             throw $e;
         }
 
-        RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
+        // Delete any draft for this entry
+        MfqDraft::forEntry($sessionId, $participant->id, $validated['judge_name'])->delete();
+
+        // Broadcast disabled - hanya untuk MFQ
+        // RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
 
         ActivityLogger::log(
             'scoring.mfq.score_created',
@@ -571,6 +607,98 @@ class MfqScoringController extends Controller
         return redirect()
             ->back()
             ->with('status', 'Nilai untuk '.$participant->name.' berhasil disimpan.');
+    }
+
+    /**
+     * Auto-save draft to server (for recovery if connection fails)
+     */
+    public function saveDraft(Request $request, int $sessionId): \Illuminate\Http\JsonResponse
+    {
+        $session = MfqSession::findOrFail($sessionId);
+
+        if ($session->status !== 'active') {
+            return response()->json(['success' => false, 'message' => 'Sesi sudah tidak aktif'], 400);
+        }
+
+        $validated = $request->validate([
+            'participant_id' => ['required', 'exists:participants,id'],
+            'judge_name' => ['required', 'string', 'max:80'],
+            'questions' => ['required', 'array'],
+            'totals' => ['required', 'array'],
+        ]);
+
+        $participant = Participant::findOrFail($validated['participant_id']);
+
+        // Verify participant belongs to this session's districts
+        if (! in_array($participant->district_id, $session->district_ids ?? [])) {
+            return response()->json(['success' => false, 'message' => 'Peserta tidak termasuk dalam sesi ini'], 400);
+        }
+
+        // Upsert draft - idempotent based on unique constraint
+        $draft = MfqDraft::updateOrCreate(
+            [
+                'mfq_session_id' => $sessionId,
+                'participant_id' => $participant->id,
+                'judge_name' => $validated['judge_name'],
+            ],
+            [
+                'questions_data' => $validated['questions'],
+                'totals' => $validated['totals'],
+            ]
+        );
+
+        \Log::info('MFQ SaveDraft - Draft saved for participant: ' . $participant->id . ', session: ' . $sessionId);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Draft tersimpan',
+            'draft_id' => $draft->id,
+            'saved_at' => $draft->updated_at->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Get all drafts for a session (for recovery on page load)
+     */
+    public function getDrafts(int $sessionId): \Illuminate\Http\JsonResponse
+    {
+        $session = MfqSession::findOrFail($sessionId);
+
+        $drafts = MfqDraft::with('participant:id,name,district_id')
+            ->where('mfq_session_id', $sessionId)
+            ->get()
+            ->map(function ($draft) {
+                return [
+                    'id' => $draft->id,
+                    'participant_id' => $draft->participant_id,
+                    'participant_name' => $draft->participant?->name,
+                    'judge_name' => $draft->judge_name,
+                    'questions' => $draft->questions_data,
+                    'totals' => $draft->totals,
+                    'is_finalized' => $draft->isFinalized(),
+                    'saved_at' => $draft->updated_at->toIso8601String(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'session_id' => $sessionId,
+            'drafts' => $drafts,
+        ]);
+    }
+
+    /**
+     * Delete a specific draft
+     */
+    public function deleteDraft(int $sessionId, int $draftId): \Illuminate\Http\JsonResponse
+    {
+        $draft = MfqDraft::where('id', $draftId)
+            ->where('mfq_session_id', $sessionId)
+            ->firstOrFail();
+
+        $draft->delete();
+
+        return response()->json(['success' => true, 'message' => 'Draft dihapus']);
     }
 
     public function completeSession(Request $request, int $sessionId): RedirectResponse

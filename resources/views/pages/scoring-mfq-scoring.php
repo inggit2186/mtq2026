@@ -369,6 +369,42 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 </div>
 
                 <div class="flex items-center gap-4">
+                    <!-- Auto-save Status -->
+                    <div class="stat-card rounded-2xl px-4 py-3 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl"
+                             :class="draftSaveError ? 'bg-rose-400/20' : (isSavingDraft ? 'bg-amber-400/20' : 'bg-emerald-400/20')">
+                            <template x-if="isSavingDraft">
+                                <svg class="animate-spin h-5 w-5 text-amber-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </template>
+                            <template x-if="!isSavingDraft && draftSaveError">
+                                <?php echo mtq_icon('alert-triangle', 'h-5 w-5 text-rose-300'); ?>
+                            </template>
+                            <template x-if="!isSavingDraft && !draftSaveError && lastDraftSave">
+                                <?php echo mtq_icon('check-circle', 'h-5 w-5 text-emerald-300'); ?>
+                            </template>
+                            <template x-if="!isSavingDraft && !draftSaveError && !lastDraftSave">
+                                <?php echo mtq_icon('cloud', 'h-5 w-5 text-slate-400'); ?>
+                            </template>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-slate-400">
+                                <span x-show="isSavingDraft">Menyimpan...</span>
+                                <span x-show="!isSavingDraft && draftSaveError">Offline</span>
+                                <span x-show="!isSavingDraft && !draftSaveError && lastDraftSave">Tersimpan</span>
+                                <span x-show="!isSavingDraft && !draftSaveError && !lastDraftSave">Auto-save</span>
+                            </p>
+                            <p x-show="!isSavingDraft && !draftSaveError && lastDraftSave"
+                               x-text="lastDraftSave ? 'Terakhir: ' + lastDraftSave.toLocaleTimeString('id-ID') : ''"
+                               class="text-[10px] text-slate-500"></p>
+                            <p x-show="!isSavingDraft && draftSaveError" class="text-[10px] text-rose-400">
+                                <span x-text="draftSaveError"></span>
+                            </p>
+                        </div>
+                    </div>
+
                     <div class="stat-card rounded-2xl px-5 py-3">
                         <div class="flex items-center gap-3">
                             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/20">
@@ -397,6 +433,14 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 </div>
             </div>
         </header>
+
+        <!-- Data Safety Notice -->
+        <div class="mb-6 rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/10 to-sky-500/10 px-5 py-3 flex items-center gap-3">
+            <?php echo mtq_icon('shield', 'h-5 w-5 text-cyan-300 shrink-0'); ?>
+            <p class="text-sm text-cyan-200">
+                <strong>Pengaman Data:</strong> Nilai tersimpan otomatis di browser Anda. Refresh/hubungi admin jika terjadi error.
+            </p>
+        </div>
 
         <!-- Toolbar Section -->
         <div class="mb-6 rounded-2xl glass-card px-5 py-4">
@@ -692,22 +736,273 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
             districts: <?php echo $districtCardsJson; ?>,
             showRankingModal: false,
             isSubmitting: false,
+            isSavingDraft: false,
+            lastDraftSave: null,
+            draftSaveError: null,
+            pendingCount: 0,
+            autoSaveInterval: null,
             participantsByDistrict: <?php echo $participantsByDistrictJson; ?>,
 
             init: function() {
+                var self = this;
                 this.questions = [];
                 this.generateInitialQuestions();
+
+                // Try localStorage first
                 var stored = this.getFromStorage();
                 if (stored && stored.questions && stored.questions.length > 0) {
                     this.questions = stored.questions;
                 }
+
+                // Then try server drafts for recovery
+                this.fetchServerDrafts();
+
                 if (this.judges && this.judges.length > 0) {
                     this.activeJudge = this.judges[0];
                 }
+
                 this.recalculateAll();
+
+                // Start auto-save interval (every 30 seconds)
+                this.startAutoSave();
             },
 
             judges: <?php echo $judgesJson; ?>,
+
+            // Start auto-save interval
+            startAutoSave: function() {
+                var self = this;
+                if (this.autoSaveInterval) {
+                    clearInterval(this.autoSaveInterval);
+                }
+                this.autoSaveInterval = setInterval(function() {
+                    self.autoSaveAllDrafts();
+                }, 30000); // Every 30 seconds
+            },
+
+            // Stop auto-save interval
+            stopAutoSave: function() {
+                if (this.autoSaveInterval) {
+                    clearInterval(this.autoSaveInterval);
+                    this.autoSaveInterval = null;
+                }
+            },
+
+            // Fetch drafts from server for recovery
+            fetchServerDrafts: function() {
+                var self = this;
+                if (!this.sessionId) return;
+
+                fetch('/penilaian/mfq/sesi/' + this.sessionId + '/draft')
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.success && data.drafts && data.drafts.length > 0) {
+                            // Find draft for current judge
+                            var judgeDraft = data.drafts.find(function(d) {
+                                return d.judge_name === self.activeJudge;
+                            });
+
+                            if (judgeDraft && judgeDraft.questions && judgeDraft.questions.length > 0) {
+                                // Check if local draft is newer than server draft
+                                var stored = self.getFromStorage();
+                                var serverTime = new Date(judgeDraft.saved_at).getTime();
+                                var localTime = stored && stored.savedAt ? stored.savedAt : 0;
+
+                                if (serverTime > localTime) {
+                                    // Server draft is newer - prompt user to recover
+                                    if (confirm('Ditemukan draft tersimpan di server dari ' + new Date(serverTime).toLocaleString('id-ID') + '. Apakah ingin memulihkan?')) {
+                                        self.restoreFromServerDraft(judgeDraft);
+                                    }
+                                }
+                            }
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error fetching server drafts:', error);
+                    });
+            },
+
+            // Restore questions from server draft
+            restoreFromServerDraft: function(draft) {
+                if (!draft.questions || !draft.questions.length) return;
+
+                // Map server draft to local questions format
+                var self = this;
+                var serverQuestions = draft.questions;
+                var localQuestions = [];
+
+                this.districts.forEach(function(district) {
+                    var oppCount = self.getOpponentCount(district.district_id);
+
+                    // Try to match server questions to local format
+                    var districtServerQs = serverQuestions.filter(function(q) {
+                        return q.districtId === district.district_id || q.district_id === district.district_id;
+                    });
+
+                    if (districtServerQs.length > 0) {
+                        districtServerQs.forEach(function(sq, idx) {
+                            var q = {
+                                id: 'q-' + district.district_id + '-' + Date.now() + '-' + idx,
+                                districtId: district.district_id,
+                                paket: sq.paket || sq.package_score || 0,
+                                rebutan: sq.rebutan || sq.rebuttal_score || 0,
+                                rowTotal: sq.rowTotal || sq.row_total || 0
+                            };
+                            for (var i = 1; i <= oppCount; i++) {
+                                q['lontaran' + i] = sq['lontaran' + i] || sq['throw_' + i] || 0;
+                            }
+                            localQuestions.push(q);
+                        });
+                    }
+
+                    // Fill remaining with empty questions if needed
+                    var currentCount = localQuestions.filter(function(q) { return q.districtId === district.district_id; }).length;
+                    for (var i = currentCount; i < 12; i++) {
+                        var q = { id: 'q-' + district.district_id + '-' + Date.now() + '-' + (i + 100), districtId: district.district_id, paket: 0, rowTotal: 0 };
+                        for (var j = 1; j <= oppCount; j++) { q['lontaran' + j] = 0; }
+                        q.rebutan = 0;
+                        localQuestions.push(q);
+                    }
+                });
+
+                this.questions = localQuestions;
+                this.recalculateAll();
+                this.saveToStorage();
+                alert('Draft berhasil dipulihkan dari server!');
+            },
+
+            // Auto-save all current questions as draft to server
+            autoSaveAllDrafts: function() {
+                var self = this;
+                if (!this.sessionId || this.isSavingDraft) return;
+
+                // Always save to localStorage first (always works)
+                this.saveToStorage();
+                this.lastDraftSave = new Date();
+
+                // Try to save to server, but don't block or show errors if it fails
+                // This is a best-effort backup that won't interrupt the user
+                this.trySaveDraftsToServer();
+            },
+
+            // Try to save drafts to server (non-blocking, silent failure)
+            trySaveDraftsToServer: function() {
+                var self = this;
+                if (!this.sessionId) return;
+
+                this.districts.forEach(function(district) {
+                    if (!district.representative || !district.representative.id) return;
+
+                    var districtQs = self.questions.filter(function(q) { return q.districtId === district.district_id; });
+                    if (districtQs.length === 0) return;
+
+                    var oppCount = self.getOpponentCount(district.district_id);
+                    var formattedQuestions = districtQs.map(function(q, idx) {
+                        var throws = [];
+                        for (var i = 1; i <= oppCount; i++) {
+                            throws.push(q['lontaran' + i] || 0);
+                        }
+                        return {
+                            label: 'Soal ' + (idx + 1),
+                            districtId: q.districtId,
+                            paket: q.paket || 0,
+                            throw_scores: throws,
+                            rebuttal_score: q.rebutan || 0
+                        };
+                    });
+
+                    var totals = {
+                        total: self.getDistrictTotal(district.district_id),
+                        package: self.getColumnTotal(district.district_id, 'paket'),
+                        rebuttal: self.getColumnTotal(district.district_id, 'rebutan')
+                    };
+
+                    // Fire and forget - save to server silently
+                    self.saveDraftToServerSilent(district.representative.id, self.activeJudge, formattedQuestions, totals);
+                });
+            },
+
+            // Silent server draft save (no UI updates on failure)
+            saveDraftToServerSilent: function(participantId, judgeName, questions, totals) {
+                var fd = new FormData();
+                fd.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+                fd.append('participant_id', participantId);
+                fd.append('judge_name', judgeName);
+                fd.append('questions', JSON.stringify(questions));
+                fd.append('totals', JSON.stringify(totals));
+
+                fetch('/penilaian/mfq/sesi/' + this.sessionId + '/draft', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Server error');
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        console.log('Server draft saved successfully');
+                    }
+                })
+                .catch(function() {
+                    // Silent fail - localStorage backup is already saved
+                });
+            },
+
+            // Save single draft to server (with UI feedback)
+            saveDraftToServer: function(participantId, judgeName, questions, totals) {
+                var self = this;
+                if (!this.sessionId) {
+                    console.warn('Draft save skipped: no sessionId');
+                    return;
+                }
+
+                var fd = new FormData();
+                fd.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+                fd.append('participant_id', participantId);
+                fd.append('judge_name', judgeName);
+                fd.append('questions', JSON.stringify(questions));
+                fd.append('totals', JSON.stringify(totals));
+
+                this.isSavingDraft = true;
+
+                fetch('/penilaian/mfq/sesi/' + this.sessionId + '/draft', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        self.draftSaveError = null;
+                        self.updatePendingCount();
+                    } else {
+                        self.draftSaveError = data.message || 'Gagal menyimpan draft';
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Draft save error:', error);
+                    self.draftSaveError = 'Koneksi terputus';
+                })
+                .finally(function() {
+                    self.isSavingDraft = false;
+                });
+            },
+
+            // Update pending count display
+            updatePendingCount: function() {
+                var self = this;
+                var saved = 0;
+                this.districts.forEach(function(district) {
+                    if (district.representative && district.representative.id) {
+                        var total = self.getDistrictTotal(district.district_id);
+                        if (total > 0) saved++;
+                    }
+                });
+                this.pendingCount = this.districts.length - saved;
+            },
 
             getOpponents: function(districtId) {
                 return this.districts.filter(function(d) { return d.district_id !== districtId; });
@@ -821,7 +1116,12 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 this.recalculateAll();
             },
 
-            saveDraft: function() { this.saveToStorage(); alert('Draft tersimpan!'); },
+            saveDraft: function() {
+                // Save to both localStorage and server
+                this.saveToStorage();
+                this.autoSaveAllDrafts();
+                alert('Draft tersimpan!');
+            },
 
             getStorageKey: function() { return 'mfq_score_v5_' + this.sessionId; },
 
@@ -847,10 +1147,17 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                     return;
                 }
 
+                // CRITICAL: Save to localStorage FIRST as backup before any network request
+                this.saveToStorage();
+                this.stopAutoSave(); // Stop auto-save during submission
+
                 this.isSubmitting = true;
                 var byDistrict = {};
                 filled.forEach(function(q) { if (!byDistrict[q.districtId]) byDistrict[q.districtId] = []; byDistrict[q.districtId].push(q); });
-                var ids = Object.keys(byDistrict), submitted = 0, total = ids.length;
+                var ids = Object.keys(byDistrict);
+                var submitted = 0;
+                var total = ids.length;
+                var errors = [];
 
                 ids.forEach(function(districtId) {
                     var qs = byDistrict[districtId], district = null;
@@ -875,22 +1182,71 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
 
                     fetch('/penilaian/mfq/sesi/' + self.sessionId + '/nilai', { method: 'POST', body: fd })
                     .then(function(response) {
+                        if (!response.ok) {
+                            throw new Error('HTTP ' + response.status);
+                        }
                         submitted++;
                         if (submitted === total) {
-                            localStorage.removeItem(self.getStorageKey());
-                            self.isSubmitting = false;
-                            self.showRankingModal = true;
+                            // SUCCESS: All submitted, clear localStorage and server drafts
+                            self.clearAllDrafts(function() {
+                                localStorage.removeItem(self.getStorageKey());
+                                self.isSubmitting = false;
+                                self.startAutoSave(); // Resume auto-save
+                                self.showRankingModal = true;
+                            });
                         }
                     })
                     .catch(function(error) {
                         console.error('Error submitting scores:', error);
+                        errors.push(district ? district.district_name : districtId);
                         submitted++;
                         if (submitted === total) {
                             self.isSubmitting = false;
-                            self.showRankingModal = true;
+                            self.startAutoSave(); // Resume auto-save
+
+                            // Show single informative message (not alarming)
+                            if (errors.length > 0) {
+                                alert('Beberapa nilai belum terkirim. Data tersimpan di browser - silakan coba kirim lagi.');
+                            } else {
+                                alert('Terjadi gangguan koneksi. Data tersimpan aman di browser.');
+                            }
+                            // Don't show ranking modal on error - let user retry
                         }
                     });
                 });
+            },
+
+            // Clear all server drafts for this session and judge
+            clearAllDrafts: function(callback) {
+                var self = this;
+                if (!this.sessionId) {
+                    if (callback) callback();
+                    return;
+                }
+
+                // Delete all drafts for this session (they're now finalized)
+                fetch('/penilaian/mfq/sesi/' + this.sessionId + '/draft')
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.drafts && data.drafts.length > 0) {
+                            var deletePromises = data.drafts.map(function(draft) {
+                                return fetch('/penilaian/mfq/sesi/' + self.sessionId + '/draft/' + draft.id, {
+                                    method: 'DELETE',
+                                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                                });
+                            });
+                            Promise.all(deletePromises).then(function() {
+                                if (callback) callback();
+                            }).catch(function() {
+                                if (callback) callback();
+                            });
+                        } else {
+                            if (callback) callback();
+                        }
+                    })
+                    .catch(function() {
+                        if (callback) callback();
+                    });
             }
         };
     }

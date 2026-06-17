@@ -5,10 +5,20 @@ $jsAssets = $assets['js'] ?? [];
 $user = auth()->user();
 $categoryGroups = $categoryGroups ?? collect();
 $branchGroups = $branchGroups ?? collect();
+$mfqBranch = $mfqBranch ?? null;
+$mfqRankings = $mfqRankings ?? [];
+$juaraUmumData = $juaraUmumData ?? [];
 $selectedCategoryId = $selectedCategoryId ?? 0;
 $selectedCategoryData = $selectedCategoryData ?? null;
 $selectedBranch = $selectedBranch ?? null;
+$showJuaraUmum = $showJuaraUmum ?? false;
 $leaderboardStats = $leaderboardStats ?? ['branches' => 0, 'verified_participants' => 0, 'categories' => 0, 'score_entries' => 0];
+
+// Prepare branches array with MFQ
+$allBranches = $branchGroups->values()->all();
+if ($mfqBranch) {
+    $allBranches[] = $mfqBranch;
+}
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'leaderboard');
 ?>
 <!DOCTYPE html>
@@ -17,51 +27,170 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
-    <title><?= e(config('app.name', 'e-MTQ').' - Leaderboard Golongan') ?></title>
+    <title><?= e(config('app.name', 'e-MTQ').' - Leaderboard MTQ') ?></title>
     <?php foreach ($cssAssets as $href): ?>
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
+    <style>
+        .leaderboard-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .leaderboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .podium-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .podium-card:hover {
+            transform: scale(1.05);
+        }
+        .rank-badge {
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); }
+        .rank-2 { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); }
+        .rank-3 { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); }
+        .crown-icon {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .gender-tab {
+            transition: all 0.3s ease;
+        }
+        .gender-tab.active {
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
+            border-color: rgba(34, 211, 238, 0.5);
+        }
+        .round-pill {
+            transition: all 0.2s ease;
+        }
+        .round-pill.active {
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.3) 0%, rgba(6, 182, 212, 0.3) 100%);
+            border-color: rgba(34, 211, 238, 0.6);
+            color: #22d3ee;
+        }
+        .glow-gold { box-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
+        .glow-silver { box-shadow: 0 0 30px rgba(148, 163, 184, 0.4); }
+        .glow-bronze { box-shadow: 0 0 30px rgba(217, 119, 6, 0.4); }
+    </style>
 </head>
 <body class="grid-bg scroll-smooth min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
     <main
         class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8"
-        x-data='{
-            mobileNavOpen: false,
-            branches: <?= e(json_encode($branchGroups->values()->all(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>,
-            activeBranch: <?= e(json_encode($selectedBranch ?? ($branchGroups->first()["branch"] ?? ""))) ?>,
-            activeCategoryId: <?= (int) $selectedCategoryId ?>,
-            scrollToSection(sectionId) {
-                this.$nextTick(() => {
+        x-data="<?= htmlspecialchars(json_encode([
+            'mobileNavOpen' => false,
+            'branches' => $allBranches,
+            'mfqRankings' => $mfqRankings,
+            'juaraUmumData' => $juaraUmumData,
+            'activeBranch' => $selectedBranch ?? '',
+            'activeCategoryId' => (int) $selectedCategoryId,
+            'activeGender' => 'all',
+            'activeRound' => 'Semua',
+            'activeRankingMode' => 'score',
+            'showJuaraUmum' => $showJuaraUmum,
+            'categoryGroups' => $categoryGroups->values()->all(),
+            'scrollToSection' => function($sectionId) { return ['sectionId' => $sectionId]; },
+        ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"
+        x-init="
+            scrollToSection = (sectionId) => {
+                $nextTick(() => {
                     const target = document.getElementById(sectionId);
                     if (target) {
-                        target.scrollIntoView({ behavior: "smooth", block: "start" });
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                 });
-            },
-            pickBranch(branchName) {
-                this.activeBranch = branchName;
-                const branch = this.branches.find((item) => item.branch === branchName);
+            };
+            pickBranch = (branchName) => {
+                activeBranch = branchName;
+                const branch = branches.find((item) => item.branch === branchName);
                 if (branch && branch.categories && branch.categories.length) {
-                    this.activeCategoryId = branch.categories[0].category_id;
+                    activeCategoryId = branch.categories[0].category_id;
+                    scrollToSection('golongan-section');
                 }
-                this.scrollToSection("golongan-section");
-            },
-            openCategory(categoryId) {
-                const url = "<?= e(route('leaderboard.index')) ?>?competition_category_id=" + categoryId + "#ranking-section";
-                window.location.href = url;
-            }
-        }'
+            };
+            selectCategory = (categoryId) => {
+                activeCategoryId = categoryId;
+                const category = categoryGroups.find((item) => item.category_id === categoryId);
+                if (category) {
+                    activeBranch = category.branch;
+                }
+                scrollToSection('ranking-section');
+            };
+            getFilteredLeaders = () => {
+                const category = categoryGroups.find((item) => item.category_id === activeCategoryId);
+                if (!category || !category.rounds) return [];
+                const roundData = category.rounds[activeRound];
+                if (!roundData || !roundData.leaders) return [];
+                let leaders = roundData.leaders;
+                if (activeGender !== 'all') {
+                    leaders = leaders.filter((leader) => {
+                        const gender = leader.gender || (leader.name ? 'male' : 'female');
+                        return (activeGender === 'putra' && gender === 'male') || (activeGender === 'putri' && gender === 'female');
+                    });
+                }
+                return leaders;
+            };
+            getCategoryName = () => {
+                const category = categoryGroups.find((item) => item.category_id === activeCategoryId);
+                return category ? category.category_name : '-';
+            };
+            getBranchName = () => {
+                const category = categoryGroups.find((item) => item.category_id === activeCategoryId);
+                return category ? category.branch : '-';
+            };
+            getCurrentMfqCategory = () => {
+                const mfqBranch = branches.find((b) => b.is_mfq);
+                if (!mfqBranch) return null;
+                const cat = mfqBranch.categories?.find((c) => c.category_id === activeCategoryId);
+                if (!cat) return null;
+                return { ...cat, rankings: mfqRankings[cat.category_id] || { rounds: {} } };
+            };
+            isMfqBranch = () => {
+                const branch = branches.find((b) => b.branch === activeBranch);
+                return branch?.is_mfq === true;
+            };
+            getMfqFilteredLeaders = () => {
+                if (!isMfqBranch()) return [];
+                const catData = getCurrentMfqCategory();
+                if (!catData || !catData.rankings?.rounds) return [];
+                const roundData = catData.rankings.rounds[activeRound];
+                if (!roundData) return [];
+                const leaders = activeRankingMode === 'points' ? (roundData.by_rank || []) : (roundData.by_score || []);
+                return leaders.slice(0, 20);
+            };
+            toggleJuaraUmum = () => {
+                showJuaraUmum = !showJuaraUmum;
+                if (showJuaraUmum) {
+                    $nextTick(() => {
+                        const target = document.getElementById('juara-umum-section');
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    });
+                }
+            };
+        "
     >
+        <!-- Background Orbs -->
         <div class="hero-orb hero-orb-cyan right-[-7rem] top-10 h-72 w-72"></div>
         <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
 
-        <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
+        <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+            <!-- Sidebar -->
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[300px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
                 x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
+                        <div class="icon-chip"><?= mtq_icon('crown') ?></div>
                         <div>
                             <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
                             <h1 class="mt-1 text-lg font-bold text-white">Leaderboard</h1>
@@ -74,11 +203,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                 <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
                     <p class="section-kicker">Papan Peringkat</p>
-                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($leaderboardStats['verified_participants']) ?> peserta terverifikasi</h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-300">Ranking per golongan dipisah menjadi babak Penyisihan dan Final agar perkembangan skor lebih mudah dibaca.</p>
+                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($leaderboardStats['verified_participants']) ?> Peserta</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-300">Ranking babak Penyisihan dan Final dengan pemisahan Putra dan Putri.</p>
                     <div class="mt-4 status-pill">
-                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                        Live leaderboard
+                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300 animate-pulse"></span>
+                        Live Update
                     </div>
                 </div>
 
@@ -89,11 +218,17 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                 <div class="mt-8 grid gap-3">
                     <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Cabang</p>
+                        <div class="flex items-center gap-2">
+                            <?= mtq_icon('layers', 'h-4 w-4 text-amber-300') ?>
+                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Cabang</p>
+                        </div>
                         <p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['branches']) ?></p>
                     </div>
                     <div class="data-card">
-                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Golongan</p>
+                        <div class="flex items-center gap-2">
+                            <?= mtq_icon('users', 'h-4 w-4 text-emerald-300') ?>
+                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Golongan</p>
+                        </div>
                         <p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['categories']) ?></p>
                     </div>
                     <form method="POST" action="<?= e(route('logout')) ?>">
@@ -106,235 +241,508 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 </div>
             </aside>
 
+            <!-- Main Content -->
             <div class="min-w-0 space-y-6">
+                <!-- Header -->
                 <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
                             <?= mtq_icon('menu', 'h-4 w-4') ?>
                         </button>
                         <div>
-                            <p class="section-kicker">Ranking Golongan</p>
-                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Leaderboard Penyisihan dan Final</h2>
-                            <p class="mt-2 text-sm text-slate-300">Mulai dari cabang, lanjut ke golongan, lalu buka ranking yang ingin kamu lihat.</p>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('crown', 'h-5 w-5 text-amber-300') ?>
+                                <p class="section-kicker">Peringkat MTQ</p>
+                            </div>
+                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Leaderboard Kompetisi</h2>
+                            <p class="mt-2 text-sm text-slate-300">Pilih cabang, golongan, dan babak untuk melihat ranking.</p>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            @click="toggleJuaraUmum()"
+                            class="rounded-xl border px-4 py-2 font-semibold transition-all"
+                            :class="showJuaraUmum ? 'border-amber-400/50 bg-amber-400/10 text-amber-300 shadow-lg shadow-amber-400/20' : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-amber-400/30 hover:text-amber-300'"
+                        >
+                            <?= mtq_icon('crown', 'h-4 w-4 inline mr-1') ?>
+                            Juara Umum
+                        </button>
                         <a href="<?= e(route('dashboard')) ?>" class="secondary-button">
                             <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                            Kembali ke Dashboard
+                            Dashboard
                         </a>
                     </div>
                 </header>
 
+                <!-- Stats Overview -->
                 <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('trophy') ?></div><p class="mt-4 text-sm text-slate-400">Cabang Aktif</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['branches']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Peserta Terverifikasi</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['verified_participants']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('layers') ?></div><p class="mt-4 text-sm text-slate-400">Golongan</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['categories']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('chart') ?></div><p class="mt-4 text-sm text-slate-400">Entri Nilai</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['score_entries']) ?></p></div>
+                    <div class="metric-card">
+                        <div class="icon-chip"><?= mtq_icon('layers') ?></div>
+                        <p class="mt-4 text-sm text-slate-400">Cabang Aktif</p>
+                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['branches']) ?></p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="icon-chip"><?= mtq_icon('users') ?></div>
+                        <p class="mt-4 text-sm text-slate-400">Peserta</p>
+                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['verified_participants']) ?></p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
+                        <p class="mt-4 text-sm text-slate-400">Golongan</p>
+                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['categories']) ?></p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="icon-chip"><?= mtq_icon('chart-bar') ?></div>
+                        <p class="mt-4 text-sm text-slate-400">Entri Nilai</p>
+                        <p class="mt-2 text-3xl font-extrabold text-white"><?= e($leaderboardStats['score_entries']) ?></p>
+                    </div>
                 </section>
 
+                <!-- Branch Selection -->
                 <section class="glass-card rounded-[2rem] p-6">
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                        <div class="max-w-2xl">
-                            <div class="icon-chip"><?= mtq_icon('spark') ?></div>
-                            <p class="mt-5 section-kicker">Langkah 1</p>
-                            <h3 class="mt-2 text-2xl font-bold text-white">Pilih cabang dulu, baru pilih golongannya</h3>
-                            <p class="mt-3 text-sm leading-6 text-slate-300">
-                                Alurnya dibuat bertahap supaya lebih mudah dipindai. Begitu golongan dipilih, halaman langsung membawa kamu ke ranking golongan itu.
-                            </p>
+                    <div class="flex items-center gap-3 mb-5">
+                        <?= mtq_icon('target', 'h-5 w-5 text-cyan-300') ?>
+                        <h3 class="text-xl font-bold text-white">Pilih Cabang</h3>
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <?php foreach ($branchGroups as $branchGroup): ?>
+                            <button
+                                type="button"
+                                @click="pickBranch(<?= e(json_encode($branchGroup['branch'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>)"
+                                class="leaderboard-card rounded-2xl border p-4 text-left transition-all duration-300 hover:-translate-y-1"
+                                :class="activeBranch === <?= e(json_encode($branchGroup['branch'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?> ? 'border-cyan-400/50 bg-cyan-400/10 shadow-lg shadow-cyan-400/20' : 'border-slate-700 bg-slate-900/50 hover:border-slate-600'"
+                            >
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-semibold text-amber-300">
+                                        <?= e($branchGroup['category_total']) ?> Golongan
+                                    </span>
+                                </div>
+                                <p class="text-lg font-bold text-white"><?= e($branchGroup['branch']) ?></p>
+                                <div class="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                                    <span><?= e($branchGroup['participant_total']) ?> Peserta</span>
+                                    <span class="text-slate-600">|</span>
+                                    <span><?= e($branchGroup['score_entries']) ?> Entri</span>
+                                </div>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+
+                <!-- Category Selection -->
+                <section id="golongan-section" class="glass-card rounded-[2rem] p-6 scroll-mt-6">
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="flex items-center gap-3">
+                            <?= mtq_icon('award', 'h-5 w-5 text-amber-300') ?>
+                            <h3 class="text-xl font-bold text-white">Pilih Golongan</h3>
                         </div>
-                        <div class="status-pill self-start lg:self-auto">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                            <?= e($leaderboardStats['branches']) ?> cabang aktif
+                        <div class="status-pill">
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
+                            <span x-text="activeBranch"></span>
                         </div>
                     </div>
 
-                    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Cabang MTQ</p>
-                            <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                <?php foreach ($branchGroups as $branchGroup): ?>
-                                    <button
-                                        type="button"
-                                        @click="pickBranch(<?= e(json_encode($branchGroup['branch'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>)"
-                                        class="group rounded-2xl border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5 <?= ($selectedBranch === $branchGroup['branch']) ? 'border-cyan-300/40 bg-cyan-400/12 text-white shadow-[0_18px_55px_-28px_rgba(34,211,238,0.5)]' : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:border-slate-500 hover:bg-slate-900' ?>"
-                                        :class="activeBranch === <?= e(json_encode($branchGroup['branch'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?> ? 'border-cyan-300/40 bg-cyan-400/12 text-white shadow-[0_18px_55px_-28px_rgba(34,211,238,0.5)]' : ''"
-                                    >
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="min-w-0">
-                                                <p class="text-[11px] uppercase tracking-[0.18em] text-slate-400">Cabang</p>
-                                                <p class="mt-2 text-lg font-bold leading-snug"><?= e($branchGroup['branch']) ?></p>
-                                            </div>
-                                            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200"><?= e($branchGroup['category_total']) ?> golongan</span>
+                    <template x-for="branch in branches" :key="branch.branch">
+                        <div x-show="activeBranch === branch.branch" class="space-y-4">
+                            <template x-for="category in branch.categories" :key="category.category_id">
+                                <button
+                                    type="button"
+                                    @click="selectCategory(category.category_id)"
+                                    class="leaderboard-card w-full rounded-2xl border p-4 text-left transition-all duration-300"
+                                    :class="activeCategoryId === category.category_id ? 'border-amber-400/50 bg-amber-400/10 shadow-lg shadow-amber-400/20' : 'border-slate-700 bg-slate-900/50 hover:border-slate-600'"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-bold text-white" x-text="category.category_name"></p>
+                                            <p class="mt-1 text-xs text-slate-400">
+                                                <span x-text="category.participant_total"></span> Peserta |
+                                                <span x-text="category.score_entries"></span> Entri
+                                            </p>
                                         </div>
-                                        <div class="mt-4 flex flex-wrap gap-2 text-[11px]">
-                                            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200"><?= e($branchGroup['participant_total']) ?> peserta</span>
-                                            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200"><?= e($branchGroup['score_entries']) ?> entri nilai</span>
+                                        <div class="text-right">
+                                            <div class="flex items-center gap-1">
+                                                <span class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-xs font-semibold text-cyan-300">
+                                                    <span x-text="category.putra_leaders ? category.putra_leaders.length : 0"></span> Putra
+                                                </span>
+                                                <span class="rounded-full border border-pink-400/30 bg-pink-400/10 px-2 py-0.5 text-xs font-semibold text-pink-300">
+                                                    <span x-text="category.putri_leaders ? category.putri_leaders.length : 0"></span> Putri
+                                                </span>
+                                            </div>
                                         </div>
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                        <div id="golongan-section" class="rounded-[1.75rem] border border-slate-700 bg-slate-950/50 p-5 scroll-mt-6">
-                            <div class="flex items-center justify-between gap-3">
-                                <div>
-                                    <p class="section-kicker">Langkah 2</p>
-                                    <h4 class="mt-2 text-xl font-bold text-white">Pilih golongan</h4>
-                                </div>
-                                <div class="status-pill">
-                                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                                    Klik untuk lihat ranking
-                                </div>
-                            </div>
-
-                            <template x-for="branch in branches" :key="branch.branch">
-                                <div x-show="activeBranch === branch.branch" x-transition.opacity.duration.250ms x-transition.scale.duration.250ms class="mt-5 space-y-3">
-                                    <p class="text-sm text-slate-300" x-text="branch.branch"></p>
-                                    <template x-for="category in branch.categories" :key="category.category_id">
-                                        <button
-                                            type="button"
-                                            @click="openCategory(category.category_id)"
-                                            class="group w-full rounded-2xl border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5"
-                                            :class="activeCategoryId === category.category_id ? 'border-cyan-300/40 bg-cyan-400/12 text-white shadow-[0_18px_55px_-28px_rgba(34,211,238,0.5)]' : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:border-slate-500 hover:bg-slate-900'"
-                                        >
-                                            <div class="flex items-start justify-between gap-3">
-                                                <div class="min-w-0">
-                                                    <p class="text-[11px] uppercase tracking-[0.18em] text-slate-400" x-text="branch.branch"></p>
-                                                    <p class="mt-2 text-lg font-bold leading-snug" x-text="category.category_name"></p>
-                                                </div>
-                                                <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200" x-text="category.participant_total + ' peserta'"></span>
-                                            </div>
-                                            <div class="mt-4 flex flex-wrap gap-2 text-[11px]">
-                                                <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200" x-text="category.score_entries + ' entri nilai'"></span>
-                                                <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200">Lihat ranking</span>
-                                            </div>
-                                        </button>
-                                    </template>
-                                </div>
+                                    </div>
+                                </button>
                             </template>
                         </div>
+                    </template>
+                </section>
+
+                <!-- Ranking Section -->
+                <?php if ($selectedCategoryData): ?>
+                <section id="ranking-section" class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)] scroll-mt-6">
+                    <!-- Header -->
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('trophy', 'h-5 w-5 text-amber-300') ?>
+                                <p class="section-kicker">Ranking</p>
+                            </div>
+                            <h2 class="mt-2 text-2xl font-bold text-white" x-text="getCategoryName()"></h2>
+                            <p class="mt-1 text-sm text-slate-300" x-text="getBranchName()"></p>
+                        </div>
+                        <div class="status-pill">
+                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                            <span x-text="activeCategoryId"></span> Peserta
+                        </div>
+                    </div>
+
+                    <!-- Gender Tabs -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <button
+                            @click="activeGender = 'all'"
+                            class="gender-tab rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                            :class="activeGender === 'all' ? 'active text-white border-cyan-400/50 bg-cyan-400/10' : 'text-slate-400 hover:text-white'"
+                        >
+                            <?= mtq_icon('users', 'h-4 w-4 inline mr-1') ?>
+                            Semua
+                        </button>
+                        <button
+                            @click="activeGender = 'putra'"
+                            class="gender-tab rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                            :class="activeGender === 'putra' ? 'active text-white border-cyan-400/50 bg-cyan-400/10' : 'text-slate-400 hover:text-white'"
+                        >
+                            <?= mtq_icon('gender-male', 'h-4 w-4 inline mr-1') ?>
+                            Putra
+                        </button>
+                        <button
+                            @click="activeGender = 'putri'"
+                            class="gender-tab rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                            :class="activeGender === 'putri' ? 'active text-white border-cyan-400/50 bg-cyan-400/10' : 'text-slate-400 hover:text-white'"
+                        >
+                            <?= mtq_icon('gender-female', 'h-4 w-4 inline mr-1') ?>
+                            Putri
+                        </button>
+                    </div>
+
+                    <!-- Round Pills -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <?php foreach (['Semua', 'Penyisihan', 'Final'] as $round): ?>
+                            <button
+                                @click="activeRound = '<?= $round ?>'"
+                                class="round-pill rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                                :class="activeRound === '<?= $round ?>' ? 'active border-cyan-400/50 text-cyan-300' : 'text-slate-400 hover:text-white'"
+                            >
+                                <?= e($round) ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <!-- Podium (Top 3) -->
+                    <div class="mb-8" x-show="getFilteredLeaders().length > 0">
+                        <div class="flex items-end justify-center gap-4">
+                            <!-- 2nd Place -->
+                            <div class="podium-card text-center w-36" x-show="getFilteredLeaders()[1]">
+                                <div class="relative mx-auto mb-2">
+                                    <div class="h-24 w-24 mx-auto rounded-full border-4 border-slate-400 bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center overflow-hidden">
+                                        <span class="text-3xl">🥈</span>
+                                    </div>
+                                    <span class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-slate-400 to-slate-500 px-3 py-1 text-sm font-bold text-white shadow-lg">2</span>
+                                </div>
+                                <p class="font-bold text-white text-sm truncate" x-text="getFilteredLeaders()[1]?.name || '-'"></p>
+                                <p class="text-xs text-slate-400 truncate" x-text="getFilteredLeaders()[1]?.district || '-'"></p>
+                                <p class="mt-2 text-xl font-black text-slate-300" x-text="getFilteredLeaders()[1]?.average_score || '0.00'"></p>
+                            </div>
+
+                            <!-- 1st Place -->
+                            <div class="podium-card text-center w-44 glow-gold" x-show="getFilteredLeaders()[0]">
+                                <div class="crown-icon absolute -translate-x-1/2 left-1/2 -mt-6">
+                                    <?= mtq_icon('crown', 'h-10 w-10 text-amber-400') ?>
+                                </div>
+                                <div class="relative mx-auto mt-6 mb-2">
+                                    <div class="h-28 w-28 mx-auto rounded-full border-4 border-amber-400 bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center overflow-hidden shadow-lg shadow-amber-400/30">
+                                        <span class="text-4xl">🥇</span>
+                                    </div>
+                                    <span class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1 text-sm font-bold text-white shadow-lg">1</span>
+                                </div>
+                                <p class="font-bold text-white text-base truncate" x-text="getFilteredLeaders()[0]?.name || '-'"></p>
+                                <p class="text-xs text-slate-400 truncate" x-text="getFilteredLeaders()[0]?.district || '-'"></p>
+                                <p class="mt-2 text-2xl font-black text-amber-300" x-text="getFilteredLeaders()[0]?.average_score || '0.00'"></p>
+                            </div>
+
+                            <!-- 3rd Place -->
+                            <div class="podium-card text-center w-36" x-show="getFilteredLeaders()[2]">
+                                <div class="relative mx-auto mb-2">
+                                    <div class="h-24 w-24 mx-auto rounded-full border-4 border-orange-600 bg-gradient-to-br from-orange-600 to-orange-700 flex items-center justify-center overflow-hidden">
+                                        <span class="text-3xl">🥉</span>
+                                    </div>
+                                    <span class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-1 text-sm font-bold text-white shadow-lg">3</span>
+                                </div>
+                                <p class="font-bold text-white text-sm truncate" x-text="getFilteredLeaders()[2]?.name || '-'"></p>
+                                <p class="text-xs text-slate-400 truncate" x-text="getFilteredLeaders()[2]?.district || '-'"></p>
+                                <p class="mt-2 text-xl font-black text-orange-400" x-text="getFilteredLeaders()[2]?.average_score || '0.00'"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Table -->
+                    <div class="overflow-hidden rounded-2xl border border-slate-700">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/80">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Peserta</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Kecamatan</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">Babak</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Skor</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50 bg-slate-900/50">
+                                <template x-for="(leader, index) in getFilteredLeaders()" :key="'rank-' + index">
+                                    <tr class="hover:bg-slate-800/50 transition-colors" :class="index < 3 ? 'bg-amber-500/5' : ''">
+                                        <td class="px-4 py-3">
+                                            <div class="flex h-8 w-8 items-center justify-center rounded-lg font-bold"
+                                                :class="index === 0 ? 'bg-amber-500 text-white' : (index === 1 ? 'bg-slate-400 text-slate-900' : (index === 2 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'))">
+                                                <span x-text="index + 1"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="font-semibold text-white" x-text="leader.name"></p>
+                                            <p class="text-xs text-slate-500" x-text="leader.institution || '-'"></p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <?= mtq_icon('building', 'h-3 w-3 text-slate-500') ?>
+                                                <span class="text-sm text-slate-300" x-text="leader.district || '-'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold"
+                                                :class="leader.current_round === 'Final' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'">
+                                                <span x-text="leader.current_round || '-'"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <p class="text-lg font-bold text-cyan-200" x-text="leader.average_score || '0.00'"></p>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <tr x-show="getFilteredLeaders().length === 0">
+                                    <td colspan="5" class="px-4 py-8 text-center text-slate-500">
+                                        <?= mtq_icon('inbox', 'h-10 w-10 mx-auto mb-2 text-slate-600') ?>
+                                        <p>Belum ada data ranking untuk golongan ini.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <?php else: ?>
+                <section class="glass-card rounded-[2rem] p-8 text-center">
+                    <?= mtq_icon('trophy', 'h-16 w-16 mx-auto mb-4 text-slate-600') ?>
+                    <p class="text-lg text-slate-400">Pilih golongan terlebih dahulu untuk melihat ranking.</p>
+                </section>
+                <?php endif; ?>
+
+                <!-- MFQ Ranking Section -->
+                <section x-show="isMfqBranch()" class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)]">
+                    <!-- Header -->
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('trophy', 'h-5 w-5 text-amber-300') ?>
+                                <p class="section-kicker">Fahmil Qur'an</p>
+                            </div>
+                            <h2 class="mt-2 text-2xl font-bold text-white" x-text="getCategoryName()"></h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="status-pill">
+                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
+                                <span x-text="mfqRankings?.participant_count || 0"></span> Peserta
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Mode Toggle -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <button
+                            @click="activeRankingMode = 'score'"
+                            class="round-pill rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                            :class="activeRankingMode === 'score' ? 'active border-cyan-400/50 text-cyan-300' : 'text-slate-400 hover:text-white'"
+                        >
+                            Total Skor
+                        </button>
+                        <button
+                            @click="activeRankingMode = 'points'"
+                            class="round-pill rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                            :class="activeRankingMode === 'points' ? 'active border-cyan-400/50 text-cyan-300' : 'text-slate-400 hover:text-white'"
+                        >
+                            Poin Ranking
+                        </button>
+                    </div>
+
+                    <!-- Round Pills for MFQ -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <template x-for="round in ['Semua', 'Penyisihan', 'Final']" :key="round">
+                            <button
+                                @click="activeRound = round"
+                                class="round-pill rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold transition-all"
+                                :class="activeRound === round ? 'active border-cyan-400/50 text-cyan-300' : 'text-slate-400 hover:text-white'"
+                                x-text="round"
+                            ></button>
+                        </template>
+                    </div>
+
+                    <!-- MFQ Ranking Table -->
+                    <div class="overflow-hidden rounded-2xl border border-slate-700">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/80">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Peserta</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Kecamatan</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">Babak</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Skor</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50 bg-slate-900/50">
+                                <template x-for="(leader, index) in getMfqFilteredLeaders()" :key="'mfq-rank-' + index">
+                                    <tr class="hover:bg-slate-800/50 transition-colors" :class="index < 3 ? 'bg-amber-500/5' : ''">
+                                        <td class="px-4 py-3">
+                                            <div class="flex h-8 w-8 items-center justify-center rounded-lg font-bold"
+                                                :class="index === 0 ? 'bg-amber-500 text-white' : (index === 1 ? 'bg-slate-400 text-slate-900' : (index === 2 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'))">
+                                                <span x-text="index + 1"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="font-semibold text-white" x-text="leader.name || '-'"></p>
+                                            <p class="text-xs text-slate-500" x-text="leader.institution || '-'"></p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <?= mtq_icon('building', 'h-3 w-3 text-slate-500') ?>
+                                                <span class="text-sm text-slate-300" x-text="leader.district || '-'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold"
+                                                :class="leader.current_round === 'Final' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'">
+                                                <span x-text="leader.current_round || '-'"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <p class="text-lg font-bold text-cyan-200" x-text="(leader.total_score || 0).toFixed(2)"></p>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <tr x-show="getMfqFilteredLeaders().length === 0">
+                                    <td colspan="5" class="px-4 py-8 text-center text-slate-500">
+                                        <?= mtq_icon('inbox', 'h-10 w-10 mx-auto mb-2 text-slate-600') ?>
+                                        <p>Belum ada data ranking untuk Fahmil Qur'an.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
-                <?php if ($selectedCategoryData): ?>
-                    <section id="ranking-section" class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)] scroll-mt-6">
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
-                                <p class="mt-5 section-kicker">Golongan Terpilih</p>
-                                <h2 class="mt-2 text-2xl font-bold text-white"><?= e($selectedCategoryData['category_name']) ?></h2>
-                                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                                    Ranking golongan ini menampilkan peserta terbaik pada babak Penyisihan dan Final.
-                                </p>
+                <!-- Juara Umum Section -->
+                <section id="juara-umum-section" x-show="showJuaraUmum" class="scroll-mt-6 rounded-[2rem] border border-amber-400/20 bg-gradient-to-br from-slate-900/95 via-amber-950/50 to-slate-900/95 p-6 shadow-[0_22px_65px_-32px_rgba(251,191,36,0.25)]">
+                    <!-- Header -->
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <?= mtq_icon('crown', 'h-6 w-6 text-amber-300') ?>
+                                <p class="section-kicker">Peringkat District</p>
                             </div>
-                            <div class="status-pill">
-                                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                                <?= e($selectedCategoryData['participant_total']) ?> peserta
-                            </div>
+                            <h2 class="mt-2 text-2xl font-bold text-white">Juara Umum</h2>
                         </div>
-
-                        <div class="mt-6 grid gap-4 md:grid-cols-3">
-                            <div class="data-card">
-                                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Cabang</p>
-                                <p class="mt-2 text-2xl font-bold text-white"><?= e($selectedCategoryData['branch']) ?></p>
-                            </div>
-                            <div class="data-card">
-                                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Peserta Dinilai</p>
-                                <p class="mt-2 text-2xl font-bold text-emerald-300"><?= e($selectedCategoryData['participant_total']) ?></p>
-                            </div>
-                            <div class="data-card">
-                                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Entri Nilai</p>
-                                <p class="mt-2 text-2xl font-bold text-cyan-200"><?= e($selectedCategoryData['score_entries']) ?></p>
-                            </div>
+                        <div class="flex items-center gap-3 text-sm">
+                            <span class="rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 text-slate-400">
+                                <span x-text="juaraUmumData?.participating_districts || 0"></span> / <span x-text="juaraUmumData?.total_districts || 0"></span> Kecamatan
+                            </span>
                         </div>
-                    </section>
+                    </div>
 
-                    <section class="grid gap-6 xl:grid-cols-2">
-                        <?php foreach (['Penyisihan', 'Final'] as $roundLabel): ?>
-                            <?php $roundData = $selectedCategoryData['rounds'][$roundLabel] ?? ['leaders' => []]; ?>
-                            <div class="glass-card rounded-[2rem] p-6">
-                                <div class="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div class="icon-chip"><?= mtq_icon('chart') ?></div>
-                                        <p class="mt-5 section-kicker"><?= e($roundLabel) ?></p>
-                                        <h3 class="mt-2 text-2xl font-bold text-white">Ranking babak <?= e($roundLabel) ?></h3>
+                    <!-- Podium -->
+                    <div class="mb-8" x-show="juaraUmumData?.top_three?.length > 0">
+                        <div class="flex items-end justify-center gap-4">
+                            <!-- 2nd Place -->
+                            <div class="podium-card text-center w-36" x-show="juaraUmumData?.top_three[1]">
+                                <div class="relative mx-auto mb-2">
+                                    <div class="h-20 w-20 mx-auto rounded-full border-4 border-slate-400 bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center overflow-hidden shadow-lg">
+                                        <span class="text-2xl">🥈</span>
                                     </div>
-                                    <div class="status-pill">
-                                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                                        <?= e(count($roundData['leaders'] ?? [])) ?> peserta
-                                    </div>
+                                    <span class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-slate-400 to-slate-500 px-3 py-1 text-sm font-bold text-white shadow-lg">2</span>
                                 </div>
+                                <p class="font-bold text-white text-sm truncate" x-text="juaraUmumData?.top_three[1]?.district_name || '-'"></p>
+                                <p class="mt-2 text-xl font-black text-slate-300" x-text="juaraUmumData?.top_three[1]?.total_points || 0"></p>
+                            </div>
 
-                                <div class="mt-4 space-y-3">
-                                    <?php if (empty($roundData['leaders'])): ?>
-                                        <div class="data-card text-sm text-slate-300">Belum ada skor untuk babak <?= e($roundLabel) ?> pada cabang ini.</div>
-                                    <?php else: ?>
-                                        <?php foreach ($roundData['leaders'] as $index => $leader): ?>
-                                            <?php
-                                            $rank = $index + 1;
-                                            $rankClass = match ($rank) {
-                                                1 => 'border-amber-300/20 bg-amber-400/10 text-amber-100',
-                                                2 => 'border-slate-300/20 bg-slate-300/10 text-slate-100',
-                                                3 => 'border-orange-300/20 bg-orange-400/10 text-orange-100',
-                                                default => 'border-white/10 bg-slate-900/60 text-white',
-                                            };
-                                            ?>
-                                            <div class="rounded-3xl border border-white/10 bg-slate-950/50 p-4">
-                                                <div class="flex items-start gap-4">
-                                                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border <?= e($rankClass) ?> text-xl font-black">
-                                                        <?= e($rank) ?>
-                                                    </div>
-                                                    <div class="min-w-0 flex-1">
-                                                        <div class="flex flex-wrap items-start justify-between gap-3">
-                                                            <div>
-                                                                <p class="font-semibold text-white"><?= e($leader['name']) ?></p>
-                                                                <p class="mt-1 text-xs text-slate-400"><?= e($leader['district']) ?> | <?= e($leader['category']) ?></p>
-                                                                <p class="mt-1 text-xs text-slate-500"><?= e($leader['institution'] ?: '-') ?></p>
-                                                            </div>
-                                                            <div class="text-right">
-                                                                <p class="text-2xl font-black text-cyan-200"><?= e($leader['average_score']) ?></p>
-                                                                <p class="text-xs text-slate-400">Rata-rata babak</p>
-                                                            </div>
-                                                        </div>
-                                                        <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
-                                                            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200"><?= e($leader['latest_score']) ?> nilai terakhir</span>
-                                                            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200"><?= e($leader['entry_count']) ?> entri</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                            <!-- 1st Place -->
+                            <div class="podium-card text-center w-44 glow-gold" x-show="juaraUmumData?.top_three[0]">
+                                <div class="crown-icon absolute -translate-x-1/2 left-1/2 -mt-6">
+                                    <?= mtq_icon('crown', 'h-10 w-10 text-amber-400') ?>
+                                </div>
+                                <div class="relative mx-auto mt-6 mb-2">
+                                    <div class="h-24 w-24 mx-auto rounded-full border-4 border-amber-400 bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center overflow-hidden shadow-lg shadow-amber-400/30">
+                                        <span class="text-3xl">🥇</span>
+                                    </div>
+                                    <span class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1 text-sm font-bold text-white shadow-lg">1</span>
+                                </div>
+                                <p class="font-bold text-white text-base truncate" x-text="juaraUmumData?.top_three[0]?.district_name || '-'"></p>
+                                <p class="mt-2 text-2xl font-black text-amber-300" x-text="juaraUmumData?.top_three[0]?.total_points || 0"></p>
+                            </div>
+
+                            <!-- 3rd Place -->
+                            <div class="podium-card text-center w-36" x-show="juaraUmumData?.top_three[2]">
+                                <div class="relative mx-auto mb-2">
+                                    <div class="h-20 w-20 mx-auto rounded-full border-4 border-orange-600 bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center overflow-hidden shadow-lg">
+                                        <span class="text-2xl">🥉</span>
+                                    </div>
+                                    <span class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-1 text-sm font-bold text-white shadow-lg">3</span>
+                                </div>
+                                <p class="font-bold text-white text-sm truncate" x-text="juaraUmumData?.top_three[2]?.district_name || '-'"></p>
+                                <p class="mt-2 text-xl font-black text-orange-400" x-text="juaraUmumData?.top_three[2]?.total_points || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rankings Table -->
+                    <div class="overflow-hidden rounded-2xl border border-slate-700">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/80">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Kecamatan</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Total Poin</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50 bg-slate-900/50">
+                                <template x-for="(district, index) in juaraUmumData?.rankings || []" :key="'district-' + index">
+                                    <tr class="hover:bg-slate-800/50 transition-colors" :class="index < 3 ? 'bg-amber-500/5' : ''">
+                                        <td class="px-4 py-3">
+                                            <div class="flex h-8 w-8 items-center justify-center rounded-lg font-bold"
+                                                :class="index === 0 ? 'bg-amber-500 text-white' : (index === 1 ? 'bg-slate-400 text-slate-900' : (index === 2 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'))">
+                                                <span x-text="index + 1"></span>
                                             </div>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </section>
-
-                    <section class="glass-card rounded-[2rem] p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="icon-chip"><?= mtq_icon('users') ?></div>
-                            <div>
-                                <p class="section-kicker">Peringkat Tiga Besar</p>
-                                <h3 class="mt-2 text-2xl font-bold text-white">Performa terbaik golongan ini</h3>
-                            </div>
-                        </div>
-                        <div class="mt-6 grid gap-4 md:grid-cols-3">
-                            <?php foreach (($selectedCategoryData['overall_leaders'] ?? []) as $index => $leader): ?>
-                                <div class="data-card">
-                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Peringkat <?= e($index + 1) ?></p>
-                                    <p class="mt-3 text-lg font-bold text-white"><?= e($leader['name']) ?></p>
-                                    <p class="mt-2 text-sm text-slate-400"><?= e($leader['category']) ?></p>
-                                    <p class="mt-4 text-3xl font-black text-cyan-200"><?= e($leader['average_score'] ?? '0.00') ?></p>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </section>
-                <?php else: ?>
-                    <section class="glass-card rounded-[2rem] p-6 text-sm text-slate-300">
-                        Belum ada data leaderboard yang siap ditampilkan.
-                    </section>
-                <?php endif; ?>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="font-semibold text-white" x-text="district.district_name || '-'"></p>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <p class="text-lg font-bold text-amber-300" x-text="district.total_points || 0"></p>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <tr x-show="!juaraUmumData?.rankings?.length">
+                                    <td colspan="3" class="px-4 py-8 text-center text-slate-500">
+                                        <?= mtq_icon('inbox', 'h-10 w-10 mx-auto mb-2 text-slate-600') ?>
+                                        <p>Belum ada data juara umum.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
         </div>
     </main>

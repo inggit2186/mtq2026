@@ -392,6 +392,7 @@ $impersonation = session('impersonation', []);
                                                 <th class="text-left py-3 px-4 font-semibold text-slate-400">Tanggal</th>
                                                 <th class="text-left py-3 px-4 font-semibold text-slate-400">Waktu</th>
                                                 <th class="text-left py-3 px-4 font-semibold text-slate-400">Lot</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-400">Akses</th>
                                                 <th class="text-left py-3 px-4 font-semibold text-slate-400">Status</th>
                                                 <?php if ($user?->role === 'admin'): ?>
                                                 <th class="text-right py-3 px-4 font-semibold text-slate-400">Aksi</th>
@@ -422,6 +423,25 @@ $impersonation = session('impersonation', []);
                                                 </td>
                                                 <td class="py-3 px-4 text-slate-300">
                                                     <?= $schedule->lot_min ?> - <?= $schedule->lot_max ?>
+                                                </td>
+                                                <td class="py-3 px-4">
+                                                    <?php
+                                                    $accessColor = match($schedule->draw_access_by ?? 'official_only') {
+                                                        'panitia_only' => 'sky',
+                                                        'official_only' => 'violet',
+                                                        'both' => 'amber',
+                                                        default => 'slate',
+                                                    };
+                                                    $accessLabel = match($schedule->draw_access_by ?? 'official_only') {
+                                                        'panitia_only' => 'Panitia',
+                                                        'official_only' => 'Official',
+                                                        'both' => 'Panitia & Official',
+                                                        default => 'Official',
+                                                    };
+                                                    ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-<?= $accessColor ?>-500/20 text-<?= $accessColor ?>-300">
+                                                        <?= e($accessLabel) ?>
+                                                    </span>
                                                 </td>
                                                 <td class="py-3 px-4">
                                                     <?php
@@ -829,6 +849,14 @@ $impersonation = session('impersonation', []);
                         <input type="checkbox" name="is_active" id="maqra_schedule_active" value="1" checked class="h-5 w-5 rounded border-slate-600 bg-slate-900 text-fuchsia-400 focus:ring-fuchsia-300/30">
                         <label for="maqra_schedule_active" class="text-sm text-slate-300">Aktifkan jadwal ini</label>
                     </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-200">Pengambilan Maqra oleh</label>
+                        <select name="draw_access_by" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                            <option value="official_only">Official</option>
+                            <option value="panitia_only">Panitia</option>
+                            <option value="both">Panitia & Official</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
                     <button type="button" @click="show = false" class="secondary-button">Batal</button>
@@ -952,6 +980,14 @@ $impersonation = session('impersonation', []);
                     <div class="flex items-center gap-3">
                         <input type="checkbox" name="is_active" id="maqra_edit_active_<?= $schedule->id ?>" value="1" <?= $schedule->is_active ? 'checked' : '' ?> class="h-5 w-5 rounded border-slate-600 bg-slate-900 text-fuchsia-400 focus:ring-fuchsia-300/30">
                         <label for="maqra_edit_active_<?= $schedule->id ?>" class="text-sm text-slate-300">Aktifkan jadwal ini</label>
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-200">Pengambilan Maqra oleh</label>
+                        <select name="draw_access_by" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-400/20">
+                            <option value="official_only" <?= ($schedule->draw_access_by ?? 'official_only') === 'official_only' ? 'selected' : '' ?>>Official</option>
+                            <option value="panitia_only" <?= $schedule->draw_access_by === 'panitia_only' ? 'selected' : '' ?>>Panitia</option>
+                            <option value="both" <?= $schedule->draw_access_by === 'both' ? 'selected' : '' ?>>Panitia & Official</option>
+                        </select>
                     </div>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">

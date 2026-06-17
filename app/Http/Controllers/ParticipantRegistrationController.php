@@ -2486,10 +2486,18 @@ class ParticipantRegistrationController extends Controller
     {
         $user = auth()->user();
 
-        abort_unless(in_array($user?->role, ['admin', 'official', 'pendamping'], true), 403);
+        abort_unless(in_array($user?->role, ['admin', 'official', 'pendamping', 'panitia'], true), 403);
 
         if ($user?->role !== 'admin') {
             abort_unless((int) $user->district_id === (int) $participant->district_id, 403);
+        }
+
+        // For panitia role, check category access from user_category_accesses
+        if ($user?->role === 'panitia') {
+            $accessibleCategoryIds = $user->accessibleCategoryIds();
+            if (! empty($accessibleCategoryIds) && ! in_array((int) $participant->competition_category_id, $accessibleCategoryIds, true)) {
+                abort(403, 'Anda tidak memiliki hak akses untuk golongan peserta ini.');
+            }
         }
 
         $round = in_array($roundLabel, ['Penyisihan', 'Final'], true) ? $roundLabel : $this->maqraRoundFromRequest(request());
@@ -2502,6 +2510,18 @@ class ParticipantRegistrationController extends Controller
 
         if ($user?->role !== 'admin' && (! is_array($allowedCategoryIds) || ! in_array((int) $participant->competition_category_id, $allowedCategoryIds, true))) {
             abort(403, 'Golongan peserta ini belum dibuka untuk pengambilan maqra oleh admin.');
+        }
+
+        // Check draw_access_by setting from MaqraSchedule
+        if ($user?->role !== 'admin') {
+            $schedule = MaqraSchedule::currentlyOpen()
+                ->forCategory((int) $participant->competition_category_id)
+                ->first();
+
+            if ($schedule && ! $schedule->canRoleDrawMaqra($user->role)) {
+                $accessLabel = $schedule->draw_access_by_label;
+                abort(403, sprintf('Pengambilan maqra untuk golongan ini hanya dapat dilakukan oleh %s.', $accessLabel));
+            }
         }
 
         // Check lot range from MaqraSchedule

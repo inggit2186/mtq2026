@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -684,9 +685,11 @@ POWERSHELL;
             'lot_min' => ['required', 'integer', 'min:1'],
             'lot_max' => ['required', 'integer', 'min:1', 'gte:lot_min'],
             'is_active' => ['nullable', 'boolean'],
+            'draw_access_by' => ['nullable', 'string', Rule::in(['panitia_only', 'official_only', 'both'])],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['draw_access_by'] = $validated['draw_access_by'] ?? 'official_only';
 
         $schedule = MaqraSchedule::create($validated);
         $schedule->load(['round', 'category']);
@@ -728,9 +731,11 @@ POWERSHELL;
             'lot_min' => ['required', 'integer', 'min:1'],
             'lot_max' => ['required', 'integer', 'min:1', 'gte:lot_min'],
             'is_active' => ['nullable', 'boolean'],
+            'draw_access_by' => ['nullable', 'string', Rule::in(['panitia_only', 'official_only', 'both'])],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['draw_access_by'] = $validated['draw_access_by'] ?? 'official_only';
 
         $maqraSchedule->update($validated);
         $maqraSchedule->load(['round', 'category']);
@@ -811,5 +816,31 @@ POWERSHELL;
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal maqra untuk '.$info.' berhasil '.$status.'.');
+    }
+
+    public function updateMaqraScheduleAccess(Request $request, MaqraSchedule $maqraSchedule): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'draw_access_by' => ['required', 'string', Rule::in(['panitia_only', 'official_only', 'both'])],
+        ]);
+
+        $maqraSchedule->update(['draw_access_by' => $validated['draw_access_by']]);
+        $maqraSchedule->load(['round', 'category']);
+
+        $accessLabel = $maqraSchedule->draw_access_by_label;
+        $info = $maqraSchedule->category?->name.' ('.$maqraSchedule->round?->name.')';
+
+        ActivityLogger::log(
+            'maqra_schedule.access_updated',
+            (auth()->user()?->name ?? 'Admin').' mengubah akses pengambilan maqra menjadi "'.$accessLabel.'" untuk '.$info.'.',
+            $maqraSchedule,
+            ['draw_access_by' => $maqraSchedule->draw_access_by]
+        );
+
+        return redirect()
+            ->route('admin.content')
+            ->with('status', 'Akses pengambilan maqra untuk '.$info.' berhasil diubah menjadi "'.$accessLabel.'".');
     }
 }

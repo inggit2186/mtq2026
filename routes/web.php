@@ -65,6 +65,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/edit', [AdminContentController::class, 'updateMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.update');
     Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/hapus', [AdminContentController::class, 'destroyMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.destroy');
     Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/toggle', [AdminContentController::class, 'toggleMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.toggle');
+    Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/access', [AdminContentController::class, 'updateMaqraScheduleAccess'])->middleware('role:admin')->name('admin.content.maqra-schedules.access');
     Route::post('/admin/konten/sinkronisasi-kecamatan', [AdminContentController::class, 'syncDistricts'])->middleware('role:admin')->name('admin.content.districts.sync');
     Route::get('/admin/konten/projector-installer.ps1', [AdminContentController::class, 'projectorInstaller'])->middleware('role:admin,panitia')->name('admin.content.projector-installer');
     Route::post('/admin/konten/pengumuman', [AdminContentController::class, 'storeAnnouncement'])->middleware('role:admin,panitia')->name('admin.content.announcements.store');
@@ -147,14 +148,14 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/pengambilan/lot', [ParticipantRegistrationController::class, 'lotMenu'])->middleware('role:admin,panitia')->name('participants.lot.menu');
     Route::get('/pengambilan/maqra', [ParticipantRegistrationController::class, 'maqraMenu'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.menu');
     Route::get('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'lotDraw'])->middleware('role:admin,panitia')->name('participants.lot.draw');
-    Route::get('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'maqraDraw'])->middleware('role:admin,official,pendamping')->name('participants.maqra.draw');
+    Route::get('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'maqraDraw'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.draw');
     Route::get('/data-peserta/{participant}/cv', [ParticipantRegistrationController::class, 'downloadCv'])->name('participants.cv');
     Route::get('/data-peserta/{participant}/kokarde', [ParticipantRegistrationController::class, 'downloadKokarde'])->name('participants.kokarde');
     Route::post('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'assignLotNumber'])->middleware('role:admin,panitia')->name('participants.lot.assign');
-    Route::post('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'assignMaqra'])->middleware('role:admin,official,pendamping')->name('participants.maqra.assign');
+    Route::post('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'assignMaqra'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.assign');
     Route::post('/data-peserta/{participant}/maqra/reset', [ParticipantRegistrationController::class, 'resetMaqra'])->middleware('role:admin')->name('participants.maqra.reset');
     Route::post('/data-peserta/{participant}/maqra/tukar', [ParticipantRegistrationController::class, 'swapMaqra'])->middleware('role:admin')->name('participants.maqra.swap');
-    Route::get('/data-peserta/{participant}/maqra/status', [ParticipantRegistrationController::class, 'maqraStatus'])->middleware('role:admin,official,pendamping')->name('participants.maqra.status');
+    Route::get('/data-peserta/{participant}/maqra/status', [ParticipantRegistrationController::class, 'maqraStatus'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.status');
     Route::post('/data-peserta/{participant}/nomor-lot/reset', [ParticipantRegistrationController::class, 'resetLotNumber'])->middleware('role:admin')->name('participants.lot.reset');
     Route::post('/data-peserta/{participant}/nomor-lot/ubah', [ParticipantRegistrationController::class, 'updateLotNumber'])->middleware('role:admin')->name('participants.lot.update');
     Route::post('/data-peserta/{participant}/nomor-lot/tukar', [ParticipantRegistrationController::class, 'swapLotNumber'])->middleware('role:admin')->name('participants.lot.swap');
@@ -183,6 +184,10 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/mfq/sesi/{sessionId}/nilai', [MfqScoringController::class, 'storeScore'])->middleware('role:admin,panitia')->name('scoring.mfq.score.store');
     Route::post('/penilaian/mfq/sesi/{sessionId}/selesai', [MfqScoringController::class, 'completeSession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.complete');
     Route::post('/penilaian/mfq/sesi/{sessionId}/hapus', [MfqScoringController::class, 'destroySession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.destroy');
+    // Draft endpoints for data safety
+    Route::post('/penilaian/mfq/sesi/{sessionId}/draft', [MfqScoringController::class, 'saveDraft'])->middleware('role:admin,panitia')->name('scoring.mfq.draft.save');
+    Route::get('/penilaian/mfq/sesi/{sessionId}/draft', [MfqScoringController::class, 'getDrafts'])->middleware('role:admin,panitia')->name('scoring.mfq.draft.get');
+    Route::delete('/penilaian/mfq/sesi/{sessionId}/draft/{draftId}', [MfqScoringController::class, 'deleteDraft'])->middleware('role:admin,panitia')->name('scoring.mfq.draft.delete');
     // Legacy routes (for backward compatibility)
     Route::post('/penilaian/mfq/pilih-regu', [MfqScoringController::class, 'storeSelection'])->middleware('role:admin,panitia')->name('scoring.mfq.selection.store');
     Route::post('/penilaian/mfq/pilih-regu/hapus', [MfqScoringController::class, 'clearSelection'])->middleware('role:admin,panitia')->name('scoring.mfq.selection.clear');

@@ -597,20 +597,56 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                     </div>
                     <?php else: ?>
 
-                    <!-- Tabs -->
-                    <div x-data="{ activeTab: 'Penyisihan' }">
-                        <div class="flex items-center gap-2 mb-4 border-b border-slate-700">
-                            <?php foreach (['Penyisihan', 'Final'] as $round): ?>
-                                <?php $roundSessions = $completedSessions[$round] ?? collect(); ?>
-                                <?php if ($roundSessions->isNotEmpty()): ?>
-                                <button @click="activeTab = '<?= $round ?>'"
-                                        :class="activeTab === '<?= $round ?>' ? 'border-b-2 border-amber-400 text-amber-400' : 'text-slate-400 hover:text-slate-200'"
-                                        class="px-4 py-2 text-sm font-semibold transition-colors">
-                                    <?= $round ?>
-                                    <span class="ml-1.5 rounded-full bg-slate-700/50 px-2 py-0.5 text-xs"><?= $roundSessions->count() ?></span>
-                                </button>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
+                    <!-- Tabs and Ranking Mode -->
+                    <div x-data="{
+                        activeTab: 'Penyisihan',
+                        rankingMode: 'points',
+                        rankingsByPoints: <?= e(json_encode($rankingsData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                        rankingsByScore: <?= e(json_encode($rankingsData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                        getRankings(round) {
+                            const data = this.rankingMode === 'points' ? this.rankingsByPoints : this.rankingsByScore;
+                            let rankings = data[round] || [];
+                            if (this.rankingMode === 'points') {
+                                rankings = [...rankings].sort((a, b) => b.total_points - a.total_points);
+                            } else {
+                                rankings = [...rankings].sort((a, b) => b.total_score - a.total_score);
+                            }
+                            return rankings;
+                        }
+                    }">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <?php foreach (['Penyisihan', 'Final'] as $round): ?>
+                                    <?php $roundSessions = $completedSessions[$round] ?? collect(); ?>
+                                    <?php if ($roundSessions->isNotEmpty()): ?>
+                                    <button @click="activeTab = '<?= $round ?>'"
+                                            :class="activeTab === '<?= $round ?>' ? 'border-b-2 border-amber-400 text-amber-400' : 'text-slate-400 hover:text-slate-200'"
+                                            class="px-4 py-2 text-sm font-semibold transition-colors">
+                                        <?= $round ?>
+                                        <span class="ml-1.5 rounded-full bg-slate-700/50 px-2 py-0.5 text-xs"><?= $roundSessions->count() ?></span>
+                                    </button>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <!-- Ranking Mode Selector -->
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-slate-400">Tampilan Ranking:</span>
+                                <div class="flex rounded-xl border border-slate-700 bg-slate-800/50 p-0.5">
+                                    <button @click="rankingMode = 'points'"
+                                            :class="rankingMode === 'points' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40' : 'text-slate-400 hover:text-slate-200 border border-transparent'"
+                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5">
+                                        <?= mtq_icon('hash', 'h-3.5 w-3.5') ?>
+                                        Poin Ranking
+                                    </button>
+                                    <button @click="rankingMode = 'score'"
+                                            :class="rankingMode === 'score' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'text-slate-400 hover:text-slate-200 border border-transparent'"
+                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5">
+                                        <?= mtq_icon('zap', 'h-3.5 w-3.5') ?>
+                                        Total Skor
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <?php foreach (['Penyisihan', 'Final'] as $round): ?>
@@ -653,6 +689,9 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                     <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                                         <?= mtq_icon('hash', 'h-4 w-4 text-amber-400') ?>
                                         Ranking <?= $round ?>
+                                        <span class="ml-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-xs text-cyan-300">
+                                            <span x-text="rankingMode === 'points' ? 'Berdasarkan Poin' : 'Berdasarkan Total Skor'"></span>
+                                        </span>
                                     </h4>
                                     <div class="overflow-x-auto">
                                         <table class="w-full">
@@ -661,53 +700,60 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">No</th>
                                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Nomor Lot</th>
                                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Kecamatan</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Sesi</th>
                                                     <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">Poin Ranking</th>
                                                     <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Total Nilai</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-slate-700/50">
-                                                <?php foreach ($roundRankings as $index => $rank): ?>
-                                                <tr class="hover:bg-slate-800/50 transition-colors <?= $index < 3 ? 'bg-amber-500/5' : '' ?>">
-                                                    <td class="px-4 py-3">
-                                                        <div class="flex h-8 w-8 items-center justify-center rounded-lg font-bold <?= $index === 0 ? 'bg-amber-500 text-white' : ($index === 1 ? 'bg-slate-400 text-slate-900' : ($index === 2 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300')) ?>">
-                                                        <?= $index + 1 ?>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-4 py-3">
-                                                        <div class="flex flex-wrap gap-1">
-                                                            <?php foreach ($rank['lot_numbers'] as $lot): ?>
-                                                            <span class="inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-300">
-                                                                <?= e($lot) ?>
-                                                            </span>
-                                                            <?php endforeach; ?>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-4 py-3">
-                                                        <span class="text-sm font-medium text-white"><?= e($rank['district_name']) ?></span>
-                                                        <span class="text-xs text-slate-500 ml-2">(<?= $rank['participant_count'] ?> peserta)</span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-center">
-                                                        <span class="text-xl font-black text-amber-300"><?= $rank['total_points'] ?></span>
-                                                        <div class="flex justify-center gap-1 mt-1">
-                                                            <?php foreach ($rank['session_points'] as $points): ?>
-                                                            <span class="inline-flex rounded-full bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
-                                                                <?= $points ?> pts
-                                                            </span>
-                                                            <?php endforeach; ?>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-right">
-                                                        <span class="text-xl font-black text-emerald-400"><?= number_format($rank['total_score'], 0) ?></span>
-                                                        <div class="flex justify-end gap-1 mt-1">
-                                                            <?php foreach ($rank['session_scores'] as $score): ?>
-                                                            <span class="inline-flex rounded-full bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
-                                                                <?= number_format($score, 0) ?>
-                                                            </span>
-                                                            <?php endforeach; ?>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                <?php endforeach; ?>
+                                                <template x-for="(rank, index) in getRankings('<?= $round ?>')" :key="'rank-<?= $round ?>-' + index">
+                                                    <tr class="hover:bg-slate-800/50 transition-colors" :class="index < 3 ? 'bg-amber-500/5' : ''">
+                                                        <td class="px-4 py-3">
+                                                            <div class="flex h-8 w-8 items-center justify-center rounded-lg font-bold"
+                                                                 :class="index === 0 ? 'bg-amber-500 text-white' : (index === 1 ? 'bg-slate-400 text-slate-900' : (index === 2 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'))">
+                                                                <span x-text="index + 1"></span>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <div class="flex flex-wrap gap-1">
+                                                                <template x-for="lot in rank.lot_numbers" :key="'lot-' + index + '-' + lot">
+                                                                    <span class="inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-300"
+                                                                          x-text="lot"></span>
+                                                                </template>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <span class="text-sm font-medium text-white" x-text="rank.district_name"></span>
+                                                            <span class="text-xs text-slate-500 ml-2" x-text="'(' + rank.participant_count + ' peserta)'"></span>
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <div class="flex flex-wrap gap-1">
+                                                                <template x-for="(sessionName, sessionId) in rank.session_names" :key="'session-' + index + '-' + sessionId">
+                                                                    <span class="inline-flex rounded-full border border-violet-400/30 bg-violet-400/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300"
+                                                                          x-text="sessionName"></span>
+                                                                </template>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-center">
+                                                            <span class="text-xl font-black text-amber-300" x-text="rank.total_points"></span>
+                                                            <div class="flex justify-center gap-1 mt-1">
+                                                                <template x-for="(points, sessionId) in rank.session_points" :key="'pts-' + index + '-' + sessionId">
+                                                                    <span class="inline-flex rounded-full bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400"
+                                                                          x-text="points + ' pts'"></span>
+                                                                </template>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-right">
+                                                            <span class="text-xl font-black text-emerald-400" x-text="Number(rank.total_score).toLocaleString()"></span>
+                                                            <div class="flex justify-end gap-1 mt-1">
+                                                                <template x-for="(score, sessionId) in rank.session_scores" :key="'score-' + index + '-' + sessionId">
+                                                                    <span class="inline-flex rounded-full bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400"
+                                                                          x-text="Number(score).toLocaleString()"></span>
+                                                                </template>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </template>
                                             </tbody>
                                         </table>
                                     </div>

@@ -624,7 +624,7 @@ class ScoringController extends Controller
         ]);
 
         // Broadcast single event
-        RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
+        //RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
 
         // Log dengan detail lengkap untuk backup/jaga-jaga jika ada error sistem
         ActivityLogger::log(

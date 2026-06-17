@@ -19,6 +19,7 @@ class MaqraSchedule extends Model
         'lot_min',
         'lot_max',
         'is_active',
+        'draw_access_by',
     ];
 
     protected function casts(): array
@@ -177,5 +178,54 @@ class MaqraSchedule extends Model
             ->orderBy('open_at', 'desc')
             ->get()
             ->groupBy(fn ($schedule) => $schedule->round?->name ?? 'Tanpa Babak');
+    }
+
+    /**
+     * Get allowed roles for maqra draw based on draw_access_by setting
+     */
+    public function allowedRolesForDraw(): array
+    {
+        return match ($this->draw_access_by) {
+            'panitia_only' => ['panitia'],
+            'official_only' => ['official', 'pendamping'],
+            'both' => ['panitia', 'official', 'pendamping'],
+            default => ['official', 'pendamping'], // backward compatibility
+        };
+    }
+
+    /**
+     * Check if a role can draw maqra based on this schedule's settings
+     */
+    public function canRoleDrawMaqra(?string $role): bool
+    {
+        if (! $role) {
+            return false;
+        }
+        return in_array($role, $this->allowedRolesForDraw(), true);
+    }
+
+    /**
+     * Get human-readable label for draw_access_by
+     */
+    public function getDrawAccessByLabelAttribute(): string
+    {
+        return match ($this->draw_access_by) {
+            'panitia_only' => 'Panitia',
+            'official_only' => 'Official',
+            'both' => 'Panitia & Official',
+            default => 'Official',
+        };
+    }
+
+    /**
+     * Get all draw_access_by options for forms
+     */
+    public static function getDrawAccessByOptions(): array
+    {
+        return [
+            'panitia_only' => 'Panitia',
+            'official_only' => 'Official',
+            'both' => 'Panitia & Official',
+        ];
     }
 }
