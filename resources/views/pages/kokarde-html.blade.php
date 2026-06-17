@@ -35,7 +35,7 @@
         }
         .kokarde-header {
             background: linear-gradient(180deg, #0f172a 0%, #1e3a5f 100%);
-            padding: 28px 24px 20px;
+            padding: 18px 14px 15px;
             text-align: center;
             position: relative;
         }
@@ -51,7 +51,7 @@
             justify-content: center;
             align-items: center;
             gap: 8px;
-            margin-bottom: 14px;
+            margin-bottom: 9px;
         }
         .header-logo {
             width: 36px; height: 36px;
@@ -83,7 +83,7 @@
             font-size: 18px;
             font-weight: 700;
             color: white;
-            line-height: 1.4;
+            line-height: 1.2;
             white-space: pre-line;
         }
         .header-year {
