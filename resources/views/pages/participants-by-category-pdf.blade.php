@@ -274,7 +274,11 @@
         .name-text { font-weight: 600; color: #1e293b; }
         .name-sub { font-size: 9pt; color: #64748b; margin-top: 2pt; }
         /* District cell */
-        .district-text { font-size: 11pt; }
+        .district-text { font-size: 10pt; }
+        /* NIK, KK, Lot cells */
+        .col-nik { width: 50pt; }
+        .col-kk { width: 50pt; }
+        .col-lot { width: 30pt; }
         /* Age badge */
         .age-badge {
             display: inline-block;
@@ -509,8 +513,11 @@
                                 <th class="col-no">No</th>
                                 <th class="col-photo">Foto</th>
                                 <th class="col-name">Nama Peserta</th>
+                                <th class="col-nik">NIK</th>
+                                <th class="col-kk">No. KK</th>
                                 <th class="col-district">Kecamatan</th>
-                                <th class="col-age">Keterangan</th>
+                                <th class="col-lot">Lot</th>
+                                <th class="col-age">Ket.</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -534,9 +541,12 @@
                                     <div class="name-text">{{ $participant['name'] }}</div>
                                     <div class="name-sub">{{ ucfirst($participant['gender']) }}</div>
                                 </td>
+                                <td style="font-size:10pt;text-align:center;">{{ $participant['nik'] }}</td>
+                                <td style="font-size:10pt;text-align:center;">{{ $participant['kk_number'] }}</td>
                                 <td class="district-text">{{ $participant['district'] }}</td>
+                                <td style="text-align:center;font-weight:700;color:#0891b2;font-size:12pt;">{{ $participant['lot_number'] }}</td>
                                 <td style="text-align:center;font-size:11pt;">
-                                    &nbsp; &nbsp; &nbsp; &nbsp;
+                                    &nbsp;
                                 </td>
                             </tr>
                             @php $rowNumber++; @endphp

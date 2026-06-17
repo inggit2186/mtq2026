@@ -227,10 +227,10 @@ $judgesJson = json_encode($judges);
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <?php echo mtq_icon('building', 'h-3 w-3 text-cyan-300/70'); ?>
-                                        <p class="text-[10px] uppercase tracking-widest text-cyan-300/70">Regu <span x-text="dIndex + 1"></span></p>
+                                        <?php echo mtq_icon('hash', 'h-3 w-3 text-amber-400'); ?>
+                                        <p class="text-[10px] uppercase tracking-widest text-amber-300">Lot</p>
                                     </div>
-                                    <p class="text-xl font-bold text-white" x-text="district.district_name"></p>
+                                    <p class="text-3xl font-black text-amber-300" x-text="district.representative ? district.representative.lot_number : '-'"></p>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -270,7 +270,10 @@ $judgesJson = json_encode($judges);
                                             :class="oIndex === 0 ? 'bg-gradient-to-b from-sky-500/25 to-sky-500/10 text-sky-200' : oIndex === 1 ? 'bg-gradient-to-b from-violet-500/25 to-violet-500/10 text-violet-200' : 'bg-gradient-to-b from-pink-500/25 to-pink-500/10 text-pink-200'">
                                             <div class="flex flex-col items-center gap-1">
                                                 <span x-text="'Lontaran ' + (oIndex + 1)"></span>
-                                                <span class="text-[10px] font-normal opacity-70" x-text="opponent.district_name"></span>
+                                                <span class="text-[10px] font-normal opacity-70 flex items-center gap-1">
+                                                    <?php echo mtq_icon('hash', 'h-2.5 w-2.5'); ?>
+                                                    <span x-text="opponent.representative ? opponent.representative.lot_number : '-'"></span>
+                                                </span>
                                             </div>
                                         </th>
                                     </template>
@@ -359,7 +362,7 @@ $judgesJson = json_encode($judges);
                         <?php echo mtq_icon('trophy', 'h-6 w-6 text-cyan-300'); ?>
                         <h3 class="text-xl font-bold text-white">Grand Total Semua Regu</h3>
                     </div>
-                    <p class="text-sm text-slate-400 mb-6">Total poin dari semua kecamatan</p>
+                    <p class="text-sm text-slate-400 mb-6">Total poin dari semua regu</p>
                     <div class="flex items-center justify-center py-4">
                         <div class="text-center relative">
                             <div class="float-animation">
@@ -399,7 +402,10 @@ $judgesJson = json_encode($judges);
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <p class="text-lg font-bold text-white truncate" x-text="rank.districtName"></p>
+                                    <p class="text-lg font-bold text-white flex items-center gap-2">
+                                        <?php echo mtq_icon('hash', 'h-4 w-4 text-amber-400'); ?>
+                                        <span x-text="rank.lotNumber"></span>
+                                    </p>
                                     <span x-show="index === 0" class="shrink-0">
                                         <?php echo mtq_icon('trophy', 'h-4 w-4 text-amber-300'); ?>
                                     </span>
@@ -542,7 +548,13 @@ $judgesJson = json_encode($judges);
             rankings: function() {
                 var self = this;
                 return this.districts.map(function(d) {
-                    return { districtId: d.district_id, districtName: d.district_name, representativeName: d.representative ? d.representative.name : '-', total: self.getDistrictTotal(d.district_id) };
+                    return {
+                        districtId: d.district_id,
+                        districtName: d.district_name,
+                        lotNumber: d.representative ? d.representative.lot_number : '-',
+                        representativeName: d.representative ? d.representative.name : '-',
+                        total: self.getDistrictTotal(d.district_id)
+                    };
                 }).sort(function(a, b) { return b.total - a.total; });
             },
 

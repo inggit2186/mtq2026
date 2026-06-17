@@ -112,7 +112,7 @@ $isMfq = isset($breakdown['type']) && $breakdown['type'] === 'MFQ';
                     <h2 class="text-4xl font-black leading-tight text-white" id="current-name"><?= e($currentParticipant?->name ?? 'Menunggu Peserta') ?></h2>
                     <div class="mt-3 flex items-center justify-center gap-2 text-xl font-bold text-emerald-200" id="current-district">
                         <span class="text-2xl">&#128205;</span>
-                        <span id="current-district-text"><?= e($currentParticipant?->district?->name ?? '-') ?></span>
+                        <!-- <span id="current-district-text"><?= e($currentParticipant?->district?->name ?? '-') ?></span> -->
                     </div>
                     <?php if (!empty($currentParticipant?->institution)): ?>
                     <div class="mt-2 flex items-center justify-center gap-2 text-base text-slate-400" id="current-institution">
@@ -159,7 +159,7 @@ $isMfq = isset($breakdown['type']) && $breakdown['type'] === 'MFQ';
 
                         <div class="mt-2 flex items-center gap-2 text-xl font-bold text-amber-200" id="scored-district">
                             <span class="text-2xl">&#128205;</span>
-                            <span id="scored-district-text"><?= e($latestScoredEntry->participant->district?->name ?? '-') ?></span>
+                            <!-- <span id="scored-district-text"><?= e($latestScoredEntry->participant->district?->name ?? '-') ?></span> -->
                         </div>
 
                         <?php if (!empty($latestScoredEntry->participant->institution)): ?>
@@ -247,7 +247,7 @@ $isMfq = isset($breakdown['type']) && $breakdown['type'] === 'MFQ';
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-base font-bold text-cyan-300"><?= e($i + 1) ?></span>
                             <div class="min-w-0">
                                 <p class="truncate text-base font-semibold text-white"><?= e($p->name) ?></p>
-                                <p class="truncate text-sm text-slate-500">Lot <?= e($p->lot_number ?? '-') ?> - <?= e($p->district?->name ?? '-') ?></p>
+                                <p class="truncate text-sm text-slate-500">Lot <?= e($p->lot_number ?? '-') ?></p>
                             </div>
                         </div>
                     <?php endforeach; ?>

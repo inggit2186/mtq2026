@@ -232,7 +232,7 @@
             </div>
             <div class="header-title">Peserta</div>
             <div class="header-event">{{ $eventTitle }}</div>
-            <div class="header-year">{{ $eventYear }}</div>
+            <div class="header-year">Pariangan, 19 - 23 Juni 2026</div>
         </div>
 
         <!-- Photo & Info Section -->

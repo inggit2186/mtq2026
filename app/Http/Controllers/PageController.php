@@ -1691,6 +1691,9 @@ class PageController extends Controller
                 $role === 'admin'
                     ? $this->consoleNavigationLink('admin.lot-auto-calculate', 'Auto-Calculate Lot', route('admin.lot-auto-calculate'), 'calculator')
                     : null,
+                in_array($role, ['admin', 'panitia'], true)
+                    ? $this->consoleNavigationLink('admin.export', 'Export Data', route('admin.export'), 'download')
+                    : null,
                 $role === 'admin'
                     ? $this->consoleNavigationLink('appearance.schedules', 'Penampilan Peserta', route('appearance.schedules'), 'sparkles')
                     : null,

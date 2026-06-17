@@ -12,6 +12,11 @@ $currentStep = $currentStep ?? 1;
 $participantsByDistrict = $participantsByDistrict ?? collect();
 $districts = $districts ?? collect();
 $summaryStats = $summaryStats ?? ['participant_total' => 0, 'category_total' => 0, 'session_active' => 0];
+$availableJudges = $availableJudges ?? [];
+$categoryJudgeIds = $categoryJudgeIds ?? [];
+
+// Default judges passed from controller (pre-populated with official judges from category)
+$defaultJudges = $defaultJudges ?? [$user?->name ?? ''];
 
 // Get selected category from URL or session
 $selectedCategoryId = request()->query('competition_category_id', $activeSession?->competition_category_id);
@@ -288,7 +293,7 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
 
                     <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <?php foreach ($sessions as $session): ?>
-                        <a href="<?= e(route('scoring.mfq', ['session_id' => $session->id])) ?>"
+                        <a href="<?= e(route('scoring.mfq', ['session_id' => $session->id, 'competition_category_id' => $selectedCategoryId])) ?>"
                            class="group block rounded-2xl border border-slate-700 bg-slate-900/50 p-5 transition-all duration-300 hover:border-cyan-400/40 hover:bg-slate-900/80 hover:shadow-lg hover:shadow-cyan-400/10 hover:-translate-y-1">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0 flex-1">
@@ -386,27 +391,44 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                         </div>
 
                         <!-- Judges -->
-                        <div class="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/80 to-slate-800/40 p-5">
+                        <div class="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/80 to-slate-800/40 p-5"
+                             x-data="mfqJudgeSetup({
+                                 judges: <?= e(json_encode($defaultJudges, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                                 availableJudges: <?= e(json_encode($availableJudges, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                                 categoryJudgeIds: <?= e(json_encode($categoryJudgeIds, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                             })">
                             <div class="flex items-center justify-between mb-4">
                                 <div class="flex items-center gap-2">
                                     <?= mtq_icon('users', 'h-5 w-5 text-violet-300') ?>
                                     <span class="text-sm font-semibold text-slate-200">Nama Hakim <span class="text-rose-400">*</span></span>
                                 </div>
-                                <p class="mt-1 text-xs text-slate-500">Minimal 1 hakim</p>
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200">
+                                        <span x-text="judges.length"></span> hakim
+                                    </span>
+                                    <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="judgeSearchQuery = ''; judgeModalOpen = true">
+                                        <?= mtq_icon('plus', 'h-4 w-4') ?>
+                                        Hakim
+                                    </button>
+                                </div>
                             </div>
 
-                            <div class="space-y-3" x-data="{ judges: ['<?= e($user->name ?? '') ?>'] }">
-                                <template x-for="(judge, index) in judges" :key="index">
+                            <!-- Hidden inputs for form submission -->
+                            <template x-for="(judgeName, index) in judges" :key="'input-' + index">
+                                <input type="hidden" :name="`judges[${index}]`" :value="judgeName">
+                            </template>
+
+                            <!-- Judges List Display -->
+                            <div class="space-y-3">
+                                <template x-for="(judgeName, index) in judges" :key="'judge-' + index">
                                     <div class="flex items-center gap-3">
                                         <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-400/10 text-sm font-bold text-cyan-200"
                                               x-text="index + 1"></div>
-                                        <input type="text"
-                                               :name="`judges[${index}]`"
-                                               x-model="judges[index]"
-                                               :placeholder="index === 0 ? 'Nama hakim utama' : 'Nama hakim tambahan'"
-                                               class="form-input flex-1 rounded-xl border border-slate-600 bg-slate-800/80 px-4 py-2.5 text-white placeholder-slate-500 outline-none transition focus:border-cyan-400">
+                                        <div class="flex-1 rounded-xl border border-slate-600 bg-slate-800/80 px-4 py-2.5 text-white">
+                                            <span class="font-semibold" x-text="judgeName"></span>
+                                        </div>
                                         <button type="button"
-                                                @click="if (judges.length > 1) judges.splice(index, 1)"
+                                                @click="removeJudge(index)"
                                                 class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-600 bg-slate-800/80 text-slate-400 transition hover:border-rose-400/40 hover:bg-rose-400/10 hover:text-rose-300"
                                                 :class="judges.length <= 1 ? 'opacity-30 cursor-not-allowed' : ''"
                                                 :disabled="judges.length <= 1">
@@ -414,13 +436,113 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                         </button>
                                     </div>
                                 </template>
+                            </div>
+                            <p x-show="judgesError" class="mt-3 text-xs text-rose-200">Minimal harus ada 1 hakim dengan nama.</p>
 
-                                <button type="button"
-                                        @click="judges.push('')"
-                                        class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/30 px-4 py-3 text-sm font-semibold text-slate-400 transition hover:border-cyan-400/40 hover:bg-cyan-400/5 hover:text-cyan-300">
-                                    <?= mtq_icon('plus', 'h-4 w-4') ?>
-                                    Tambah Hakim
-                                </button>
+                            <!-- Modal Tambah Hakim -->
+                            <div x-show="judgeModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
+                                x-on:keydown.escape.window="judgeModalOpen = false">
+                                <div class="absolute inset-0" x-on:click="judgeModalOpen = false"></div>
+                                <div class="relative z-10 w-full max-w-lg rounded-2xl border border-cyan-400/20 bg-slate-900 shadow-xl max-h-[85vh] flex flex-col">
+                                    <div class="flex items-center justify-between border-b border-slate-700 px-6 py-4 shrink-0">
+                                        <div>
+                                            <h3 class="text-lg font-bold text-white">Tambah Hakim</h3>
+                                            <p class="mt-1 text-xs text-slate-400" x-text="`${availableJudges.filter(j => !judges.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length} hakim tersedia`"></p>
+                                        </div>
+                                        <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="judgeModalOpen = false">
+                                            <?= mtq_icon('x', 'h-4 w-4') ?>
+                                        </button>
+                                    </div>
+
+                                    <!-- Notice SK -->
+                                    <div class="px-6 py-3 border-b border-slate-700/50 shrink-0">
+                                        <div class="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2.5">
+                                            <?= mtq_icon('info', 'h-4 w-4 text-amber-300 shrink-0 mt-0.5') ?>
+                                            <p class="text-xs text-amber-100 leading-relaxed">
+                                                Daftar Dewan Hakim berdasarkan <strong>SK Bupati Tanah Datar Nomor 100.3.3.2/165/KESRA-2026</strong>. Jika ada/ingin menambahkan Hakim di luar SK, Hubungi Admin.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Search -->
+                                    <div class="px-6 py-3 border-b border-slate-700/50 shrink-0">
+                                        <div class="relative">
+                                            <?= mtq_icon('search', 'h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none') ?>
+                                            <input type="text"
+                                                x-model="judgeSearchQuery"
+                                                placeholder="Cari nama hakim..."
+                                                class="w-full rounded-xl border border-slate-700 bg-slate-950/80 pl-10 pr-4 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20">
+                                        </div>
+                                    </div>
+
+                                    <div class="p-6 overflow-y-auto flex-1 min-h-0">
+                                        <!-- Hakim Berdasarkan SK -->
+                                        <div class="mb-4">
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/30 to-transparent"></span>
+                                                <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300 bg-slate-900/80 px-2 py-1 rounded-full border border-cyan-400/20">
+                                                    Hakim Berdasarkan SK
+                                                </span>
+                                                <span class="h-px flex-1 bg-gradient-to-l from-cyan-400/30 to-transparent"></span>
+                                            </div>
+                                            <div class="grid gap-2">
+                                                <template x-for="judge in availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !judges.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'sk-' + judge.id">
+                                                    <button type="button"
+                                                        class="flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3 text-left transition hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:scale-[1.01]"
+                                                        x-on:click="addJudge(judge.nama)">
+                                                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/15 text-xs font-bold text-cyan-200">
+                                                            <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
+                                                        </span>
+                                                        <div class="min-w-0 flex-1">
+                                                            <p class="text-sm font-semibold text-white truncate" x-text="judge.nama"></p>
+                                                            <p class="text-xs text-slate-400 truncate" x-text="judge.asal || '-'"></p>
+                                                        </div>
+                                                        <?= mtq_icon('plus-circle', 'h-5 w-5 text-cyan-400 shrink-0') ?>
+                                                    </button>
+                                                </template>
+                                                <p x-show="availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !judges.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-500">
+                                                    <span x-text="judgeSearchQuery ? 'Tidak ada hasil pencarian' : 'Semua hakim SK sudah ditambahkan'"></span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Hakim Lainnya (di luar SK) -->
+                                        <div>
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <span class="h-px flex-1 bg-gradient-to-r from-slate-600/40 to-transparent"></span>
+                                                <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-600/30">
+                                                    Hakim Lainnya (di luar SK)
+                                                </span>
+                                                <span class="h-px flex-1 bg-gradient-to-l from-slate-600/40 to-transparent"></span>
+                                            </div>
+                                            <div class="grid gap-2">
+                                                <template x-for="judge in availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !judges.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'other-' + judge.id">
+                                                    <button type="button"
+                                                        class="flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-800/30 p-3 text-left transition hover:border-amber-400/30 hover:bg-amber-400/5 hover:scale-[1.01]"
+                                                        x-on:click="addJudge(judge.nama)">
+                                                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-600/40 bg-slate-800/50 text-xs font-bold text-slate-400">
+                                                            <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
+                                                        </span>
+                                                        <div class="min-w-0 flex-1">
+                                                            <p class="text-sm font-semibold text-slate-200 truncate" x-text="judge.nama"></p>
+                                                            <p class="text-xs text-slate-500 truncate" x-text="judge.asal || '-'"></p>
+                                                        </div>
+                                                        <?= mtq_icon('plus-circle', 'h-5 w-5 text-amber-400/70 shrink-0') ?>
+                                                    </button>
+                                                </template>
+                                                <p x-show="availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !judges.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-600">
+                                                    <span x-text="judgeSearchQuery ? 'Tidak ada hasil pencarian' : 'Tidak ada hakim lain'"></span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-end gap-3 border-t border-slate-700 px-6 py-4 shrink-0">
+                                        <button type="button" class="secondary-button" x-on:click="judgeModalOpen = false">
+                                            Tutup
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -468,7 +590,7 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                 Pilih golongan MFQ terlebih dahulu untuk melihat daftar kecamatan.
                             </span>
                         </div>
-                        <form method="GET" action="<?= e(route('scoring.mfq', ['session_id' => $activeSession->id])) ?>" class="mt-3">
+                        <form method="GET" action="<?= e(route('scoring.mfq', ['session_id' => $activeSession->id, 'competition_category_id' => $selectedCategoryId])) ?>" class="mt-3">
                             <div class="flex flex-wrap items-end gap-3">
                                 <div class="flex-1 min-w-[200px]">
                                     <label class="mb-2 block text-xs font-semibold text-slate-300">Golongan MFQ</label>
@@ -516,6 +638,7 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                     $districtName = $district?->name ?? 'Tanpa Kecamatan';
                                     $participantCount = $participants->count();
                                     $representative = $participants->first();
+                                    $lotNumber = $representative?->lot_number ?? '-';
                                     ?>
                                     <label class="group block cursor-pointer">
                                         <input type="checkbox"
@@ -527,19 +650,19 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                             <div class="flex items-start justify-between gap-3">
                                                 <div class="min-w-0 flex-1">
                                                     <div class="flex items-center gap-2 mb-2">
-                                                        <?= mtq_icon('building', 'h-4 w-4 text-cyan-300/70') ?>
-                                                        <p class="font-bold text-white group-hover:text-cyan-200"><?= e($districtName) ?></p>
+                                                        <?= mtq_icon('hash', 'h-4 w-4 text-amber-400') ?>
+                                                        <p class="font-bold text-amber-300 text-lg" x-text="'<?= e($lotNumber) ?>'"><?= e($lotNumber) ?></p>
                                                     </div>
                                                     <div class="flex items-center gap-3 text-sm text-slate-400">
+                                                        <span class="flex items-center gap-1">
+                                                            <?= mtq_icon('building', 'h-3 w-3') ?>
+                                                            <?= e($districtName) ?>
+                                                        </span>
                                                         <span class="flex items-center gap-1">
                                                             <?= mtq_icon('users', 'h-3 w-3') ?>
                                                             <?= e($participantCount) ?> peserta
                                                         </span>
                                                     </div>
-                                                    <p class="mt-2 text-xs text-slate-500 flex items-center gap-1">
-                                                        <?= mtq_icon('user', 'h-3 w-3') ?>
-                                                        Rep: <?= e($representative->name ?? '-') ?>
-                                                    </p>
                                                 </div>
                                                 <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border-2 border-slate-600 bg-slate-800 transition-all peer-checked:border-cyan-400 peer-checked:bg-gradient-to-br peer-checked:from-cyan-400 peer-checked:to-sky-400">
                                                     <?= mtq_icon('check', 'h-4 w-4 text-slate-900 opacity-0 peer-checked:opacity-100') ?>
@@ -623,41 +746,54 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                         <?php
                         $districtIds = $activeSession->district_ids ?? [];
                         $districts = \App\Models\District::whereIn('id', $districtIds)->get()->keyBy('id');
-                        $participants = \App\Models\Participant::with('district')
-                            ->where('competition_category_id', $activeSession->competition_category_id)
-                            ->whereIn('district_id', $districtIds)
-                            ->where('verification_status', 'verified')
-                            ->get();
-                        $scores = \App\Models\ScoreEntry::whereIn('participant_id', $participants->pluck('id'))
-                            ->get()
-                            ->groupBy('participant_id');
 
-                        foreach ($districtIds as $index => $districtId):
+                        // Build district cards data for display (similar to scoring page)
+                        $districtCardsData = collect($districtIds)->map(function ($districtId) use ($districts) {
                             $district = $districts->get($districtId);
-                            $districtParticipants = $participants->where('district_id', $districtId);
+                            $districtParticipants = \App\Models\Participant::with('district')
+                                ->where('competition_category_id', $activeSession->competition_category_id)
+                                ->where('district_id', $districtId)
+                                ->where('verification_status', 'verified')
+                                ->get();
+
+                            if ($districtParticipants->isEmpty()) {
+                                return null;
+                            }
+
                             $representative = $districtParticipants->first();
-                            $totalScore = $districtParticipants->sum(fn($p) => $scores->get($p->id, collect())->sum('score'));
+                            $scores = \App\Models\ScoreEntry::where('participant_id', $representative->id)->get();
+
+                            return [
+                                'district_id' => $districtId,
+                                'district_name' => $district?->name ?? '-',
+                                'participant_count' => $districtParticipants->count(),
+                                'lot_number' => $representative->lot_number,
+                                'representative_name' => $representative->name,
+                                'total_score' => $scores->sum('score'),
+                            ];
+                        })->filter()->values();
+
+                        foreach ($districtCardsData as $index => $card):
                         ?>
                         <div class="district-card rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/80 to-slate-800/40 p-5">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="flex items-center gap-2 mb-1">
-                                        <?= mtq_icon('building', 'h-3 w-3 text-cyan-300/70') ?>
-                                        <p class="text-[10px] uppercase tracking-wider text-cyan-200/70">Regu <?= $index + 1 ?></p>
+                                        <?= mtq_icon('hash', 'h-3 w-3 text-amber-400') ?>
+                                        <p class="text-[10px] uppercase tracking-wider text-amber-300">Lot</p>
                                     </div>
-                                    <p class="mt-1 font-bold text-white"><?= e($district?->name ?? '-') ?></p>
+                                    <p class="mt-1 text-3xl font-black text-amber-300"><?= e($card['lot_number'] ?? '-') ?></p>
                                 </div>
-                                <span class="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-amber-400/30 bg-gradient-to-br from-amber-400/20 to-orange-400/10 text-xl font-black text-amber-200">
-                                    <?= mtq_icon('hash', 'h-5 w-5') ?>
-                                    <?= e($representative?->lot_number ?? '-') ?>
+                                <span class="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-slate-600 bg-slate-800 text-lg font-bold text-slate-300">
+                                    <?= e($index + 1) ?>
                                 </span>
                             </div>
                             <div class="mt-4 flex items-end justify-between">
                                 <div class="flex items-center gap-2">
                                     <?= mtq_icon('user', 'h-4 w-4 text-slate-400') ?>
                                     <div>
-                                        <p class="text-sm text-white"><?= e($representative->name ?? '-') ?></p>
-                                        <p class="text-xs text-slate-500"><?= $districtParticipants->count() ?> peserta</p>
+                                        <p class="text-sm text-white"><?= e($card['representative_name'] ?? '-') ?></p>
+                                        <p class="text-xs text-slate-500"><?= e($card['participant_count'] ?? 0) ?> peserta</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -665,7 +801,7 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                                         <?= mtq_icon('zap', 'h-3 w-3') ?>
                                         <span>Total Nilai</span>
                                     </div>
-                                    <p class="text-3xl font-black text-emerald-300"><?= number_format($totalScore, 0) ?></p>
+                                    <p class="text-3xl font-black text-emerald-300"><?= number_format($card['total_score'] ?? 0, 0) ?></p>
                                 </div>
                             </div>
                         </div>
@@ -695,6 +831,54 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                     this.currentStep = <?= e($currentStep) ?>;
                 }
             }
+        }
+
+        function mfqJudgeSetup(initialState) {
+            return {
+                judges: Array.isArray(initialState.judges) && initialState.judges.length > 0
+                    ? initialState.judges.filter(j => j.trim() !== '')
+                    : [initialState.judges?.[0] || ''],
+                availableJudges: initialState.availableJudges ?? [],
+                categoryJudgeIds: initialState.categoryJudgeIds ?? [],
+                judgeModalOpen: false,
+                judgeSearchQuery: '',
+                judgesError: false,
+
+                init() {
+                    // Ensure at least one empty judge entry
+                    if (this.judges.length === 0) {
+                        this.judges = [''];
+                    }
+                },
+
+                addJudge(name) {
+                    if (name && !this.judges.includes(name)) {
+                        this.judges.push(name);
+                    }
+                    // Close modal if no more available judges
+                    this.$nextTick(() => {
+                        const available = this.availableJudges.filter(j =>
+                            !this.judges.includes(j.nama) &&
+                            (!this.judgeSearchQuery || j.nama.toLowerCase().includes(this.judgeSearchQuery.toLowerCase()))
+                        );
+                        if (available.length === 0) {
+                            this.judgeModalOpen = false;
+                        }
+                    });
+                },
+
+                removeJudge(index) {
+                    if (this.judges.length > 1) {
+                        this.judges.splice(index, 1);
+                    }
+                },
+
+                validateJudges() {
+                    const filledJudges = this.judges.filter(j => j.trim() !== '');
+                    this.judgesError = filledJudges.length < 1;
+                    return !this.judgesError;
+                }
+            };
         }
     </script>
 </body>

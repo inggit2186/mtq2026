@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
 use App\Models\District;
+use App\Models\Hakim;
 use App\Models\MfqSession;
 use App\Models\Participant;
 use App\Models\ScoreEntry;
@@ -13,8 +14,7 @@ use App\Support\RealtimeBroadcaster;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -22,9 +22,13 @@ use Illuminate\View\View;
 class MfqScoringController extends Controller
 {
     protected const JUDGING_ROUNDS = ['Penyisihan', 'Final'];
+
     protected const SCORE_MIN = 0;
+
     protected const SCORE_MAX = 100;
+
     protected const MIN_DISTRICTS = 2;
+
     protected const MAX_DISTRICTS = 5;
 
     public function index(Request $request): View
@@ -43,7 +47,7 @@ class MfqScoringController extends Controller
                 ->find($sessionId);
             if ($activeSession && $activeSession->status === 'active') {
                 // Determine step based on session state
-                if (!empty($activeSession->district_ids)) {
+                if (! empty($activeSession->district_ids)) {
                     $currentStep = 3; // Step 3: Scoring
                 } else {
                     $currentStep = 2; // Step 2: Select Districts
@@ -92,6 +96,27 @@ class MfqScoringController extends Controller
             'session_active' => $sessions->count(),
         ];
 
+        // Get available judges for the modal
+        $availableJudges = Hakim::all()->map(fn ($h) => [
+            'id' => $h->id,
+            'nama' => $h->nama,
+            'asal' => $h->asal,
+        ])->values()->all();
+
+        // Get category-specific judge IDs and names for default selection
+        $categoryJudgeIds = [];
+        $defaultJudges = [];
+        if ($selectedCategory) {
+            $categoryJudges = Hakim::byGolongan($selectedCategory->id)->get();
+            $categoryJudgeIds = $categoryJudges->pluck('id')->toArray();
+            $defaultJudges = $categoryJudges->pluck('nama')->values()->toArray();
+        }
+
+        // Fallback to current user name if no category judges
+        if (empty($defaultJudges)) {
+            $defaultJudges = [$user?->name ?? ''];
+        }
+
         return view('pages.scoring-mfq-new', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
@@ -105,6 +130,9 @@ class MfqScoringController extends Controller
             'currentStep' => $currentStep,
             'summaryStats' => $summaryStats,
             'user' => $user,
+            'availableJudges' => $availableJudges,
+            'categoryJudgeIds' => $categoryJudgeIds,
+            'defaultJudges' => $defaultJudges,
         ]);
     }
 
@@ -142,7 +170,10 @@ class MfqScoringController extends Controller
         ]);
 
         return redirect()
-            ->route('scoring.mfq', ['session_id' => $session->id])
+            ->route('scoring.mfq', [
+                'session_id' => $session->id,
+                'competition_category_id' => $validated['competition_category_id'],
+            ])
             ->with('status', 'Sesi MFQ berhasil dibuat. Lanjut ke pemilihan kecamatan.');
     }
 
@@ -180,7 +211,11 @@ class MfqScoringController extends Controller
         ]);
 
         return redirect()
-            ->route('scoring.mfq', ['session_id' => $session->id, 'step' => 'scoring'])
+            ->route('scoring.mfq', [
+                'session_id' => $session->id,
+                'step' => 'scoring',
+                'competition_category_id' => $session->competition_category_id,
+            ])
             ->with('status', 'Kecamatan berhasil dipilih. Lanjut ke input nilai.');
     }
 
@@ -288,7 +323,7 @@ class MfqScoringController extends Controller
         $participant = Participant::with('category')->findOrFail($validated['participant_id']);
 
         // Verify participant belongs to this session's districts
-        if (!in_array($participant->district_id, $session->district_ids ?? [])) {
+        if (! in_array($participant->district_id, $session->district_ids ?? [])) {
             throw ValidationException::withMessages([
                 'participant_id' => 'Peserta tidak termasuk dalam sesi ini.',
             ]);
@@ -406,7 +441,7 @@ class MfqScoringController extends Controller
 
         // Delete related scores
         $districtIds = $session->district_ids ?? [];
-        if (!empty($districtIds)) {
+        if (! empty($districtIds)) {
             $participantIds = Participant::where('competition_category_id', $session->competition_category_id)
                 ->whereIn('district_id', $districtIds)
                 ->pluck('id');
@@ -425,7 +460,7 @@ class MfqScoringController extends Controller
 
     // Helper methods
 
-    protected function getMfqCategories($user): \Illuminate\Support\Collection
+    protected function getMfqCategories($user): Collection
     {
         $query = CompetitionCategory::query()
             ->where(function ($q): void {
@@ -439,7 +474,7 @@ class MfqScoringController extends Controller
 
         if ($user?->role === 'panitia') {
             $restrictedIds = $user->accessibleCategoryIds();
-            if (!empty($restrictedIds)) {
+            if (! empty($restrictedIds)) {
                 $query->whereIn('id', $restrictedIds);
             }
         }
@@ -461,7 +496,7 @@ class MfqScoringController extends Controller
 
         // Fallback: string matching
         $haystack = mb_strtolower(trim($category->branch.' '.$category->name.' '.$category->slug));
-        if (!str_contains($haystack, 'fahmil')) {
+        if (! str_contains($haystack, 'fahmil')) {
             throw ValidationException::withMessages([
                 'competition_category_id' => 'Golongan yang dipilih bukan cabang MFQ.',
             ]);

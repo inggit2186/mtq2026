@@ -4296,6 +4296,9 @@ class ParticipantRegistrationController extends Controller
                         'district' => $p->district?->name ?? '-',
                         'birth_date' => null,
                         'age' => null,
+                        'nik' => $p->nik ?? '-',
+                        'kk_number' => $p->kk_number ?? '-',
+                        'lot_number' => $p->lot_number ?? '-',
                     ];
                 }
                 try {
@@ -4319,6 +4322,9 @@ class ParticipantRegistrationController extends Controller
                             'months' => $months,
                             'days' => $days,
                         ],
+                        'nik' => $p->nik ?? '-',
+                        'kk_number' => $p->kk_number ?? '-',
+                        'lot_number' => $p->lot_number ?? '-',
                     ];
                 } catch (\Exception $e) {
                     return [
@@ -4329,6 +4335,9 @@ class ParticipantRegistrationController extends Controller
                         'district' => $p->district?->name ?? '-',
                         'birth_date' => $birthDate,
                         'age' => null,
+                        'nik' => $p->nik ?? '-',
+                        'kk_number' => $p->kk_number ?? '-',
+                        'lot_number' => $p->lot_number ?? '-',
                     ];
                 }
             });

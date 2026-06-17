@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminContentController;
+use App\Http\Controllers\AdminExportController;
 use App\Http\Controllers\ApplicationLogController;
 use App\Http\Controllers\AppearanceScheduleController;
 use App\Http\Controllers\AuthController;
@@ -103,6 +104,10 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/maqra/{maqraPackage}/hapus', [PageController::class, 'destroyMaqra'])->middleware('role:admin')->name('maqra.destroy');
     Route::get('/admin/lot-auto-calculate', [PageController::class, 'lotAutoCalculate'])->middleware('role:admin')->name('admin.lot-auto-calculate');
     Route::get('/admin/lot-auto-calculate/preview', [PageController::class, 'previewLotAutoCalculate'])->middleware('role:admin')->name('admin.lot-auto-calculate.preview');
+    Route::get('/admin/export', [AdminExportController::class, 'index'])->middleware('role:admin,panitia')->name('admin.export');
+    Route::get('/admin/export/excel/category', [AdminExportController::class, 'exportExcelByCategory'])->middleware('role:admin,panitia')->name('admin.export.excel.category');
+    Route::get('/admin/export/kokarde', [AdminExportController::class, 'downloadAllKokarde'])->middleware('role:admin,panitia')->name('admin.export.kokarde');
+    Route::get('/admin/export/kokarde/page', [AdminExportController::class, 'kokardePage'])->middleware('role:admin,panitia')->name('admin.export.kokarde.page');
     Route::get('/admin/penampilan', [AppearanceScheduleController::class, 'index'])->middleware('role:admin')->name('appearance.schedules');
     Route::post('/admin/penampilan', [AppearanceScheduleController::class, 'store'])->middleware('role:admin')->name('appearance.schedules.store');
     Route::delete('/admin/penampilan/{schedule}', [AppearanceScheduleController::class, 'destroy'])->middleware('role:admin')->name('appearance.schedules.destroy');
