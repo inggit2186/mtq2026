@@ -153,13 +153,34 @@ class Participant extends Model
     /**
      * Check if this participant needs to select competition role before lot assignment.
      * Only applies to the old combined "Khutbah Jumat dan Adzan" category.
+     * (Name contains both "Khatib" and "Muadzin" - the pair category)
+     *
+     * Note: This handles soft-deleted categories by checking the category ID directly.
      */
     public function needsCompetitionRoleSelection(): bool
     {
-        $slug = $this->category?->slug ?? '';
+        $category = $this->category;
 
-        // Old combined category needs role selection
-        return str_contains($slug, 'khutbah-jumat-dan-adzan')
-            && filled($this->competition_category_id);
+        // Must have a competition_category_id
+        if (!filled($this->competition_category_id)) {
+            return false;
+        }
+
+        // If category relationship is loaded, check by name
+        if ($category) {
+            $name = mb_strtolower((string) ($category->name ?? ''));
+            return str_contains($name, 'khatib') && str_contains($name, 'muadzin');
+        }
+
+        // If category relationship is null (possibly soft-deleted), check by category ID
+        // Old combined category ID: 28 (khutbah-jumat-dan-adzan-khatib-dan-muadzin)
+        // We need to check by ID since the soft-deleted category won't load
+        $oldCategoryId = 28;
+
+        if ((int) $this->competition_category_id === $oldCategoryId) {
+            return true;
+        }
+
+        return false;
     }
 }

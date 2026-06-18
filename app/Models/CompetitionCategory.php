@@ -61,33 +61,39 @@ class CompetitionCategory extends Model
     }
 
     /**
-     * Check if this is a Khutbah Jumat category.
+     * Check if this is a Khutbah category (Khatib).
+     * Uses name-based detection: name === 'Khatib' AND branch contains 'Khutbah'
      */
     public function isKhatibCategory(): bool
     {
-        return $this->slug === 'khutbah-jumat-khatib';
+        $name = trim((string) ($this->name ?? ''));
+        $branch = mb_strtolower((string) ($this->branch ?? ''));
+
+        return $name === 'Khatib' && str_contains($branch, 'khutbah');
     }
 
     /**
-     * Check if this is an Adzan category.
+     * Check if this is an Adzan category (Muadzin).
+     * Uses name-based detection: name === 'Adzan' AND branch contains 'Adzan'
      */
     public function isAdzanCategory(): bool
     {
-        return $this->slug === 'adzan-muadzin';
+        $name = trim((string) ($this->name ?? ''));
+        $branch = mb_strtolower((string) ($this->branch ?? ''));
+
+        return $name === 'Adzan' && str_contains($branch, 'adzan');
     }
 
     /**
-     * Check if this category is related to Khutbah/Adzan (either new separate or old combined).
+     * Check if this category is related to Khutbah/Adzan.
+     * Includes: Khatib, Adzan, and the old combined category.
      */
     public function isKhutbahAdzanRelated(): bool
     {
-        $slug = $this->slug ?? '';
-        $branch = mb_strtolower($this->branch ?? '');
+        $branch = mb_strtolower((string) ($this->branch ?? ''));
 
-        return $this->isKhatibCategory()
-            || $this->isAdzanCategory()
-            || str_contains($slug, 'khutbah-jumat-dan-adzan')
-            || str_contains($branch, 'khutbah');
+        // Check by branch (covers all khutbah/adzan related categories)
+        return str_contains($branch, 'khutbah') || str_contains($branch, 'adzan');
     }
 
     /**
@@ -95,14 +101,14 @@ class CompetitionCategory extends Model
      */
     public function usesMaqraSystem(): bool
     {
-        // Khutbah Jumat and Adzan do NOT use maqra
+        // Khutbah dan Adzan TIDAK menggunakan maqra
         if ($this->isKhatibCategory() || $this->isAdzanCategory()) {
             return false;
         }
 
         // Old combined category also doesn't use maqra
-        $slug = $this->slug ?? '';
-        if (str_contains($slug, 'khutbah-jumat-dan-adzan')) {
+        $name = mb_strtolower((string) ($this->name ?? ''));
+        if (str_contains($name, 'khatib') && str_contains($name, 'muadzin')) {
             return false;
         }
 
@@ -115,13 +121,14 @@ class CompetitionCategory extends Model
      */
     public function getDisplayNameAttribute(): string
     {
-        if ($this->isKhatibCategory()) {
-            return 'Khutbah Jumat';
-        }
-        if ($this->isAdzanCategory()) {
-            return 'Adzan';
+        $branch = (string) ($this->branch ?? '');
+        $name = (string) ($this->name ?? '');
+
+        // For Khutbah/Adzan categories, combine branch and name
+        if ($this->isKhatibCategory() || $this->isAdzanCategory()) {
+            return trim($branch.' - '.$name);
         }
 
-        return $this->branch ?? $this->name ?? 'Unknown';
+        return $branch ?: $name ?: 'Unknown';
     }
 }

@@ -1275,7 +1275,10 @@ class ParticipantRegistrationController extends Controller
 
         $accessibleCategoryIds = $this->accessibleCategoryIdsForLotUser($user);
 
-        $categoriesQuery = CompetitionCategory::query()
+        // Get categories including soft-deleted ones that user has access to
+        // This is needed for Khutbah/Adzan transition where old category is soft-deleted
+        // but participants may still need role selection
+        $categoriesQuery = CompetitionCategory::withTrashed()
             ->orderBy('sort_order')
             ->orderBy('branch')
             ->orderBy('name');
@@ -1285,15 +1288,30 @@ class ParticipantRegistrationController extends Controller
         }
 
         $categories = $categoriesQuery->get();
+
+        // Filter to only show active categories unless user specifically has access to a soft-deleted one
+        $visibleCategories = $categories->filter(function ($category) use ($accessibleCategoryIds) {
+            // Show all categories if admin (null = all access)
+            if (!is_array($accessibleCategoryIds)) {
+                return true;
+            }
+            // Show active categories
+            if (!$category->trashed()) {
+                return true;
+            }
+            // For soft-deleted, only show if user has explicit access
+            return in_array($category->id, $accessibleCategoryIds, true);
+        });
+
         $selectedCategoryId = filled($filters['competition_category_id'] ?? null)
             ? (int) $filters['competition_category_id']
-            : (int) ($categories->first()?->id ?? 0);
+            : (int) ($visibleCategories->first()?->id ?? 0);
         $selectedCategory = $selectedCategoryId > 0
             ? $categories->firstWhere('id', $selectedCategoryId)
             : $categories->first();
 
         $participantsQuery = Participant::query()
-            ->with(['category', 'district'])
+            ->with(['category'])
             ->where('verification_status', 'verified')
             ->when(is_array($accessibleCategoryIds), fn ($query) => $query->whereIn('competition_category_id', $accessibleCategoryIds))
             ->orderBy('name');
@@ -1318,7 +1336,7 @@ class ParticipantRegistrationController extends Controller
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
             'navigation' => app(PageController::class)->consoleNavigation((string) auth()->user()?->role, 'participants.lot.menu'),
-            'categories' => $categories,
+            'categories' => $visibleCategories,
             'selectedCategory' => $selectedCategory,
             'participants' => $participants,
             'participantsByCategory' => $participantsByCategory,
@@ -1554,8 +1572,10 @@ class ParticipantRegistrationController extends Controller
         // Check if participant needs to select competition role first (for old combined category)
         $needsRoleSelection = $participant->needsCompetitionRoleSelection();
 
-        $groupSize = $this->participantLotGroupSize($participant);
-        $isLotPerDistrict = $this->isLotPerDistrictCategory($participant->category);
+        // Get category - use null-safe checks for soft-deleted categories
+        $category = $participant->category;
+        $groupSize = $category ? $this->participantLotGroupSize($participant) : 1;
+        $isLotPerDistrict = $category ? $this->isLotPerDistrictCategory($category) : false;
 
         // For lot-per-district categories, get all participants from same district and gender
         $districtParticipants = collect();
@@ -1569,13 +1589,21 @@ class ParticipantRegistrationController extends Controller
                 ->get(['id', 'name', 'nik', 'kk_number', 'lot_number', 'lot_assigned_at', 'document_photo']);
         }
 
+        // Build category label - handle soft-deleted category
+        $categoryLabel = '-';
+        if ($category) {
+            $categoryLabel = trim((string) ($category->branch ?? '-'). ' - '. (string) ($category->name ?? '-'));
+        } elseif ($needsRoleSelection) {
+            $categoryLabel = 'Khutbah Jumat dan Adzan - Khatib dan Muadzin (lama)';
+        }
+
         return view('pages.participant-lot-draw', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
             'participant' => $participant,
-            'lotPrefix' => $this->participantLotPrefix($participant),
-            'lotRangeLabel' => app(PageController::class)->categoryLotRangeLabel($participant->category),
-            'lotRuleLabel' => app(PageController::class)->categoryLotRuleLabel($participant->category, (string) $participant->gender),
+            'lotPrefix' => $category ? $this->participantLotPrefix($participant) : 'KHA',
+            'lotRangeLabel' => $category ? app(PageController::class)->categoryLotRangeLabel($category) : '01 - 28',
+            'lotRuleLabel' => $category ? app(PageController::class)->categoryLotRuleLabel($category, (string) $participant->gender) : 'Pilih role terlebih dahulu',
             'lotGroupSize' => $groupSize,
             'lotParity' => $participant->gender === 'putra' ? 'even' : 'odd',
             'photoDataUri' => $this->participantPhotoDataUri((string) ($participant->document_photo ?? '')),
@@ -1584,7 +1612,7 @@ class ParticipantRegistrationController extends Controller
             'participantKkNumber' => $participant->kk_number,
             'isLotPerDistrict' => $isLotPerDistrict,
             'districtParticipants' => $districtParticipants,
-            'categoryLabel' => trim((string) ($participant->category?->branch ?? '-'). ' - '. (string) ($participant->category?->name ?? '-')),
+            'categoryLabel' => $categoryLabel,
             'parityLabel' => $participant->gender === 'putra' ? 'Putra / Genap' : 'Putri / Ganjil',
             'needsRoleSelection' => $needsRoleSelection,
         ]);
@@ -1708,9 +1736,9 @@ class ParticipantRegistrationController extends Controller
 
         $competitionRole = $validated['competition_role'];
 
-        // Find the target category based on role
+        // Find the target category based on role (Approach B - Branch Sama)
         $targetCategory = CompetitionCategory::query()
-            ->where('slug', $competitionRole === 'khatib' ? 'khutbah-jumat-khatib' : 'adzan-muadzin')
+            ->where('slug', $competitionRole === 'khatib' ? 'khutbah-jumat-dan-adzan-khatib' : 'khutbah-jumat-dan-adzan-adzan')
             ->first();
 
         abort_unless($targetCategory, 500, 'Kategori target tidak ditemukan. Pastikan migration sudah dijalankan.');
@@ -1726,7 +1754,9 @@ class ParticipantRegistrationController extends Controller
         $participant->refresh();
         $participant->loadMissing(['category', 'district']);
 
-        $roleLabel = $competitionRole === 'khatib' ? 'Khatib (Khutbah Jumat)' : 'Muadzin (Adzan)';
+        $roleLabel = $competitionRole === 'khatib'
+            ? 'Khatib (Khutbah Jumat dan Adzan)'
+            : 'Adzan (Khutbah Jumat dan Adzan)';
 
         $this->logParticipantActivity(
             'participant.role.selected',

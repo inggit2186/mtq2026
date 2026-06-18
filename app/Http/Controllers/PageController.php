@@ -3514,13 +3514,18 @@ class PageController extends Controller
         }
 
         // Fallback: string matching (untuk data lama)
+        // Approach B: Check using model helper methods
+        if ($category->isKhatibCategory() || $category->isAdzanCategory()) {
+            return false;
+        }
+
         $branch = mb_strtolower((string) ($category->branch ?? ''));
         $name = mb_strtolower((string) ($category->name ?? ''));
         $slug = mb_strtolower((string) ($category->slug ?? ''));
         $haystack = trim($branch.' '.$name.' '.$slug);
 
-        // New separate categories - no maqra
-        if (str_contains($slug, 'khutbah-jumat-khatib') || str_contains($slug, 'adzan-muadzin')) {
+        // Old combined category (pair) also doesn't use maqra
+        if (str_contains($name, 'khatib') && str_contains($name, 'muadzin')) {
             return false;
         }
 
