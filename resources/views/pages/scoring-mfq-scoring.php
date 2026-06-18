@@ -568,7 +568,7 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                                         <td class="border-l border-slate-700/30 bg-gradient-to-b from-orange-500/15 to-orange-500/5 px-2 py-1">
                                             <input type="number" min="0" max="100" x-model.number="question.paket"
                                                    @input="updateQuestionTotal(question.id)"
-                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-orange-200 outline-none input-glow-orange" placeholder="0">
+                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-orange-200 outline-none input-glow-orange" placeholder="-">
                                         </td>
                                         <template x-for="(opponent, oIndex) in getOpponents(district.district_id)" :key="'td-' + question.id + '-' + opponent.district_id">
                                             <td class="border-l border-slate-700/30 px-1 py-1"
@@ -578,13 +578,13 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                                                        @input="updateQuestionTotal(question.id)"
                                                        class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold outline-none"
                                                        :class="oIndex === 0 ? 'text-sky-200 input-glow-sky' : oIndex === 1 ? 'text-violet-200 input-glow-violet' : 'text-pink-200 input-glow-pink'"
-                                                       placeholder="0">
+                                                       placeholder="-">
                                             </td>
                                         </template>
                                         <td class="border-l border-slate-700/30 bg-gradient-to-b from-rose-500/15 to-rose-500/5 px-2 py-1">
                                             <input type="number" min="-100" max="100" x-model.number="question.rebutan"
                                                    @input="updateQuestionTotal(question.id)"
-                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-rose-200 outline-none input-glow-rose" placeholder="0">
+                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-rose-200 outline-none input-glow-rose" placeholder="-">
                                         </td>
                                         <td class="border-l border-slate-700/30 bg-gradient-to-b from-cyan-500/15 to-cyan-500/5 px-2 py-2">
                                             <div class="flex items-center justify-center gap-1">
@@ -858,9 +858,9 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                     // Fill remaining with empty questions if needed
                     var currentCount = localQuestions.filter(function(q) { return q.districtId === district.district_id; }).length;
                     for (var i = currentCount; i < 12; i++) {
-                        var q = { id: 'q-' + district.district_id + '-' + Date.now() + '-' + (i + 100), districtId: district.district_id, paket: 0, rowTotal: 0 };
-                        for (var j = 1; j <= oppCount; j++) { q['lontaran' + j] = 0; }
-                        q.rebutan = 0;
+                        var q = { id: 'q-' + district.district_id + '-' + Date.now() + '-' + (i + 100), districtId: district.district_id, paket: null, rowTotal: 0 };
+                        for (var j = 1; j <= oppCount; j++) { q['lontaran' + j] = null; }
+                        q.rebutan = null;
                         localQuestions.push(q);
                     }
                 });
@@ -1017,9 +1017,9 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 this.districts.forEach(function(district) {
                     var opponentCount = self.getOpponentCount(district.district_id);
                     for (var i = 0; i < 12; i++) {
-                        var question = { id: 'q-' + district.district_id + '-' + Date.now() + '-' + i, districtId: district.district_id, paket: 0, rowTotal: 0 };
-                        for (var j = 1; j <= opponentCount; j++) { question['lontaran' + j] = 0; }
-                        question.rebutan = 0;
+                        var question = { id: 'q-' + district.district_id + '-' + Date.now() + '-' + i, districtId: district.district_id, paket: null, rowTotal: 0 };
+                        for (var j = 1; j <= opponentCount; j++) { question['lontaran' + j] = null; }
+                        question.rebutan = null;
                         self.questions.push(question);
                     }
                 });
@@ -1031,9 +1031,9 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
 
             addQuestion: function(districtId) {
                 var opponentCount = this.getOpponentCount(districtId);
-                var question = { id: 'q-' + districtId + '-' + Date.now(), districtId: districtId, paket: 0, rowTotal: 0 };
-                for (var j = 1; j <= opponentCount; j++) { question['lontaran' + j] = 0; }
-                question.rebutan = 0;
+                var question = { id: 'q-' + districtId + '-' + Date.now(), districtId: districtId, paket: null, rowTotal: 0 };
+                for (var j = 1; j <= opponentCount; j++) { question['lontaran' + j] = null; }
+                question.rebutan = null;
                 this.questions.push(question);
                 this.saveToStorage();
             },
