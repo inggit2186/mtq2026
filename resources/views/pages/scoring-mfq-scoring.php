@@ -456,97 +456,106 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
             </div>
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-3">
+        <!-- District Cards - Responsive Grid Layout -->
+        <div class="w-full" x-data="{ districtCount: districts.length }">
+            <div class="grid gap-4 justify-items-stretch"
+                 :class="{
+                     'grid-cols-1': districtCount === 1,
+                     'grid-cols-2': districtCount === 2,
+                     'grid-cols-3': districtCount === 3,
+                     'grid-cols-4': districtCount === 4,
+                     'grid-cols-5': districtCount === 5
+                 }">
             <template x-for="(district, dIndex) in districts" :key="district.district_id">
                 <div class="district-card rounded-2xl border overflow-hidden"
                      :class="getDistrictTotal(district.district_id) > 0 ? 'border-emerald-400/30 glow-emerald' : 'border-slate-700/50'">
 
                     <!-- District Header -->
-                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-5 py-4 border-b border-slate-700/30">
+                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-3 py-3 border-b border-slate-700/30">
                         <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-3">
                                 <!-- Rank Badge -->
                                 <div class="relative">
-                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl font-black text-xl text-white rank-badge-1 shadow-lg shadow-amber-400/20"
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white rank-badge-1 shadow-lg shadow-amber-400/20"
                                          x-show="getRank(district.district_id) === 1" x-text="getRank(district.district_id)"></div>
-                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl font-black text-xl text-white rank-badge-2 shadow-lg shadow-slate-400/20"
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white rank-badge-2 shadow-lg shadow-slate-400/20"
                                          x-show="getRank(district.district_id) === 2" x-text="getRank(district.district_id)"></div>
-                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl font-black text-xl text-white rank-badge-3 shadow-lg shadow-orange-400/20"
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white rank-badge-3 shadow-lg shadow-orange-400/20"
                                          x-show="getRank(district.district_id) === 3" x-text="getRank(district.district_id)"></div>
-                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-700 font-black text-xl text-white shadow-lg"
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-700 font-black text-lg text-white shadow-lg"
                                          x-show="getRank(district.district_id) > 3" x-text="getRank(district.district_id)"></div>
                                     <div x-show="getRank(district.district_id) === 1" class="absolute -top-1 -right-1">
-                                        <?php echo mtq_icon('trophy', 'h-4 w-4 text-amber-300'); ?>
+                                        <?php echo mtq_icon('trophy', 'h-3 w-3 text-amber-300'); ?>
                                     </div>
                                 </div>
                                 <div>
-                                    <div class="flex items-center gap-2">
-                                        <?php echo mtq_icon('hash', 'h-3 w-3 text-amber-400'); ?>
-                                        <p class="text-[10px] uppercase tracking-widest text-amber-300">Lot</p>
+                                    <div class="flex items-center gap-1">
+                                        <?php echo mtq_icon('hash', 'h-2.5 w-2.5 text-amber-400'); ?>
+                                        <p class="text-[9px] uppercase tracking-wider text-amber-300">Lot</p>
                                     </div>
-                                    <p class="text-3xl font-black text-amber-300" x-text="district.representative ? district.representative.lot_number : '-'"></p>
+                                    <p class="text-2xl font-black text-amber-300" x-text="district.representative ? district.representative.lot_number : '-'"></p>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div class="flex items-center gap-1 text-xs text-slate-400">
-                                    <?php echo mtq_icon('zap', 'h-3 w-3'); ?>
-                                    <span>Total Poin</span>
+                                <div class="flex items-center gap-1 text-[10px] text-slate-400">
+                                    <?php echo mtq_icon('zap', 'h-2.5 w-2.5'); ?>
+                                    <span>Total</span>
                                 </div>
-                                <p class="text-3xl font-black text-emerald-300" x-text="getDistrictTotal(district.district_id).toLocaleString()">0</p>
+                                <p class="text-2xl font-black text-emerald-300" x-text="getDistrictTotal(district.district_id).toLocaleString()">0</p>
                             </div>
                         </div>
-                        <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-800/50 px-4 py-2 border border-slate-700/30">
-                            <div class="flex items-center gap-2">
-                                <?php echo mtq_icon('user', 'h-4 w-4 text-slate-400'); ?>
-                                <p class="text-sm text-slate-300">
+                        <div class="mt-2 flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-1.5 border border-slate-700/30">
+                            <div class="flex items-center gap-1.5">
+                                <?php echo mtq_icon('user', 'h-3 w-3 text-slate-400'); ?>
+                                <p class="text-xs text-slate-300">
                                     <span x-text="district.representative ? district.representative.name : '-'"></span>
                                 </p>
                             </div>
-                            <div class="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5">
-                                <?php echo mtq_icon('hash', 'h-4 w-4 text-amber-300'); ?>
-                                <p class="text-sm font-bold text-white" x-text="district.representative ? district.representative.lot_number : '-'">-</p>
+                            <div class="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-900 px-2 py-1">
+                                <?php echo mtq_icon('hash', 'h-3 w-3 text-amber-300'); ?>
+                                <p class="text-xs font-bold text-white" x-text="district.representative ? district.representative.lot_number : '-'">-</p>
                             </div>
                         </div>
                     </div>
 
                     <div class="score-table-scroll overflow-x-auto bg-slate-900/50">
-                        <table class="w-full border-collapse text-center text-sm">
+                        <table class="w-full border-collapse text-center text-xs">
                             <thead>
                                 <tr class="bg-slate-800 text-xs">
                                     <th class="border border-slate-700/50 px-2 py-3 font-semibold text-yellow-200">
                                         <?php echo mtq_icon('hash', 'h-3 w-3 inline'); ?>
                                     </th>
-                                    <th class="border border-slate-700/50 bg-gradient-to-b from-orange-500/25 to-orange-500/10 px-4 py-3 font-semibold text-orange-200">
-                                        <?php echo mtq_icon('star', 'h-4 w-4 inline mr-1'); ?> Paket
+                                    <th class="border border-slate-700/50 bg-gradient-to-b from-orange-500/25 to-orange-500/10 px-2 py-2 font-semibold text-orange-200">
+                                        <?php echo mtq_icon('star', 'h-3 w-3 inline mr-0.5'); ?> Paket
                                     </th>
                                     <template x-for="(opponent, oIndex) in getOpponents(district.district_id)" :key="'th-' + opponent.district_id">
-                                        <th class="border border-slate-700/50 px-3 py-3 font-semibold"
+                                        <th class="border border-slate-700/50 px-1 py-2 font-semibold text-[10px]"
                                             :class="oIndex === 0 ? 'bg-gradient-to-b from-sky-500/25 to-sky-500/10 text-sky-200' : oIndex === 1 ? 'bg-gradient-to-b from-violet-500/25 to-violet-500/10 text-violet-200' : 'bg-gradient-to-b from-pink-500/25 to-pink-500/10 text-pink-200'">
                                             <div class="flex flex-col items-center gap-1">
-                                                <span x-text="'Lontaran ' + (oIndex + 1)"></span>
-                                                <span class="text-[10px] font-normal opacity-70 flex items-center gap-1">
-                                                    <?php echo mtq_icon('hash', 'h-2.5 w-2.5'); ?>
+                                                <span x-text="'Lont ' + (oIndex + 1)"></span>
+                                                <span class="text-[9px] font-normal opacity-70 flex items-center gap-0.5">
+                                                    <?php echo mtq_icon('hash', 'h-2 w-2'); ?>
                                                     <span x-text="opponent.representative ? opponent.representative.lot_number : '-'"></span>
                                                 </span>
                                             </div>
                                         </th>
                                     </template>
-                                    <th class="border border-slate-700/50 bg-gradient-to-b from-rose-500/25 to-rose-500/10 px-3 py-3 font-semibold text-rose-200">
-                                        <?php echo mtq_icon('zap', 'h-4 w-4 inline mr-1'); ?> Rebut
+                                    <th class="border border-slate-700/50 bg-gradient-to-b from-rose-500/25 to-rose-500/10 px-1 py-2 font-semibold text-rose-200">
+                                        <?php echo mtq_icon('zap', 'h-3 w-3 inline mr-0.5'); ?> Rebut
                                     </th>
-                                    <th class="border border-slate-700/50 bg-gradient-to-b from-cyan-500/25 to-cyan-500/10 px-3 py-3 font-semibold text-cyan-200">
-                                        <?php echo mtq_icon('chart', 'h-4 w-4 inline mr-1'); ?> Total
+                                    <th class="border border-slate-700/50 bg-gradient-to-b from-cyan-500/25 to-cyan-500/10 px-1 py-2 font-semibold text-cyan-200">
+                                        <?php echo mtq_icon('chart', 'h-3 w-3 inline mr-0.5'); ?> Total
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <template x-for="(question, qIndex) in getQuestionsByDistrict(district.district_id)" :key="question.id">
                                     <tr class="border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors">
-                                        <td class="px-2 py-2 font-bold text-yellow-200" x-text="qIndex + 1"></td>
-                                        <td class="border-l border-slate-700/30 bg-gradient-to-b from-orange-500/15 to-orange-500/5 px-2 py-1">
+                                        <td class="px-1 py-1 font-bold text-yellow-200" x-text="qIndex + 1"></td>
+                                        <td class="border-l border-slate-700/30 bg-gradient-to-b from-orange-500/15 to-orange-500/5 px-1 py-1">
                                             <input type="number" min="0" max="100" x-model.number="question.paket"
                                                    @input="updateQuestionTotal(question.id)"
-                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-orange-200 outline-none input-glow-orange" placeholder="">
+                                                   class="score-input w-full rounded-lg bg-slate-800/90 py-2 text-center text-base font-bold text-orange-200 outline-none input-glow-orange" placeholder="">
                                         </td>
                                         <template x-for="(opponent, oIndex) in getOpponents(district.district_id)" :key="'td-' + question.id + '-' + opponent.district_id">
                                             <td class="border-l border-slate-700/30 px-1 py-1"
@@ -554,56 +563,57 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                                                 <input type="number" min="0" max="100"
                                                        x-model.number="question['lontaran' + (oIndex + 1)]"
                                                        @input="updateQuestionTotal(question.id)"
-                                                       class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold outline-none"
+                                                       class="score-input w-full rounded-lg bg-slate-800/90 py-2 text-center text-base font-bold outline-none"
                                                        :class="oIndex === 0 ? 'text-sky-200 input-glow-sky' : oIndex === 1 ? 'text-violet-200 input-glow-violet' : 'text-pink-200 input-glow-pink'"
                                                        placeholder="">
                                             </td>
                                         </template>
-                                        <td class="border-l border-slate-700/30 bg-gradient-to-b from-rose-500/15 to-rose-500/5 px-2 py-1">
+                                        <td class="border-l border-slate-700/30 bg-gradient-to-b from-rose-500/15 to-rose-500/5 px-1 py-1">
                                             <input type="number" min="-100" max="100" x-model.number="question.rebutan"
                                                    @input="updateQuestionTotal(question.id)"
-                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-rose-200 outline-none input-glow-rose" placeholder="">
+                                                   class="score-input w-full rounded-lg bg-slate-800/90 py-2 text-center text-base font-bold text-rose-200 outline-none input-glow-rose" placeholder="">
                                         </td>
-                                        <td class="border-l border-slate-700/30 bg-gradient-to-b from-cyan-500/15 to-cyan-500/5 px-2 py-2">
-                                            <div class="flex items-center justify-center gap-1">
-                                                <?php echo mtq_icon('zap', 'h-4 w-4 text-cyan-300/50'); ?>
-                                                <span class="text-2xl font-black text-cyan-200" x-text="question.rowTotal"></span>
+                                        <td class="border-l border-slate-700/30 bg-gradient-to-b from-cyan-500/15 to-cyan-500/5 px-1 py-1">
+                                            <div class="flex items-center justify-center gap-0.5">
+                                                <?php echo mtq_icon('zap', 'h-3 w-3 text-cyan-300/50'); ?>
+                                                <span class="text-lg font-black text-cyan-200" x-text="question.rowTotal"></span>
                                             </div>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                             <tfoot>
-                                <tr class="bg-slate-800 font-bold">
-                                    <td colspan="2" class="border border-slate-700/50 px-3 py-4 text-left text-base text-slate-300">
-                                        <div class="flex items-center gap-2">
-                                            <?php echo mtq_icon('calculator', 'h-4 w-4'); ?>
-                                            <span>JUMLAH</span>
+                                <tr class="bg-slate-800 font-bold text-xs">
+                                    <td colspan="2" class="border border-slate-700/50 px-2 py-2 text-left text-slate-300">
+                                        <div class="flex items-center gap-1">
+                                            <?php echo mtq_icon('calculator', 'h-3 w-3'); ?>
+                                            <span>JML</span>
                                         </div>
                                     </td>
                                     <template x-for="(opponent, oIndex) in getOpponents(district.district_id)" :key="'footer-' + opponent.district_id">
-                                        <td class="border border-slate-700/50 px-2 py-4 text-xl"
+                                        <td class="border border-slate-700/50 px-1 py-2 text-base"
                                             :class="oIndex === 0 ? 'bg-sky-500/10 text-sky-200' : oIndex === 1 ? 'bg-violet-500/10 text-violet-200' : 'bg-pink-500/10 text-pink-200'"
                                             x-text="getColumnTotal(district.district_id, 'lontaran' + (oIndex + 1))">0</td>
                                     </template>
-                                    <td class="border border-slate-700/50 bg-rose-500/10 px-2 py-4 text-xl text-rose-200"
+                                    <td class="border border-slate-700/50 bg-rose-500/10 px-1 py-2 text-base text-rose-200"
                                         x-text="getColumnTotal(district.district_id, 'rebutan')">0</td>
-                                    <td class="border border-slate-700/50 bg-cyan-500/10 px-2 py-4 text-2xl text-cyan-200"
+                                    <td class="border border-slate-700/50 bg-cyan-500/10 px-1 py-2 text-lg text-cyan-200"
                                         x-text="getDistrictTotal(district.district_id).toLocaleString()">0</td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
 
-                    <div class="border-t border-slate-700/30 bg-gradient-to-r from-slate-900/80 to-slate-800/50 px-4 py-3">
+                    <div class="border-t border-slate-700/30 bg-gradient-to-r from-slate-900/80 to-slate-800/50 px-3 py-2">
                         <button @click="addQuestion(district.district_id)"
-                                class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-600/50 bg-slate-800/30 px-4 py-3 text-base font-semibold text-slate-400 transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/5 hover:text-cyan-300 hover:scale-[1.02]">
-                            <?php echo mtq_icon('plus', 'h-5 w-5'); ?>
+                                class="flex w-full items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-600/50 bg-slate-800/30 px-3 py-2 text-xs font-semibold text-slate-400 transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/5 hover:text-cyan-300">
+                            <?php echo mtq_icon('plus', 'h-4 w-4'); ?>
                             Tambah Baris
                         </button>
                     </div>
                 </div>
             </template>
+            </div>
         </div>
 
         <!-- Summary Section -->
