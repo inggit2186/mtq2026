@@ -39,10 +39,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
     <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8" x-data="dashboardRealtime(<?= e(json_encode($realtimeState, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>)">
-        <div class="hero-orb hero-orb-cyan right-[-8rem] top-10 h-72 w-72"></div>
-        <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
 
-        <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]" x-bind:class="forcePasswordChange ? 'pointer-events-none select-none blur-[1px]' : ''">
+        <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]" x-bind:class="forcePasswordChange ? 'pointer-events-none select-none blur-[1px]' : ''">
+            <!-- Sidebar -->
             <aside
                 class="console-sidebar fixed inset-y-4 left-4 z-50 w-[300px] rounded-[1.75rem] p-5 transition-all duration-300 lg:static lg:inset-auto lg:block"
                 :class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'"
@@ -151,578 +150,315 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 </div>
             </aside>
 
+            <!-- Main Content -->
             <div class="min-w-0 space-y-6">
+
+                <!-- Session Alerts -->
                 <?php if (session('status')): ?>
-                    <section class="space-y-3">
-                        <div class="rounded-[1.5rem] border border-emerald-400/18 bg-emerald-400/10 px-5 py-4 text-sm leading-6 text-emerald-100">
-                            <?= e(session('status')) ?>
-                        </div>
-                    </section>
+                    <div class="dash-alert dash-alert--success">
+                        <?= mtq_icon('check-circle', 'h-5 w-5') ?>
+                        <span><?= e(session('status')) ?></span>
+                    </div>
                 <?php endif; ?>
                 <?php if (session('warning')): ?>
-                    <section class="space-y-3">
-                        <div class="rounded-[1.5rem] border border-amber-400/18 bg-amber-400/10 px-5 py-4 text-sm leading-6 text-amber-100">
-                            <?= e(session('warning')) ?>
-                        </div>
-                    </section>
+                    <div class="dash-alert dash-alert--warning">
+                        <?= mtq_icon('info', 'h-5 w-5') ?>
+                        <span><?= e(session('warning')) ?></span>
+                    </div>
                 <?php endif; ?>
 
-                <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
-                            <?= mtq_icon('menu', 'h-4 w-4') ?>
-                        </button>
-                        <div>
-                            <p class="section-kicker">Area Pengguna</p>
-                            <h2 class="mt-2 text-3xl font-black tracking-tight text-white">Selamat datang, <?= e($user?->name) ?></h2>
-                            <p class="mt-2 text-sm text-slate-300"><?= e($rolePanel['headline'] ?? '') ?></p>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div class="inline-flex items-center gap-3 rounded-full border border-cyan-400/16 bg-slate-950/50 px-3 py-2">
-                            <?php if ($userProfilePhotoUrl): ?>
-                                <img src="<?= e($userProfilePhotoUrl) ?>" alt="Avatar <?= e($user?->name) ?>" class="h-10 w-10 rounded-full border border-cyan-300/20 object-cover">
-                            <?php else: ?>
-                                <div class="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-sm font-black text-cyan-100">
-                                    <?= e($userInitials) ?>
-                                </div>
-                            <?php endif; ?>
-                            <div class="text-left">
-                            <p class="text-xs uppercase tracking-[0.18em] text-slate-500"><?= e($user?->roleLabel()) ?></p>
-                            <p class="text-sm font-semibold text-white"><?= e($user?->name) ?></p>
-                        </div>
-                        <a href="<?= e(route('profile.settings')) ?>"
-                           class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-400 transition hover:border-cyan-400/50 hover:bg-cyan-400/10 hover:text-cyan-300"
-                           title="Pengaturan Profil">
-                            <?= mtq_icon('settings', 'h-5 w-5') ?>
-                        </a>
-                    </div>
-                    <div class="status-pill">
-                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                        Aktif
-                    </div>
-                </div>
-                </header>
-
-                <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('users') ?></div><p class="mt-4 text-sm text-slate-400">Peserta</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['participants']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('layers') ?></div><p class="mt-4 text-sm text-slate-400">Golongan</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['categories']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('clock') ?></div><p class="mt-4 text-sm text-slate-400">Sesi Hari Ini</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['today_sessions']) ?></p></div>
-                    <div class="metric-card"><div class="icon-chip"><?= mtq_icon('chart') ?></div><p class="mt-4 text-sm text-slate-400">Rata-rata Nilai</p><p class="mt-2 text-3xl font-extrabold text-white"><?= e($stats['average_score']) ?></p></div>
-                </section>
-
-                <section class="grid gap-6 xl:h-[38rem] xl:grid-cols-[1.05fr_0.95fr]">
-                    <div class="relative h-full overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 shadow-[0_26px_80px_-34px_rgba(251,191,36,0.45)]">
-                        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/80 to-transparent"></div>
-                        <div class="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-400/10 blur-3xl"></div>
-                        <div class="absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl"></div>
-
-                        <div class="relative flex flex-wrap items-start justify-between gap-4">
+                <!-- Hero Welcome Section -->
+                <section class="dash-hero">
+                    <div class="dash-hero-bg"></div>
+                    <div class="dash-hero-content">
+                        <div class="flex items-center gap-4">
+                            <div class="dash-hero-icon">
+                                <?php if ($userProfilePhotoUrl): ?>
+                                    <img src="<?= e($userProfilePhotoUrl) ?>" alt="Avatar" class="h-full w-full rounded-full object-cover">
+                                <?php else: ?>
+                                    <span class="text-2xl font-black text-cyan-300"><?= e($userInitials) ?></span>
+                                <?php endif; ?>
+                            </div>
                             <div>
-                                <div class="icon-chip ring-1 ring-amber-300/30"><?= mtq_icon('calendar') ?></div>
-                                <p class="mt-5 section-kicker text-amber-100/80">Notifikasi Perbaikan Berkas</p>
-                                <h2 class="mt-2 text-2xl font-bold text-white" x-text="verificationNoticeTitle"><?= e($verificationSummary['title'] ?? 'Perbaikan berkas peserta oleh official') ?></h2>
-                                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300" x-text="verificationNoticeBody"><?= e($verificationSummary['message'] ?? '-') ?></p>
-                            </div>
-                            <div class="status-pill border-amber-300/30 bg-amber-400/10 text-amber-100" x-text="verificationStatusLabel"><?= e($verificationSummary['label'] ?? '-') ?></div>
-                        </div>
-
-                        <div class="relative mt-6 space-y-4">
-                            <div class="rounded-[1.5rem] border border-amber-300/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-50">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100/80">Deadline Perbaikan Berkas</p>
-                                        <p class="mt-1 font-semibold text-white" x-text="verificationDeadlineLabel">
-                                            <?= e(($verificationSummary['close_at_label'] ?? null) ? ('Tutup otomatis pada '.($verificationSummary['close_at_label'])) : 'Jadwal tutup belum tersedia') ?>
-                                        </p>
-                                    </div>
-                                    <div class="rounded-full border border-amber-200/20 bg-slate-950/40 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
-                                        WIB
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="data-card border border-amber-300/25 bg-gradient-to-r from-amber-400/12 via-orange-400/10 to-slate-900 px-4 py-4 shadow-[0_18px_50px_-30px_rgba(251,191,36,0.65)] transition-all duration-300" x-bind:class="verificationCountdownFlash ? 'scale-[1.01] shadow-[0_22px_60px_-28px_rgba(251,191,36,0.8)]' : 'scale-100'">
-                                <div class="flex items-center gap-3">
-                                    <div class="icon-chip border border-amber-300/25 bg-amber-300/10 text-amber-100"><?= mtq_icon('clock') ?></div>
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-[11px] uppercase tracking-[0.24em] text-amber-100/70">Countdown Perbaikan Berkas</p>
-                                        <div class="mt-3 flex w-full flex-nowrap gap-2 overflow-hidden">
-                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-300/12 px-3 py-3 text-center text-lg font-black text-amber-50 tabular-nums shadow-inner shadow-amber-950/20" x-text="`${verificationCountdownParts.days} hari`">0 hari</span>
-                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${verificationCountdownParts.hours} jam`">0 jam</span>
-                                            <span class="inline-flex min-w-[110px] flex-1 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-950/40 px-3 py-3 text-center text-lg font-black text-slate-100 tabular-nums" x-text="`${verificationCountdownParts.minutes} menit`">0 menit</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <div class="data-card border border-cyan-300/15 bg-gradient-to-br from-cyan-400/10 via-sky-400/10 to-slate-900 px-4 py-3">
-                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Peserta Proses</p>
-                                    <p class="mt-1 text-2xl font-black text-white sm:text-3xl" x-text="verificationTotalRegistered"><?= e($verificationSummary['total_registered'] ?? 0) ?></p>
-                                </div>
-                                <div class="data-card border border-emerald-300/15 bg-gradient-to-br from-emerald-400/10 via-cyan-400/10 to-slate-900 px-4 py-3">
-                                    <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Terverifikasi</p>
-                                    <p class="mt-1 text-2xl font-black text-white sm:text-3xl" x-text="verificationTotalVerified"><?= e($verificationSummary['total_verified'] ?? 0) ?></p>
-                                    <p class="mt-1 text-xs uppercase tracking-[0.18em]" x-bind:class="verificationIsOpen ? 'text-emerald-300' : 'text-amber-200'" x-text="verificationIsOpen ? 'Sedang Berjalan' : 'Sudah Ditutup'">
-                                        <?= e(($verificationSummary['is_open'] ?? false) ? 'Sedang Berjalan' : 'Sudah Ditutup') ?>
-                                    </p>
-                                </div>
+                                <p class="dash-hero-greeting">Selamat datang kembali</p>
+                                <h1 class="dash-hero-title"><?= e($user?->name) ?></h1>
+                                <p class="dash-hero-subtitle"><?= e($rolePanel['headline'] ?? 'Workspace '.ucfirst($user?->role ?? 'user')) ?></p>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="glass-card flex h-full min-h-0 flex-col overflow-hidden rounded-[2rem] p-6">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <p class="section-kicker">Progress Perbaikan per Kecamatan</p>
-                                <p class="mt-1 text-sm text-slate-300">Jumlah peserta yang sedang dalam proses perbaikan berkas per kecamatan, ditampilkan sebagai total peserta dan yang sudah diverifikasi.</p>
-                            </div>
-                            <div class="status-pill" x-text="`${verificationDistrictCounts.length} kecamatan`"><?= e(count($verificationDistrictCounts ?? [])) ?> kecamatan</div>
-                        </div>
-                        <div class="mt-4 flex-1 min-h-0 space-y-3 overflow-auto pr-1">
-                            <template x-for="district in verificationDistrictCounts" :key="district.district_id">
-                                <div class="data-card flex items-center justify-between gap-4">
-                                    <div class="min-w-0">
-                                        <p class="font-semibold text-white" x-text="district.district_name"><?= e($verificationDistrictCounts[0]['district_name'] ?? '') ?></p>
-                                        <p class="mt-1 text-xs text-slate-400">Peserta / Terverifikasi</p>
-                                        <p class="mt-1 text-xs text-rose-200">Butuh Perbaikan</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-2xl font-black text-cyan-200 tabular-nums" x-text="`${district.total} / ${district.verified}`"><?= e(($verificationDistrictCounts[0]['total'] ?? 0).' / '.($verificationDistrictCounts[0]['verified'] ?? 0)) ?></p>
-                                        <p class="mt-1 text-sm font-semibold text-rose-200 tabular-nums" x-text="`${district.rejected}`"><?= e((string) ($verificationDistrictCounts[0]['rejected'] ?? 0)) ?></p>
-                                    </div>
-                                </div>
-                            </template>
-                            <div class="data-card text-sm text-slate-300" x-show="verificationDistrictCounts.length === 0">
-                                Belum ada proses verifikasi yang tercatat.
-                            </div>
+                        <div class="dash-hero-badge">
+                            <?= mtq_icon('zap', 'h-4 w-4') ?>
+                            <span><?= e($user?->roleLabel()) ?></span>
                         </div>
                     </div>
                 </section>
 
+                <!-- Quick Stats -->
+                <section class="dash-stats-grid">
+                    <div class="dash-stat-card dash-stat-card--primary">
+                        <div class="dash-stat-icon">
+                            <?= mtq_icon('users', 'h-6 w-6') ?>
+                        </div>
+                        <div class="dash-stat-content">
+                            <p class="dash-stat-value"><?= e($stats['participants']) ?></p>
+                            <p class="dash-stat-label">Total Peserta</p>
+                        </div>
+                        <div class="dash-stat-trend dash-stat-trend--up">
+                            <?= mtq_icon('arrow-up', 'h-3 w-3') ?>
+                        </div>
+                    </div>
+
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon">
+                            <?= mtq_icon('layers', 'h-6 w-6') ?>
+                        </div>
+                        <div class="dash-stat-content">
+                            <p class="dash-stat-value"><?= e($stats['categories']) ?></p>
+                            <p class="dash-stat-label">Golongan</p>
+                        </div>
+                    </div>
+
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon">
+                            <?= mtq_icon('calendar', 'h-6 w-6') ?>
+                        </div>
+                        <div class="dash-stat-content">
+                            <p class="dash-stat-value"><?= e($stats['today_sessions']) ?></p>
+                            <p class="dash-stat-label">Sesi Hari Ini</p>
+                        </div>
+                    </div>
+
+                    <div class="dash-stat-card dash-stat-card--accent">
+                        <div class="dash-stat-icon">
+                            <?= mtq_icon('chart', 'h-6 w-6') ?>
+                        </div>
+                        <div class="dash-stat-content">
+                            <p class="dash-stat-value"><?= e($stats['average_score']) ?></p>
+                            <p class="dash-stat-label">Rata-rata Nilai</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Dashboard Notices -->
                 <?php if ($dashboardNotices->isNotEmpty()): ?>
                     <?php
                     $dashboardNotice = $dashboardNotices->first();
                     $dashboardPriority = (string) ($dashboardNotice->priority ?? 'normal');
-                    $dashboardNoticeClass = match ($dashboardPriority) {
-                        'high' => 'border-amber-300/50 bg-gradient-to-r from-amber-400/20 via-orange-500/18 to-slate-950/70 text-amber-50 shadow-[0_22px_55px_-30px_rgba(251,191,36,0.55)]',
-                        'low' => 'border-slate-300/25 bg-gradient-to-r from-slate-700/35 via-slate-800/45 to-slate-950/70 text-slate-100 shadow-[0_22px_55px_-30px_rgba(148,163,184,0.25)]',
-                        default => 'border-cyan-300/50 bg-gradient-to-r from-cyan-400/20 via-sky-500/18 to-slate-950/70 text-cyan-50 shadow-[0_22px_55px_-30px_rgba(34,211,238,0.5)]',
+                    $noticeIcon = match ($dashboardPriority) {
+                        'high' => 'alert-triangle',
+                        'low' => 'info',
+                        default => 'bell',
                     };
                     ?>
-                    <section class="rounded-[2rem] border px-5 py-5 sm:px-6 sm:py-6 <?= e($dashboardNoticeClass) ?>">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Area Pengguna</p>
-                                <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">Notifikasi dashboard</p>
-                                <h2 class="mt-2 text-xl font-bold text-white sm:text-2xl"><?= e($dashboardNotice->title) ?></h2>
-                                <p class="mt-3 max-w-4xl text-sm leading-6 text-white/90 sm:text-base"><?= e($dashboardNotice->body) ?></p>
-                            </div>
-                            <div class="flex shrink-0 flex-wrap items-center gap-2">
-                                <span class="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                                    <?= e($dashboardNotice->audienceLabel()) ?>
-                                </span>
-                                <span class="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
-                                    <?= e(optional($dashboardNotice->published_at)->translatedFormat('d M Y H:i') ?? '-') ?>
-                                </span>
-                            </div>
+                    <div class="dash-notice dash-notice--<?= e($dashboardPriority) ?>">
+                        <div class="dash-notice-icon">
+                            <?= mtq_icon($noticeIcon, 'h-5 w-5') ?>
+                        </div>
+                        <div class="dash-notice-content">
+                            <h3 class="dash-notice-title"><?= e($dashboardNotice->title) ?></h3>
+                            <p class="dash-notice-text"><?= e($dashboardNotice->body) ?></p>
+                        </div>
+                        <span class="dash-notice-badge"><?= e($dashboardNotice->audienceLabel()) ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Two Column Layout -->
+                <div class="grid gap-6 lg:grid-cols-2">
+
+                    <!-- Quick Actions -->
+                    <section class="dash-section">
+                        <div class="dash-section-header">
+                            <?= mtq_icon('zap', 'h-5 w-5') ?>
+                            <h2 class="dash-section-title">Aksi Cepat</h2>
+                        </div>
+                        <div class="dash-actions-grid">
+                            <?php if ($user?->role === 'admin' || $user?->role === 'panitia'): ?>
+                                <a href="<?= e(route('scoring')) ?>" class="dash-action-card dash-action-card--primary">
+                                    <div class="dash-action-icon">
+                                        <?= mtq_icon('chart', 'h-6 w-6') ?>
+                                    </div>
+                                    <div class="dash-action-content">
+                                        <p class="dash-action-title">Penilaian</p>
+                                        <p class="dash-action-desc">Input &elola nilai</p>
+                                    </div>
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </a>
+                            <?php endif; ?>
+
+                            <?php if ($user?->role === 'admin' || $user?->role === 'panitia' || $user?->role === 'official' || $user?->role === 'pendamping'): ?>
+                                <a href="<?= e(route('participants.index')) ?>" class="dash-action-card">
+                                    <div class="dash-action-icon">
+                                        <?= mtq_icon('id-card', 'h-6 w-6') ?>
+                                    </div>
+                                    <div class="dash-action-content">
+                                        <p class="dash-action-title">Pendaftaran</p>
+                                        <p class="dash-action-desc">Daftarkan peserta</p>
+                                    </div>
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </a>
+                            <?php endif; ?>
+
+                            <a href="<?= e(route('participants.list')) ?>" class="dash-action-card">
+                                <div class="dash-action-icon">
+                                    <?= mtq_icon('users', 'h-6 w-6') ?>
+                                </div>
+                                <div class="dash-action-content">
+                                    <p class="dash-action-title">Data Peserta</p>
+                                    <p class="dash-action-desc">Lihat & cari data</p>
+                                </div>
+                                <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                            </a>
+
+                            <?php if ($user?->role === 'admin' || $user?->role === 'panitia'): ?>
+                                <a href="<?= e(route('results.recap')) ?>" class="dash-action-card">
+                                    <div class="dash-action-icon">
+                                        <?= mtq_icon('file-text', 'h-6 w-6') ?>
+                                    </div>
+                                    <div class="dash-action-content">
+                                        <p class="dash-action-title">Rekap Nilai</p>
+                                        <p class="dash-action-text">Lihat hasil penilaian</p>
+                                    </div>
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+
+                    <!-- Upcoming Schedules -->
+                    <section class="dash-section">
+                        <div class="dash-section-header">
+                            <?= mtq_icon('calendar', 'h-5 w-5') ?>
+                            <h2 class="dash-section-title">Jadwal Mendatang</h2>
+                            <a href="<?= e(route('dashboard').'#jadwal') ?>" class="dash-section-link">Lihat semua</a>
+                        </div>
+                        <div class="dash-schedule-list">
+                            <?php if (empty($schedules) || count($schedules) === 0): ?>
+                                <div class="dash-empty">
+                                    <?= mtq_icon('calendar', 'h-10 w-10') ?>
+                                    <p>Belum ada jadwal yang dijadwalkan</p>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach (collect($schedules)->take(4) as $schedule): ?>
+                                    <div class="dash-schedule-item">
+                                        <div class="dash-schedule-time">
+                                            <span class="dash-schedule-date"><?= e(optional($schedule->starts_at)->format('d M')) ?></span>
+                                            <span class="dash-schedule-hour"><?= e(optional($schedule->starts_at)->format('H:i')) ?></span>
+                                        </div>
+                                        <div class="dash-schedule-content">
+                                            <p class="dash-schedule-title"><?= e($schedule->title) ?></p>
+                                            <p class="dash-schedule-venue"><?= e($schedule->venue) ?></p>
+                                        </div>
+                                        <?php if (in_array($user?->role, ['admin', 'panitia'], true)): ?>
+                                            <form method="POST" action="<?= e(route('broadcast.schedule', $schedule)) ?>">
+                                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                                <button type="submit" class="dash-schedule-broadcast" title="Siarkan jadwal">
+                                                    <?= mtq_icon('bell', 'h-4 w-4') ?>
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Leaderboard / Top Performers -->
+                <?php if (!empty($leaders)): ?>
+                    <section class="dash-section">
+                        <div class="dash-section-header">
+                            <?= mtq_icon('trophy', 'h-5 w-5') ?>
+                            <h2 class="dash-section-title">Peringkat Teratas</h2>
+                            <a href="<?= e(route('leaderboard.index')) ?>" class="dash-section-link">Leaderboard</a>
+                        </div>
+                        <div class="dash-leaderboard">
+                            <?php foreach (collect($leaders)->take(5) as $index => $leader): ?>
+                                <div class="dash-leader-item">
+                                    <div class="dash-leader-rank dash-leader-rank--<?= $index === 0 ? 'gold' : ($index === 1 ? 'silver' : ($index === 2 ? 'bronze' : 'default')) ?>">
+                                        <?php if ($index < 3): ?>
+                                            <?= mtq_icon('award', 'h-5 w-5') ?>
+                                        <?php else: ?>
+                                            <span><?= $index + 1 ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="dash-leader-info">
+                                        <p class="dash-leader-name"><?= e($leader['name']) ?></p>
+                                        <p class="dash-leader-meta"><?= e($leader['institution']) ?> · <?= e($leader['category']) ?></p>
+                                    </div>
+                                    <div class="dash-leader-score">
+                                        <p class="dash-leader-value"><?= e($leader['latest_score']) ?></p>
+                                        <p class="dash-leader-label">Skor</p>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
                     </section>
                 <?php endif; ?>
 
-                <?php if ($adminDashboard['enabled']): ?>
-                    <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                        <div class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)]">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
-                                <div>
-                                    <div class="icon-chip"><?= mtq_icon('chart') ?></div>
-                                    <p class="mt-5 section-kicker">Cockpit Operasional</p>
-                                    <h2 class="mt-2 text-2xl font-bold text-white">Ringkasan cepat untuk admin dan panitia</h2>
-                                    <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Akses cepat ke rekap, modul penilaian, dan statistik operasional utama tanpa pindah-pindah halaman.</p>
+                <!-- Announcements -->
+                <?php if (!empty($announcements)): ?>
+                    <section class="dash-section" id="pengumuman">
+                        <div class="dash-section-header">
+                            <?= mtq_icon('bell', 'h-5 w-5') ?>
+                            <h2 class="dash-section-title">Pengumuman</h2>
+                        </div>
+                        <div class="dash-announcement-list">
+                            <?php foreach (collect($announcements)->take(3) as $announcement): ?>
+                                <div class="dash-announcement-item">
+                                    <div class="dash-announcement-icon">
+                                        <?= mtq_icon('info', 'h-4 w-4') ?>
+                                    </div>
+                                    <div class="dash-announcement-content">
+                                        <h3 class="dash-announcement-title"><?= e($announcement->title) ?></h3>
+                                        <p class="dash-announcement-text"><?= e($announcement->body) ?></p>
+                                        <p class="dash-announcement-time"><?= e(optional($announcement->published_at)->translatedFormat('d M Y, H:i')) ?></p>
+                                    </div>
+                                    <?php if (in_array($user?->role, ['admin', 'panitia'], true)): ?>
+                                        <form method="POST" action="<?= e(route('broadcast.announcement', $announcement)) ?>">
+                                            <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                            <button type="submit" class="dash-announcement-broadcast" title="Siarkan">
+                                                <?= mtq_icon('send', 'h-4 w-4') ?>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
-                                <a href="<?= e(route('results.recap')) ?>" class="primary-button rounded-full px-4 py-2">
-                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                    Buka Rekap
-                                </a>
-                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </section>
+                <?php endif; ?>
 
-                            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Pengumuman</p><p class="mt-2 text-2xl font-bold text-white"><?= e($adminDashboard['ops_stats']['announcements'] ?? 0) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Jadwal</p><p class="mt-2 text-2xl font-bold text-white"><?= e($adminDashboard['ops_stats']['schedules'] ?? 0) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Peserta Verified</p><p class="mt-2 text-2xl font-bold text-emerald-300"><?= e($adminDashboard['ops_stats']['verified_participants'] ?? 0) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Entri Nilai</p><p class="mt-2 text-2xl font-bold text-cyan-200"><?= e($adminDashboard['ops_stats']['score_entries'] ?? 0) ?></p></div>
-                            </div>
-
-                            <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                <?php foreach ($adminDashboard['quick_exports'] as $action): ?>
-                                    <a href="<?= e($action['href']) ?>" class="secondary-button justify-start rounded-2xl px-4 py-3">
+                <!-- Role Focus Cards -->
+                <?php if (!empty($rolePanel['actions']) || !empty($rolePanel['focus'])): ?>
+                    <section class="dash-section">
+                        <div class="dash-section-header">
+                            <?= mtq_icon('target', 'h-5 w-5') ?>
+                            <h2 class="dash-section-title">Fokus <?= e(ucfirst($user?->role ?? 'Peran')) ?></h2>
+                        </div>
+                        <?php if (!empty($rolePanel['actions'])): ?>
+                            <div class="dash-focus-actions">
+                                <?php foreach ($rolePanel['actions'] as $action): ?>
+                                    <a href="<?= e($action['href']) ?>" class="dash-focus-btn">
                                         <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
                                         <?= e($action['label']) ?>
                                     </a>
                                 <?php endforeach; ?>
                             </div>
-                        </div>
-
-                        <div class="glass-card rounded-[2rem] p-6">
-                            <div class="flex items-center gap-3">
-                                <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
-                                <div>
-                                    <p class="section-kicker">Rekap Cabang</p>
-                                    <p class="mt-1 text-sm text-slate-300">Cabang dengan aktivitas penilaian paling kuat saat ini.</p>
-                                </div>
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <?php if (collect($adminDashboard['branch_recap'])->isEmpty()): ?>
-                                    <div class="data-card text-sm text-slate-300">Belum ada rekap cabang yang bisa ditampilkan.</div>
-                                <?php else: ?>
-                                    <?php foreach ($adminDashboard['branch_recap'] as $branch): ?>
-                                        <div class="data-card">
-                                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                                <div>
-                                                    <p class="font-semibold text-white"><?= e($branch['branch']) ?></p>
-                                                    <p class="mt-1 text-xs text-slate-400"><?= e($branch['category_total']) ?> golongan | <?= e($branch['participant_total']) ?> peserta | <?= e($branch['score_entries']) ?> entri nilai</p>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-lg font-bold text-cyan-200"><?= e($branch['average_score']) ?></p>
-                                                    <p class="text-xs text-slate-400">Rata-rata cabang</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </section>
-                <?php endif; ?>
-
-                <?php if ($officialDashboard['enabled']): ?>
-                    <?php if ($officialDashboard['mandate_alert'] || collect($officialDashboard['participant_alerts'])->isNotEmpty()): ?>
-                        <section class="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-                            <?php if ($officialDashboard['mandate_alert']): ?>
-                                <?php
-                                $mandateAlert = $officialDashboard['mandate_alert'];
-                                $mandateAlertClass = match ($mandateAlert['level'] ?? 'info') {
-                                    'danger' => 'border-rose-400/24 bg-rose-400/10',
-                                    'warning' => 'border-amber-400/24 bg-amber-400/10',
-                                    default => 'border-cyan-400/24 bg-cyan-400/10',
-                                };
-                                $mandateIconClass = match ($mandateAlert['level'] ?? 'info') {
-                                    'danger' => 'text-rose-200',
-                                    'warning' => 'text-amber-200',
-                                    default => 'text-cyan-200',
-                                };
-                                ?>
-                                <div class="rounded-[2rem] border p-6 <?= e($mandateAlertClass) ?>">
-                                    <div class="flex items-start gap-3">
-                                        <div class="icon-chip <?= e($mandateIconClass) ?>"><?= mtq_icon('book-open') ?></div>
-                                        <div class="min-w-0">
-                                            <p class="section-kicker">Notifikasi Mandat</p>
-                                            <h2 class="mt-2 text-xl font-bold text-white"><?= e($mandateAlert['title']) ?></h2>
-                                            <p class="mt-3 text-sm leading-7 text-slate-200"><?= e($mandateAlert['message']) ?></p>
-                                            <a href="<?= e($mandateAlert['href']) ?>" class="secondary-button mt-4 rounded-full px-4 py-2">
-                                                <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                                Buka Pendaftaran
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            <?php endif; ?>
-
-                            <div class="glass-card rounded-[2rem] p-6">
-                                <div class="flex items-center gap-3">
-                                    <div class="icon-chip"><?= mtq_icon('bell') ?></div>
-                                    <div>
-                                        <p class="section-kicker">Notifikasi Perbaikan</p>
-                                        <p class="mt-1 text-sm text-slate-300">Peserta yang ditolak atau perlu Anda cek ulang segera.</p>
-                                    </div>
-                                </div>
-                                <div class="mt-4 space-y-3">
-                                    <?php if (collect($officialDashboard['participant_alerts'])->isEmpty()): ?>
-                                        <div class="data-card text-sm text-slate-300">Belum ada peserta yang ditolak. Fokus utama saat ini ada pada peserta yang masih menunggu verifikasi.</div>
-                                    <?php else: ?>
-                                        <?php foreach ($officialDashboard['participant_alerts'] as $alert): ?>
-                                            <div class="data-card flex flex-wrap items-center justify-between gap-4 border border-rose-400/14 bg-rose-400/6">
-                                                <div class="min-w-0">
-                                                    <p class="font-semibold text-white"><?= e($alert['name']) ?></p>
-                                                    <p class="mt-1 text-xs text-slate-400"><?= e($alert['category']) ?></p>
-                                                    <p class="mt-2 text-sm leading-6 text-rose-100"><?= e($alert['message']) ?></p>
-                                                </div>
-                                                <a href="<?= e($alert['href']) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                                    Perbaiki
-                                                </a>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                        <div class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)]">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
-                                <div>
-                                    <div class="icon-chip"><?= mtq_icon('id-card') ?></div>
-                                    <p class="mt-5 section-kicker">Ringkasan Kecamatan</p>
-                                    <h2 class="mt-2 text-2xl font-bold text-white"><?= e($officialDashboard['district']?->name ?? 'Kecamatan Belum Dipilih') ?></h2>
-                                    <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Panel ini memusatkan data peserta kecamatan Anda, terutama berkas yang perlu perbaikan dan pengiriman ulang verifikasi.</p>
-                                </div>
-                                <a href="<?= e(route('participants.index')) ?>" class="primary-button rounded-full px-4 py-2">
-                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                    Buka Pendaftaran
-                                </a>
-                            </div>
-
-                            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Draf</p><p class="mt-2 text-2xl font-bold text-white"><?= e($officialDashboard['status_breakdown']['draft'] ?? 0) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Menunggu</p><p class="mt-2 text-2xl font-bold text-cyan-200"><?= e($officialDashboard['status_breakdown']['submitted'] ?? 0) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Terverifikasi</p><p class="mt-2 text-2xl font-bold text-emerald-300"><?= e($officialDashboard['status_breakdown']['verified'] ?? 0) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Ditolak</p><p class="mt-2 text-2xl font-bold text-rose-200"><?= e($officialDashboard['status_breakdown']['rejected'] ?? 0) ?></p></div>
-                            </div>
-                        </div>
-
-                        <div class="glass-card rounded-[2rem] p-6">
-                            <div class="flex items-center gap-3">
-                                <div class="icon-chip"><?= mtq_icon('check-circle') ?></div>
-                                <div>
-                                    <p class="section-kicker">Prioritas Official</p>
-                                    <p class="mt-1 text-sm text-slate-300">Titik tindak lanjut yang perlu Anda cek hari ini.</p>
-                                </div>
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <div class="data-card">
-                                    <p class="text-sm leading-6 text-slate-200">Peserta dengan status <strong class="text-rose-200">ditolak</strong> perlu perbaikan data atau unggah ulang dokumen.</p>
-                                </div>
-                                <div class="data-card">
-                                    <p class="text-sm leading-6 text-slate-200">Peserta dengan status <strong class="text-cyan-200">menunggu</strong> sedang menanti verifikasi panitia.</p>
-                                </div>
-                                <div class="data-card">
-                                    <p class="text-sm leading-6 text-slate-200">Gunakan halaman pendaftaran untuk membuka detail peserta dan kirim ulang berkas bila perlu.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="glass-card rounded-[2rem] p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="icon-chip"><?= mtq_icon('bell') ?></div>
-                            <div>
-                                <p class="section-kicker">Perlu Tindak Lanjut</p>
-                                <h2 class="mt-1 text-2xl font-bold text-white">Peserta kecamatan yang perlu dicek</h2>
-                            </div>
-                        </div>
-                        <div class="mt-4 space-y-3">
-                            <?php if (collect($officialDashboard['needs_attention'])->isEmpty()): ?>
-                                <div class="data-card text-sm text-slate-300">Belum ada peserta yang memerlukan tindak lanjut. Semua berkas kecamatan ini sedang aman.</div>
-                            <?php else: ?>
-                                <?php foreach ($officialDashboard['needs_attention'] as $participant): ?>
-                                    <?php
-                                    $statusLabel = match ($participant->verification_status) {
-                                        'rejected' => 'Ditolak',
-                                        'submitted' => 'Menunggu',
-                                        default => ucfirst((string) $participant->verification_status),
-                                    };
-                                    $statusClass = $participant->verification_status === 'rejected'
-                                        ? 'border-rose-400/20 bg-rose-400/10 text-rose-100'
-                                        : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200';
-                                    ?>
-                                    <div class="data-card flex flex-wrap items-center justify-between gap-4">
-                                        <div>
-                                            <p class="font-semibold text-white"><?= e($participant->name) ?></p>
-                                            <p class="mt-1 text-xs text-slate-400"><?= e($participant->category?->name ?? '-') ?><?php if ($participant->verification_notes): ?> | <?= e($participant->verification_notes) ?><?php endif; ?></p>
-                                        </div>
-                                        <div class="flex flex-wrap items-center gap-3">
-                                            <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <?= e($statusClass) ?>"><?= e($statusLabel) ?></span>
-                                            <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                                Buka
-                                            </a>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
-                    </section>
-                <?php endif; ?>
-
-                <?php if ($participantDashboard['enabled']): ?>
-                    <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                        <div class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)]">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
-                                <div>
-                                    <div class="icon-chip"><?= mtq_icon('users') ?></div>
-                                    <p class="mt-5 section-kicker">Profil Peserta</p>
-                                    <h2 class="mt-2 text-2xl font-bold text-white"><?= e($participantDashboard['profile']?->name ?? $user?->name) ?></h2>
-                                    <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                                        <?php if ($participantDashboard['profile']): ?>
-                                            <?= e(($participantDashboard['profile']?->category?->branch ?? '-').' | '.($participantDashboard['profile']?->category?->name ?? '-')) ?>
-                                        <?php else: ?>
-                                            Data peserta belum terhubung ke akun ini. Hubungkan `nomor_induk` akun peserta dengan `NIK` pada data peserta untuk menampilkan dashboard personal.
-                                        <?php endif; ?>
-                                    </p>
-                                </div>
-                                <div class="status-pill">
-                                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                                    <?= e($participantDashboard['profile']?->verification_status ? ucfirst((string) $participantDashboard['profile']?->verification_status) : 'Profil belum terhubung') ?>
-                                </div>
-                            </div>
-
-                            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Kecamatan</p><p class="mt-2 text-lg font-bold text-white"><?= e($participantDashboard['profile']?->district?->name ?? '-') ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">No. Registrasi</p><p class="mt-2 text-lg font-bold text-white"><?= e($participantDashboard['profile']?->registration_number ?? '-') ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Nilai Terakhir</p><p class="mt-2 text-lg font-bold text-cyan-200" x-text="participantLatestScore"><?= e($participantDashboard['latest_score']) ?></p></div>
-                                <div class="data-card"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Rata-rata Nilai</p><p class="mt-2 text-lg font-bold text-emerald-300" x-text="participantAverageScore"><?= e($participantDashboard['average_score']) ?></p></div>
-                                <?php if (! empty($participantDashboard['cv_url'])): ?>
-                                    <div class="data-card md:col-span-2">
-                                        <div class="flex items-center justify-between gap-3">
-                                            <div>
-                                                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">CV Peserta</p>
-                                                <p class="mt-2 text-sm leading-6 text-slate-300">Unduh CV PDF yang stylist dan siap dibagikan.</p>
-                                            </div>
-                                            <a href="<?= e($participantDashboard['cv_url']) ?>" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                <?= mtq_icon('download', 'h-4 w-4') ?>
-                                                Download CV
-                                            </a>
-                                        </div>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="data-card md:col-span-2">
-                                        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">CV Peserta</p>
-                                        <p class="mt-2 text-sm leading-6 text-slate-300">CV PDF akan tersedia setelah profil peserta Anda dinyatakan terverifikasi.</p>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-
-                        <div class="glass-card rounded-[2rem] p-6">
-                            <div class="flex items-center gap-3">
-                                <div class="icon-chip"><?= mtq_icon('calendar') ?></div>
-                                <div>
-                                    <p class="section-kicker">Jadwal Berikutnya</p>
-                                    <p class="mt-1 text-sm text-slate-300">Agenda lomba terdekat yang perlu Anda antisipasi.</p>
-                                </div>
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <?php if ($participantDashboard['next_schedule']): ?>
-                                    <div class="data-card">
-                                        <p class="font-semibold text-white"><?= e($participantDashboard['next_schedule']->title) ?></p>
-                                        <p class="mt-1 text-xs text-slate-400"><?= e($participantDashboard['next_schedule']->stage) ?> | <?= e($participantDashboard['next_schedule']->venue) ?></p>
-                                        <p class="mt-2 text-sm text-slate-300"><?= e(optional($participantDashboard['next_schedule']->starts_at)->format('d M Y H:i')) ?></p>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="data-card text-sm text-slate-300">Belum ada jadwal tampil yang tersedia.</div>
-                                <?php endif; ?>
-
-                                <div class="data-card">
-                                    <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Status berkas</p>
-                                    <p class="mt-2 text-sm leading-6 text-slate-200"><?= e($participantDashboard['profile']?->verification_notes ?? 'Belum ada catatan verifikasi untuk akun ini.') ?></p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                <?php endif; ?>
-
-                <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                    <div class="rounded-[2rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/95 via-sky-950/90 to-blue-950/80 p-6 shadow-[0_22px_65px_-32px_rgba(14,165,233,0.45)]">
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <div class="flex h-11 w-11 items-center justify-center rounded-[1.15rem] border border-cyan-200/30 bg-transparent p-2 shadow-[0_14px_30px_-18px_rgba(125,211,252,0.45)]">
-                                    <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
-                                </div>
-                                <p class="mt-5 section-kicker">Fokus Peran</p>
-                                <h2 class="mt-2 text-2xl font-bold text-white"><?= e($rolePanel['headline'] ?? '') ?></h2>
-                                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300"><?= e($rolePanel['description'] ?? '') ?></p>
-                            </div>
-                            <a href="<?= e(route('home')) ?>" class="secondary-button rounded-full px-4 py-2">
-                                <?= mtq_icon('home', 'h-4 w-4') ?>
-                                Beranda
-                            </a>
-                        </div>
-                        <div class="mt-5 flex flex-wrap gap-3">
-                            <?php foreach (($rolePanel['actions'] ?? []) as $action): ?>
-                                <a href="<?= e($action['href']) ?>" class="primary-button rounded-full px-4 py-2">
-                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
-                                    <?= e($action['label']) ?>
-                                </a>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-
-                    <div class="glass-card rounded-[2rem] p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="icon-chip"><?= mtq_icon('check-circle') ?></div>
-                            <div>
-                                <p class="section-kicker">Checklist Singkat</p>
-                                <p class="mt-1 text-sm text-slate-300">Panduan prioritas untuk sesi ini.</p>
-                            </div>
-                        </div>
-                        <div class="mt-4 space-y-3">
-                            <?php foreach (($rolePanel['focus'] ?? []) as $item): ?>
-                                <div class="data-card">
-                                    <p class="text-sm leading-6 text-slate-200"><?= e($item) ?></p>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </section>
-                <section id="jadwal" class="glass-card rounded-[2rem] p-6">
-                            <div class="flex items-center gap-3">
-                                <div class="icon-chip"><?= mtq_icon('calendar') ?></div>
-                                <h2 class="text-2xl font-bold text-white">Jadwal</h2>
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <?php foreach ($schedules as $schedule): ?>
-                                    <div class="data-card">
-                                        <div class="flex flex-wrap items-start justify-between gap-3">
-                                            <div>
-                                                <p class="font-semibold text-white"><?= e($schedule->title) ?></p>
-                                                <p class="mt-1 text-xs text-slate-400"><?= e($schedule->stage) ?> | <?= e($schedule->venue) ?></p>
-                                                <p class="mt-2 text-sm text-slate-300"><?= e(optional($schedule->starts_at)->format('d M Y H:i')) ?></p>
-                                            </div>
-                                            <?php if (in_array($user?->role, ['admin', 'panitia'], true)): ?>
-                                                <form method="POST" action="<?= e(route('broadcast.schedule', $schedule)) ?>">
-                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                                                    <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                        <?= mtq_icon('bell', 'h-4 w-4') ?>
-                                                        Siarkan
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
+                        <?php endif; ?>
+                        <?php if (!empty($rolePanel['focus'])): ?>
+                            <div class="dash-focus-list">
+                                <?php foreach ($rolePanel['focus'] as $item): ?>
+                                    <div class="dash-focus-item">
+                                        <?= mtq_icon('check', 'h-4 w-4') ?>
+                                        <span><?= e($item) ?></span>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                </section>
-
-                <section id="pengumuman" class="glass-card rounded-[2rem] p-6">
-                            <div class="flex items-center gap-3">
-                                <div class="icon-chip"><?= mtq_icon('bell') ?></div>
-                                <h2 class="text-2xl font-bold text-white">Pengumuman</h2>
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <?php foreach ($announcements as $announcement): ?>
-                                    <div class="data-card">
-                                        <div class="flex flex-wrap items-start justify-between gap-3">
-                                            <div class="min-w-0">
-                                                <p class="font-semibold text-white"><?= e($announcement->title) ?></p>
-                                                <p class="mt-2 text-sm text-slate-300"><?= e($announcement->body) ?></p>
-                                            </div>
-                                            <?php if (in_array($user?->role, ['admin', 'panitia'], true)): ?>
-                                                <form method="POST" action="<?= e(route('broadcast.announcement', $announcement)) ?>">
-                                                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                                                    <button type="submit" class="secondary-button rounded-xl px-3 py-2 text-xs">
-                                                        <?= mtq_icon('bell', 'h-4 w-4') ?>
-                                                        Siarkan
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                </section>
+                        <?php endif; ?>
+                    </section>
+                <?php endif; ?>
             </div>
         </div>
+
+        <!-- Password Modal -->
         <div
             x-cloak
             x-show="forcePasswordChange || showPasswordModal"
@@ -737,15 +473,14 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         <div>
                             <p class="section-kicker">Keamanan Akun</p>
                             <h3 class="mt-2 text-2xl font-bold text-white">Ganti password akun</h3>
-                            <p class="mt-2 text-sm leading-6 text-slate-300">Gunakan formulir ini untuk memperbarui password akun Anda. Jika akun wajib ganti password, modal ini akan muncul otomatis saat login.</p>
+                            <p class="mt-2 text-sm leading-6 text-slate-300">Gunakan formulir ini untuk memperbarui password akun Anda.</p>
                         </div>
-                        <?php if (! $mustChangePassword): ?>
+                        <?php if (!$mustChangePassword): ?>
                             <button
                                 type="button"
                                 class="secondary-button inline-flex h-10 w-10 items-center justify-center rounded-full p-0"
                                 x-on:click="showPasswordModal = false"
                                 aria-label="Tutup dialog"
-                                title="Tutup dialog"
                             >
                                 <?= mtq_icon('x', 'h-4 w-4') ?>
                             </button>
@@ -763,11 +498,11 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-200">Password baru</label>
-                            <input name="password" type="password" minlength="8" required class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Masukkan password baru">
+                            <input name="password" type="password" minlength="8" required class="dash-input" placeholder="Masukkan password baru">
                         </div>
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-200">Ulangi password baru</label>
-                            <input name="password_confirmation" type="password" minlength="8" required class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" placeholder="Ulangi password baru">
+                            <input name="password_confirmation" type="password" minlength="8" required class="dash-input" placeholder="Ulangi password baru">
                         </div>
                         <button type="submit" class="primary-button w-full">
                             <?= mtq_icon('check-circle', 'h-4 w-4') ?>
@@ -786,21 +521,9 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
     <script>
         function dashboardRealtime(initialState) {
             const parseDate = (value) => {
-                if (!value) {
-                    return null;
-                }
-
+                if (!value) return null;
                 const date = new Date(value);
                 return Number.isNaN(date.getTime()) ? null : date;
-            };
-
-            const buildCountdownParts = (ms) => {
-                const totalMinutes = Math.max(0, Math.floor(ms / 60000));
-                const days = Math.floor(totalMinutes / 1440);
-                const hours = Math.floor((totalMinutes % 1440) / 60);
-                const minutes = totalMinutes % 60;
-
-                return { days, hours, minutes };
             };
 
             return {
@@ -811,169 +534,33 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                 participantAverageScore: initialState.participantAverageScore ?? '0.00',
                 verificationSummary: initialState.verificationSummary ?? {},
                 verificationDistrictCounts: Array.isArray(initialState.verificationDistrictCounts) ? initialState.verificationDistrictCounts : [],
-                verificationNoticeTitle: initialState.verificationSummary?.title ?? 'Perbaikan berkas peserta oleh official',
-                verificationNoticeBody: initialState.verificationSummary?.message ?? '-',
-                verificationStatusLabel: initialState.verificationSummary?.label ?? '-',
-                verificationDeadlineLabel: initialState.verificationSummary?.close_at_label
-                    ? `Tutup otomatis pada ${initialState.verificationSummary.close_at_label}`
-                    : 'Jadwal tutup belum tersedia',
-                verificationCountdownText: '-',
-                verificationCountdownParts: { days: 0, hours: 0, minutes: 0 },
-                verificationCountdownFlash: false,
-                verificationCountdownFlashTimer: null,
-                verificationTotalRegistered: Number(initialState.verificationSummary?.total_registered ?? 0),
-                verificationTotalVerified: Number(initialState.verificationSummary?.total_verified ?? 0),
-                verificationIsOpen: Boolean(initialState.verificationSummary?.is_open ?? false),
-                verificationTicker: null,
-                summaryTicker: null,
                 forcePasswordChange: Boolean(initialState.forcePasswordChange ?? false),
                 showPasswordModal: false,
+                verificationTicker: null,
                 init() {
-                    this.syncVerificationNotice();
-                    window.addEventListener('mtq-score-updated', (event) => {
-                        this.applyScoreUpdate(event.detail ?? {});
-                    });
-                    window.addEventListener('mtq-participant-verification-updated', () => {
-                        this.refreshSummary();
-                    });
-
-                    this.verificationTicker = window.setInterval(() => {
-                        this.syncVerificationNotice();
-                    }, 1000);
-
-                    this.summaryTicker = window.setInterval(() => {
-                        this.refreshSummary();
-                    }, 60000);
-
+                    window.addEventListener('mtq-score-updated', () => this.refreshSummary());
                     window.addEventListener('beforeunload', () => {
-                        if (this.verificationTicker) {
-                            window.clearInterval(this.verificationTicker);
-                        }
-
-                        if (this.summaryTicker) {
-                            window.clearInterval(this.summaryTicker);
-                        }
+                        if (this.verificationTicker) window.clearInterval(this.verificationTicker);
                     });
-                },
-                async applyScoreUpdate(payload) {
-                    if (!payload.participant_id) {
-                        return;
-                    }
-                    await this.refreshSummary();
                 },
                 async refreshSummary() {
                     try {
                         const url = new URL(initialState.summaryEndpoint, window.location.origin);
-
-                        if (this.participantProfileId) {
-                            url.searchParams.set('participant_id', this.participantProfileId);
-                        }
-
+                        if (this.participantProfileId) url.searchParams.set('participant_id', this.participantProfileId);
                         const response = await fetch(url.toString(), {
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Accept': 'application/json',
-                            },
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                             credentials: 'same-origin',
                         });
-
-                        if (!response.ok) {
-                            return;
-                        }
-
+                        if (!response.ok) return;
                         const summary = await response.json();
-
-                        if (Array.isArray(summary.leaders)) {
-                            this.leaders = summary.leaders;
-                        }
-
+                        if (Array.isArray(summary.leaders)) this.leaders = summary.leaders;
                         if (summary.participant_summary) {
                             this.participantLatestScore = summary.participant_summary.latest_score ?? this.participantLatestScore;
                             this.participantAverageScore = summary.participant_summary.average_score ?? this.participantAverageScore;
                         }
-
-                        if (summary.verification_summary || summary.registration_summary) {
-                            const verificationSummary = summary.verification_summary ?? summary.registration_summary;
-                            this.verificationSummary = verificationSummary;
-                            this.verificationTotalRegistered = Number(verificationSummary.total_registered ?? this.verificationTotalRegistered);
-                            this.verificationTotalVerified = Number(verificationSummary.total_verified ?? this.verificationTotalVerified);
-                            this.verificationNoticeTitle = verificationSummary.title ?? this.verificationNoticeTitle;
-                            this.verificationNoticeBody = verificationSummary.message ?? this.verificationNoticeBody;
-                            this.verificationStatusLabel = verificationSummary.label ?? this.verificationStatusLabel;
-                            this.verificationDeadlineLabel = verificationSummary.close_at_label
-                                ? `Tutup otomatis pada ${verificationSummary.close_at_label}`
-                                : this.verificationDeadlineLabel;
-                            this.verificationIsOpen = Boolean(verificationSummary.is_open ?? this.verificationIsOpen);
-                        }
-
-                        if (Array.isArray(summary.verification_district_counts) || Array.isArray(summary.registration_district_counts)) {
-                            this.verificationDistrictCounts = summary.verification_district_counts ?? summary.registration_district_counts;
-                        }
-
-                        this.syncVerificationNotice();
                     } catch (error) {
-                        console.warn('Realtime summary refresh failed.', error);
+                        console.warn('Realtime refresh failed.', error);
                     }
-                },
-                syncVerificationNotice() {
-                    const openAt = parseDate(this.verificationSummary?.open_at ?? null);
-                    const closeAt = parseDate(this.verificationSummary?.close_at ?? null);
-                    const now = new Date();
-
-                    if (openAt && now < openAt) {
-                        const diff = openAt.getTime() - now.getTime();
-                        this.verificationIsOpen = false;
-                        this.verificationNoticeTitle = 'Perbaikan berkas segera dibuka';
-                        this.verificationStatusLabel = 'Menunggu dibuka';
-                        this.verificationNoticeBody = `Edit Peserta untuk official dibuka pada ${openAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
-                        this.updateCountdownState('Mulai dalam', diff);
-                        return;
-                    }
-
-                    if (openAt && closeAt && now >= openAt && now <= closeAt) {
-                        const diff = closeAt.getTime() - now.getTime();
-                        this.verificationIsOpen = true;
-                        this.verificationNoticeTitle = 'Perbaikan berkas sedang berlangsung';
-                        this.verificationStatusLabel = 'Sedang berlangsung';
-                        this.verificationNoticeBody = `Edit Peserta untuk official dibuka sampai ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
-                        this.updateCountdownState('Sisa', diff);
-                        return;
-                    }
-
-                    if (closeAt && now > closeAt) {
-                        this.verificationIsOpen = false;
-                        this.verificationNoticeTitle = 'Perbaikan berkas selesai';
-                        this.verificationStatusLabel = 'Sudah ditutup';
-                        this.verificationNoticeBody = `Edit Peserta untuk official ditutup pada ${closeAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
-                        this.verificationCountdownText = 'Waktu perbaikan berkas telah habis';
-                        this.verificationCountdownParts = { days: 0, hours: 0, minutes: 0 };
-                        this.verificationCountdownFlash = false;
-                        return;
-                    }
-
-                    this.verificationIsOpen = Boolean(this.verificationSummary?.is_open ?? false);
-                    this.verificationNoticeTitle = this.verificationSummary?.title ?? 'Perbaikan berkas peserta oleh official';
-                    this.verificationStatusLabel = this.verificationSummary?.label ?? '-';
-                    this.verificationNoticeBody = this.verificationSummary?.message ?? '-';
-                    this.verificationDeadlineLabel = this.verificationSummary?.close_at_label
-                        ? `Tutup otomatis pada ${this.verificationSummary.close_at_label}`
-                        : 'Jadwal tutup belum tersedia';
-                    this.verificationCountdownText = '-';
-                    this.verificationCountdownParts = { days: 0, hours: 0, minutes: 0 };
-                    this.verificationCountdownFlash = false;
-                },
-                updateCountdownState(prefix, diff) {
-                    this.verificationCountdownParts = buildCountdownParts(diff);
-                    this.verificationCountdownText = prefix;
-
-                    if (this.verificationCountdownFlashTimer) {
-                        window.clearTimeout(this.verificationCountdownFlashTimer);
-                    }
-
-                    this.verificationCountdownFlash = true;
-                    this.verificationCountdownFlashTimer = window.setTimeout(() => {
-                        this.verificationCountdownFlash = false;
-                    }, 260);
                 },
             };
         }
