@@ -2858,13 +2858,13 @@ class ParticipantRegistrationController extends Controller
 
     protected function isLotPerDistrictCategory(CompetitionCategory $category): bool
     {
+        $branch = (string) ($category->branch ?? '');
+
+        // Lot per district: Fahmil/Syarhil (team categories)
         $lotPerDistrictBranches = [
             'Fahmil Qur`an',
             'Syarhil Qur`an',
-            'Khutbah Jumat dan Adzan',
         ];
-
-        $branch = (string) ($category->branch ?? '');
 
         return in_array($branch, $lotPerDistrictBranches);
     }

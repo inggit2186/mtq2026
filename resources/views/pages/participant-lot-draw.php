@@ -853,7 +853,10 @@ $roleSelectionUrl = route('participants.competition-role', $participant);
                 });
             }
 
-            if (<?= $autoFullscreen ? 'true' : 'false' ?>) {
+            // Only auto fullscreen if modal is not shown (role selection already done)
+            // Skip fullscreen if role selection modal is visible
+            const shouldAutoFullscreen = <?= ($autoFullscreen && !$needsRoleSelection) ? 'true' : 'false' ?>;
+            if (shouldAutoFullscreen) {
                 const tryFullscreen = () => {
                     enterFullscreen();
                 };

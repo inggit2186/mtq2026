@@ -9,7 +9,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Since mfq_results table is currently empty, we can safely add unique constraint
+        // Skip if unique constraint already exists (added by previous migration)
+        $exists = collect(DB::select("SHOW INDEX FROM mfq_results WHERE Key_name = 'mfq_results_session_district_unique'"))->isNotEmpty();
+        if ($exists) {
+            return;
+        }
+
         Schema::table('mfq_results', function (Blueprint $table): void {
             $table->unique(['mfq_session_id', 'district_id'], 'mfq_results_session_district_unique');
         });

@@ -3466,6 +3466,18 @@ class PageController extends Controller
 
     public function categoryLotGroupSize(CompetitionCategory $category, ?string $gender = null): int
     {
+        $slug = (string) ($category->slug ?? '');
+
+        // Special case: old combined "Khatib dan Muadzin" category uses per-participant lot (soft-locked)
+        if ($slug === 'khutbah-jumat-dan-adzan-khatib-dan-muadzin') {
+            return 1;
+        }
+
+        // Special case: Khatib and Adzan categories use per-participant lot (1:1)
+        if (in_array($slug, ['khutbah-jumat-dan-adzan-khatib', 'khutbah-jumat-dan-adzan-adzan'])) {
+            return 1;
+        }
+
         // Prioritas 1: cek kolom lot_group_type
         if (filled($category->lot_group_type)) {
             return match ($category->lot_group_type) {
@@ -3480,10 +3492,6 @@ class PageController extends Controller
 
         if (str_contains($branch, 'fahmil') || str_contains($branch, 'syarhil')) {
             return 3;
-        }
-
-        if (str_contains($branch, 'khutbah') || str_contains($branch, 'adzan')) {
-            return 2;
         }
 
         return 1;

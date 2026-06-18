@@ -114,9 +114,7 @@ $initialActiveCategoryId = (string) ($selectedCategory?->id ?? ($categories->fir
                     <?php
                         $categoryParticipants = $participantsByCategory->get($category->id, collect())->values();
                         $isDistrictTeamCategory = str_contains(mb_strtolower((string) $category->branch), 'fahmil')
-                            || str_contains(mb_strtolower((string) $category->branch), 'syarhil')
-                            || str_contains(mb_strtolower((string) $category->branch), 'khutbah')
-                            || str_contains(mb_strtolower((string) $category->branch), 'adzan');
+                            || str_contains(mb_strtolower((string) $category->branch), 'syarhil');
                         $lotTakenParticipantsCount = $categoryParticipants->whereNotNull('lot_number')->count();
                         $districtGroups = $isDistrictTeamCategory
                             ? $categoryParticipants

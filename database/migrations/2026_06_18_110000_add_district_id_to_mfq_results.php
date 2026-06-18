@@ -9,6 +9,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // First, add the column if it doesn't exist
+        Schema::table('mfq_results', function (Blueprint $table) {
+            if (!Schema::hasColumn('mfq_results', 'district_id')) {
+                $table->unsignedBigInteger('district_id')->nullable();
+            }
+        });
+
         // Update existing rows: set district_id from participants table
         DB::statement("
             UPDATE mfq_results r
@@ -28,9 +35,9 @@ return new class extends Migration
                 ->update(['district_id' => $minDistrictId]);
         }
 
-        // Now add FK constraint (column already exists from partial migration)
+        // Now add FK constraint, defaults, and indices
         Schema::table('mfq_results', function (Blueprint $table) use ($minDistrictId) {
-            // Set default if any nulls remain
+            // Change column to non-nullable with default
             $table->unsignedBigInteger('district_id')
                 ->nullable(false)
                 ->default($minDistrictId ?? 1)
