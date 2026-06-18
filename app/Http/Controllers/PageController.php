@@ -363,6 +363,13 @@ class PageController extends Controller
 
     public function updateProfilePhoto(Request $request): RedirectResponse
     {
+        \Log::info('updateProfilePhoto called', [
+            'user_id' => auth()->id(),
+            'method' => $request->method(),
+            'uri' => $request->uri(),
+            'has_file' => $request->hasFile('photo'),
+        ]);
+
         $request->validate([
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
         ]);

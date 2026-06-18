@@ -69,15 +69,11 @@ $photoUrl = $user->profilePhotoUrl();
                 </div>
 
                 <!-- Upload Form -->
-                <form action="<?= e(route('profile.update-photo')) ?>"
+                <form id="uploadForm" action="/profile/photo"
                       method="POST"
                       enctype="multipart/form-data"
-                      class="w-full max-w-md"
-                      x-data="{ uploading: false }"
-                      @submit.window="uploading = true">
+                      class="w-full max-w-md">
                     <?= csrf_field() ?>
-                    <?= method_field('POST') ?>
-
                     <div class="mb-4">
                         <label class="mb-2 block text-sm font-medium text-slate-300">
                             Upload Foto Baru
@@ -99,11 +95,9 @@ $photoUrl = $user->profilePhotoUrl();
                     <?php endif; ?>
 
                     <button type="submit"
-                            :disabled="uploading"
-                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 font-semibold text-white transition hover:from-cyan-400 hover:to-blue-400 disabled:opacity-50">
-                        <span x-show="!uploading"><?= mtq_icon('camera', 'h-5 w-5') ?></span>
-                        <span x-show="!uploading">Update Foto</span>
-                        <span x-show="uploading">Mengupload...</span>
+                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 font-semibold text-white transition hover:from-cyan-400 hover:to-blue-400">
+                        <?= mtq_icon('camera', 'h-5 w-5') ?>
+                        Update Foto
                     </button>
                 </form>
             </div>

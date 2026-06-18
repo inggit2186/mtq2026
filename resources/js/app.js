@@ -302,7 +302,8 @@ function activateSubmitLoading(form, submitter, message, options = {}) {
 }
 
 function submitFormWithProgress(form, submitter, message) {
-    const action = submitter?.formAction || form.action || window.location.href;
+    // Prefer form.action over submitter formAction to avoid unexpected redirects
+    const action = form.action || window.location.href;
     const method = String(submitter?.formMethod || form.method || 'POST').toUpperCase();
     const formData = new FormData(form);
     const submitterName = submitter?.getAttribute?.('name');
