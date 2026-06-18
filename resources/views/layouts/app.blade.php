@@ -42,7 +42,7 @@
         </div>
     @endif
 
-    <header class="sticky top-0 z-40 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
+    <header class="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl" x-data="{ mobileMenuOpen: false }">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <a href="{{ route('home') }}" class="flex items-center gap-3">
                 <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-lg font-black text-slate-950 shadow-lg shadow-cyan-500/30">
@@ -55,10 +55,10 @@
             </a>
 
             <nav class="hidden items-center gap-2 md:flex">
-                <a href="{{ route('home') }}" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Beranda</a>
-                <a href="{{ route('dashboard') }}" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Dashboard</a>
+                <a href="{{ route('home') }}" class="nav-link">Beranda</a>
+                <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
                 @if (auth()->user()?->role === 'admin' || auth()->user()?->role === 'panitia')
-                    <a href="{{ route('scoring') }}" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Penilaian</a>
+                    <a href="{{ route('scoring') }}" class="nav-link">Penilaian</a>
                 @endif
             </nav>
 
@@ -78,33 +78,52 @@
                         Keluar
                     </button>
                 </form>
-                <button class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/6 text-white transition hover:bg-white/10 md:hidden"
-                        @click="$store.ui.mobileMenuOpen = !$store.ui.mobileMenuOpen" aria-label="Toggle menu">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <button
+                    class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/6 text-white transition hover:bg-white/10 lg:hidden"
+                    @click="mobileMenuOpen = !mobileMenuOpen"
+                    aria-label="Toggle menu"
+                    :aria-expanded="mobileMenuOpen.toString()"
+                >
+                    <svg x-show="!mobileMenuOpen" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M3 5.5A1.5 1.5 0 014.5 4h11a1.5 1.5 0 010 3h-11A1.5 1.5 0 013 5.5zm0 4.5A1.5 1.5 0 014.5 8h11a1.5 1.5 0 010 3h-11A1.5 1.5 0 013 10zm0 4.5A1.5 1.5 0 014.5 13h11a1.5 1.5 0 010 3h-11A1.5 1.5 0 013 14.5z" clip-rule="evenodd"/>
+                    </svg>
+                    <svg x-show="mobileMenuOpen" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                     </svg>
                 </button>
             </div>
         </div>
 
-        <div x-show="$store.ui.mobileMenuOpen" x-transition class="border-t border-white/10 bg-slate-950/95 px-4 py-4 md:hidden">
+        <!-- Mobile Menu Dropdown -->
+        <div
+            x-show="mobileMenuOpen"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 -translate-y-2"
+            x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 -translate-y-2"
+            x-cloak
+            class="border-t border-white/10 bg-slate-950/95 px-4 py-4 lg:hidden"
+        >
             <div class="mx-auto flex max-w-7xl flex-col gap-2">
-                <div class="max-h-[calc(100dvh-10rem)] space-y-2 overflow-y-auto pr-1 overscroll-contain">
-                    <a href="{{ route('home') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Beranda</a>
-                    <a href="{{ route('dashboard') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Dashboard</a>
+                <div class="space-y-2">
+                    <a href="{{ route('home') }}" class="mobile-nav-link">Beranda</a>
+                    <a href="{{ route('dashboard') }}" class="mobile-nav-link">Dashboard</a>
                     @if (auth()->user()?->role === 'admin' || auth()->user()?->role === 'panitia')
-                        <a href="{{ route('scoring') }}" class="rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Penilaian</a>
+                        <a href="{{ route('scoring') }}" class="mobile-nav-link">Penilaian</a>
                     @endif
-                    <div class="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-300">
-                        {{ auth()->user()?->name }} / {{ auth()->user()?->roleLabel() }}
-                    </div>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-left text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">
-                            Keluar
-                        </button>
-                    </form>
                 </div>
+                <div class="my-3 border-t border-white/10"></div>
+                <div class="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-300">
+                    {{ auth()->user()?->name }} / {{ auth()->user()?->roleLabel() }}
+                </div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="mobile-nav-link mobile-nav-link--danger">
+                        Keluar
+                    </button>
+                </form>
             </div>
         </div>
     </header>

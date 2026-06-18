@@ -43,49 +43,70 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
         <div class="hero-orb hero-orb-blue left-[-7rem] top-64 h-64 w-64"></div>
 
         <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]" x-bind:class="forcePasswordChange ? 'pointer-events-none select-none blur-[1px]' : ''">
-            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
-                x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
+            <aside
+                class="console-sidebar fixed inset-y-4 left-4 z-50 w-[300px] rounded-[1.75rem] p-5 transition-all duration-300 lg:static lg:inset-auto lg:block"
+                :class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 -translate-x-full lg:translate-x-0"
+                x-transition:enter-end="opacity-100 translate-x-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-x-0"
+                x-transition:leave-end="opacity-0 -translate-x-full lg:translate-x-0"
+            >
+                <!-- Mobile Backdrop -->
+                <div
+                    class="fixed inset-0 z-[-1] bg-slate-950/80 backdrop-blur-sm lg:hidden"
+                    x-show="mobileNavOpen"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="transition ease-in duration-150"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    @click="mobileNavOpen = false"
+                ></div>
+
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-11 w-11 items-center justify-center rounded-[1.15rem] border border-cyan-200/30 bg-transparent p-2 shadow-[0_14px_30px_-18px_rgba(125,211,252,0.45)]">
+                        <div class="brand-logo">
                             <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo resmi e-MTQ" class="h-full w-full object-contain">
                         </div>
                         <div>
-                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">e-MTQ Console</p>
-                            <h1 class="mt-1 text-lg font-bold text-white"><?= e($user?->roleLabel()) ?> Workspace</h1>
+                            <p class="brand-subtitle">e-MTQ Console</p>
+                            <h1 class="brand-title"><?= e($user?->roleLabel()) ?> Workspace</h1>
                         </div>
                     </div>
-                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
-                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                    <button type="button" class="sidebar-close-btn" @click="mobileNavOpen = false">
+                        <?= mtq_icon('x', 'h-5 w-5') ?>
                     </button>
                 </div>
 
-                <div class="mt-8 rounded-[1.75rem] border border-cyan-400/14 bg-gradient-to-br from-slate-900/90 via-sky-950/70 to-blue-950/60 p-5">
+                <div class="sidebar-profile-card">
                     <div class="flex flex-col items-center gap-4 text-center">
                         <?php if ($userProfilePhotoUrl): ?>
-                            <img src="<?= e($userProfilePhotoUrl) ?>" alt="Foto profil <?= e($user?->name) ?>" class="h-16 w-16 rounded-[1.25rem] border border-cyan-300/20 object-cover shadow-[0_18px_40px_-24px_rgba(34,211,238,0.45)]">
+                            <img src="<?= e($userProfilePhotoUrl) ?>" alt="Foto profil <?= e($user?->name) ?>" class="profile-avatar">
                         <?php else: ?>
-                            <div class="flex h-16 w-16 items-center justify-center rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 text-lg font-black tracking-[0.08em] text-cyan-100 shadow-[0_18px_40px_-24px_rgba(34,211,238,0.45)]">
+                            <div class="profile-avatar profile-avatar--initials">
                                 <?= e($userInitials) ?>
                             </div>
                         <?php endif; ?>
                         <div class="min-w-0">
-                            <p class="section-kicker">Status Pengguna</p>
-                            <h2 class="mt-2 text-xl font-bold text-white"><?= e($user?->name) ?></h2>
-                            <p class="mt-2 text-sm leading-6 text-slate-300">Akses aktif sebagai <?= e($user?->roleLabel()) ?> dengan tampilan kerja yang disesuaikan.</p>
+                            <p class="profile-status-label">Status Pengguna</p>
+                            <h2 class="profile-name"><?= e($user?->name) ?></h2>
+                            <p class="profile-role">Akses sebagai <?= e($user?->roleLabel()) ?></p>
                         </div>
                     </div>
-                    <div class="mt-4 flex items-center justify-between gap-3">
-                        <div class="status-pill">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
-                            Online
+                    <div class="profile-actions">
+                        <div class="status-indicator">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Online</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <form method="POST" action="<?= e(route('dashboard.user-sync')) ?>">
                                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                                 <button
                                     type="submit"
-                                    class="secondary-button inline-flex h-9 w-9 items-center justify-center rounded-full p-0"
+                                    class="icon-action-btn"
                                     <?= $canSyncSilatarUser ? '' : 'disabled' ?>
                                     title="<?= e($canSyncSilatarUser ? 'Sinkronkan data user dari API SILATAR.' : 'Akun ini belum memiliki NIP atau nomor induk untuk sinkronisasi SILATAR.') ?>"
                                     aria-label="Sinkronkan data user dari SILATAR"
@@ -95,8 +116,8 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             </form>
                             <button
                                 type="button"
-                                class="secondary-button inline-flex h-9 w-9 items-center justify-center rounded-full p-0"
-                                x-on:click="showPasswordModal = true"
+                                class="icon-action-btn"
+                                @click="showPasswordModal = true"
                                 title="Ganti password akun"
                                 aria-label="Ganti password akun"
                             >
@@ -106,20 +127,23 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     </div>
                 </div>
 
-                <nav class="mt-8 space-y-2">
-                    <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
+                <nav class="sidebar-nav" aria-label="Navigasi utama">
                     <?php require __DIR__.'/../partials/console-navigation.php'; ?>
                 </nav>
 
-                    <div class="mt-8 grid gap-3">
-                        <div class="data-card">
-                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Mode Kerja</p>
-                            <p class="mt-2 text-sm font-semibold text-white">Tampilan Operasional</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-300">Tampilan dikondisikan agar nyaman untuk akses panjang dan pemantauan cepat.</p>
+                <div class="sidebar-footer">
+                    <div class="sidebar-mode-card">
+                        <div class="mode-icon">
+                            <?= mtq_icon('spark') ?>
                         </div>
+                        <div>
+                            <p class="mode-label">Mode Kerja</p>
+                            <p class="mode-title">Tampilan Operasional</p>
+                        </div>
+                    </div>
                     <form method="POST" action="<?= e(route('logout')) ?>">
                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                        <button type="submit" class="secondary-button w-full">
+                        <button type="submit" class="logout-btn">
                             <?= mtq_icon('logout', 'h-4 w-4') ?>
                             Keluar
                         </button>
