@@ -10,10 +10,10 @@ return new class extends Migration
     {
         Schema::table('scoring_settings', function (Blueprint $table): void {
             if (! Schema::hasColumn('scoring_settings', 'penyisihan_judge_ids')) {
-                $table->json('penyisihan_judge_ids')->nullable()->after('penyisihan_judge_names');
+                $table->json('penyisihan_judge_ids')->nullable();
             }
             if (! Schema::hasColumn('scoring_settings', 'final_judge_ids')) {
-                $table->json('final_judge_ids')->nullable()->after('final_judge_names');
+                $table->json('final_judge_ids')->nullable();
             }
         });
     }
