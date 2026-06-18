@@ -1628,13 +1628,15 @@ class ParticipantRegistrationController extends Controller
         abort_unless(in_array($participant->gender, ['putra', 'putri'], true), 422, 'Jenis kelamin peserta harus putra atau putri untuk mengambil nomor lot.');
         abort_unless($participant->verification_status === 'verified', 403, 'Nomor lot hanya dapat diambil untuk peserta yang sudah terverifikasi.');
 
-        // Find paired participant BEFORE Khatib takes lot (while still in old category)
-        // TODO: Remove hardcoded category ID 28 - should use $oldCategoryId
+        // Find paired participant BEFORE taking lot (while still in old category)
+        // TODO: Remove hardcoded category ID 28 - should use dynamic old category detection
         $oldCategoryId = 28; // Hardcoded for now: khutbah-jumat-dan-adzan-khatib-dan-muadzin
         $isKhatib = $participant->category && $participant->category->isKhatibCategory();
+        $isAdzan = $participant->category && $participant->category->isAdzanCategory();
         $pairedParticipant = null;
+        $pairedRole = null;
 
-        if ($isKhatib) {
+        if ($isKhatib || $isAdzan) {
             $pairedParticipant = Participant::query()
                 ->where('district_id', $participant->district_id)
                 ->where('gender', $participant->gender)
@@ -1642,9 +1644,11 @@ class ParticipantRegistrationController extends Controller
                 ->whereNull('lot_number')
                 ->whereNull('competition_role')
                 ->first();
+
+            $pairedRole = $isKhatib ? 'muadzin' : 'khatib';
         }
 
-        $lotResult = DB::transaction(function () use ($participant, $isKhatib, $pairedParticipant): array {
+        $lotResult = DB::transaction(function () use ($participant, $isKhatib, $isAdzan, $pairedParticipant, $pairedRole): array {
             $lockedParticipant = Participant::query()
                 ->with('category')
                 ->lockForUpdate()
@@ -1694,13 +1698,19 @@ class ParticipantRegistrationController extends Controller
 
             $sharedLot = null;
 
-            // For Khatib category: move paired participant to Muadzin AND assign same lot
-            if ($isKhatib && $pairedParticipant) {
-                $muadzinCategory = CompetitionCategory::query()
-                    ->where('slug', 'khutbah-jumat-dan-adzan-adzan')
+            // For Khatib or Adzan category: move paired participant to opposite role AND assign same lot with their own lot_code prefix
+            if (($isKhatib || $isAdzan) && $pairedParticipant) {
+                $targetCategorySlug = $isKhatib ? 'khutbah-jumat-dan-adzan-adzan' : 'khutbah-jumat-dan-adzan-khatib';
+                $targetCategory = CompetitionCategory::query()
+                    ->where('slug', $targetCategorySlug)
                     ->first();
 
-                if ($muadzinCategory) {
+                if ($targetCategory) {
+                    // Get the sequence number from the candidate (e.g., "06" from "KHA-06")
+                    $sequenceNumber = (int) substr($candidate, strpos($candidate, '-') + 1);
+                    $pairedPrefix = $targetCategory->lot_code ?? strtoupper(substr($targetCategorySlug, 0, 3));
+                    $pairedLotNumber = sprintf('%s-%02d', $pairedPrefix, $sequenceNumber);
+
                     // Lock and update paired participant
                     $lockedPaired = Participant::query()
                         ->lockForUpdate()
@@ -1708,16 +1718,16 @@ class ParticipantRegistrationController extends Controller
 
                     if ($lockedPaired) {
                         $lockedPaired->update([
-                            'competition_category_id' => $muadzinCategory->id,
-                            'competition_role' => 'muadzin',
-                            'lot_number' => $candidate,
+                            'competition_category_id' => $targetCategory->id,
+                            'competition_role' => $pairedRole,
+                            'lot_number' => $pairedLotNumber,
                             'lot_assigned_at' => now(),
                         ]);
 
                         $sharedLot = [
                             'id' => $lockedPaired->id,
                             'name' => $lockedPaired->name,
-                            'lot_number' => $candidate,
+                            'lot_number' => $pairedLotNumber,
                         ];
                     }
                 }
@@ -3004,8 +3014,9 @@ class ParticipantRegistrationController extends Controller
     {
         $requiredParity = $participant->gender === 'putra' ? 0 : 1;
 
-        // Check if this is Khatib category - use unlimited pool
-        $isKhatibCategory = $participant->category && $participant->category->isKhatibCategory();
+        // Check if this is Khatib or Adzan category - use unlimited pool
+        $isKhatibOrAdzan = $participant->category
+            && ($participant->category->isKhatibCategory() || $participant->category->isAdzanCategory());
 
         $existingNumbers = Participant::query()
             ->where('competition_category_id', $participant->competition_category_id)
@@ -3033,9 +3044,9 @@ class ParticipantRegistrationController extends Controller
                 continue;
             }
 
-            // For Khatib category: unlimited pool (no participant count limit)
+            // For Khatib/Adzan category: unlimited pool (no participant count limit)
             // For other categories: limit pool based on participant count
-            if (! $isKhatibCategory) {
+            if (! $isKhatibOrAdzan) {
                 $participantCount = (int) Participant::query()
                     ->where('competition_category_id', $participant->competition_category_id)
                     ->where('gender', $participant->gender)
