@@ -137,24 +137,17 @@ class ScoringController extends Controller
         );
         $criteria = $activeRoundConfig['scoring_points'];
         $judgeNames = $activeRoundConfig['judge_names'];
+        $judgeIds = $activeRoundConfig['judge_ids'] ?? [];
 
-        // Build judge ID to name mapping for this category
+        // Build judge ID to name mapping for this category (for Alpine modal)
         $availableJudges = $selectedCategory
             ? Hakim::byGolongan($selectedCategory->id)->get()
             : collect();
         $availableJudgeNames = $availableJudges->pluck('nama')->values()->all();
-        $judgeIdToName = [];
-        $judgeIds = [];
-        foreach ($availableJudges as $h) {
-            $judgeIdToName[$h->nama] = $h->id;
-        }
-        foreach ($judgeNames as $name) {
-            $judgeIds[] = $judgeIdToName[$name] ?? null;
-        }
-        $setupReady = $selectedCategory && $scoringSetting?->isReady();
+        $setupReady = $selectedCategory && $scoringSetting?->isReady($selectedJudgingRound);
         $setupCreated = (bool) $scoringSetting;
-        $setupEditable = (bool) ($scoringSetting?->isEditable() ?? false);
-        $setupRequested = (bool) ($scoringSetting?->isEditRequested() ?? false);
+        $setupEditable = (bool) ($scoringSetting?->isEditable($selectedJudgingRound) ?? false);
+        $setupRequested = (bool) ($scoringSetting?->isEditRequested($selectedJudgingRound) ?? false);
 
         // Get available judges from database for this category
         $availableJudgeNames = $availableJudges->pluck('nama')->values()->all();
@@ -363,31 +356,33 @@ class ScoringController extends Controller
             return back()->with('warning', 'Setting babak untuk golongan ini belum pernah dibuat.');
         }
 
-        if ($scoringSetting->isEditable()) {
-            return back()->with('status', 'Setting babak sedang dibuka untuk diedit.');
+        $roundLabel = $validated['judging_round'] ?? self::ALLOWED_JUDGING_ROUNDS[0];
+
+        if ($scoringSetting->isEditable($roundLabel)) {
+            return back()->with('status', "Setting babak {$roundLabel} sedang dibuka untuk diedit.");
         }
 
         $message = trim((string) ($validated['message'] ?? ''));
+        $scoringSetting->requestEditRound($roundLabel);
         $scoringSetting->forceFill([
-            'edit_state' => 'requested',
-            'edit_requested_at' => now(),
-            'edit_requested_by' => auth()->id(),
+            ($roundLabel === 'Final' ? 'final' : 'penyisihan').'_edit_requested_at' => now(),
+            ($roundLabel === 'Final' ? 'final' : 'penyisihan').'_edit_requested_by' => auth()->id(),
         ])->save();
 
         ActivityLogger::log(
             'scoring.settings.edit_requested',
-            (auth()->user()?->name ?? 'Panitia').' meminta admin membuka/mengubah setting penilaian golongan '.$category->name.'.',
+            (auth()->user()?->name ?? 'Panitia')." meminta admin membuka/mengubah setting penilaian {$roundLabel} golongan {$category->name}.",
             $scoringSetting,
             array_filter([
                 'competition_category_id' => $category->id,
                 'competition_category_name' => $category->name,
-                'judging_round' => $validated['judging_round'] ?? null,
+                'judging_round' => $roundLabel,
                 'message' => $message !== '' ? $message : null,
             ], static fn ($value) => $value !== null && $value !== ''),
             $request
         );
 
-        return back()->with('status', 'Request ke admin sudah dikirim untuk membuka atau mengubah setting babak.');
+        return back()->with('status', "Request ke admin sudah dikirim untuk membuka atau mengubah setting {$roundLabel}.");
     }
 
     public function openSettingEdit(Request $request): RedirectResponse
@@ -407,25 +402,26 @@ class ScoringController extends Controller
             return back()->with('warning', 'Setting babak untuk golongan ini belum pernah dibuat.');
         }
 
+        $roundLabel = $validated['judging_round'] ?? self::ALLOWED_JUDGING_ROUNDS[0];
+        $scoringSetting->openRound($roundLabel);
         $scoringSetting->forceFill([
-            'edit_state' => 'open',
-            'edit_opened_at' => now(),
-            'edit_opened_by' => auth()->id(),
+            ($roundLabel === 'Final' ? 'final' : 'penyisihan').'_edit_opened_at' => now(),
+            ($roundLabel === 'Final' ? 'final' : 'penyisihan').'_edit_opened_by' => auth()->id(),
         ])->save();
 
         ActivityLogger::log(
             'scoring.settings.edit_opened',
-            (auth()->user()?->name ?? 'Admin').' membuka ulang setting penilaian golongan '.$category->name.'.',
+            (auth()->user()?->name ?? 'Admin')." membuka ulang setting penilaian {$roundLabel} golongan {$category->name}.",
             $scoringSetting,
             [
                 'category_id' => $category->id,
                 'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
-                'judging_round' => $validated['judging_round'] ?? null,
+                'judging_round' => $roundLabel,
             ],
             $request
         );
 
-        return back()->with('status', 'Setting babak dibuka kembali. Silakan ubah lalu simpan ulang.');
+        return back()->with('status', "Setting {$roundLabel} dibuka kembali. Silakan ubah lalu simpan ulang.");
     }
 
     public function storeSettings(Request $request): RedirectResponse
@@ -436,10 +432,12 @@ class ScoringController extends Controller
             'selected_judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
             'rounds.penyisihan.judge_count' => ['required', 'integer', 'min:1', 'max:15'],
             'rounds.penyisihan.judge_names_text' => ['required', 'string', 'max:3000'],
+            'rounds.penyisihan.judge_ids' => ['nullable'],
             'rounds.penyisihan.scoring_points_text' => ['required', 'string', 'max:3000'],
-            'rounds.final.judge_count' => ['required', 'integer', 'min:1', 'max:15'],
-            'rounds.final.judge_names_text' => ['required', 'string', 'max:3000'],
-            'rounds.final.scoring_points_text' => ['required', 'string', 'max:3000'],
+            'rounds.final.judge_count' => ['nullable', 'integer', 'min:1', 'max:15'],
+            'rounds.final.judge_names_text' => ['nullable', 'string', 'max:3000'],
+            'rounds.final.judge_ids' => ['nullable'],
+            'rounds.final.scoring_points_text' => ['nullable', 'string', 'max:3000'],
         ]);
 
         $category = CompetitionCategory::query()->findOrFail((int) $validated['competition_category_id']);
@@ -451,10 +449,33 @@ class ScoringController extends Controller
             ]);
         }
 
+        $selectedRound = $validated['selected_judging_round'] ?? $judgingRounds[0] ?? 'Penyisihan';
         $roundSettings = [];
+        $roundsToLock = [];
+
+        // Build judge name to ID mapping from database
+        $availableJudges = Hakim::byGolongan($category->id)->get()->keyBy('nama');
+        $judgeNameToId = [];
+        foreach ($availableJudges as $name => $h) {
+            $judgeNameToId[mb_strtolower($name)] = (int) $h->id;
+        }
+
         foreach (self::ROUND_KEYS as $roundKey => $roundLabel) {
+            $isSelected = $roundLabel === $selectedRound;
             $judgeCount = (int) data_get($validated, 'rounds.'.$roundKey.'.judge_count');
             $judgeNames = $this->normalizeLines((string) data_get($validated, 'rounds.'.$roundKey.'.judge_names_text', ''));
+            // Judge IDs might be sent as JSON string from form
+            $judgeIdsRaw = data_get($validated, 'rounds.'.$roundKey.'.judge_ids', []);
+            if (is_string($judgeIdsRaw)) {
+                $judgeIdsRaw = json_decode($judgeIdsRaw, true) ?? [];
+            }
+            $judgeIdsRaw = (array) $judgeIdsRaw;
+            // Convert to IDs based on names (authoritative)
+            $judgeIds = [];
+            foreach ($judgeNames as $idx => $name) {
+                $id = $judgeIdsRaw[$idx] ?? $judgeNameToId[mb_strtolower($name)] ?? null;
+                $judgeIds[] = $id;
+            }
             $normalizedPointLabels = $this->normalizeLines((string) data_get($validated, 'rounds.'.$roundKey.'.scoring_points_text', ''));
             $scoringPoints = collect($normalizedPointLabels)
                 ->mapWithKeys(function (string $label): array {
@@ -465,39 +486,59 @@ class ScoringController extends Controller
                 })
                 ->all();
 
-            if ($judgeNames === [] || $scoringPoints === []) {
-                throw ValidationException::withMessages([
-                    'rounds.'.$roundKey.'.judge_names_text' => 'Nama hakim dan poin penilaian untuk babak '.$roundLabel.' wajib diisi.',
-                ]);
-            }
+            if ($isSelected) {
+                if ($judgeNames === [] || $scoringPoints === []) {
+                    throw ValidationException::withMessages([
+                        'rounds.'.$roundKey.'.judge_names_text' => 'Nama hakim dan poin penilaian untuk babak '.$roundLabel.' wajib diisi.',
+                    ]);
+                }
 
-            if ($judgeCount !== count($judgeNames)) {
-                throw ValidationException::withMessages([
-                    'rounds.'.$roundKey.'.judge_count' => 'Jumlah hakim babak '.$roundLabel.' harus sama dengan jumlah nama hakim yang ditulis.',
-                ]);
-            }
+                if ($judgeCount !== count($judgeNames)) {
+                    throw ValidationException::withMessages([
+                        'rounds.'.$roundKey.'.judge_count' => 'Jumlah hakim babak '.$roundLabel.' harus sama dengan jumlah nama hakim yang ditulis.',
+                    ]);
+                }
 
-            if (count($judgeNames) !== count(array_unique(array_map('mb_strtolower', $judgeNames)))) {
-                throw ValidationException::withMessages([
-                    'rounds.'.$roundKey.'.judge_names_text' => 'Nama hakim babak '.$roundLabel.' tidak boleh duplikat.',
-                ]);
+                if (count($judgeNames) !== count(array_unique(array_map('mb_strtolower', $judgeNames)))) {
+                    throw ValidationException::withMessages([
+                        'rounds.'.$roundKey.'.judge_names_text' => 'Nama hakim babak '.$roundLabel.' tidak boleh duplikat.',
+                    ]);
+                }
+
+                $roundsToLock[] = $roundLabel;
             }
 
             $roundSettings[$roundLabel] = [
                 'judge_count' => $judgeCount,
                 'judge_names' => array_values($judgeNames),
+                'judge_ids' => $judgeIds,
                 'scoring_points' => $scoringPoints,
                 'scoring_priorities' => array_keys($scoringPoints),
             ];
         }
 
-        $primaryRoundConfig = $roundSettings['Final'] ?? $roundSettings['Penyisihan'] ?? reset($roundSettings) ?: [];
-        $redirectJudgingRound = $validated['selected_judging_round']
-            ?? ($judgingRounds[0] ?? self::ALLOWED_JUDGING_ROUNDS[0]);
+        $primaryRoundConfig = $roundSettings[$selectedRound] ?? reset($roundSettings) ?: [];
+        $redirectJudgingRound = $selectedRound;
+
+        // Build config per round
+        $penyisihanConfig = $roundSettings['Penyisihan'] ?? [];
+        $finalConfig = $roundSettings['Final'] ?? [];
 
         $setting = ScoringSetting::query()->updateOrCreate(
             ['competition_category_id' => $category->id],
             [
+                // New prefix columns per round
+                'penyisihan_judge_count' => (int) ($penyisihanConfig['judge_count'] ?? 0),
+                'penyisihan_judge_names' => array_values($penyisihanConfig['judge_names'] ?? []),
+                'penyisihan_judge_ids' => $penyisihanConfig['judge_ids'] ?? [],
+                'penyisihan_scoring_points' => $penyisihanConfig['scoring_points'] ?? [],
+                'penyisihan_edit_state' => in_array('Penyisihan', $roundsToLock) ? 'locked' : 'editable',
+                'final_judge_count' => (int) ($finalConfig['judge_count'] ?? 0),
+                'final_judge_names' => array_values($finalConfig['judge_names'] ?? []),
+                'final_judge_ids' => $finalConfig['judge_ids'] ?? [],
+                'final_scoring_points' => $finalConfig['scoring_points'] ?? [],
+                'final_edit_state' => in_array('Final', $roundsToLock) ? 'locked' : 'editable',
+                // Legacy columns (for backward compat)
                 'judge_count' => (int) ($primaryRoundConfig['judge_count'] ?? 0),
                 'judge_names' => array_values($primaryRoundConfig['judge_names'] ?? []),
                 'judging_rounds' => array_values($judgingRounds),
@@ -505,6 +546,7 @@ class ScoringController extends Controller
                 'scoring_priorities' => $primaryRoundConfig['scoring_priorities'] ?? [],
                 'round_settings' => $roundSettings,
                 'configured_by' => auth()->id(),
+                // Legacy edit state columns (cleared)
                 'edit_state' => 'locked',
                 'edit_requested_at' => null,
                 'edit_requested_by' => null,
@@ -520,6 +562,7 @@ class ScoringController extends Controller
                 'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
                 'judging_rounds' => $judgingRounds,
                 'judge_total' => (int) ($primaryRoundConfig['judge_count'] ?? 0),
+                'locked_rounds' => $roundsToLock,
             ]
         );
 
@@ -551,7 +594,7 @@ class ScoringController extends Controller
 
         $scoringSetting = ScoringSetting::forCategory($participant->competition_category_id);
 
-        if (! $scoringSetting || ! $scoringSetting->isReady()) {
+        if (! $scoringSetting || ! $scoringSetting->isReady($validated['judging_round'])) {
             throw ValidationException::withMessages([
                 'participant_id' => 'Setting penilaian untuk golongan ini belum disiapkan. Simpan setting penilaian terlebih dahulu.',
             ]);
@@ -579,9 +622,9 @@ class ScoringController extends Controller
                 ]);
             }
         } else {
-            if ($participant->scores()->exists()) {
+            if ($participant->scores()->where('judging_round', $validated['judging_round'])->exists()) {
                 throw ValidationException::withMessages([
-                    'participant_id' => 'Peserta ini sudah pernah dinilai. Gunakan Request Perbaikan Nilai untuk mengajukan nilai baru.',
+                    'participant_id' => 'Peserta ini sudah pernah dinilai untuk babak ini. Gunakan Request Perbaikan Nilai untuk mengajukan nilai baru.',
                 ]);
             }
             $participantsToScore = collect([$participant]);
@@ -604,30 +647,12 @@ class ScoringController extends Controller
         $judgeNames = $roundConfig['judge_names'];
         $criteria = $roundConfig['scoring_points'];
 
-        // Build judge ID to name mapping from database
-        $availableJudges = Hakim::byGolongan($participant->competition_category_id)->get()->keyBy('id');
-        $judgeIdToName = [];
-        $judgeNameToId = [];
-        foreach ($availableJudges as $h) {
-            $judgeIdToName[$h->id] = $h->nama;
-            $judgeNameToId[$h->nama] = $h->id;
-        }
-
-        // Get submitted judge IDs (using numeric keys from form)
-        $submittedJudgeIds = array_keys($request->input('scores', []));
+        // Use config judge_ids as source of truth (handles judges not in hakims table)
+        $configJudgeIds = $roundConfig['judge_ids'] ?? [];
         $judgeIds = [];
-        foreach ($submittedJudgeIds as $id) {
-            if (isset($judgeIdToName[$id])) {
-                $judgeIds[$id] = $judgeIdToName[$id];
-            }
-        }
-
-        // If no valid judge IDs found, fall back to using judge names from config
-        if (empty($judgeIds)) {
-            foreach ($judgeNames as $name) {
-                $id = $judgeNameToId[$name] ?? $name;
-                $judgeIds[$id] = $name;
-            }
+        foreach ($judgeNames as $index => $name) {
+            $id = $configJudgeIds[$index] ?? $name;
+            $judgeIds[$id] = $name;
         }
 
         // Build validation rules using judge IDs (scores can be empty, treated as 0)
@@ -808,30 +833,12 @@ class ScoringController extends Controller
         $judgeNames = $roundConfig['judge_names'];
         $criteria = $roundConfig['scoring_points'];
 
-        // Build judge ID to name mapping from database
-        $availableJudges = Hakim::byGolongan($participant->competition_category_id)->get()->keyBy('id');
-        $judgeIdToName = [];
-        $judgeNameToId = [];
-        foreach ($availableJudges as $h) {
-            $judgeIdToName[$h->id] = $h->nama;
-            $judgeNameToId[$h->nama] = $h->id;
-        }
-
-        // Get submitted judge IDs (using numeric keys from form)
-        $submittedJudgeIds = array_keys($request->input('scores', []));
+        // Use config judge_ids as source of truth (handles judges not in hakims table)
+        $configJudgeIds = $roundConfig['judge_ids'] ?? [];
         $judgeIds = [];
-        foreach ($submittedJudgeIds as $id) {
-            if (isset($judgeIdToName[$id])) {
-                $judgeIds[$id] = $judgeIdToName[$id];
-            }
-        }
-
-        // If no valid judge IDs found, fall back to using judge names from config
-        if (empty($judgeIds)) {
-            foreach ($judgeNames as $name) {
-                $id = $judgeNameToId[$name] ?? $name;
-                $judgeIds[$id] = $name;
-            }
+        foreach ($judgeNames as $index => $name) {
+            $id = $configJudgeIds[$index] ?? $name;
+            $judgeIds[$id] = $name;
         }
 
         // Build validation rules using judge IDs
@@ -912,20 +919,40 @@ class ScoringController extends Controller
             ?? config('scoring.criteria.default', []);
     }
 
-    protected function criteriaForContext(?string $branch, ?ScoringSetting $scoringSetting): array
+    protected function criteriaForContext(?string $branch, ?ScoringSetting $scoringSetting, string $roundLabel = 'Penyisihan'): array
     {
-        if ($scoringSetting && count($scoringSetting->scoring_points ?? []) > 0) {
-            return $scoringSetting->scoring_points;
+        // Try new prefix columns first
+        if ($scoringSetting) {
+            $config = $scoringSetting->roundConfig($roundLabel);
+            if (! empty($config['scoring_points'])) {
+                return $config['scoring_points'];
+            }
+            // Legacy fallback
+            if (count($scoringSetting->scoring_points ?? []) > 0) {
+                return $scoringSetting->scoring_points;
+            }
         }
 
         return $this->criteriaForBranch($branch);
     }
 
-    protected function judgeNamesForSetting(?ScoringSetting $scoringSetting, string $fallbackName): array
+    protected function judgeNamesForSetting(?ScoringSetting $scoringSetting, string $fallbackName, string $roundLabel = 'Penyisihan'): array
     {
-        $names = array_values(array_filter($scoringSetting?->judge_names ?? []));
+        // Try new prefix columns first
+        if ($scoringSetting) {
+            $config = $scoringSetting->roundConfig($roundLabel);
+            $names = array_values(array_filter($config['judge_names'] ?? []));
+            if ($names !== []) {
+                return $names;
+            }
+            // Legacy fallback
+            $names = array_values(array_filter($scoringSetting?->judge_names ?? []));
+            if ($names !== []) {
+                return $names;
+            }
+        }
 
-        return $names !== [] ? $names : [$fallbackName];
+        return [$fallbackName];
     }
 
     protected function judgingRoundsForSetting(?ScoringSetting $scoringSetting): array
@@ -953,22 +980,44 @@ class ScoringController extends Controller
     protected function roundConfigForSetting(?string $branch, ?ScoringSetting $scoringSetting, string $roundLabel, string $fallbackName, array $availableJudgeNames = []): array
     {
         $defaultCriteria = $this->criteriaForBranch($branch);
-        $roundSettings = $scoringSetting?->round_settings ?? [];
-        $config = is_array($roundSettings) ? ($roundSettings[$roundLabel] ?? null) : null;
 
-        if (is_array($config)) {
-            $judgeNames = array_values(array_filter($config['judge_names'] ?? []));
-            $scoringPoints = $config['scoring_points'] ?? [];
-            $scoringPriorities = array_values(array_filter($config['scoring_priorities'] ?? array_keys($scoringPoints)));
+        // New format: read from prefix columns
+        if ($scoringSetting) {
+            $config = $scoringSetting->roundConfig($roundLabel);
+            if (! empty($config['judge_names']) && ! empty($config['scoring_points'])) {
+                $judgeNames = array_values(array_filter($config['judge_names'] ?? []));
+                $scoringPoints = $config['scoring_points'] ?? [];
+                $scoringPriorities = array_values(array_filter($config['scoring_priorities'] ?? array_keys($scoringPoints)));
 
-            return [
-                'judge_count' => (int) ($config['judge_count'] ?? count($judgeNames) ?: 1),
-                'judge_names' => $judgeNames !== [] ? $judgeNames : ($availableJudgeNames ?: [$fallbackName]),
-                'scoring_points' => $scoringPoints !== [] ? $scoringPoints : $defaultCriteria,
-                'scoring_priorities' => $scoringPriorities !== [] ? $scoringPriorities : array_keys($scoringPoints ?: $defaultCriteria),
-            ];
+                return [
+                    'judge_count' => (int) ($config['judge_count'] ?? count($judgeNames) ?: 1),
+                    'judge_names' => $judgeNames !== [] ? $judgeNames : ($availableJudgeNames ?: [$fallbackName]),
+                    'judge_ids' => $config['judge_ids'] ?? [],
+                    'scoring_points' => $scoringPoints !== [] ? $scoringPoints : $defaultCriteria,
+                    'scoring_priorities' => $scoringPriorities !== [] ? $scoringPriorities : array_keys($scoringPoints ?: $defaultCriteria),
+                ];
+            }
+
+            // Fallback: read from legacy round_settings JSON
+            $roundSettings = $scoringSetting->round_settings ?? [];
+            $legacyConfig = is_array($roundSettings) ? ($roundSettings[$roundLabel] ?? null) : null;
+
+            if (is_array($legacyConfig)) {
+                $judgeNames = array_values(array_filter($legacyConfig['judge_names'] ?? []));
+                $scoringPoints = $legacyConfig['scoring_points'] ?? [];
+                $scoringPriorities = array_values(array_filter($legacyConfig['scoring_priorities'] ?? array_keys($scoringPoints)));
+
+                return [
+                    'judge_count' => (int) ($legacyConfig['judge_count'] ?? count($judgeNames) ?: 1),
+                    'judge_names' => $judgeNames !== [] ? $judgeNames : ($availableJudgeNames ?: [$fallbackName]),
+                    'judge_ids' => $legacyConfig['judge_ids'] ?? [],
+                    'scoring_points' => $scoringPoints !== [] ? $scoringPoints : $defaultCriteria,
+                    'scoring_priorities' => $scoringPriorities !== [] ? $scoringPriorities : array_keys($scoringPoints ?: $defaultCriteria),
+                ];
+            }
         }
 
+        // Ultimate fallback
         $fallbackCriteria = $this->criteriaForContext($branch, $scoringSetting);
         $fallbackJudgeNames = $availableJudgeNames ?: $this->judgeNamesForSetting($scoringSetting, $fallbackName);
 

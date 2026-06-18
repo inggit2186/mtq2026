@@ -14,6 +14,10 @@ $selectedJudgingRound = $selectedJudgingRound ?? ($judgingRounds[0] ?? 'Penyisih
 $judgeNames = $judgeNames ?? [$user?->name];
 $criteria = $criteria ?? [];
 $roundSetupConfigs = $roundSetupConfigs ?? [];
+$roundLocked = [
+    'Penyisihan' => $scoringSetting && $scoringSetting->penyisihan_edit_state === 'locked',
+    'Final' => $scoringSetting && $scoringSetting->final_edit_state === 'locked',
+];
 $filters = $filters ?? [];
 $recentScores = $recentScores ?? collect();
 $bigScreenUrl = $bigScreenUrl ?? route('big-screen');
@@ -119,6 +123,7 @@ foreach ($roundFormKeys as $roundLabel => $roundKey) {
         'label' => $roundLabel,
         'judge_count' => (int) old('rounds.'.$roundKey.'.judge_count', $roundConfig['judge_count'] ?? max(1, count($judgeNamesValue))),
         'judge_names' => $judgeNamesValue,
+        'judge_ids' => $roundConfig['judge_ids'] ?? [],
         'scoring_points' => $pointLabelsValue,
     ];
 }
@@ -482,28 +487,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 </section>
 
                 <section id="step-1" class="glass-card rounded-[2rem] p-6" x-show="currentStep === 1" x-cloak>
-                    <!-- Round Tabs -->
-                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-                        <div class="flex items-center gap-3">
-                            <?= mtq_icon('layers', 'h-5 w-5 text-cyan-300') ?>
-                            <h2 class="text-xl font-bold text-white">Pilih Golongan</h2>
-                        </div>
-                        <div class="flex gap-2">
-                            <?php foreach ($judgingRounds as $roundLabel): ?>
-                                <a href="<?= e(route('scoring', array_filter([
-                                    'branch' => $filters['branch'] ?? null,
-                                    'keyword' => $filters['keyword'] ?? null,
-                                    'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                    'judging_round' => $roundLabel,
-                                    'step' => 1,
-                                ]))) ?>"
-                                    class="rounded-xl px-4 py-2 text-sm font-semibold transition <?= $selectedJudgingRound === $roundLabel ? 'bg-cyan-400/15 text-cyan-100 border border-cyan-400/30' : 'text-slate-400 hover:text-white border border-slate-700' ?>">
-                                    <?= e($roundLabel) ?>
-                                </a>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-
                     <!-- Search Form -->
                     <form method="GET" action="<?= e(route('scoring')) ?>" class="mb-6">
                         <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
@@ -565,9 +548,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 $isMfqCard = $isMfqCategoryCard($categoryCard);
                                                 $cardSetting = $categorySettings[$categoryCard->id] ?? null;
                                                 $cardSetupCreated = (bool) $cardSetting;
-                                                $cardSetupEditable = (bool) ($cardSetting?->isEditable() ?? false);
-                                                $cardSetupRequested = (bool) ($cardSetting?->isEditRequested() ?? false);
-                                                $cardSetupReady = (bool) ($cardSetting?->isReady() ?? false);
+                                                $cardSetupEditable = (bool) ($cardSetting?->isEditable($selectedJudgingRound) ?? false);
+                                                $cardSetupRequested = (bool) ($cardSetting?->isEditRequested($selectedJudgingRound) ?? false);
+                                                $cardSetupReady = (bool) ($cardSetting?->isReady($selectedJudgingRound) ?? false);
                                                 $categoryCardUsage = $categoryUsage[$categoryCard->id] ?? [];
                                                 $availableSlots = (int) ($categoryCardUsage['available_slots'] ?? $categoryCard->quota ?? 0);
                                                 $registered = (int) ($categoryCardUsage['registered'] ?? 0);
@@ -583,8 +566,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 $isSelectedCard = (int) ($selectedCategory?->id ?? 0) === (int) $categoryCard->id;
                                             ?>
                                             <?php $categoryVisual = mtq_category_visual((string) $categoryCard->branch, (string) $categoryCard->name); ?>
+                                            <?php if ($isMfqCard): ?>
                                             <a href="<?= e($categoryLink) ?>"
                                                 class="category-card group overflow-hidden rounded-2xl border bg-slate-900/80 text-left transition hover:-translate-y-1 hover:shadow-lg <?= $isSelectedCard ? 'ring-2 ring-cyan-300/30 border-cyan-300/60' : 'border-slate-700/80' ?>">
+                                            <?php else: ?>
+                                            <button type="button"
+                                                x-on:click="openRoundModal(<?= e($categoryCard->id) ?>, '<?= e(addslashes($categoryCard->branch)) ?>', '<?= e(addslashes($categoryCard->name)) ?>')"
+                                                class="category-card group overflow-hidden rounded-2xl border bg-slate-900/80 text-left transition hover:-translate-y-1 hover:shadow-lg w-full <?= $isSelectedCard ? 'ring-2 ring-cyan-300/30 border-cyan-300/60' : 'border-slate-700/80' ?>">
+                                            <?php endif; ?>
                                                 <div class="aspect-[16/9] overflow-hidden bg-slate-950/70 p-3">
                                                     <img src="<?= e($categoryVisual) ?>" alt="<?= e($categoryCard->name) ?>" loading="lazy" class="h-full w-full object-contain">
                                                 </div>
@@ -607,7 +596,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <?php endif; ?>
                                                     </div>
                                                 </div>
-                                            </a>
+                                            <?= $isMfqCard ? '</a>' : '</button>' ?>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
@@ -615,6 +604,95 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <?php endif; ?>
                     </div>
                 </section>
+
+                <!-- Round Selection Modal -->
+                <div x-show="roundModalOpen" x-cloak
+                    x-transition:enter="transition duration-200 ease-out"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="transition duration-150 ease-in"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    x-on:keydown.escape.window="roundModalOpen = false; selectedCategoryForRound = null">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-md" x-on:click="roundModalOpen = false; selectedCategoryForRound = null"></div>
+                    <div class="relative z-10 w-full max-w-sm"
+                        x-transition:enter="transition duration-200 ease-out"
+                        x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                        x-transition:enter-end="opacity-100 scale-100 translate-y-0">
+                        <!-- Header -->
+                        <div class="mb-4 text-center">
+                            <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 to-sky-500/10 shadow-lg shadow-cyan-400/10">
+                                <?= mtq_icon('target', 'h-7 w-7 text-cyan-300') ?>
+                            </div>
+                            <p class="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300/70">Pilih Babak</p>
+                            <h3 class="mt-1 text-xl font-bold text-white" x-text="selectedCategoryForRound?.name ?? ''"></h3>
+                            <p class="mt-0.5 text-sm text-slate-400" x-text="selectedCategoryForRound?.branch ?? ''"></p>
+                        </div>
+
+                        <!-- Round Options -->
+                        <div class="space-y-3 rounded-2xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-2xl backdrop-blur-md">
+                            <!-- Penyisihan -->
+                            <?php if ($roundLocked['Penyisihan']): ?>
+                            <div class="flex items-center gap-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 opacity-70">
+                                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
+                                    <?= mtq_icon('layers', 'h-6 w-6') ?>
+                                </span>
+                                <div class="flex-1">
+                                    <p class="font-bold text-white">Penyisihan</p>
+                                    <p class="text-xs text-emerald-300">Sudah dikunci</p>
+                                </div>
+                                <?= mtq_icon('check-circle', 'h-5 w-5 text-emerald-300 shrink-0') ?>
+                            </div>
+                            <?php else: ?>
+                            <button type="button" x-on:click="confirmRoundAndProceed('Penyisihan')"
+                                class="group flex w-full items-center gap-4 rounded-xl border border-slate-700/60 bg-slate-800/50 p-4 text-left transition-all duration-200 hover:border-cyan-400/40 hover:bg-gradient-to-r hover:from-cyan-400/8 hover:to-transparent hover:shadow-[0_0_20px_-6px_rgba(34,211,238,0.2)]">
+                                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 shadow-md shadow-cyan-400/10 transition-transform duration-200 group-hover:scale-110">
+                                    <?= mtq_icon('layers', 'h-6 w-6') ?>
+                                </span>
+                                <div class="flex-1">
+                                    <p class="font-bold text-white">Penyisihan</p>
+                                    <p class="text-xs text-slate-400">Babak awal / kualifikasi</p>
+                                </div>
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-700/60 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:bg-cyan-400/10 group-hover:text-cyan-300">
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </span>
+                            </button>
+                            <?php endif; ?>
+
+                            <!-- Final -->
+                            <?php if ($roundLocked['Final']): ?>
+                            <div class="flex items-center gap-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 opacity-70">
+                                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-amber-300">
+                                    <?= mtq_icon('crown', 'h-6 w-6') ?>
+                                </span>
+                                <div class="flex-1">
+                                    <p class="font-bold text-white">Final</p>
+                                    <p class="text-xs text-emerald-300">Sudah dikunci</p>
+                                </div>
+                                <?= mtq_icon('check-circle', 'h-5 w-5 text-emerald-300 shrink-0') ?>
+                            </div>
+                            <?php else: ?>
+                            <button type="button" x-on:click="confirmRoundAndProceed('Final')"
+                                class="group flex w-full items-center gap-4 rounded-xl border border-slate-700/60 bg-slate-800/50 p-4 text-left transition-all duration-200 hover:border-amber-400/40 hover:bg-gradient-to-r hover:from-amber-400/8 hover:to-transparent hover:shadow-[0_0_20px_-6px_rgba(251,191,36,0.2)]">
+                                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-amber-300 shadow-md shadow-amber-400/10 transition-transform duration-200 group-hover:scale-110">
+                                    <?= mtq_icon('crown', 'h-6 w-6') ?>
+                                </span>
+                                <div class="flex-1">
+                                    <p class="font-bold text-white">Final</p>
+                                    <p class="text-xs text-slate-400">Babak penentuan juara</p>
+                                </div>
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-700/60 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:bg-amber-400/10 group-hover:text-amber-300">
+                                    <?= mtq_icon('arrow-right', 'h-4 w-4') ?>
+                                </span>
+                            </button>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Close hint -->
+                        <p class="mt-3 text-center text-xs text-slate-500">Tekan <kbd class="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-slate-400">Esc</kbd> untuk menutup</p>
+                    </div>
+                </div>
 
                 <section id="step-2" class="glass-card rounded-[2rem] p-6" x-show="currentStep === 2" x-cloak>
                     <div class="flex flex-wrap items-start justify-between gap-4">
@@ -644,11 +722,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <?php foreach ($roundFormKeys as $roundLabel => $roundKey): ?>
                             <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_names_text]" :value="roundJudgeNamesText('<?= e($roundKey) ?>')">
                             <input type="hidden" name="rounds[<?= e($roundKey) ?>][scoring_points_text]" :value="roundScoringPointsText('<?= e($roundKey) ?>')">
+                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_count]" :value="rounds['<?= e($roundKey) ?>'].judgeCount">
+                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_ids]" :value="JSON.stringify(roundJudgeIds('<?= e($roundKey) ?>'))">
                         <?php endforeach; ?>
 
                         <input type="hidden" name="competition_category_id" value="<?= e($selectedCategory?->id ?? '') ?>">
                         <input type="hidden" name="judging_rounds_text" value="Penyisihan&#10;Final">
-                        <input type="hidden" name="selected_judging_round" :value="activeRound === 'final' ? 'Final' : 'Penyisihan'">
+                        <input type="hidden" name="selected_judging_round" value="<?= e($selectedJudgingRound) ?>">
                         <?php if ($selectedCategoryIsMfq): ?>
                             <div class="rounded-[1.5rem] border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
                                 Golongan yang sedang dipilih terdeteksi sebagai MFQ. Gunakan jalur MFQ dari Step 1, karena format penilaiannya berbeda dari setting babak umum.
@@ -659,46 +739,33 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <div>
                                 <p class="section-kicker">Setting Babak</p>
-                                <h3 class="mt-2 text-xl font-bold text-white">Pilih babak yang mau dirapikan</h3>
-                                <p class="mt-2 text-sm text-slate-300">Tab di bawah menampilkan ringkasan hakim dan poin tiap babak, lalu form detailnya muncul di area utama.</p>
+                                <h3 class="mt-2 text-xl font-bold text-white">Atur hakim dan poin penilaian</h3>
+                                <p class="mt-2 text-sm text-slate-300">Konfigurasi disimpan per babak. Babak dipilih sebelum masuk ke halaman ini.</p>
+                            </div>
+                            <!-- Round Info Badge -->
+                            <div class="flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2">
+                                <?= mtq_icon('target', 'h-4 w-4 text-cyan-300') ?>
+                                <span class="text-sm font-semibold text-cyan-100"><?= e($selectedJudgingRound) ?></span>
                             </div>
                         </div>
 
-                            <div class="mt-5 flex flex-wrap gap-3 rounded-[1.4rem] border border-slate-800 bg-slate-950/45 p-2">
-                                <?php foreach ($roundFormKeys as $roundLabel => $roundKey): ?>
-                                    <button type="button"
-                                        class="min-w-[220px] flex-1 rounded-[1.2rem] border px-4 py-3 text-left transition"
-                                        x-on:click="activeRound = '<?= e($roundKey) ?>'"
-                                        :class="activeRound === '<?= e($roundKey) ?>'
-                                            ? 'border-cyan-300/30 bg-cyan-400/10 text-cyan-50 shadow-[0_18px_40px_-28px_rgba(34,211,238,0.8)]'
-                                            : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-700 hover:bg-slate-900/70 hover:text-white'">
-                                        <div class="flex items-center justify-between gap-3">
-                                            <span class="text-sm font-semibold"><?= e($roundLabel) ?></span>
-                                            <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                                                :class="activeRound === '<?= e($roundKey) ?>'
-                                                    ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100'
-                                                    : 'border-slate-700 bg-slate-900/80 text-slate-400'">
-                                                <?= $selectedJudgingRound === $roundLabel ? 'aktif' : 'siap' ?>
-                                            </span>
-                                        </div>
-                                        <p class="mt-2 text-xs text-slate-400" x-text="roundSummary('<?= e($roundKey) ?>')"></p>
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-
-                            <?php foreach ($roundFormKeys as $roundLabel => $roundKey): ?>
-                                <section x-show="activeRound === '<?= e($roundKey) ?>'" x-cloak class="mt-5 space-y-5">
-                                    <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/45 px-4 py-3">
+                            <?php
+                            // Only show the selected round's form
+                            $activeRoundKey = array_key_exists(strtolower($selectedJudgingRound), $roundFormKeys) ? strtolower($selectedJudgingRound) : 'penyisihan';
+                            $activeRoundLabel = array_search($activeRoundKey, $roundFormKeys) ?: $selectedJudgingRound;
+                            ?>
+                            <section class="mt-5 space-y-5">
+                                <div class="rounded-[1.35rem] border border-slate-800 bg-slate-950/45 px-4 py-3">
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"><?= e($roundLabel) ?></p>
-                                    <p class="mt-1 text-sm text-slate-300">Rapikan hakim dan poin untuk babak ini tanpa mengulang pilihan dari Step 1.</p>
+                                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"><?= e($activeRoundLabel) ?></p>
+                                    <p class="mt-1 text-sm text-slate-300">Rapikan hakim dan poin untuk babak ini.</p>
                                 </div>
                                 <span class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-                                    :class="roundReady('<?= e($roundKey) ?>') ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100' : 'border-amber-300/20 bg-amber-400/10 text-amber-100'"
-                                    x-text="roundReady('<?= e($roundKey) ?>') ? 'Setup siap' : 'Masih perlu dilengkapi'"></span>
+                                    :class="roundReady('<?= e($activeRoundKey) ?>') ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100' : 'border-amber-300/20 bg-amber-400/10 text-amber-100'"
+                                    x-text="roundReady('<?= e($activeRoundKey) ?>') ? 'Setup siap' : 'Masih perlu dilengkapi'"></span>
                             </div>
-                                    </div>
+                                </div>
 
                                     <div class="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
                                         <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/50 p-4">
@@ -709,17 +776,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 </div>
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200">
-                                                        <span x-text="roundJudgeCount('<?= e($roundKey) ?>"></span> hakim
+                                                        <span x-text="roundJudgeCount('<?= e($activeRoundKey) ?>')"></span> hakim
                                                     </span>
-                                                    <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="judgeSearchQuery = ''; judgeModalOpen = '<?= e($roundKey) ?>'">
+                                                    <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="judgeSearchQuery = ''; judgeModalOpen = '<?= e($activeRoundKey) ?>'">
                                                         <?= mtq_icon('plus', 'h-4 w-4') ?>
                                                         Tambah Hakim
                                                     </button>
                                                 </div>
                                             </div>
-                                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_count]" :value="rounds.<?= e($roundKey) ?>.judgeCount">
                                             <div class="mt-4 space-y-3">
-                                                <template x-for="(judgeName, index) in rounds.<?= e($roundKey) ?>.judgeNames" :key="'<?= e($roundKey) ?>-judge-' + index">
+                                                <template x-for="(judgeName, index) in rounds.<?= e($activeRoundKey) ?>.judgeNames" :key="'<?= e($activeRoundKey) ?>-judge-' + index">
                                                     <div class="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 flex items-center justify-between">
                                                         <div class="flex items-center gap-3">
                                                             <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/18 bg-cyan-400/10 text-sm font-bold text-cyan-200" x-text="index + 1"></div>
@@ -727,26 +793,26 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         </div>
                                                         <button type="button"
                                                             class="secondary-button rounded-xl px-3 py-2 text-xs"
-                                                            x-on:click="rounds.<?= e($roundKey) ?>.judgeNames.splice(index, 1)"
-                                                            x-show="rounds.<?= e($roundKey) ?>.judgeNames.length > 1">
+                                                            x-on:click="removeJudge('<?= e($activeRoundKey) ?>', index)"
+                                                            x-show="rounds.<?= e($activeRoundKey) ?>.judgeNames.length > 1">
                                                             <?= mtq_icon('trash', 'h-4 w-4') ?>
                                                             Hapus
                                                         </button>
                                                     </div>
                                                 </template>
                                             </div>
-                                            <p x-show="hasJudgeNameIssues('<?= e($roundKey) ?>')" class="mt-3 text-xs text-rose-200">Semua nama hakim babak <?= e($roundLabel) ?> wajib terisi dan tidak boleh ada yang sama.</p>
+                                            <p x-show="hasJudgeNameIssues('<?= e($activeRoundKey) ?>')" class="mt-3 text-xs text-rose-200">Semua nama hakim babak <?= e($activeRoundLabel) ?> wajib terisi dan tidak boleh ada yang sama.</p>
                                         </div>
 
                                         <!-- Modal Tambah Hakim -->
-                                        <div x-show="judgeModalOpen === '<?= e($roundKey) ?>'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
+                                        <div x-show="judgeModalOpen === '<?= e($activeRoundKey) ?>'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
                                             x-on:keydown.escape.window="judgeModalOpen = null">
                                             <div class="absolute inset-0" x-on:click="judgeModalOpen = null"></div>
                                             <div class="relative z-10 w-full max-w-lg rounded-2xl border border-cyan-400/20 bg-slate-900 shadow-xl max-h-[85vh] flex flex-col">
                                                 <div class="flex items-center justify-between border-b border-slate-700 px-6 py-4 shrink-0">
                                                     <div>
-                                                        <h3 class="text-lg font-bold text-white">Tambah Hakim - <?= e($roundLabel) ?></h3>
-                                                        <p class="mt-1 text-xs text-slate-400" x-text="`${availableJudges.filter(j => !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama)).length} hakim tersedia`"></p>
+                                                        <h3 class="text-lg font-bold text-white">Tambah Hakim - <?= e($activeRoundLabel) ?></h3>
+                                                        <p class="mt-1 text-xs text-slate-400" x-text="`${availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama)).length} hakim tersedia`"></p>
                                                     </div>
                                                     <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="judgeModalOpen = null">
                                                         <?= mtq_icon('x', 'h-4 w-4') ?>
@@ -786,10 +852,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             <span class="h-px flex-1 bg-gradient-to-l from-cyan-400/30 to-transparent"></span>
                                                         </div>
                                                         <div class="grid gap-2">
-                                                            <template x-for="judge in availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'sk-' + judge.id">
+                                                            <template x-for="judge in availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'sk-' + judge.id">
                                                                 <button type="button"
                                                                     class="flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3 text-left transition hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:scale-[1.01]"
-                                                                    x-on:click="rounds.<?= e($roundKey) ?>.judgeNames.push(judge.nama); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
+                                                                    x-on:click="rounds.<?= e($activeRoundKey) ?>.judgeNames.push(judge.nama); rounds.<?= e($activeRoundKey) ?>.judgeCount = Math.min(15, rounds.<?= e($activeRoundKey) ?>.judgeNames.length); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
                                                                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/15 text-xs font-bold text-cyan-200">
                                                                         <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
                                                                     </span>
@@ -800,7 +866,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                     <?= mtq_icon('plus-circle', 'h-5 w-5 text-cyan-400 shrink-0') ?>
                                                                 </button>
                                                             </template>
-                                                            <p x-show="availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-500">
+                                                            <p x-show="availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-500">
                                                                 <span x-text="judgeSearchQuery ? 'Tidak ada hasil pencarian' : 'Semua hakim SK sudah ditambahkan'"></span>
                                                             </p>
                                                         </div>
@@ -816,10 +882,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             <span class="h-px flex-1 bg-gradient-to-l from-slate-600/40 to-transparent"></span>
                                                         </div>
                                                         <div class="grid gap-2">
-                                                            <template x-for="judge in availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'other-' + judge.id">
+                                                            <template x-for="judge in availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'other-' + judge.id">
                                                                 <button type="button"
                                                                     class="flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-800/30 p-3 text-left transition hover:border-amber-400/30 hover:bg-amber-400/5 hover:scale-[1.01]"
-                                                                    x-on:click="rounds.<?= e($roundKey) ?>.judgeNames.push(judge.nama); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
+                                                                    x-on:click="rounds.<?= e($activeRoundKey) ?>.judgeNames.push(judge.nama); rounds.<?= e($activeRoundKey) ?>.judgeCount = Math.min(15, rounds.<?= e($activeRoundKey) ?>.judgeNames.length); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
                                                                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-600/40 bg-slate-800/50 text-xs font-bold text-slate-400">
                                                                         <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
                                                                     </span>
@@ -830,7 +896,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                     <?= mtq_icon('plus-circle', 'h-5 w-5 text-amber-400/70 shrink-0') ?>
                                                                 </button>
                                                             </template>
-                                                            <p x-show="availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($roundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-600">
+                                                            <p x-show="availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0" class="py-4 text-center text-xs text-slate-600">
                                                                 <span x-text="judgeSearchQuery ? 'Tidak ada hasil pencarian' : 'Tidak ada hakim lain'"></span>
                                                             </p>
                                                         </div>
@@ -848,30 +914,29 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/50 p-4">
                                             <label class="mb-2 block text-sm font-semibold text-slate-200">Poin yang dinilai</label>
                                             <div class="space-y-3">
-                                                <template x-for="(pointLabel, index) in rounds.<?= e($roundKey) ?>.scoringPoints" :key="'<?= e($roundKey) ?>-point-' + index">
+                                                <template x-for="(pointLabel, index) in rounds.<?= e($activeRoundKey) ?>.scoringPoints" :key="'<?= e($activeRoundKey) ?>-point-' + index">
                                                     <div class="flex items-center gap-3">
                                                         <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/18 bg-emerald-400/10 text-sm font-bold text-emerald-100" x-text="index + 1"></div>
-                                                        <input type="text" x-model="rounds.<?= e($roundKey) ?>.scoringPoints[index]" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" :placeholder="'Poin penilaian ' + (index + 1)">
-                                                        <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="movePointUp('<?= e($roundKey) ?>', index)" x-bind:disabled="index === 0" title="Naik">
+                                                        <input type="text" x-model="rounds.<?= e($activeRoundKey) ?>.scoringPoints[index]" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20" :placeholder="'Poin penilaian ' + (index + 1)">
+                                                        <button type="button" class="secondary-button rounded-xl px-3 py-2" x-on:click="movePointUp('<?= e($activeRoundKey) ?>', index)" x-bind:disabled="index === 0" title="Naik">
                                                             <?= mtq_icon('arrow-up', 'h-4 w-4') ?>
                                                         </button>
-                                                        <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="removePoint('<?= e($roundKey) ?>', index)" x-bind:disabled="rounds.<?= e($roundKey) ?>.scoringPoints.length <= 1">
+                                                        <button type="button" class="secondary-button rounded-xl px-3 py-2 text-xs" x-on:click="removePoint('<?= e($activeRoundKey) ?>', index)" x-bind:disabled="rounds.<?= e($activeRoundKey) ?>.scoringPoints.length <= 1">
                                                             Hapus
                                                         </button>
                                                     </div>
                                                 </template>
                                             </div>
                                             <div class="mt-3 flex flex-wrap gap-3">
-                                                <button type="button" class="secondary-button" x-on:click="addPoint('<?= e($roundKey) ?>')">
+                                                <button type="button" class="secondary-button" x-on:click="addPoint('<?= e($activeRoundKey) ?>')">
                                                     <?= mtq_icon('plus', 'h-4 w-4') ?>
                                                     Tambah Poin
                                                 </button>
                                             </div>
-                                            <p class="mt-3 text-xs text-slate-400">Urutan poin babak <?= e($roundLabel) ?> otomatis menjadi urutan prioritas tie-break untuk babak ini.</p>
+                                            <p class="mt-3 text-xs text-slate-400">Urutan poin babak <?= e($activeRoundLabel) ?> otomatis menjadi urutan prioritas tie-break untuk babak ini.</p>
                                         </div>
                                     </div>
                                 </section>
-                            <?php endforeach; ?>
                         </div>
 
                         <div class="flex flex-wrap gap-3">
@@ -1692,6 +1757,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 hasSetupEditable: Boolean(initialState.setupEditable),
                 hasParticipantReady: Boolean(initialState.participantReady),
                 isMfqMode: Boolean(initialState.mfqMode),
+                roundModalOpen: false,
+                selectedCategoryForRound: null,
                 stepLabel(stepNumber) {
                     return {
                         1: 'Step 1',
@@ -1731,6 +1798,25 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     if (target instanceof HTMLElement) {
                         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
+                },
+                openRoundModal(categoryId, branch, name) {
+                    this.selectedCategoryForRound = { id: categoryId, branch, name };
+                    this.roundModalOpen = true;
+                },
+                confirmRoundAndProceed(roundLabel) {
+                    const cat = this.selectedCategoryForRound;
+                    if (!cat) return;
+
+                    const params = new URLSearchParams({
+                        competition_category_id: cat.id,
+                        branch: cat.branch,
+                        step: '2',
+                        judging_round: roundLabel,
+                    });
+
+                    this.roundModalOpen = false;
+                    this.selectedCategoryForRound = null;
+                    window.location.href = `<?= e(route('scoring')) ?>?${params.toString()}`;
                 },
             };
         }
@@ -2115,6 +2201,21 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         .map((value) => String(value ?? '').trim())
                         .filter(Boolean)
                         .join('\n');
+                },
+                roundJudgeIds(roundKey) {
+                    const judgeNames = (this.rounds[roundKey]?.judgeNames ?? [])
+                        .map((value) => String(value ?? '').trim())
+                        .filter(Boolean);
+                    // Use saved judge_ids from config if available and counts match
+                    const savedIds = this.rounds[roundKey]?.judge_ids ?? [];
+                    if (savedIds.length === judgeNames.length) {
+                        return savedIds;
+                    }
+                    // Fallback: map from availableJudges (case-insensitive)
+                    return judgeNames.map((name) => {
+                        const judge = this.availableJudges.find((j) => j.nama.toLowerCase() === name.toLowerCase());
+                        return judge ? judge.id : name;
+                    });
                 },
                 roundScoringPointsText(roundKey) {
                     return (this.rounds[roundKey]?.scoringPoints ?? [])

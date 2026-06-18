@@ -1417,8 +1417,7 @@ class PageController extends Controller
         abort_unless(auth()->user()?->role === 'admin', 403);
 
         $headers = [
-            'branch',
-            'category_name',
+            'competition_category_id',
             'round_label',
             'maqra_code',
             'title',
@@ -1428,10 +1427,27 @@ class PageController extends Controller
             'is_active',
         ];
 
-        $sampleRows = [
-            ['Tilawah Anak', 'Anak A', 'Penyisihan', 'TLW-A-01', 'Al-Fatihah 1-7', 'QS Al-Fatihah ayat 1 sampai 7', 'Contoh import', '1', '1'],
-            ['Tilawah Anak', 'Anak A', 'Final', 'TLW-A-02', 'Al-Baqarah 1-5', 'QS Al-Baqarah ayat 1 sampai 5', 'Contoh import', '2', '1'],
-        ];
+        // Get first few categories for sample data
+        $sampleCategories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->limit(2)
+            ->get(['id', 'branch', 'name']);
+
+        $sampleRows = $sampleCategories->map(function ($cat, $index) {
+            $round = $index === 0 ? 'Penyisihan' : 'Final';
+            $suffix = chr(65 + $index); // A, B, etc
+
+            return [
+                $cat->id,
+                $round,
+                strtoupper($cat->slug ?? 'MQ').'-'.$suffix.'-01',
+                'Al-Fatihah 1-7',
+                'QS Al-Fatihah ayat 1 sampai 7',
+                'Contoh import',
+                (string) ($index + 1),
+                '1',
+            ];
+        })->toArray();
 
         $filename = 'template-import-maqra-'.now()->format('Ymd-His').'.csv';
 
@@ -1582,13 +1598,13 @@ class PageController extends Controller
             }
 
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['row_number', 'branch', 'category_name', 'round_label', 'maqra_code', 'title', 'status', 'note']);
+            fputcsv($output, ['row_number', 'competition_category_id', 'category', 'round_label', 'maqra_code', 'title', 'status', 'note']);
 
             foreach ($result['rows'] as $row) {
                 fputcsv($output, [
                     $row['row_number'] ?? '',
-                    $row['branch'] ?? '',
-                    $row['category_name'] ?? '',
+                    $row['competition_category_id'] ?? '',
+                    $row['category_label'] ?? '',
                     $row['round_label'] ?? '',
                     $row['maqra_code'] ?? '',
                     $row['title'] ?? '',
@@ -1656,7 +1672,7 @@ class PageController extends Controller
         };
 
         $columns = array_map($normalize, $header);
-        $requiredColumns = ['branch', 'category_name', 'round_label', 'maqra_code', 'title', 'content'];
+        $requiredColumns = ['competition_category_id', 'round_label', 'maqra_code', 'title', 'content'];
         $missingColumns = array_values(array_diff($requiredColumns, $columns));
 
         if ($missingColumns !== []) {
@@ -1675,16 +1691,11 @@ class PageController extends Controller
             ];
         }
 
+        // Load categories indexed by ID for quick lookup
         $categories = CompetitionCategory::query()
             ->orderBy('sort_order')
-            ->orderBy('branch')
-            ->orderBy('name')
             ->get()
-            ->mapWithKeys(function (CompetitionCategory $category): array {
-                $key = mb_strtolower(trim((string) $category->branch).'|'.trim((string) $category->name));
-
-                return [$key => $category];
-            });
+            ->keyBy(fn (CompetitionCategory $cat) => (string) $cat->id);
 
         $created = 0;
         $updated = 0;
@@ -1709,8 +1720,7 @@ class PageController extends Controller
                 $record[$column] = trim((string) ($row[$index] ?? ''));
             }
 
-            $branch = $record['branch'] ?? '';
-            $categoryName = $record['category_name'] ?? '';
+            $categoryId = trim((string) ($record['competition_category_id'] ?? ''));
             $roundLabel = $record['round_label'] ?? '';
             $maqraCode = strtoupper(trim((string) ($record['maqra_code'] ?? '')));
             $title = trim((string) ($record['title'] ?? ''));
@@ -1721,8 +1731,7 @@ class PageController extends Controller
 
             $previewRow = [
                 'row_number' => $rowNumber,
-                'branch' => $branch,
-                'category_name' => $categoryName,
+                'competition_category_id' => $categoryId,
                 'round_label' => $roundLabel,
                 'maqra_code' => $maqraCode,
                 'title' => $title,
@@ -1730,7 +1739,8 @@ class PageController extends Controller
                 'note' => '',
             ];
 
-            if ($branch === '' || $categoryName === '' || $roundLabel === '' || $maqraCode === '' || $title === '' || $content === '') {
+            // Validate required fields
+            if ($categoryId === '' || $roundLabel === '' || $maqraCode === '' || $title === '' || $content === '') {
                 $invalidCount++;
                 $message = 'Ada kolom wajib yang kosong.';
                 $errors[] = 'Baris '.$rowNumber.' dilewati: '.$message;
@@ -1740,17 +1750,20 @@ class PageController extends Controller
                 continue;
             }
 
-            $category = $categories->get(mb_strtolower(trim($branch).'|'.trim($categoryName)));
+            // Validate category exists by ID
+            $category = $categories->get($categoryId);
 
             if (! $category) {
                 $invalidCount++;
-                $message = 'Golongan "'.$branch.' - '.$categoryName.'" tidak ditemukan.';
+                $message = 'competition_category_id "'.$categoryId.'" tidak ditemukan.';
                 $errors[] = 'Baris '.$rowNumber.' dilewati: '.$message;
                 $previewRow['status'] = 'invalid';
                 $previewRow['note'] = $message;
                 $rows[] = $previewRow;
                 continue;
             }
+
+            $previewRow['category_label'] = $category->branch.' - '.$category->name;
 
             $roundLabel = in_array($roundLabel, ['Penyisihan', 'Final'], true) ? $roundLabel : '';
             if ($roundLabel === '') {

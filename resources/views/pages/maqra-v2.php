@@ -140,7 +140,7 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
                             <p class="section-kicker">Import CSV</p>
                             <h3 class="mt-2 text-xl font-bold text-white">Tambah banyak maqra sekaligus</h3>
                             <p class="mt-2 text-sm leading-6 text-slate-300">
-                                Upload file CSV dengan kolom: <span class="font-semibold text-white">branch</span>, <span class="font-semibold text-white">category_name</span>, <span class="font-semibold text-white">round_label</span>, <span class="font-semibold text-white">maqra_code</span>, <span class="font-semibold text-white">title</span>, <span class="font-semibold text-white">content</span>, <span class="font-semibold text-white">notes</span>, <span class="font-semibold text-white">sort_order</span>, dan <span class="font-semibold text-white">is_active</span>.
+                                Upload file CSV dengan kolom: <span class="font-semibold text-white">competition_category_id</span>, <span class="font-semibold text-white">round_label</span>, <span class="font-semibold text-white">maqra_code</span>, <span class="font-semibold text-white">title</span>, <span class="font-semibold text-white">content</span>, <span class="font-semibold text-white">notes</span>, <span class="font-semibold text-white">sort_order</span>, dan <span class="font-semibold text-white">is_active</span>.
                             </p>
                         </div>
                         <form method="POST" action="<?= e(route('maqra.import')) ?>" enctype="multipart/form-data" class="grid gap-3 lg:min-w-[380px]" data-maqra-import-form data-preview-url="<?= e(route('maqra.preview')) ?>">
@@ -191,6 +191,7 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
                                 <thead class="bg-slate-900/80 text-slate-300">
                                     <tr>
                                         <th class="px-4 py-3">Baris</th>
+                                        <th class="px-4 py-3">ID Golongan</th>
                                         <th class="px-4 py-3">Golongan</th>
                                         <th class="px-4 py-3">Babak</th>
                                         <th class="px-4 py-3">Kode</th>
@@ -200,7 +201,7 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
                                 </thead>
                                 <tbody class="divide-y divide-slate-800 bg-slate-950/60" data-maqra-preview-rows>
                                     <tr>
-                                        <td colspan="6" class="px-4 py-6 text-sm text-slate-400">Preview akan muncul di sini.</td>
+                                        <td colspan="7" class="px-4 py-6 text-sm text-slate-400">Preview akan muncul di sini.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -522,14 +523,15 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
 
             const setRows = (rows) => {
                 if (!rows || !rows.length) {
-                    previewRows.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-sm text-slate-400">Tidak ada baris untuk ditampilkan.</td></tr>';
+                    previewRows.innerHTML = '<tr><td colspan="7" class="px-4 py-6 text-sm text-slate-400">Tidak ada baris untuk ditampilkan.</td></tr>';
                     return;
                 }
 
                 previewRows.innerHTML = rows.map((row) => `
                     <tr class="align-top">
                         <td class="px-4 py-3 text-slate-400">${escapeHtml(row.row_number ?? '-')}</td>
-                        <td class="px-4 py-3 text-slate-200">${escapeHtml(row.branch ?? '-')} - ${escapeHtml(row.category_name ?? '-')}</td>
+                        <td class="px-4 py-3 font-semibold text-cyan-200">${escapeHtml(row.competition_category_id ?? '-')}</td>
+                        <td class="px-4 py-3 text-slate-200">${escapeHtml(row.category_label ?? '-')}</td>
                         <td class="px-4 py-3 text-slate-300">${escapeHtml(row.round_label ?? '-')}</td>
                         <td class="px-4 py-3 font-semibold text-white">${escapeHtml(row.maqra_code ?? '-')}</td>
                         <td class="px-4 py-3">${renderBadge(row.status || 'valid')}</td>
@@ -580,7 +582,7 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
                     previewStatus.textContent = error.message || 'Preview gagal.';
                     previewSummary.textContent = 'Preview error';
                     previewErrors.innerHTML = `<div class="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">${error.message || 'Preview gagal diproses.'}</div>`;
-                    previewRows.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-sm text-slate-400">Preview tidak tersedia.</td></tr>';
+                    previewRows.innerHTML = '<tr><td colspan="7" class="px-4 py-6 text-sm text-slate-400">Preview tidak tersedia.</td></tr>';
                 }
             };
 
