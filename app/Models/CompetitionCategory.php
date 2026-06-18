@@ -59,4 +59,69 @@ class CompetitionCategory extends Model
     {
         return $this->hasOne(AppearanceSchedule::class, 'competition_category_id');
     }
+
+    /**
+     * Check if this is a Khutbah Jumat category.
+     */
+    public function isKhatibCategory(): bool
+    {
+        return $this->slug === 'khutbah-jumat-khatib';
+    }
+
+    /**
+     * Check if this is an Adzan category.
+     */
+    public function isAdzanCategory(): bool
+    {
+        return $this->slug === 'adzan-muadzin';
+    }
+
+    /**
+     * Check if this category is related to Khutbah/Adzan (either new separate or old combined).
+     */
+    public function isKhutbahAdzanRelated(): bool
+    {
+        $slug = $this->slug ?? '';
+        $branch = mb_strtolower($this->branch ?? '');
+
+        return $this->isKhatibCategory()
+            || $this->isAdzanCategory()
+            || str_contains($slug, 'khutbah-jumat-dan-adzan')
+            || str_contains($branch, 'khutbah');
+    }
+
+    /**
+     * Check if this is a non-MFQ category that uses maqra system.
+     */
+    public function usesMaqraSystem(): bool
+    {
+        // Khutbah Jumat and Adzan do NOT use maqra
+        if ($this->isKhatibCategory() || $this->isAdzanCategory()) {
+            return false;
+        }
+
+        // Old combined category also doesn't use maqra
+        $slug = $this->slug ?? '';
+        if (str_contains($slug, 'khutbah-jumat-dan-adzan')) {
+            return false;
+        }
+
+        return filled($this->maqra_system_type)
+            && in_array($this->maqra_system_type, ['tilawah', 'tahfizh', 'tafsir']);
+    }
+
+    /**
+     * Get the display name for this category.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        if ($this->isKhatibCategory()) {
+            return 'Khutbah Jumat';
+        }
+        if ($this->isAdzanCategory()) {
+            return 'Adzan';
+        }
+
+        return $this->branch ?? $this->name ?? 'Unknown';
+    }
 }

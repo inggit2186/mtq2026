@@ -20,6 +20,7 @@ class Participant extends Model
         'district_id',
         'registration_number',
         'participant_role',
+        'competition_role',
         'name',
         'gender',
         'nik',
@@ -109,5 +110,56 @@ class Participant extends Model
     public function latestScore(): HasMany
     {
         return $this->hasMany(ScoreEntry::class)->latestOfMany('submitted_at');
+    }
+
+    /**
+     * Alias for category() relationship for consistency.
+     */
+    public function competitionCategory(): BelongsTo
+    {
+        return $this->belongsTo(CompetitionCategory::class, 'competition_category_id');
+    }
+
+    /**
+     * Check if this participant is a Khatib (Khutbah Jumat).
+     */
+    public function isKhatib(): bool
+    {
+        return $this->competition_role === 'khatib'
+            || $this->category?->isKhatibCategory();
+    }
+
+    /**
+     * Check if this participant is a Muadzin (Adzan).
+     */
+    public function isMuadzin(): bool
+    {
+        return $this->competition_role === 'muadzin'
+            || $this->category?->isAdzanCategory();
+    }
+
+    /**
+     * Get the role label for display.
+     */
+    public function getRoleLabelAttribute(): ?string
+    {
+        return match ($this->competition_role) {
+            'khatib' => 'Khatib',
+            'muadzin' => 'Muadzin',
+            default => null,
+        };
+    }
+
+    /**
+     * Check if this participant needs to select competition role before lot assignment.
+     * Only applies to the old combined "Khutbah Jumat dan Adzan" category.
+     */
+    public function needsCompetitionRoleSelection(): bool
+    {
+        $slug = $this->category?->slug ?? '';
+
+        // Old combined category needs role selection
+        return str_contains($slug, 'khutbah-jumat-dan-adzan')
+            && filled($this->competition_category_id);
     }
 }

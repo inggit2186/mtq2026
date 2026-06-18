@@ -27,6 +27,8 @@ $participantKkNumber = $participantKkNumber ?? $participant?->kk_number ?? '';
 $isLotPerDistrict = $isLotPerDistrict ?? false;
 $districtParticipants = $districtParticipants ?? collect();
 $categoryLabel = $categoryLabel ?? trim((string) ($participant?->category?->branch ?? '-'). ' - '. (string) ($participant?->category?->name ?? '-'));
+$needsRoleSelection = $needsRoleSelection ?? false;
+$roleSelectionUrl = route('participants.competition-role', $participant);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -39,8 +41,104 @@ $categoryLabel = $categoryLabel ?? trim((string) ($participant?->category?->bran
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
 </head>
-<body class="grid-bg min-h-screen overflow-hidden bg-slate-950 text-slate-100 antialiased">
+<body class="grid-bg min-h-screen overflow-hidden bg-slate-950 text-slate-100 antialiased" x-data="{ showRoleModal: <?= $needsRoleSelection ? 'true' : 'false' ?> }">
     <?php require __DIR__.'/../partials/live-notifications.php'; ?>
+
+    <!-- Role Selection Modal -->
+    <?php if ($needsRoleSelection): ?>
+    <div
+        x-show="showRoleModal"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+    >
+        <div
+            x-show="showRoleModal"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            class="w-full max-w-md rounded-3xl border border-cyan-400/30 bg-slate-900/95 p-6 shadow-2xl"
+        >
+            <div class="text-center">
+                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10">
+                    <?= mtq_icon('user-circle', 'h-8 w-8 text-cyan-300') ?>
+                </div>
+                <h2 class="text-2xl font-bold text-white">Pilih Peran Kompetisi</h2>
+                <p class="mt-2 text-sm text-slate-300">
+                    Peserta <strong class="text-cyan-200"><?= e($participant?->name ?? 'ini') ?></strong> dari Kecamatan <?= e($participant?->district?->name ?? '-') ?>
+                    belum memiliki peran. Pilih salah satu:
+                </p>
+            </div>
+
+            <form
+                id="role-selection-form"
+                action="<?= e($roleSelectionUrl) ?>"
+                method="POST"
+                class="mt-6 space-y-3"
+                @submit="showRoleModal = false"
+            >
+                <?= csrf_field() ?>
+                <input type="hidden" name="_method" value="POST">
+
+                <label class="block cursor-pointer">
+                    <input type="radio" name="competition_role" value="khatib" class="peer sr-only" required>
+                    <div class="flex items-center gap-4 rounded-2xl border-2 border-slate-700 bg-slate-800/50 p-4 transition-all hover:border-cyan-400/50 peer-checked:border-cyan-400 peer-checked:bg-cyan-400/10">
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cyan-400/20">
+                            <?= mtq_icon('speaker', 'h-6 w-6 text-cyan-300') ?>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-lg font-bold text-white">Khatib</p>
+                            <p class="text-sm text-slate-400">Khutbah Jumat</p>
+                        </div>
+                        <div class="h-6 w-6 rounded-full border-2 border-slate-600 peer-checked:border-cyan-400 peer-checked:bg-cyan-400">
+                            <svg class="hidden h-full w-full text-white peer-checked:block" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                </label>
+
+                <label class="block cursor-pointer">
+                    <input type="radio" name="competition_role" value="muadzin" class="peer sr-only" required>
+                    <div class="flex items-center gap-4 rounded-2xl border-2 border-slate-700 bg-slate-800/50 p-4 transition-all hover:border-amber-400/50 peer-checked:border-amber-400 peer-checked:bg-amber-400/10">
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-400/20">
+                            <?= mtq_icon('megaphone', 'h-6 w-6 text-amber-300') ?>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-lg font-bold text-white">Muadzin</p>
+                            <p class="text-sm text-slate-400">Adzan</p>
+                        </div>
+                        <div class="h-6 w-6 rounded-full border-2 border-slate-600 peer-checked:border-amber-400 peer-checked:bg-amber-400">
+                            <svg class="hidden h-full w-full text-white peer-checked:block" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                </label>
+
+                <div class="mt-6 flex gap-3">
+                    <button
+                        type="submit"
+                        class="flex-1 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        Konfirmasi & Lanjutkan
+                    </button>
+                </div>
+            </form>
+
+            <p class="mt-4 text-center text-xs text-slate-500">
+                Setelah memilih, peserta akan dipindahkan ke kategori kompetisi yang sesuai dan dapat mengambil nomor lot.
+            </p>
+        </div>
+    </div>
+    <?php endif; ?>
     <main id="lot-stage" class="relative flex h-screen flex-col overflow-hidden" x-data="{ rolling: false, assigned: <?= $lotAssigned ? 'true' : 'false' ?>, currentSuffix: '<?= e($lotAssigned && $lotSuffix !== null ? str_pad((string) $lotSuffix, 2, '0', STR_PAD_LEFT) : '--') ?>', status: '<?= e($lotAssigned ? 'Nomor lot sudah dikunci' : 'Tekan tombol untuk memulai undian') ?>', history: [] }">
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.28),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.18),_transparent_26%),linear-gradient(135deg,rgba(2,6,23,0.98),rgba(8,15,43,0.96))]"></div>
         <div class="hero-orb hero-orb-cyan right-[-8rem] top-10 h-80 w-80 opacity-70"></div>
@@ -366,6 +464,52 @@ $categoryLabel = $categoryLabel ?? trim((string) ($participant?->category?->bran
             let finalLockTimer = null;
             let drawStarted = false;
             let audioContext = null;
+
+            // Handle role selection form
+            const roleForm = document.getElementById('role-selection-form');
+            if (roleForm) {
+                roleForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Memproses...';
+
+                    try {
+                        const response = await fetch(this.action, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            body: formData,
+                        });
+
+                        const payload = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(payload?.message || 'Terjadi kesalahan.');
+                        }
+
+                        // Show success and reload the page after a short delay
+                        if (window.Alpine && Alpine.store?.ui?.notifications) {
+                            Alpine.store.ui.notifications.push({
+                                type: 'success',
+                                message: payload.message || 'Role berhasil dipilih!',
+                            });
+                        }
+
+                        // Reload page after a short delay to show updated category info
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 800);
+                    } catch (error) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Konfirmasi & Lanjutkan';
+                        alert('Error: ' + (error.message || 'Terjadi kesalahan tidak diketahui'));
+                    }
+                });
+            }
 
             function padNumber(value) {
                 return String(value).padStart(2, '0');

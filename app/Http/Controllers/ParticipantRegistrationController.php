@@ -1551,6 +1551,9 @@ class ParticipantRegistrationController extends Controller
         $this->authorizeParticipantLotAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar undian hanya tersedia untuk peserta yang sudah terverifikasi.');
 
+        // Check if participant needs to select competition role first (for old combined category)
+        $needsRoleSelection = $participant->needsCompetitionRoleSelection();
+
         $groupSize = $this->participantLotGroupSize($participant);
         $isLotPerDistrict = $this->isLotPerDistrictCategory($participant->category);
 
@@ -1583,6 +1586,7 @@ class ParticipantRegistrationController extends Controller
             'districtParticipants' => $districtParticipants,
             'categoryLabel' => trim((string) ($participant->category?->branch ?? '-'). ' - '. (string) ($participant->category?->name ?? '-')),
             'parityLabel' => $participant->gender === 'putra' ? 'Putra / Genap' : 'Putri / Ganjil',
+            'needsRoleSelection' => $needsRoleSelection,
         ]);
     }
 
@@ -1681,6 +1685,77 @@ class ParticipantRegistrationController extends Controller
         return redirect()
             ->route('participants.lot.draw', $participant)
             ->with('status', 'Nomor lot peserta '.$participant->name.' berhasil diambil: '.$lotNumber.'.');
+    }
+
+    /**
+     * Select competition role (Khatib/Muadzin) for participants in the old combined category.
+     * This is called when a participant needs to choose their role before taking a lot number.
+     */
+    public function selectCompetitionRole(Request $request, Participant $participant): RedirectResponse|JsonResponse
+    {
+        $this->authorizePanitiaLotAccess();
+
+        $participant->loadMissing(['category', 'district']);
+        $this->authorizeParticipantLotAccess($participant);
+        abort_unless($participant->verification_status === 'verified', 403, 'Role kompetisi hanya dapat dipilih untuk peserta yang sudah terverifikasi.');
+
+        // Validate that this participant is in the old combined category
+        abort_unless($participant->needsCompetitionRoleSelection(), 422, 'Peserta ini tidak memerlukan pemilihan role.');
+
+        $validated = $request->validate([
+            'competition_role' => ['required', 'string', 'in:khatib,muadzin'],
+        ]);
+
+        $competitionRole = $validated['competition_role'];
+
+        // Find the target category based on role
+        $targetCategory = CompetitionCategory::query()
+            ->where('slug', $competitionRole === 'khatib' ? 'khutbah-jumat-khatib' : 'adzan-muadzin')
+            ->first();
+
+        abort_unless($targetCategory, 500, 'Kategori target tidak ditemukan. Pastikan migration sudah dijalankan.');
+
+        DB::transaction(function () use ($participant, $targetCategory, $competitionRole): void {
+            $participant->update([
+                'competition_category_id' => $targetCategory->id,
+                'competition_role' => $competitionRole,
+            ]);
+        });
+
+        // Reload the participant with new category
+        $participant->refresh();
+        $participant->loadMissing(['category', 'district']);
+
+        $roleLabel = $competitionRole === 'khatib' ? 'Khatib (Khutbah Jumat)' : 'Muadzin (Adzan)';
+
+        $this->logParticipantActivity(
+            'participant.role.selected',
+            $participant,
+            (auth()->user()?->name ?? 'Panitia').' memilih role '.$roleLabel.' untuk peserta '.$participant->name,
+            [
+                'competition_role' => $competitionRole,
+                'old_category' => 'khutbah-jumat-dan-adzan-khatib-dan-muadzin',
+                'new_category_id' => $targetCategory->id,
+            ]
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'ok',
+                'message' => 'Role kompetisi berhasil dipilih.',
+                'participant_id' => $participant->id,
+                'participant_name' => $participant->name,
+                'competition_role' => $competitionRole,
+                'competition_role_label' => $roleLabel,
+                'category_id' => $targetCategory->id,
+                'category_name' => $targetCategory->display_name,
+                'can_take_lot' => true,
+            ]);
+        }
+
+        return redirect()
+            ->route('participants.lot.draw', $participant)
+            ->with('status', 'Role kompetisi '.$roleLabel.' berhasil dipilih untuk '.$participant->name.'.');
     }
 
     public function maqraDraw(Participant $participant): View

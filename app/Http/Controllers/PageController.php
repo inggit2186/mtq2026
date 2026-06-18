@@ -3505,21 +3505,30 @@ class PageController extends Controller
     {
         // Prioritas 1: cek kolom maqra_system_type
         if (filled($category->maqra_system_type)) {
+            // Khutbah Jumat dan Adzan TIDAK menggunakan maqra
+            if (in_array($category->maqra_system_type, ['khatib', 'muadzin'])) {
+                return false;
+            }
+
             return true;
         }
 
         // Fallback: string matching (untuk data lama)
         $branch = mb_strtolower((string) ($category->branch ?? ''));
         $name = mb_strtolower((string) ($category->name ?? ''));
-        $haystack = trim($branch.' '.$name);
+        $slug = mb_strtolower((string) ($category->slug ?? ''));
+        $haystack = trim($branch.' '.$name.' '.$slug);
+
+        // New separate categories - no maqra
+        if (str_contains($slug, 'khutbah-jumat-khatib') || str_contains($slug, 'adzan-muadzin')) {
+            return false;
+        }
 
         return str_contains($haystack, 'seni baca al qur')
             || str_contains($haystack, 'hafalan al qur')
             || str_contains($haystack, 'tafsir al qur')
             || str_contains($haystack, 'fahmil qur')
-            || str_contains($haystack, 'syarhil qur')
-            || str_contains($haystack, 'khatib')
-            || str_contains($haystack, 'muadzin');
+            || str_contains($haystack, 'syarhil qur');
     }
 
     public function categoryMaqraSystemLabel(CompetitionCategory $category): ?string

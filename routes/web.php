@@ -156,6 +156,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/data-peserta/{participant}/cv', [ParticipantRegistrationController::class, 'downloadCv'])->name('participants.cv');
     Route::get('/data-peserta/{participant}/kokarde', [ParticipantRegistrationController::class, 'downloadKokarde'])->name('participants.kokarde');
     Route::post('/data-peserta/{participant}/nomor-lot', [ParticipantRegistrationController::class, 'assignLotNumber'])->middleware('role:admin,panitia')->name('participants.lot.assign');
+    Route::post('/data-peserta/{participant}/competition-role', [ParticipantRegistrationController::class, 'selectCompetitionRole'])->middleware('role:admin,panitia')->name('participants.competition-role');
     Route::post('/data-peserta/{participant}/maqra', [ParticipantRegistrationController::class, 'assignMaqra'])->middleware('role:admin,official,pendamping,panitia')->name('participants.maqra.assign');
     Route::post('/data-peserta/{participant}/maqra/reset', [ParticipantRegistrationController::class, 'resetMaqra'])->middleware('role:admin')->name('participants.maqra.reset');
     Route::post('/data-peserta/{participant}/maqra/tukar', [ParticipantRegistrationController::class, 'swapMaqra'])->middleware('role:admin')->name('participants.maqra.swap');

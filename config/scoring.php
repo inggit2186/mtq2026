@@ -56,6 +56,23 @@ return [
             'penghayatan' => 'Penghayatan',
             'adab_penampilan' => 'Adab dan Penampilan',
         ],
+        // New separate categories - each with their own criteria
+        'Khutbah Jumat' => [
+            'materi' => 'Materi',
+            'sistematika' => 'Sistematika',
+            'vokal' => 'Vokal',
+            'penghayatan' => 'Penghayatan',
+            'adab' => 'Adab',
+            'gestur' => 'Gestur',
+        ],
+        'Adzan' => [
+            'vokal' => 'Vokal',
+            'tajwid' => 'Tajwid',
+            'mad' => 'Mad',
+            'adhkar' => 'Kalimat Adzan',
+            'adab' => 'Adab',
+            'keserasian' => 'Keserasian',
+        ],
         'Kitab Standar' => [
             'penguasaan' => 'Penguasaan Materi',
             'pemahaman' => 'Pemahaman',
