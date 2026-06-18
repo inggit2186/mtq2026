@@ -247,6 +247,7 @@
             font-size: 5px;
             color: rgba(255,255,255,0.25);
             margin-top: 2px;
+            font-style:italic;
             letter-spacing: 0.2px;
         }
         .corner-deco {
