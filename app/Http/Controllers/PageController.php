@@ -351,6 +351,39 @@ class PageController extends Controller
         ]);
     }
 
+    public function profileSettings(): View
+    {
+        $user = auth()->user();
+
+        return view('pages/profile-settings', [
+            'assets' => $this->viteAssets(),
+            'user' => $user,
+        ]);
+    }
+
+    public function updateProfilePhoto(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ]);
+
+        $user = auth()->user();
+        $file = $request->file('photo');
+
+        // Delete old photo if exists
+        if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
+            Storage::disk('public')->delete($user->profile_photo_path);
+        }
+
+        // Store new photo: users/{user_id}/profile.{extension}
+        $extension = $file->getClientOriginalExtension();
+        $path = $file->storeAs('users/'.$user->id, 'profile.'.$extension, 'public');
+
+        $user->update(['profile_photo_path' => $path]);
+
+        return redirect()->back()->with('success', 'Foto profil berhasil diupdate.');
+    }
+
     public function dashboard(): View
     {
         SessionSchedule::syncAutomaticStatuses();
@@ -2138,6 +2171,7 @@ class PageController extends Controller
             in_array($role, ['admin', 'panitia', 'official', 'pendamping'], true)
                 ? $this->consoleNavigationLink('gallery.index', 'Galeri MTQ', route('gallery.index'), 'image')
                 : null,
+            $this->consoleNavigationLink('profile.settings', 'Profil Saya', route('profile.settings'), 'settings'),
         ]));
 
         return $this->consoleNavigationApplyActive($navigation, $active);

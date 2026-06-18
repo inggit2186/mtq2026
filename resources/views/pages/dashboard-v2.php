@@ -167,6 +167,11 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                             <p class="text-xs uppercase tracking-[0.18em] text-slate-500"><?= e($user?->roleLabel()) ?></p>
                             <p class="text-sm font-semibold text-white"><?= e($user?->name) ?></p>
                         </div>
+                        <a href="<?= e(route('profile.settings')) ?>"
+                           class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-400 transition hover:border-cyan-400/50 hover:bg-cyan-400/10 hover:text-cyan-300"
+                           title="Pengaturan Profil">
+                            <?= mtq_icon('settings', 'h-5 w-5') ?>
+                        </a>
                     </div>
                     <div class="status-pill">
                         <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>

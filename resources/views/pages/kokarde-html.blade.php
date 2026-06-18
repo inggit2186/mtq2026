@@ -16,8 +16,8 @@
             padding: 20px;
         }
         .kokarde-card {
-            width: 331px;
-            height: 394px;
+            width: 315px;
+            height: 378px;
             background: linear-gradient(165deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
             border-radius: 20px;
             overflow: hidden;

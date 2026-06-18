@@ -42,6 +42,8 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/dashboard/sinkronisasi-user', [PageController::class, 'syncDashboardUser'])->name('dashboard.user-sync');
     Route::post('/dashboard/password', [PageController::class, 'updateDashboardPassword'])->name('dashboard.password.update');
     Route::get('/dashboard/realtime-summary', [PageController::class, 'dashboardRealtimeSummary'])->name('dashboard.realtime-summary');
+    Route::get('/profile/settings', [PageController::class, 'profileSettings'])->name('profile.settings');
+    Route::post('/profile/photo', [PageController::class, 'updateProfilePhoto'])->name('profile.update-photo');
     Route::get('/leaderboard', [PageController::class, 'leaderboard'])->name('leaderboard.index');
     Route::get('/admin/log-aplikasi', [ApplicationLogController::class, 'index'])->middleware('role:admin,panitia')->name('application.logs');
     Route::get('/admin/official-kecamatan', [OfficialRegistrationController::class, 'index'])->middleware('role:admin')->name('officials.index');
