@@ -178,6 +178,28 @@ class AdminExportController extends Controller
         ]);
     }
 
+    public function kokardeCompilationPrint(Request $request): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia']), 403);
+
+        $categoryId = $request->query('category_id');
+        $category = $categoryId ? CompetitionCategory::find($categoryId) : null;
+
+        $query = Participant::with(['district', 'category'])
+            ->where('verification_status', 'verified');
+
+        if ($categoryId) {
+            $query->where('competition_category_id', $categoryId);
+        }
+
+        $participants = $query->orderBy('lot_number')->get();
+
+        return view('pages/kokarde-compilation-print', [
+            'participants' => $participants,
+            'category' => $category,
+        ]);
+    }
+
     public function kokardeCommitteePage(): View
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia']), 403);
@@ -191,6 +213,22 @@ class AdminExportController extends Controller
 
         return view('pages/admin-kokarde-committee-download', [
             'assets' => app(PageController::class)->viteAssets(),
+            'committees' => $committees,
+        ]);
+    }
+
+    public function kokardeCommitteeCompilationPrint(): View
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia']), 403);
+
+        $committees = User::query()
+            ->with(['categoryAccesses.category'])
+            ->whereIn('role', ['admin', 'panitia'])
+            ->orderBy('role')
+            ->orderBy('name')
+            ->get();
+
+        return view('pages/kokarde-committee-compilation-print', [
             'committees' => $committees,
         ]);
     }

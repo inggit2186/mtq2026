@@ -35,7 +35,7 @@ $category = $category ?? null;
                    class="group flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-600 bg-slate-800/80 text-slate-400 transition-all duration-300 hover:border-cyan-400/50 hover:bg-cyan-400/10 hover:text-cyan-300 hover:scale-110">
                     <?= mtq_icon('arrow-left', 'h-5 w-5') ?>
                 </a>
-                <div>
+                <div class="flex-1">
                     <h1 class="text-2xl font-black text-white">Download Kokarde</h1>
                     <p class="text-sm text-slate-400">
                         <?php if ($category): ?>
@@ -46,6 +46,12 @@ $category = $category ?? null;
                         (<?= $participants->count() ?> peserta)
                     </p>
                 </div>
+                <a href="<?= e(route('admin.export.kokarde.print', request()->query())) ?>"
+                   target="_blank"
+                   class="flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-300 transition-all duration-300 hover:border-cyan-400 hover:bg-cyan-400/20">
+                    <?= mtq_icon('printer', 'h-5 w-5') ?>
+                    Print / Save PDF
+                </a>
             </div>
         </header>
 

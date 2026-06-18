@@ -109,7 +109,9 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/admin/export/excel/category', [AdminExportController::class, 'exportExcelByCategory'])->middleware('role:admin,panitia')->name('admin.export.excel.category');
     Route::get('/admin/export/kokarde', [AdminExportController::class, 'downloadAllKokarde'])->middleware('role:admin,panitia')->name('admin.export.kokarde');
     Route::get('/admin/export/kokarde/page', [AdminExportController::class, 'kokardePage'])->middleware('role:admin,panitia')->name('admin.export.kokarde.page');
+    Route::get('/admin/export/kokarde/print', [AdminExportController::class, 'kokardeCompilationPrint'])->middleware('role:admin,panitia')->name('admin.export.kokarde.print');
     Route::get('/admin/export/kokarde/committee/page', [AdminExportController::class, 'kokardeCommitteePage'])->middleware('role:admin,panitia')->name('admin.export.kokarde.committee.page');
+    Route::get('/admin/export/kokarde/committee/print', [AdminExportController::class, 'kokardeCommitteeCompilationPrint'])->middleware('role:admin,panitia')->name('admin.export.kokarde.committee.print');
     Route::get('/admin/export/kokarde/committee/{user}', [AdminExportController::class, 'downloadCommitteeKokarde'])->middleware('role:admin,panitia')->name('admin.export.kokarde.committee');
     Route::get('/admin/penampilan', [AppearanceScheduleController::class, 'index'])->middleware('role:admin')->name('appearance.schedules');
     Route::post('/admin/penampilan', [AppearanceScheduleController::class, 'store'])->middleware('role:admin')->name('appearance.schedules.store');

@@ -16,12 +16,12 @@
             padding: 20px;
         }
         .kokarde-card {
-            width: 420px;
-            height: 630px;
+            width: 331px;
+            height: 394px;
             background: linear-gradient(165deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
-            border-radius: 28px;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 100px rgba(8, 145, 178, 0.15);
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.4), 0 0 80px rgba(8, 145, 178, 0.15);
             position: relative;
             display: flex;
             flex-direction: column;
@@ -30,12 +30,12 @@
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0;
-            height: 6px;
+            height: 4px;
             background: linear-gradient(90deg, #0ea5e9, #06b6d4, #fbbf24, #f59e0b, #06b6d4, #0ea5e9);
         }
         .kokarde-header {
             background: linear-gradient(180deg, #0f172a 0%, #1e3a5f 100%);
-            padding: 18px 14px 15px;
+            padding: 7px 12px 5px;
             text-align: center;
             position: relative;
         }
@@ -43,74 +43,64 @@
             content: '';
             position: absolute;
             bottom: 0; left: 50%; transform: translateX(-50%);
-            width: 60%; height: 3px;
+            width: 60%; height: 2px;
             background: linear-gradient(90deg, transparent, #fbbf24, transparent);
         }
         .header-logos {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 9px;
+            gap: 4px;
+            margin-bottom: 3px;
         }
         .header-logo {
-            width: 36px; height: 36px;
+            width: 24px; height: 24px;
             object-fit: contain;
             filter: brightness(0) invert(1);
             opacity: 0.85;
         }
-        .header-logo-main { width: 48px; height: 48px; }
-        .header-star {
-            width: 44px; height: 44px;
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
-        }
-        .header-star svg { width: 22px; height: 22px; color: #1e293b; }
+        .header-logo-main { width: 32px; height: 32px; }
         .header-title {
-            font-size: 10px;
+            font-size: 8px;
             font-weight: 600;
             color: #fbbf24;
             text-transform: uppercase;
-            letter-spacing: 3px;
-            margin-bottom: 6px;
+            letter-spacing: 2px;
+            margin-bottom: 3px;
         }
         .header-event {
             font-family: 'Playfair Display', serif;
-            font-size: 18px;
+            font-size: 13px;
             font-weight: 700;
             color: white;
-            line-height: 1.2;
+            line-height: 1.1;
             white-space: pre-line;
         }
         .header-year {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            margin-top: 10px;
-            padding: 5px 14px;
+            gap: 4px;
+            margin-top: 6px;
+            padding: 3px 10px;
             background: rgba(251, 191, 36, 0.15);
             border: 1px solid rgba(251, 191, 36, 0.3);
-            border-radius: 20px;
-            font-size: 11px;
+            border-radius: 14px;
+            font-size: 8px;
             color: rgba(255,255,255,0.9);
         }
-        .header-year svg { width: 14px; height: 14px; color: #fbbf24; }
-        .kokarde-body { padding: 20px 24px; flex: 1; overflow: hidden; }
+        .header-year svg { width: 10px; height: 10px; color: #fbbf24; }
+        .kokarde-body { padding: 10px 14px; flex: 1; overflow: hidden; }
         .kokarde-photo-section {
             display: flex;
-            gap: 16px;
-            margin-bottom: 16px;
+            gap: 10px;
+            margin-bottom: 8px;
         }
         .photo-wrapper {
             flex-shrink: 0;
-            width: 120px; height: 145px;
-            border-radius: 14px;
+            width: 85px; height: 105px;
+            border-radius: 10px;
             overflow: hidden;
-            border: 3px solid transparent;
+            border: 2px solid transparent;
             background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #0ea5e9, #06b6d4) border-box;
             display: flex;
             align-items: center;
@@ -121,14 +111,14 @@
         .photo-placeholder {
             color: #94a3b8;
             text-align: center;
-            font-size: 10px;
+            font-size: 7px;
         }
-        .photo-placeholder svg { width: 32px; height: 32px; opacity: 0.5; margin-bottom: 6px; }
-        .info-section { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .photo-placeholder svg { width: 24px; height: 24px; opacity: 0.5; margin-bottom: 3px; }
+        .info-section { flex: 1; display: flex; flex-direction: column; gap: 4px; }
         .lot-card {
             background: #ffffff;
-            padding: 12px 14px;
-            border-radius: 12px;
+            padding: 6px 10px;
+            border-radius: 8px;
             text-align: center;
             position: relative;
             border: 2px solid #e2e8f0;
@@ -136,85 +126,85 @@
         .lot-card::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; height: 3px;
+            top: 0; left: 0; right: 0; height: 2px;
             background: linear-gradient(90deg, #0ea5e9, #fbbf24, #0ea5e9);
         }
         .lot-label {
-            font-size: 9px;
+            font-size: 7px;
             font-weight: 600;
             color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 1px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 4px;
         }
-        .lot-label svg { width: 12px; height: 12px; color: #0ea5e9; }
+        .lot-label svg { width: 10px; height: 10px; color: #0ea5e9; }
         .lot-number {
             font-family: 'Playfair Display', serif;
-            font-size: 28px;
+            font-size: 20px;
             font-weight: 700;
             color: #0ea5e9;
-            text-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
-            line-height: 1.2;
-            margin-top: 4px;
+            text-shadow: 0 0 15px rgba(14, 165, 233, 0.3);
+            line-height: 1.1;
+            margin-top: 2px;
         }
         .lot-empty { color: #cbd5e1; }
         .info-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
+            gap: 6px;
+            padding: 4px 8px;
             background: linear-gradient(135deg, #f0fdfa, #ecfeff);
-            border-radius: 10px;
-            border-left: 3px solid #0ea5e9;
+            border-radius: 6px;
+            border-left: 2px solid #0ea5e9;
         }
         .info-icon {
-            width: 30px; height: 30px;
+            width: 20px; height: 20px;
             background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-            border-radius: 8px;
+            border-radius: 5px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
         }
-        .info-icon svg { width: 14px; height: 14px; color: white; }
+        .info-icon svg { width: 10px; height: 10px; color: white; }
         .info-icon.male { background: linear-gradient(135deg, #3b82f6, #2563eb); }
         .info-icon.female { background: linear-gradient(135deg, #ec4899, #db2777); }
         .info-content { flex: 1; min-width: 0; }
         .info-label {
-            font-size: 8px;
+            font-size: 6px;
             font-weight: 600;
             color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
         .info-value {
-            font-size: 12px;
+            font-size: 9px;
             font-weight: 600;
             color: #0f172a;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .info-value.small { font-size: 11px; }
+        .info-value.small { font-size: 8px; }
         .gender-badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 10px;
+            gap: 2px;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 7px;
             font-weight: 700;
             text-transform: uppercase;
         }
-        .gender-badge svg { width: 12px; height: 12px; }
+        .gender-badge svg { width: 8px; height: 8px; }
         .gender-badge.male { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1d4ed8; }
         .gender-badge.female { background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #be185d; }
         .kokarde-footer {
             background: linear-gradient(180deg, #0f172a, #1e3a5f);
-            padding: 12px 24px;
+            padding: 8px 14px;
             text-align: center;
             position: relative;
         }
@@ -229,28 +219,28 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            font-size: 10px;
+            gap: 6px;
+            font-size: 7px;
             color: rgba(255,255,255,0.8);
         }
         .footer-brand { font-weight: 600; color: #fbbf24; }
-        .footer-brand svg { width: 16px; height: 16px; }
+        .footer-brand svg { width: 12px; height: 12px; }
         .footer-credit {
-            font-size: 6px;
+            font-size: 5px;
             color: rgba(255,255,255,0.25);
-            margin-top: 4px;
+            margin-top: 2px;
             font-style:italic;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
         }
         .corner-deco {
             position: absolute;
-            width: 40px; height: 40px;
-            opacity: 0.08;
+            width: 24px; height: 24px;
+            opacity: 0.06;
         }
-        .corner-tl { top: 8px; left: 8px; border-top: 2px solid #0ea5e9; border-left: 2px solid #0ea5e9; border-radius: 6px 0 0 0; }
-        .corner-tr { top: 8px; right: 8px; border-top: 2px solid #0ea5e9; border-right: 2px solid #0ea5e9; border-radius: 0 6px 0 0; }
-        .corner-bl { bottom: 8px; left: 8px; border-bottom: 2px solid #0ea5e9; border-left: 2px solid #0ea5e9; border-radius: 0 0 0 6px; }
-        .corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid #0ea5e9; border-right: 2px solid #0ea5e9; border-radius: 0 0 6px 0; }
+        .corner-tl { top: 5px; left: 5px; border-top: 2px solid #0ea5e9; border-left: 2px solid #0ea5e9; border-radius: 4px 0 0 0; }
+        .corner-tr { top: 5px; right: 5px; border-top: 2px solid #0ea5e9; border-right: 2px solid #0ea5e9; border-radius: 0 4px 0 0; }
+        .corner-bl { bottom: 5px; left: 5px; border-bottom: 2px solid #0ea5e9; border-left: 2px solid #0ea5e9; border-radius: 0 0 0 4px; }
+        .corner-br { bottom: 5px; right: 5px; border-bottom: 2px solid #0ea5e9; border-right: 2px solid #0ea5e9; border-radius: 0 0 4px 0; }
         @media print { body { background: white; padding: 0; } .kokarde-card { box-shadow: none; } }
     </style>
 </head>
