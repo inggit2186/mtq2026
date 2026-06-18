@@ -23,6 +23,7 @@ $regularCategories = $regularCategories ?? $categories ?? [];
 $mfqCategories = $mfqCategories ?? collect();
 $categoryUsage = $categoryUsage ?? collect();
 $selectedCategoryIsMfq = $selectedCategoryIsMfq ?? false;
+$selectedCategoryIsMsq = $selectedCategoryIsMsq ?? false;
 $setupCreated = $setupCreated ?? $setupReady;
 $setupEditable = $setupEditable ?? false;
 $setupRequested = $setupRequested ?? false;
@@ -31,6 +32,7 @@ $participantScoreRound = $participantScoreRound ?? $selectedJudgingRound;
 $participantScoreDraft = $participantScoreDraft ?? [];
 $initialStep = (int) ($initialStep ?? 1);
 $initialJudgeIndex = (int) ($initialJudgeIndex ?? 0);
+$districtOptions = $districtOptions ?? [];
 $defaultCriteria = $selectedCategory
     ? (config('scoring.criteria.'.($selectedCategory->branch ?? '')) ?? config('scoring.criteria.default', []))
     : config('scoring.criteria.default', []);
@@ -67,6 +69,7 @@ $participantOptions = collect($participants ?? [])->map(function ($participant) 
 
     return [
         'id' => $participant->id,
+        'district_id' => (int) $participant->district_id,
         'name' => $participant->name,
         'branch' => $participant->category?->branch ?? '-',
         'category' => $participant->category?->name ?? '-',
@@ -932,18 +935,30 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     <div class="glass-card rounded-[2rem] p-6"
                         x-data="participantPicker({
                             participants: <?= e(json_encode($participantOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
+                            districts: <?= e(json_encode($districtOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                             selectedId: <?= e(json_encode((string) ($selectedParticipant?->id ?? ''))) ?>,
+                            selectedDistrictId: null,
                         })">
                         <div class="flex items-center gap-3">
                             <div class="icon-chip"><?= mtq_icon('users') ?></div>
                             <div>
-                                <h2 class="text-2xl font-bold text-white">Peserta Siap Dinilai</h2>
-                                <p class="mt-1 text-sm text-slate-300">Cari peserta lalu pilih dari daftar agar tetap ringan walau data peserta banyak.</p>
+                                <h2 class="text-2xl font-bold text-white">
+                                    <?= $selectedCategoryIsMsq ? 'Kecamatan / Nomor Lot' : 'Peserta Siap Dinilai' ?>
+                                </h2>
+                                <p class="mt-1 text-sm text-slate-300">
+                                    <?= $selectedCategoryIsMsq
+                                        ? 'Pilih kecamatan/lot yang akan dinilai. 1 kecamatan = 1 nomor lot.'
+                                        : 'Cari peserta lalu pilih dari daftar agar tetap ringan walau data peserta banyak.' ?>
+                                </p>
                             </div>
                         </div>
                         <div class="status-pill mt-4">
                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                            <?= e(count($participants)) ?> Peserta
+                            <?php if ($selectedCategoryIsMsq): ?>
+                                <?= count($districtOptions) ?> Kecamatan / Lot
+                            <?php else: ?>
+                                <?= e(count($participants)) ?> Peserta
+                            <?php endif; ?>
                         </div>
 
                         <div class="mt-6 space-y-4">
@@ -983,6 +998,43 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             Belum Dinilai
                                         </button>
                                     </div>
+                                    <?php if ($selectedCategoryIsMsq): ?>
+                                    <!-- MSQ: District/Lot List -->
+                                    <div class="max-h-80 overflow-y-auto rounded-[1.4rem] border border-slate-800 bg-slate-950/95 p-2 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.9)]">
+                                        <div class="px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">Daftar Kecamatan / Lot</div>
+                                        <template x-if="filteredDistricts.length === 0">
+                                            <div class="rounded-[1rem] px-4 py-3 text-sm text-slate-400">Tidak ada kecamatan yang cocok dengan pencarian.</div>
+                                        </template>
+                                        <template x-for="(district, index) in filteredDistricts" :key="district.id">
+                                            <button type="button"
+                                                class="flex w-full items-start gap-3 rounded-[1rem] px-3 py-3 text-left transition"
+                                                :class="highlightedIndex === index ? 'bg-cyan-400/12 text-white' : 'text-slate-300 hover:bg-slate-900/80'"
+                                                x-on:mouseenter="highlightedIndex = index"
+                                                x-on:click="selectDistrict(district)">
+                                                <template x-if="district.photo">
+                                                    <img :src="district.photo" :alt="`Foto ${district.name}`" class="h-14 w-11 shrink-0 rounded-[0.9rem] border border-cyan-400/16 object-cover">
+                                                </template>
+                                                <template x-if="!district.photo">
+                                                    <div class="flex h-14 w-11 shrink-0 items-center justify-center rounded-[0.9rem] border border-slate-700 bg-slate-900/80 text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                                                        Lot
+                                                    </div>
+                                                </template>
+                                                <div class="min-w-0 flex-1">
+                                                    <p class="truncate text-sm font-semibold text-white" x-text="district.name"></p>
+                                                    <p class="mt-1 truncate text-xs text-amber-300 font-bold" x-text="`Lot ${district.lot_number}`"></p>
+                                                    <p class="mt-1 truncate text-xs text-slate-400" x-text="`${district.participant_count} peserta`"></p>
+                                                    <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
+                                                        <span class="inline-flex rounded-full border px-2.5 py-1" :class="district.score_count > 0 ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-slate-700 bg-slate-900/80 text-slate-400'" x-text="district.scoring_status"></span>
+                                                        <span class="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-200" x-show="district.score_count > 0">
+                                                            <span x-text="`Avg ${district.average_score}`"></span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <?php else: ?>
+                                    <!-- Regular: Participant List -->
                                     <div class="max-h-80 overflow-y-auto rounded-[1.4rem] border border-slate-800 bg-slate-950/95 p-2 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.9)]">
                                         <div class="px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">Daftar Peserta</div>
                                         <template x-if="filteredParticipants.length === 0">
@@ -1019,27 +1071,28 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             </button>
                                         </template>
                                     </div>
+                                    <?php endif; ?>
                                             <div class="flex flex-wrap gap-3">
-                                                <button type="button" class="secondary-button px-4 py-3" x-on:click="resetSearch()" :disabled="!search && !selectedParticipant" x-bind:class="!search && !selectedParticipant ? 'cursor-not-allowed opacity-60' : ''">
+                                                <button type="button" class="secondary-button px-4 py-3" x-on:click="resetSearch()" :disabled="!search && !selectedParticipant && !selectedDistrict" x-bind:class="!search && !selectedParticipant && !selectedDistrict ? 'cursor-not-allowed opacity-60' : ''">
                                                     <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                                                     Bersihkan
                                                 </button>
-                                                <button type="button" class="primary-button px-4 py-3" x-on:click="goToSelected()" :disabled="!selectedParticipant" x-bind:class="!selectedParticipant ? 'cursor-not-allowed opacity-60' : ''">
+                                                <button type="button" class="primary-button px-4 py-3" x-on:click="goToSelected()" :disabled="!selectedParticipant && !selectedDistrict" x-bind:class="!selectedParticipant && !selectedDistrict ? 'cursor-not-allowed opacity-60' : ''">
                                                     <?= mtq_icon('chart', 'h-4 w-4') ?>
-                                                    Aktifkan Peserta
+                                                    <span x-text="isMsq ? 'Aktifkan Kecamatan' : 'Aktifkan Peserta'"></span>
                                                 </button>
                                             </div>
                                 </div>
                                 <div class="mt-5 rounded-[1.5rem] border border-slate-800 bg-slate-950/45 p-4">
                                     <div class="flex items-center justify-between gap-3">
                                         <div>
-                                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">Peserta Terpilih</p>
-                                            <h3 class="mt-1 text-lg font-bold text-white" x-text="selectedParticipant ? selectedParticipant.name : 'Belum ada peserta dipilih'"></h3>
+                                            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200" x-text="isMsq ? 'Kecamatan Terpilih' : 'Peserta Terpilih'"></p>
+                                            <h3 class="mt-1 text-lg font-bold text-white" x-text="isMsq ? (selectedDistrict ? selectedDistrict.name : 'Belum ada kecamatan dipilih') : (selectedParticipant ? selectedParticipant.name : 'Belum ada peserta dipilih')"></h3>
                                         </div>
-                                        <template x-if="selectedParticipant">
+                                        <template x-if="selectedParticipant || selectedDistrict">
                                             <div class="status-pill">
                                                 <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
-                                                <span x-text="selectedParticipant.lot_number"></span>
+                                                <span x-text="selectedDistrict ? selectedDistrict.lot_number : selectedParticipant?.lot_number"></span>
                                             </div>
                                         </template>
                                     </div>
@@ -1737,7 +1790,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
         function participantPicker(initialState) {
             return {
                 participants: initialState.participants ?? [],
+                districts: initialState.districts ?? [],
                 selectedId: String(initialState.selectedId ?? ''),
+                selectedDistrictId: initialState.selectedDistrictId ?? null,
                 search: '',
                 scoreFilterMode: 'all',
                 dropdownOpen: false,
@@ -1754,6 +1809,12 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 },
                 get selectedParticipant() {
                     return this.participants.find((participant) => String(participant.id) === String(this.selectedId)) ?? null;
+                },
+                get selectedDistrict() {
+                    return this.districts.find((d) => d.id === this.selectedDistrictId) ?? null;
+                },
+                get isMsq() {
+                    return this.districts.length > 0;
                 },
                 get filteredParticipants() {
                     const keyword = this.search.trim().toLowerCase();
@@ -1795,9 +1856,59 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         return String(a.name || '').localeCompare(String(b.name || ''), 'id', { sensitivity: 'base' });
                     }).slice(0, 12);
                 },
+                get filteredDistricts() {
+                    const keyword = this.search.trim().toLowerCase();
+
+                    return this.districts.filter((district) => {
+                        const hasScores = Number(district.score_count || 0) > 0;
+                        if (this.scoreFilterMode === 'scored' && !hasScores) {
+                            return false;
+                        }
+
+                        if (this.scoreFilterMode === 'unscored' && hasScores) {
+                            return false;
+                        }
+
+                        const haystack = [
+                            district.name,
+                            district.lot_number,
+                        ].join(' ').toLowerCase();
+
+                        return keyword === '' || haystack.includes(keyword);
+                    }).sort((a, b) => {
+                        const aScored = Number(a.score_count || 0) > 0 ? 1 : 0;
+                        const bScored = Number(b.score_count || 0) > 0 ? 1 : 0;
+
+                        if (aScored !== bScored) {
+                            return aScored - bScored;
+                        }
+
+                        const aLot = String(a.lot_number || '').localeCompare(String(b.lot_number || ''), 'id', { numeric: true, sensitivity: 'base' });
+                        return aLot;
+                    }).slice(0, 12);
+                },
                 selectParticipant(participant) {
                     // Show confirmation modal first
                     this.showBigScreenConfirmation(participant);
+                },
+                selectDistrict(district) {
+                    // For MSQ: select district and show first participant of that district
+                    this.selectedDistrictId = district.id;
+                    // Match using district_id (numeric)
+                    const districtNumericId = district.district_id;
+                    const firstParticipant = this.participants.find((p) => Number(p.district_id) === Number(districtNumericId));
+                    if (firstParticipant) {
+                        this.selectedId = String(firstParticipant.id);
+                        this.showBigScreenConfirmation(firstParticipant);
+                    } else {
+                        // No participant found for this district
+                        Swal.fire({
+                            title: 'Tidak Ada Peserta',
+                            text: `Tidak ada peserta terverifikasi untuk ${district.name}`,
+                            icon: 'warning',
+                            confirmButtonText: 'OK'
+                        });
+                    }
                 },
                 async showBigScreenConfirmation(participant) {
                     // Show SweetAlert confirmation

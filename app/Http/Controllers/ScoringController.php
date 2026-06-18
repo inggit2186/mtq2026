@@ -123,6 +123,7 @@ class ScoringController extends Controller
                 ->find($filters['competition_category_id'])
             : $selectedParticipant?->category;
         $selectedCategoryIsMfq = (bool) ($selectedCategory && $this->isMfqCategory($selectedCategory));
+        $selectedCategoryIsMsq = (bool) ($selectedCategory && filled($selectedCategory->maqra_system_type) && $selectedCategory->maqra_system_type === 'syarhil');
         $scoringSetting = ScoringSetting::forCategory($selectedCategory?->id);
         $judgingRounds = $this->judgingRoundsForSetting($scoringSetting);
         $selectedJudgingRound = in_array(($filters['judging_round'] ?? null), $judgingRounds, true)
@@ -280,7 +281,64 @@ class ScoringController extends Controller
                 'judge_total' => count($judgeNames),
                 'criteria_total' => count($criteria),
             ],
+
+            // MSQ specific: group participants by district for lot-based scoring
+            'selectedCategoryIsMsq' => $selectedCategoryIsMsq,
+            'districtOptions' => $selectedCategoryIsMsq
+                ? $this->buildDistrictOptionsForMsq($participants, $selectedJudgingRound)
+                : [],
         ]);
+    }
+
+    /**
+     * Build district/lot options for MSQ scoring.
+     * Groups participants by district and calculates aggregate scores.
+     */
+    protected function buildDistrictOptionsForMsq($participants, string $selectedJudgingRound): array
+    {
+        if ($participants->isEmpty()) {
+            return [];
+        }
+
+        // Group participants by district
+        $byDistrict = $participants->groupBy(fn ($p) => (int) $p->district_id);
+
+        return $byDistrict->map(function ($districtParticipants, $districtId) use ($selectedJudgingRound) {
+            // Get representative participant (first with lot_number)
+            $representative = $districtParticipants->firstWhere('lot_number', '!=', null)
+                ?? $districtParticipants->firstWhere('lot_number', '!=', '')
+                ?? $districtParticipants->first();
+
+            // Aggregate scores from all participants in district
+            $allScores = $districtParticipants->flatMap(fn ($p) => $p->scores ?? collect());
+            $roundScores = $allScores->where('judging_round', $selectedJudgingRound);
+
+            // Calculate aggregate metrics
+            $scoreCount = $roundScores->count();
+            $averageScore = $roundScores->avg('score') ?? 0;
+            $latestScore = $roundScores->sortByDesc('submitted_at')->first()?->score ?? 0;
+
+            // Count participants
+            $participantCount = $districtParticipants->count();
+            $scoredCount = $roundScores->pluck('participant_id')->unique()->count();
+
+            return [
+                'id' => 'district_'.$districtId,
+                'district_id' => $districtId,
+                'name' => $representative?->district?->name ?? 'Kecamatan '.$districtId,
+                'lot_number' => $representative?->lot_number ?? '-',
+                'participant_count' => $participantCount,
+                'scored_count' => $scoredCount,
+                'score_count' => $scoreCount,
+                'average_score' => number_format((float) $averageScore, 2),
+                'latest_score' => number_format((float) $latestScore, 2),
+                'scoring_status' => $scoreCount > 0 ? 'Sudah Dinilai' : 'Belum Dinilai',
+                'all_scored' => $scoredCount >= $participantCount,
+                'photo' => $representative?->document_photo
+                    ? asset('storage/'.$representative->document_photo)
+                    : null,
+            ];
+        })->values()->all();
     }
 
     public function requestSettingEdit(Request $request): RedirectResponse
@@ -499,10 +557,34 @@ class ScoringController extends Controller
             ]);
         }
 
-        if ($participant->scores()->exists()) {
-            throw ValidationException::withMessages([
-                'participant_id' => 'Peserta ini sudah pernah dinilai. Gunakan Request Perbaikan Nilai untuk mengajukan nilai baru.',
-            ]);
+        // Check if this is MSQ (Syarhil Quran) - district-based scoring
+        $category = $participant->category;
+        $isMsqCategory = filled($category?->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+
+        // For MSQ: get all participants in the same district that haven't been scored yet
+        // For regular: just the selected participant
+        if ($isMsqCategory) {
+            $participantsToScore = Participant::query()
+                ->where('competition_category_id', $participant->competition_category_id)
+                ->where('district_id', $participant->district_id)
+                ->where('verification_status', 'verified')
+                ->whereDoesntHave('scores', function ($query) use ($validated) {
+                    $query->where('judging_round', $validated['judging_round']);
+                })
+                ->get();
+
+            if ($participantsToScore->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'participant_id' => 'Semua peserta di kecamatan ini sudah dinilai untuk babak '.$validated['judging_round'].'.',
+                ]);
+            }
+        } else {
+            if ($participant->scores()->exists()) {
+                throw ValidationException::withMessages([
+                    'participant_id' => 'Peserta ini sudah pernah dinilai. Gunakan Request Perbaikan Nilai untuk mengajukan nilai baru.',
+                ]);
+            }
+            $participantsToScore = collect([$participant]);
         }
 
         $judgingRounds = $this->judgingRoundsForSetting($scoringSetting);
@@ -614,47 +696,60 @@ class ScoringController extends Controller
             2
         );
 
-        // Create single aggregated score entry
-        $scoreEntry = ScoreEntry::create([
-            'participant_id' => $participant->id,
-            'judging_round' => $validated['judging_round'],
-            'scores' => $allJudgeScores,
-            'average_score' => $averageScore,
-            'submitted_at' => now(),
-        ]);
+        // Create score entries for all participants (for MSQ) or single participant (regular)
+        $createdScoreEntries = [];
+        $districtName = $participant->district?->name ?? 'Kecamatan '.$participant->district_id;
 
-        // Broadcast single event
-        //RealtimeBroadcaster::dispatch(new ScoreUpdated($scoreEntry));
-
-        // Log dengan detail lengkap untuk backup/jaga-jaga jika ada error sistem
-        ActivityLogger::log(
-            'scoring.score.created',
-            (auth()->user()?->name ?? 'Panitia').' menginput nilai '.$validated['judging_round'].' untuk peserta '.$participant->name.'.',
-            $participant,
-            [
-                'participant_id' => $participant->id,
-                'participant_name' => $participant->name,
-                'registration_number' => $participant->registration_number,
-                'lot_number' => $participant->lot_number,
-                'category_id' => $participant->competition_category_id,
-                'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
+        foreach ($participantsToScore as $p) {
+            $scoreEntry = ScoreEntry::create([
+                'participant_id' => $p->id,
                 'judging_round' => $validated['judging_round'],
-                'judge_total' => count($allJudgeScores),
-                'total_score' => $averageScore,
-                'point_totals' => $pointTotals,
-                'judge_scores' => $allJudgeScores,
-                'submitted_at' => now()->toIso8601String(),
-                'input_by_user_id' => auth()->id(),
-                'input_by_user_name' => auth()->user()?->name,
-                'input_by_user_role' => auth()->user()?->role,
-                'ip_address' => $request->ip(),
-            ]
-        );
+                'scores' => $allJudgeScores,
+                'average_score' => $averageScore,
+                'submitted_at' => now(),
+            ]);
+            $createdScoreEntries[] = $scoreEntry;
+
+            // Log activity for each entry
+            ActivityLogger::log(
+                'scoring.score.created',
+                (auth()->user()?->name ?? 'Panitia').' menginput nilai '.$validated['judging_round'].($isMsqCategory ? ' (MSQ)' : '').' untuk peserta '.$p->name.'.',
+                $p,
+                [
+                    'participant_id' => $p->id,
+                    'participant_name' => $p->name,
+                    'registration_number' => $p->registration_number,
+                    'lot_number' => $p->lot_number,
+                    'category_id' => $p->competition_category_id,
+                    'category_label' => trim((string) ($category?->branch ?? '').' - '.(string) ($category?->name ?? '')),
+                    'district_id' => $isMsqCategory ? $p->district_id : null,
+                    'district_name' => $isMsqCategory ? $districtName : null,
+                    'judging_round' => $validated['judging_round'],
+                    'judge_total' => count($allJudgeScores),
+                    'total_score' => $averageScore,
+                    'point_totals' => $pointTotals,
+                    'judge_scores' => $allJudgeScores,
+                    'submitted_at' => now()->toIso8601String(),
+                    'input_by_user_id' => auth()->id(),
+                    'input_by_user_name' => auth()->user()?->name,
+                    'input_by_user_role' => auth()->user()?->role,
+                    'ip_address' => $request->ip(),
+                ]
+            );
+        }
+
+        // Determine success message based on count
+        $savedCount = count($createdScoreEntries);
+        if ($isMsqCategory && $savedCount > 1) {
+            $successMessage = "Nilai {$savedCount} peserta di {$districtName} berhasil disimpan untuk babak {$validated['judging_round']}.";
+        } else {
+            $successMessage = "Nomor lot {$participant->lot_number} · {$participant->name} · babak {$validated['judging_round']} berhasil disimpan.";
+        }
 
         $redirectUrl = route('scoring', [
                 'participant_id' => $participant->id,
                 'competition_category_id' => $participant->competition_category_id,
-                'branch' => $participant->category?->branch,
+                'branch' => $category?->branch,
                 'judging_round' => $validated['judging_round'],
                 'step' => 3,
                 'judge_index' => (int) ($validated['active_judge_index'] ?? 0),
@@ -665,7 +760,7 @@ class ScoringController extends Controller
             ->with('toast', [
                 'tone' => 'success',
                 'title' => 'Nilai tersimpan',
-                'message' => 'Nomor lot '.$participant->lot_number.' · '.$participant->name.' · babak '.$validated['judging_round'].' berhasil disimpan. Panel tetap di Step 3.',
+                'message' => $successMessage,
             ]);
     }
 
