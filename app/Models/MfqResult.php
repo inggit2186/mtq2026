@@ -13,6 +13,7 @@ class MfqResult extends Model
     protected $fillable = [
         'mfq_session_id',
         'participant_id',
+        'district_id',
         'round',
         'rank',
         'total_score',
@@ -35,5 +36,10 @@ class MfqResult extends Model
     public function participant(): BelongsTo
     {
         return $this->belongsTo(Participant::class);
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(District::class);
     }
 }

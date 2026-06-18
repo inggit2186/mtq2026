@@ -40,11 +40,6 @@ class MfqSession extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function scores(): HasMany
-    {
-        return $this->hasMany(ScoreEntry::class);
-    }
-
     public function results(): HasMany
     {
         return $this->hasMany(MfqResult::class);

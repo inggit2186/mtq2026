@@ -17,6 +17,19 @@ $categoryJudgeIds = $categoryJudgeIds ?? [];
 $completedSessions = $completedSessions ?? ['Penyisihan' => collect(), 'Final' => collect()];
 $rankingsData = $rankingsData ?? ['Penyisihan' => collect(), 'Final' => collect()];
 $displayedLotNumbers = $displayedLotNumbers ?? [];
+$activeRound = $activeRound ?? null;
+
+// Count how many districts have been displayed in this round
+$displayedCount = 0;
+foreach ($participantsByDistrict as $districtId => $participants) {
+    $representative = $participants->firstWhere('lot_number', '!=', null)
+        ?? $participants->firstWhere('lot_number', '!=', '')
+        ?? $participants->first();
+    $lotNumber = $representative?->lot_number ?? '';
+    if (in_array($lotNumber, $displayedLotNumbers)) {
+        $displayedCount++;
+    }
+}
 
 // Default judges passed from controller (pre-populated with official judges from category)
 $defaultJudges = $defaultJudges ?? [$user?->name ?? ''];
@@ -774,8 +787,21 @@ $selectedDistrictIds = $activeSession?->district_ids ?? [];
                             <?= mtq_icon('map-pin', 'h-7 w-7 text-emerald-300') ?>
                         </div>
                         <div class="flex-1">
-                            <h3 class="text-xl font-bold text-white">Pilih Kecamatan</h3>
-                            <p class="mt-2 text-sm text-slate-400">Pilih 2 sampai 5 kecamatan yang akan bertanding dalam sesi ini.</p>
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-xl font-bold text-white">Pilih Kecamatan</h3>
+                                <?php if ($activeRound): ?>
+                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+                                    <?= mtq_icon('spark', 'h-3 w-3') ?>
+                                    <?= e($activeRound) ?>
+                                </span>
+                                <?php endif; ?>
+                            </div>
+                            <p class="mt-2 text-sm text-slate-400">
+                                Pilih 2 sampai 5 kecamatan yang akan bertanding dalam sesi ini.
+                                <?php if ($displayedCount > 0): ?>
+                                <span class="text-amber-300">(<?= $displayedCount ?> kecamatan sudah tampil di <?= e($activeRound ?? 'babak') ?> ini)</span>
+                                <?php endif; ?>
+                            </p>
                         </div>
                     </div>
 

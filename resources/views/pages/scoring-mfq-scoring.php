@@ -369,38 +369,16 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 </div>
 
                 <div class="flex items-center gap-4">
-                    <!-- Auto-save Status -->
+                    <!-- Districts Saved Status -->
                     <div class="stat-card rounded-2xl px-4 py-3 flex items-center gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-xl"
-                             :class="draftSaveError ? 'bg-rose-400/20' : (isSavingDraft ? 'bg-amber-400/20' : 'bg-emerald-400/20')">
-                            <template x-if="isSavingDraft">
-                                <svg class="animate-spin h-5 w-5 text-amber-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </template>
-                            <template x-if="!isSavingDraft && draftSaveError">
-                                <?php echo mtq_icon('alert-triangle', 'h-5 w-5 text-rose-300'); ?>
-                            </template>
-                            <template x-if="!isSavingDraft && !draftSaveError && lastDraftSave">
-                                <?php echo mtq_icon('check-circle', 'h-5 w-5 text-emerald-300'); ?>
-                            </template>
-                            <template x-if="!isSavingDraft && !draftSaveError && !lastDraftSave">
-                                <?php echo mtq_icon('cloud', 'h-5 w-5 text-slate-400'); ?>
-                            </template>
+                             :class="savedDistrictCount() === districts.length ? 'bg-emerald-400/20' : 'bg-amber-400/20'">
+                            <?php echo mtq_icon('check-circle', 'h-5 w-5 text-emerald-300'); ?>
                         </div>
                         <div>
-                            <p class="text-xs font-medium text-slate-400">
-                                <span x-show="isSavingDraft">Menyimpan...</span>
-                                <span x-show="!isSavingDraft && draftSaveError">Offline</span>
-                                <span x-show="!isSavingDraft && !draftSaveError && lastDraftSave">Tersimpan</span>
-                                <span x-show="!isSavingDraft && !draftSaveError && !lastDraftSave">Auto-save</span>
-                            </p>
-                            <p x-show="!isSavingDraft && !draftSaveError && lastDraftSave"
-                               x-text="lastDraftSave ? 'Terakhir: ' + lastDraftSave.toLocaleTimeString('id-ID') : ''"
-                               class="text-[10px] text-slate-500"></p>
-                            <p x-show="!isSavingDraft && draftSaveError" class="text-[10px] text-rose-400">
-                                <span x-text="draftSaveError"></span>
+                            <p class="text-xs font-medium text-slate-400">District Tersimpan</p>
+                            <p class="text-lg font-black" :class="savedDistrictCount() === districts.length ? 'text-emerald-300' : 'text-amber-300'">
+                                <span x-text="savedDistrictCount()"></span>/<span x-text="districts.length"></span>
                             </p>
                         </div>
                     </div>
@@ -568,7 +546,7 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                                         <td class="border-l border-slate-700/30 bg-gradient-to-b from-orange-500/15 to-orange-500/5 px-2 py-1">
                                             <input type="number" min="0" max="100" x-model.number="question.paket"
                                                    @input="updateQuestionTotal(question.id)"
-                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-orange-200 outline-none input-glow-orange" placeholder="-">
+                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-orange-200 outline-none input-glow-orange" placeholder="">
                                         </td>
                                         <template x-for="(opponent, oIndex) in getOpponents(district.district_id)" :key="'td-' + question.id + '-' + opponent.district_id">
                                             <td class="border-l border-slate-700/30 px-1 py-1"
@@ -578,13 +556,13 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                                                        @input="updateQuestionTotal(question.id)"
                                                        class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold outline-none"
                                                        :class="oIndex === 0 ? 'text-sky-200 input-glow-sky' : oIndex === 1 ? 'text-violet-200 input-glow-violet' : 'text-pink-200 input-glow-pink'"
-                                                       placeholder="-">
+                                                       placeholder="">
                                             </td>
                                         </template>
                                         <td class="border-l border-slate-700/30 bg-gradient-to-b from-rose-500/15 to-rose-500/5 px-2 py-1">
                                             <input type="number" min="-100" max="100" x-model.number="question.rebutan"
                                                    @input="updateQuestionTotal(question.id)"
-                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-rose-200 outline-none input-glow-rose" placeholder="-">
+                                                   class="score-input w-full rounded-xl bg-slate-800/90 py-3 text-center text-xl font-bold text-rose-200 outline-none input-glow-rose" placeholder="">
                                         </td>
                                         <td class="border-l border-slate-700/30 bg-gradient-to-b from-cyan-500/15 to-cyan-500/5 px-2 py-2">
                                             <div class="flex items-center justify-center gap-1">
@@ -748,14 +726,33 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 this.questions = [];
                 this.generateInitialQuestions();
 
-                // Try localStorage first
+                // Restore from scores_detail in districtCards (server-side saved data)
+                this.districts.forEach(function(district) {
+                    if (district.scores_detail && district.scores_detail.questions) {
+                        // Restore saved questions for this district
+                        var savedQuestions = district.scores_detail.questions;
+                        // Remove auto-generated questions for this district
+                        self.questions = self.questions.filter(function(q) { return q.districtId != district.district_id; });
+                        // Add saved questions
+                        savedQuestions.forEach(function(sq, idx) {
+                            var q = { id: 'q-' + district.district_id + '-restored-' + idx, districtId: district.district_id, paket: sq.package_score || 0, rowTotal: sq.row_total || 0 };
+                            var oppCount = self.getOpponentCount(district.district_id);
+                            for (var j = 1; j <= oppCount; j++) {
+                                q['lontaran' + j] = sq.throw_scores && sq.throw_scores[j - 1] ? sq.throw_scores[j - 1] : 0;
+                            }
+                            q.rebutan = sq.rebuttal_score || 0;
+                            self.questions.push(q);
+                        });
+                    }
+                });
+
+                // Try localStorage as override (user's in-progress data takes priority)
                 var stored = this.getFromStorage();
                 if (stored && stored.questions && stored.questions.length > 0) {
                     this.questions = stored.questions;
                 }
 
-                // Then try server drafts for recovery
-                this.fetchServerDrafts();
+                // Note: Server drafts (fetchServerDrafts) disabled - data now saved directly to mfq_results
 
                 if (this.judges && this.judges.length > 0) {
                     this.activeJudge = this.judges[0];
@@ -763,8 +760,7 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
 
                 this.recalculateAll();
 
-                // Start auto-save interval (every 30 seconds)
-                this.startAutoSave();
+                // No auto-save interval - data is saved directly on submit
             },
 
             judges: <?php echo $judgesJson; ?>,
@@ -1069,6 +1065,14 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                 return total;
             },
 
+            savedDistrictCount: function() {
+                var count = 0;
+                this.districts.forEach(function(d) {
+                    if (d.is_saved && d.total_score > 0) count++;
+                });
+                return count;
+            },
+
             grandTotal: function() {
                 var total = 0;
                 for (var i = 0; i < this.questions.length; i++) total += this.questions[i].rowTotal || 0;
@@ -1117,9 +1121,8 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
             },
 
             saveDraft: function() {
-                // Save to both localStorage and server
+                // Save to localStorage only
                 this.saveToStorage();
-                this.autoSaveAllDrafts();
                 alert('Draft tersimpan!');
             },
 
@@ -1147,73 +1150,111 @@ $participantsByDistrictJson = $participantsByDistrictJson ?? '{}';
                     return;
                 }
 
-                // CRITICAL: Save to localStorage FIRST as backup before any network request
+                // Save to localStorage as backup
                 this.saveToStorage();
-                this.stopAutoSave(); // Stop auto-save during submission
 
                 this.isSubmitting = true;
                 var byDistrict = {};
                 filled.forEach(function(q) { if (!byDistrict[q.districtId]) byDistrict[q.districtId] = []; byDistrict[q.districtId].push(q); });
-                var ids = Object.keys(byDistrict);
+                var districtIds = Object.keys(byDistrict);
                 var submitted = 0;
-                var total = ids.length;
+                var total = districtIds.length;
                 var errors = [];
 
-                ids.forEach(function(districtId) {
-                    var qs = byDistrict[districtId], district = null;
+                districtIds.forEach(function(districtId) {
+                    var qs = byDistrict[districtId];
+                    var district = null;
                     for (var i = 0; i < self.districts.length; i++) {
                         if (self.districts[i].district_id == districtId) { district = self.districts[i]; break; }
                     }
-                    if (!district || !district.representative || !district.representative.id) {
+                    if (!district) {
+                        console.error('District not found for districtId:', districtId);
                         submitted++;
+                        if (submitted === total) { self.finishSubmission(errors, byDistrict); }
                         return;
                     }
 
+                    // Build scores_detail
                     var oppCount = self.getOpponentCount(districtId);
-                    var fd = new FormData();
-                    fd.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-                    fd.append('participant_id', district.representative.id);
-                    fd.append('judge_name', self.activeJudge);
-                    fd.append('questions', JSON.stringify(qs.map(function(q, idx) {
+                    var questions = qs.map(function(q, idx) {
                         var throws = [];
                         for (var i = 1; i <= oppCount; i++) throws.push(q['lontaran' + i] || 0);
-                        return { label: 'Soal ' + (idx + 1), package_score: q.paket || 0, throw_scores: throws, rebuttal_score: q.rebutan || 0 };
-                    })));
+                        return {
+                            label: 'Soal ' + (idx + 1),
+                            package_score: q.paket || 0,
+                            throw_scores: throws,
+                            rebuttal_score: q.rebutan || 0
+                        };
+                    });
 
-                    fetch('/penilaian/mfq/sesi/' + self.sessionId + '/nilai', { method: 'POST', body: fd })
+                    // Collect all participant IDs for this district
+                    // Key might be string or number, normalize to string
+                    var districtKey = String(districtId);
+                    var participantsForDistrict = self.participantsByDistrict[districtKey] || self.participantsByDistrict[districtId] || [];
+                    var participantIds = participantsForDistrict.map(function(p) { return p.id; });
+
+                    // Debug log
+                    console.log('Submitting for district:', districtKey, 'participants:', participantIds);
+
+                    if (participantIds.length === 0) {
+                        console.warn('No participants found for district:', districtKey);
+                    }
+
+                    var fd = new FormData();
+                    fd.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+                    fd.append('district_id', districtId);
+                    fd.append('participant_ids', JSON.stringify(participantIds));
+                    fd.append('total_score', self.getDistrictTotal(districtId));
+                    fd.append('scores_detail', JSON.stringify({
+                        district_name: district.district_name,
+                        questions: questions,
+                        package_total: self.getColumnTotal(districtId, 'paket'),
+                        throw_totals: [self.getColumnTotal(districtId, 'lontaran1') || 0, self.getColumnTotal(districtId, 'lontaran2') || 0],
+                        rebuttal_total: self.getColumnTotal(districtId, 'rebutan')
+                    }));
+
+                    fetch('/penilaian/mfq/sesi/' + self.sessionId + '/nilai-kecamatan', { method: 'POST', body: fd })
                     .then(function(response) {
                         if (!response.ok) {
-                            throw new Error('HTTP ' + response.status);
-                        }
-                        submitted++;
-                        if (submitted === total) {
-                            // SUCCESS: All submitted, clear localStorage and server drafts
-                            self.clearAllDrafts(function() {
-                                localStorage.removeItem(self.getStorageKey());
-                                self.isSubmitting = false;
-                                self.startAutoSave(); // Resume auto-save
-                                self.showRankingModal = true;
+                            return response.text().then(function(text) {
+                                throw new Error('HTTP ' + response.status + ': ' + text);
                             });
                         }
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        console.log('Submit response:', data);
+                        submitted++;
+                        if (submitted === total) { self.finishSubmission(errors, byDistrict); }
                     })
                     .catch(function(error) {
                         console.error('Error submitting scores:', error);
                         errors.push(district ? district.district_name : districtId);
                         submitted++;
-                        if (submitted === total) {
-                            self.isSubmitting = false;
-                            self.startAutoSave(); // Resume auto-save
-
-                            // Show single informative message (not alarming)
-                            if (errors.length > 0) {
-                                alert('Beberapa nilai belum terkirim. Data tersimpan di browser - silakan coba kirim lagi.');
-                            } else {
-                                alert('Terjadi gangguan koneksi. Data tersimpan aman di browser.');
-                            }
-                            // Don't show ranking modal on error - let user retry
-                        }
+                        if (submitted === total) { self.finishSubmission(errors, byDistrict); }
                     });
                 });
+            },
+
+            finishSubmission: function(errors, byDistrict) {
+                this.isSubmitting = false;
+                localStorage.removeItem(this.getStorageKey());
+
+                if (!errors.length) {
+                    // Mark submitted districts as saved in local state
+                    var self = this;
+                    Object.keys(byDistrict).forEach(function(districtId) {
+                        for (var i = 0; i < self.districts.length; i++) {
+                            if (self.districts[i].district_id == districtId) {
+                                self.districts[i].is_saved = true;
+                                break;
+                            }
+                        }
+                    });
+                    this.showRankingModal = true;
+                } else {
+                    alert('Beberapa nilai belum terkirim: ' + errors.join(', ') + '. Data tersimpan di browser - silakan coba kirim lagi.');
+                }
             },
 
             // Clear all server drafts for this session and judge

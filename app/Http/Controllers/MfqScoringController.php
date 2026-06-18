@@ -149,9 +149,9 @@ class MfqScoringController extends Controller
                 $completedSessionsByRound[$round]->push($session);
             }
 
-            // Get lot numbers that have been displayed in previous sessions
-            // (same category, same round, but different session)
-            if ($activeSession && $activeSession->round) {
+            // Get lot numbers that have been displayed in previous sessions of the same round
+            // This is used to show "Sudah Tampil" badge on districts that have been in this round
+            if ($activeSession && $activeSession->round && $categoryId) {
                 $previousSessions = MfqSession::where('competition_category_id', $categoryId)
                     ->where('status', 'completed')
                     ->where('round', $activeSession->round)
@@ -159,6 +159,9 @@ class MfqScoringController extends Controller
                     ->get();
 
                 $previousDistrictIds = $previousSessions->pluck('district_ids')->flatten()->unique()->toArray();
+
+                \Log::info('MFQ Index - Previous sessions in round ' . $activeSession->round . ': ' . $previousSessions->count());
+                \Log::info('MFQ Index - Previous district IDs: ' . json_encode($previousDistrictIds));
 
                 if (! empty($previousDistrictIds)) {
                     $displayedParticipants = Participant::whereIn('district_id', $previousDistrictIds)
@@ -169,6 +172,7 @@ class MfqScoringController extends Controller
                         ->toArray();
 
                     $displayedLotNumbers = $displayedParticipants;
+                    \Log::info('MFQ Index - Displayed lot numbers: ' . json_encode($displayedLotNumbers));
                 }
             }
             
@@ -195,22 +199,24 @@ class MfqScoringController extends Controller
                         $session = $sessionResults->first()->session;
                         $sessionNames[$sessionId] = $session?->name ?? 'Sesi ' . $sessionId;
 
-                        $sessionResults->sortBy('rank');
-                        foreach ($sessionResults as $rank) {
-                            $point = match ($rank->rank) {
-                                1 => 3,
-                                2 => 2,
-                                3 => 1,
-                                default => 0,
-                            };
-                            $sessionPoints[$sessionId] = ($sessionPoints[$sessionId] ?? 0) + $point;
-                        }
+                        // Get the rank for this district in this session
+                        // All participants in same district have same rank, so take the first one
+                        $rank = $sessionResults->first()->rank ?? 999;
+
+                        // Calculate points based on rank (once per district per session)
+                        $point = match ($rank) {
+                            1 => 3,
+                            2 => 2,
+                            3 => 1,
+                            default => 0,
+                        };
+                        $sessionPoints[$sessionId] = $point;
                     }
 
-                    // Get best scores per session
+                    // Get best scores per session (take first entry since all have same score)
                     $sessionScores = [];
                     foreach ($districtResults->groupBy('mfq_session_id') as $sessionId => $sessionResults) {
-                        $sessionScores[$sessionId] = $sessionResults->sortByDesc('total_score')->first()->total_score ?? 0;
+                        $sessionScores[$sessionId] = $sessionResults->first()->total_score ?? 0;
                     }
 
                     return [
@@ -244,6 +250,7 @@ class MfqScoringController extends Controller
             'districts' => $districts,
             'sessions' => $sessions,
             'activeSession' => $activeSession,
+            'activeRound' => $activeSession?->round,
             'currentStep' => $currentStep,
             'summaryStats' => $summaryStats,
             'user' => $user,
@@ -610,6 +617,166 @@ class MfqScoringController extends Controller
     }
 
     /**
+     * Submit district-level scores (called from scoring view)
+     * Creates/updates mfq_results for all participants in the district
+     * MFQ scores are per group/district, not individual
+     */
+    public function submitDistrictScore(Request $request, int $sessionId): \Illuminate\Http\JsonResponse
+    {
+        \Log::info('MFQ SubmitDistrictScore - Called with sessionId: ' . $sessionId);
+        \Log::info('MFQ SubmitDistrictScore - Request data: ' . json_encode($request->except('_token')));
+        \Log::info('MFQ SubmitDistrictScore - district_id: ' . $request->input('district_id'));
+        \Log::info('MFQ SubmitDistrictScore - participant_ids raw: ' . $request->input('participant_ids'));
+        \Log::info('MFQ SubmitDistrictScore - total_score: ' . $request->input('total_score'));
+
+        $session = MfqSession::with('category')->findOrFail($sessionId);
+
+        if ($session->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi ini sudah tidak aktif.',
+            ], 400);
+        }
+
+        // Decode JSON fields if sent as strings
+        $participantIdsInput = $request->input('participant_ids');
+        $scoresDetailInput = $request->input('scores_detail');
+
+        if (is_string($participantIdsInput)) {
+            $decoded = json_decode($participantIdsInput, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge(['participant_ids' => $decoded]);
+            }
+        }
+
+        if (is_string($scoresDetailInput)) {
+            $decoded = json_decode($scoresDetailInput, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge(['scores_detail' => $decoded]);
+            }
+        }
+
+        try {
+            $validated = $request->validate([
+                'district_id' => ['required', 'integer', 'exists:districts,id'],
+                'participant_ids' => ['required', 'array', 'min:1'],
+                'participant_ids.*' => ['required', 'integer', 'exists:participants,id'],
+                'total_score' => ['required', 'numeric', 'min:0'],
+                'scores_detail' => ['required', 'array'],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('MFQ SubmitDistrictScore - Validation failed: ' . json_encode($e->errors()));
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        \Log::info('MFQ SubmitDistrictScore - Validation passed');
+
+        // Verify district belongs to this session
+        if (! in_array($validated['district_id'], $session->district_ids ?? [])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kecamatan tidak termasuk dalam sesi ini.',
+            ], 400);
+        }
+
+        $district = District::find($validated['district_id']);
+        $savedCount = 0;
+
+        // MFQ scores are per district/group, not individual
+        // Save mfq_result for each participant in this district with the same district score
+        foreach ($validated['participant_ids'] as $participantId) {
+            $participant = Participant::find($participantId);
+            if (! $participant) {
+                \Log::warning('MFQ SubmitDistrictScore - Participant not found: ' . $participantId);
+                continue;
+            }
+
+            // Verify participant belongs to this district and session
+            if ((int) $participant->district_id !== (int) $validated['district_id']) {
+                \Log::warning('MFQ SubmitDistrictScore - Participant ' . $participantId . ' does not belong to district ' . $validated['district_id']);
+                continue;
+            }
+
+            // Check if this is the representative (first participant gets the main scores)
+            $isRepresentative = ((int) $participantId === (int) $validated['participant_ids'][0]);
+
+            // Build scores_detail for this participant
+            $participantScoresDetail = $validated['scores_detail'];
+
+            // If not representative, we still use the same district scores
+            // but mark it as a team score
+            if (! $isRepresentative) {
+                $participantScoresDetail['is_team_score'] = true;
+                $participantScoresDetail['representative_id'] = $validated['participant_ids'][0];
+            }
+
+            // Upsert mfq_result (idempotent - same total_score for all participants in district)
+            // Rank will be calculated in completeSession
+            try {
+                $existingResult = MfqResult::where('mfq_session_id', $session->id)
+                    ->where('participant_id', $participantId)
+                    ->first();
+
+                if ($existingResult) {
+                    // Update existing result
+                    $existingResult->update([
+                        'district_id' => $validated['district_id'],
+                        'total_score' => $validated['total_score'],
+                        'scores_detail' => $participantScoresDetail,
+                        // Don't update rank - will be calculated in completeSession
+                    ]);
+                    \Log::info('MFQ SubmitDistrictScore - Updated result for participant: ' . $participant->name . ' (ID: ' . $participantId . ')');
+                } else {
+                    // Create new result (rank will be calculated in completeSession)
+                    MfqResult::create([
+                        'mfq_session_id' => $session->id,
+                        'participant_id' => $participantId,
+                        'district_id' => $validated['district_id'],
+                        'round' => $session->round,
+                        'rank' => 0, // Will be calculated in completeSession
+                        'total_score' => $validated['total_score'],
+                        'scores_detail' => $participantScoresDetail,
+                    ]);
+                    \Log::info('MFQ SubmitDistrictScore - Created result for participant: ' . $participant->name . ' (ID: ' . $participantId . ')');
+                }
+
+                $savedCount++;
+            } catch (\Exception $e) {
+                \Log::error('MFQ SubmitDistrictScore - Failed to save for participant ' . $participantId . ': ' . $e->getMessage());
+            }
+        }
+
+        \Log::info('MFQ SubmitDistrictScore - Total saved: ' . $savedCount);
+
+        // Log activity
+        ActivityLogger::log(
+            'scoring.mfq.district_score_submitted',
+            auth()->user()?->name.' menyimpan nilai MFQ untuk kecamatan ' . ($district?->name ?? $validated['district_id']),
+            null,
+            [
+                'session_id' => $session->id,
+                'district_id' => $validated['district_id'],
+                'district_name' => $district?->name,
+                'participant_count' => count($validated['participant_ids']),
+                'total_score' => $validated['total_score'],
+            ]
+        );
+
+        return response()->json([
+            'success' => $savedCount > 0,
+            'message' => $savedCount > 0
+                ? "Nilai untuk {$savedCount} peserta di kecamatan {$district?->name} berhasil disimpan."
+                : "Gagal menyimpan nilai. Pastikan participant_ids valid.",
+            'saved_count' => $savedCount,
+            'expected_count' => count($validated['participant_ids']),
+        ]);
+    }
+
+    /**
      * Auto-save draft to server (for recovery if connection fails)
      */
     public function saveDraft(Request $request, int $sessionId): \Illuminate\Http\JsonResponse
@@ -715,80 +882,57 @@ class MfqScoringController extends Controller
         \Log::info('MFQ CompleteSession - Session ID: ' . $session->id);
         \Log::info('MFQ CompleteSession - District IDs: ' . json_encode($session->district_ids));
 
-        // Calculate rankings and save results
-        $districtIds = $session->district_ids ?? [];
+        // MFQ scores are per district/group
+        // Read directly from mfq_results (saved by submitDistrictScore)
+        // Only calculate and update the rankings
         $savedCount = 0;
 
-        if (! empty($districtIds)) {
-            // Get participants from selected districts
-            $participantIds = Participant::where('competition_category_id', $session->competition_category_id)
-                ->whereIn('district_id', $districtIds)
-                ->where('verification_status', 'verified')
-                ->pluck('id')
-                ->toArray();
+        // Get all mfq_results for this session with scores > 0
+        $results = MfqResult::with(['participant.district'])
+            ->where('mfq_session_id', $session->id)
+            ->where('total_score', '>', 0)
+            ->get();
 
-            \Log::info('MFQ CompleteSession - Participant IDs: ' . json_encode($participantIds));
+        \Log::info('MFQ CompleteSession - Results found: ' . $results->count());
 
-            // Get all score entries for these participants
-            $allScoreEntries = ScoreEntry::whereIn('participant_id', $participantIds)->get();
-            \Log::info('MFQ CompleteSession - Total ScoreEntries found: ' . $allScoreEntries->count());
+        if ($results->isNotEmpty()) {
+            // Group by district to get one ranking entry per district
+            // Since all participants in same district have same score,
+            // we only need one entry per district for ranking
+            $districtResults = $results->groupBy('district_id')->map(function ($districtEntries) {
+                return $districtEntries->first(); // Take first entry as representative
+            })->values();
 
-            // Filter only entries with score > 0
-            $scoreEntries = $allScoreEntries->filter(function ($entry) {
-                return $entry->score > 0;
-            })->groupBy('participant_id');
+            // Sort by total_score descending
+            $sortedResults = $districtResults->sortByDesc('total_score')->values();
 
-            \Log::info('MFQ CompleteSession - ScoreEntries with score > 0: ' . $scoreEntries->count());
-
-            // Calculate total scores per participant
-            $participantScores = [];
-            foreach ($scoreEntries as $participantId => $entries) {
-                $totalScore = $entries->sum('score');
-
-                $participant = Participant::with('district')->find($participantId);
-                if (! $participant) {
-                    continue;
-                }
-
-                \Log::info('MFQ CompleteSession - Processing participant: ' . $participant->name . ', Score: ' . $totalScore);
-
-                // Build scores detail
-                $scoresDetail = [];
-                foreach ($entries as $entry) {
-                    $judgeName = $entry->judge_name ?? 'Unknown';
-                    $scoresDetail[$judgeName] = [
-                        'score' => (float) $entry->score,
-                        'breakdown' => $entry->score_breakdown ?? [],
-                    ];
-                }
-
-                $participantScores[] = [
-                    'participant' => $participant,
-                    'total_score' => $totalScore,
-                    'scores_detail' => $scoresDetail,
-                ];
+            \Log::info('MFQ CompleteSession - Districts to rank: ' . $sortedResults->count());
+            foreach ($sortedResults as $r) {
+                \Log::info('MFQ CompleteSession - Sorted: district=' . $r->district_id . ', score=' . $r->total_score);
             }
 
-            // Sort by total score (descending)
-            usort($participantScores, fn ($a, $b) => $b['total_score'] <=> $a['total_score']);
+            // Update ranks for all results
+            // Track actual position in sorted list (0-based)
+            $position = 0;
+            $prevScore = null;
+            foreach ($sortedResults as $result) {
+                // If same score as previous, keep same rank (tie)
+                // If lower score, rank = position + 1
+                if ($prevScore !== null && $result->total_score < $prevScore) {
+                    $position++;
+                }
 
-            \Log::info('MFQ CompleteSession - Participants to save: ' . count($participantScores));
+                $rank = $position + 1;
 
-            // Delete old results for this session
-            MfqResult::where('mfq_session_id', $session->id)->delete();
+                // Update rank for ALL participants in this district
+                MfqResult::where('mfq_session_id', $session->id)
+                    ->where('district_id', $result->district_id)
+                    ->update(['rank' => $rank]);
 
-            // Save rankings to mfq_results
-            foreach ($participantScores as $index => $data) {
-                MfqResult::create([
-                    'mfq_session_id' => $session->id,
-                    'participant_id' => $data['participant']->id,
-                    'round' => $session->round,
-                    'rank' => $index + 1,
-                    'total_score' => $data['total_score'],
-                    'scores_detail' => $data['scores_detail'],
-                ]);
                 $savedCount++;
-                \Log::info('MFQ CompleteSession - Saved rank ' . ($index + 1) . ' for ' . $data['participant']->name);
+                \Log::info('MFQ CompleteSession - Rank ' . $rank . ' for district ID: ' . $result->district_id . ' (Score: ' . $result->total_score . ', Position: ' . $position . ')');
+
+                $prevScore = $result->total_score;
             }
         }
 

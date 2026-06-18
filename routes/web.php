@@ -186,6 +186,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/mfq/sesi/{sessionId}/kecamatan', [MfqScoringController::class, 'selectDistricts'])->middleware('role:admin,panitia')->name('scoring.mfq.districts.store');
     Route::get('/penilaian/mfq/sesi/{sessionId}/nilai', [MfqScoringController::class, 'scoring'])->middleware('role:admin,panitia')->name('scoring.mfq.scoring');
     Route::post('/penilaian/mfq/sesi/{sessionId}/nilai', [MfqScoringController::class, 'storeScore'])->middleware('role:admin,panitia')->name('scoring.mfq.score.store');
+    Route::post('/penilaian/mfq/sesi/{sessionId}/nilai-kecamatan', [MfqScoringController::class, 'submitDistrictScore'])->middleware('role:admin,panitia')->name('scoring.mfq.district.score.store');
     Route::post('/penilaian/mfq/sesi/{sessionId}/selesai', [MfqScoringController::class, 'completeSession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.complete');
     Route::post('/penilaian/mfq/sesi/{sessionId}/hapus', [MfqScoringController::class, 'destroySession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.destroy');
     // Draft endpoints for data safety
