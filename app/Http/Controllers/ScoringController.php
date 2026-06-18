@@ -721,6 +721,14 @@ class ScoringController extends Controller
             2
         );
 
+        \Log::info('SCORE_SAVED', [
+            'participant_id' => $participant->id,
+            'judging_round' => $validated['judging_round'],
+            'judge_ids_used' => array_keys($allJudgeScores),
+            'all_judge_scores' => $allJudgeScores,
+            'average_score' => $averageScore,
+        ]);
+
         // Create score entries for all participants (for MSQ) or single participant (regular)
         $createdScoreEntries = [];
         $districtName = $participant->district?->name ?? 'Kecamatan '.$participant->district_id;

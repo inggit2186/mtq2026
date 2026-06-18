@@ -3486,8 +3486,13 @@ class PageController extends Controller
             return 1;
         }
 
-        // Special case: Khatib and Adzan categories use per-participant lot (1:1)
-        if (in_array($slug, ['khutbah-jumat-dan-adzan-khatib', 'khutbah-jumat-dan-adzan-adzan'])) {
+        // Special case: Khatib category uses pair (1 kecamatan = 2 peserta berbagi lot)
+        if ($category->isKhatibCategory()) {
+            return 2;
+        }
+
+        // Adzan/Muadzin uses shared lot from Khatib (1:1 for this category, but lot is shared with Khatib)
+        if ($slug === 'khutbah-jumat-dan-adzan-adzan') {
             return 1;
         }
 

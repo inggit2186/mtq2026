@@ -67,6 +67,8 @@ class Participant extends Model
             'document_certificates' => 'array',
             'document_other_files' => 'array',
             'document_revision_notes' => 'array',
+            'district_id' => 'integer',
+            'competition_category_id' => 'integer',
         ];
     }
 
@@ -182,5 +184,60 @@ class Participant extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Get the paired participant from the same district and gender who is still in the old combined category.
+     * Used for Khatib/Muadzin lot sharing (1 kecamatan = 2 peserta).
+     *
+     * @param int|null $oldCategoryId The old category ID to search in. If null, uses $this->competition_category_id.
+     */
+    public function getPairedParticipant(?int $oldCategoryId = null): ?self
+    {
+        if (! filled($this->district_id) || ! filled($this->gender)) {
+            return null;
+        }
+
+        // Only for participants in the old combined category
+        if (! $this->needsCompetitionRoleSelection()) {
+            return null;
+        }
+
+        $categoryId = $oldCategoryId ?? $this->competition_category_id;
+
+        // Find another verified participant from same district, same gender, still in old category, no lot number
+        return self::query()
+            ->where('id', '!=', $this->id)
+            ->where('district_id', $this->district_id)
+            ->where('gender', $this->gender)
+            ->where('verification_status', 'verified')
+            ->where('competition_category_id', $categoryId)
+            ->whereNull('lot_number')
+            ->first();
+    }
+
+    /**
+     * Find paired participant from same district and gender (without lot_number requirement).
+     * Used when the first participant has already been assigned a lot.
+     *
+     * @param int|null $oldCategoryId The old category ID to search in. If null, uses $this->competition_category_id.
+     */
+    public function findPairedForMuadzin(?int $oldCategoryId = null): ?self
+    {
+        if (! filled($this->district_id) || ! filled($this->gender)) {
+            return null;
+        }
+
+        $categoryId = $oldCategoryId ?? $this->competition_category_id;
+
+        // Find verified participant from same district, same gender, still in old category, no competition role yet
+        return self::query()
+            ->where('id', '!=', $this->id)
+            ->where('district_id', $this->district_id)
+            ->where('gender', $this->gender)
+            ->where('verification_status', 'verified')
+            ->where('competition_category_id', $categoryId)
+            ->whereNull('competition_role')
+            ->first();
     }
 }
