@@ -408,8 +408,10 @@ $msqCandidateLabels = $usesDistrictMaqraTitles
             const assignUrl = <?= json_encode($assignUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const roundLabel = <?= json_encode($maqraRoundLabel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const usesDistrictMaqraTitles = <?= $usesDistrictMaqraTitles ? 'true' : 'false' ?>;
-            // Use MSQ candidates if MSQ, otherwise use regular maqra candidates
-            const candidates = <?= json_encode($msqCandidateLabels, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+            // Fix: Use MSQ candidates if MSQ, otherwise use regular maqra candidates
+            const candidates = usesDistrictMaqraTitles
+                ? <?= json_encode($msqCandidateLabels, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+                : <?= json_encode($maqraCandidates->values()->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const regularCandidates = <?= json_encode($maqraCandidates->values()->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const alreadyAssigned = <?= $maqraAssigned ? 'true' : 'false' ?>;
             const assignedCode = <?= json_encode($maqraAssignedCode, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -735,7 +737,10 @@ $msqCandidateLabels = $usesDistrictMaqraTitles
             }
 
             if (!alreadyAssigned) {
+                // Always disable button if no candidates - prevents both click and Enter issues
                 if (noCandidates) {
+                    button.disabled = true;
+                    button.classList.add('opacity-60', 'cursor-not-allowed');
                     statusDisplay.textContent = 'Stok maqra habis';
                     rollingLabel.textContent = 'Tidak tersedia';
                 } else {
