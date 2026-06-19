@@ -938,28 +938,15 @@ class ParticipantResultController extends Controller
     protected function getRankingsForResults(?int $categoryId = null): array
     {
         try {
-            // If no category specified (no participant selected), show all active rankings
-            // If category specified, show rankings for that category OR global rankings (null category)
-            if ($categoryId === null) {
-                $activeRankings = RankingSetting::active()
-                    ->with('category')
-                    ->orderBy('sort_order')
-                    ->get();
-            } else {
-                $activeRankings = RankingSetting::active()
-                    ->where(function ($q) use ($categoryId) {
-                        $q->whereNull('competition_category_id')
-                          ->orWhere('competition_category_id', $categoryId);
-                    })
-                    ->with('category')
-                    ->orderBy('sort_order')
-                    ->get();
-            }
+            // Always show ALL active rankings regardless of selected participant's category
+            $activeRankings = RankingSetting::active()
+                ->with('category')
+                ->orderBy('sort_order')
+                ->get();
 
-            \Log::debug('RANKINGS_DEBUG', [
+            \Log::info('RANKINGS_FETCH', [
                 'categoryId' => $categoryId,
-                'activeRankings_count' => $activeRankings->count(),
-                'activeRankings' => $activeRankings->toArray(),
+                'totalActiveRankings' => $activeRankings->count(),
             ]);
 
             if ($activeRankings->isEmpty()) {
@@ -997,19 +984,28 @@ class ParticipantResultController extends Controller
         $appearanceDay = $setting->appearance_day;
         $gender = $setting->gender;
 
-        // Get appearance schedule for lot number filtering
+        // Get appearance schedule for lot number filtering and schedule info
         $appearanceSchedule = $categoryId
             ? AppearanceSchedule::where('competition_category_id', $categoryId)->first()
             : null;
 
-        // Determine lot numbers to include
+        // Get schedule date/time info from day_schedules JSON
+        $scheduleDate = null;
+        $scheduleTime = null;
+        $daySchedules = $appearanceSchedule?->day_schedules ?? [];
+        if ($appearanceSchedule && $appearanceDay !== null && isset($daySchedules[$appearanceDay])) {
+            $daySchedule = $daySchedules[$appearanceDay] ?? [];
+            $scheduleDate = $daySchedule['date'] ?? null;
+            $scheduleTime = $daySchedule['time'] ?? null;
+        }
+
+        // Determine lot numbers to include (only if appearance day is set)
         $lotNumbers = [];
         if ($appearanceSchedule && $appearanceDay !== null) {
             $poolData = $appearanceSchedule->getPoolLotNumbers();
             $allLots = $poolData['all'] ?? [];
             sort($allLots);
 
-            $daySchedules = $appearanceSchedule->day_schedules ?? [];
             $offset = 0;
             for ($i = 0; $i < $appearanceDay; $i++) {
                 $offset += (int) ($daySchedules[$i]['count'] ?? 0);
@@ -1018,17 +1014,15 @@ class ParticipantResultController extends Controller
             $lotNumbers = array_slice($allLots, $offset, $dayCount);
         }
 
-        // Build participants query
+        // Build participants query - load all scores, filter by round in PHP
         $participantsQuery = Participant::query()
-            ->with(['category', 'district', 'scores' => function ($query) use ($judgingRound) {
-                $query->where('judging_round', $judgingRound);
-            }])
+            ->with(['category', 'district', 'scores'])
             ->where('verification_status', 'verified')
             ->when($categoryId, fn ($query) => $query->where('competition_category_id', $categoryId));
 
         $participants = $participantsQuery->get();
 
-        // Filter by lot numbers if day is specified
+        // Filter by lot numbers only if day is specified and we have lot numbers
         if (!empty($lotNumbers)) {
             $participants = $participants->filter(function ($p) use ($lotNumbers) {
                 $lotNumber = $p->lot_number ?? '';
@@ -1038,12 +1032,33 @@ class ParticipantResultController extends Controller
             });
         }
 
-        // Build ranking data
+        // Build ranking data - filter scores by judging round if specified
         $rankedData = $participants
             ->map(function ($participant) use ($judgingRound) {
                 $scores = $participant->scores ?? collect();
-                $roundScores = $scores->where('judging_round', $judgingRound);
-                $averageScore = $roundScores->avg('average_score') ?? $roundScores->avg('score') ?? 0;
+
+                // Filter scores by judging round if specified
+                if (!empty($judgingRound)) {
+                    $roundScores = $scores->filter(fn ($entry) => ($entry->judging_round ?? '') === $judgingRound);
+                } else {
+                    // Use all scores if no judging round specified
+                    $roundScores = $scores;
+                }
+
+                // Calculate average score
+                $averageScore = 0;
+                $count = 0;
+                if ($roundScores->isNotEmpty()) {
+                    $totalScore = 0;
+                    foreach ($roundScores as $entry) {
+                        $score = $entry->average_score ?? $entry->score ?? 0;
+                        if ($score > 0) {
+                            $totalScore += (float) $score;
+                            $count++;
+                        }
+                    }
+                    $averageScore = $count > 0 ? $totalScore / $count : 0;
+                }
 
                 $lotNumber = $participant->lot_number ?? '';
                 $parts = explode('-', $lotNumber);
@@ -1054,32 +1069,37 @@ class ParticipantResultController extends Controller
                     'name' => $participant->name,
                     'lot_number' => $lotNumber,
                     'lot_suffix' => $lotSuffix,
-                    'gender' => $participant->gender ?? 'putra',
+                    'gender' => strtolower((string) ($participant->gender ?? 'putra')),
                     'district_name' => $participant->district?->name ?? '-',
                     'institution' => $participant->institution,
                     'average_score' => round((float) $averageScore, 2),
-                    'has_score' => $roundScores->count() > 0,
+                    'has_score' => $count > 0,
+                    'score_count' => $count,
                 ];
             })
+            // Sort by average score descending, then by lot suffix ascending (tiebreaker)
             ->sortByDesc(function ($item) {
-                return [$item['average_score'], $item['lot_suffix'] * -1];
+                return [$item['average_score'], 1000 - $item['lot_suffix']];
             })
             ->values();
 
         // Filter by gender if specified
         if ($gender !== 'all') {
-            $rankedData = $rankedData->where('gender', $gender)->values();
+            $rankedData = $rankedData->filter(fn ($item) => ($item['gender'] ?? '') === $gender)->values();
         }
 
-        // Assign ranks
-        $rankedData = $rankedData->map(function ($item, $index) {
-            $item['rank'] = $index + 1;
-            return $item;
-        });
+        // Separate by gender and assign ranks independently
+        $putra = $rankedData->filter(fn ($item) => ($item['gender'] ?? '') === 'putra')->values()
+            ->map(function ($item, $index) {
+                $item['rank'] = $index + 1;
+                return $item;
+            })->values();
 
-        // Separate by gender for display
-        $putra = $rankedData->where('gender', 'putra')->values()->map(fn($item, $idx) => array_merge($item, ['gender_rank' => $idx + 1]))->values();
-        $putri = $rankedData->where('gender', 'putri')->values()->map(fn($item, $idx) => array_merge($item, ['gender_rank' => $idx + 1]))->values();
+        $putri = $rankedData->filter(fn ($item) => ($item['gender'] ?? '') === 'putri')->values()
+            ->map(function ($item, $index) {
+                $item['rank'] = $index + 1;
+                return $item;
+            })->values();
 
         return [
             'putra' => $putra->take(10)->all(),
@@ -1087,6 +1107,8 @@ class ParticipantResultController extends Controller
             'putra_count' => $putra->count(),
             'putri_count' => $putri->count(),
             'total' => $rankedData->count(),
+            'schedule_date' => $scheduleDate,
+            'schedule_time' => $scheduleTime,
         ];
     }
 }

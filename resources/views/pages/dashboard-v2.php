@@ -402,38 +402,6 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     </section>
                 </div>
 
-                <!-- Leaderboard / Top Performers -->
-                <?php if (!empty($leaders)): ?>
-                    <section class="dash-section">
-                        <div class="dash-section-header">
-                            <?= mtq_icon('trophy', 'h-5 w-5') ?>
-                            <h2 class="dash-section-title">Peringkat Teratas</h2>
-                            <a href="<?= e(route('leaderboard.index')) ?>" class="dash-section-link">Leaderboard</a>
-                        </div>
-                        <div class="dash-leaderboard">
-                            <?php foreach (collect($leaders)->take(5) as $index => $leader): ?>
-                                <div class="dash-leader-item">
-                                    <div class="dash-leader-rank dash-leader-rank--<?= $index === 0 ? 'gold' : ($index === 1 ? 'silver' : ($index === 2 ? 'bronze' : 'default')) ?>">
-                                        <?php if ($index < 3): ?>
-                                            <?= mtq_icon('award', 'h-5 w-5') ?>
-                                        <?php else: ?>
-                                            <span><?= $index + 1 ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="dash-leader-info">
-                                        <p class="dash-leader-name"><?= e($leader['name']) ?></p>
-                                        <p class="dash-leader-meta"><?= e($leader['institution']) ?> · <?= e($leader['category']) ?></p>
-                                    </div>
-                                    <div class="dash-leader-score">
-                                        <p class="dash-leader-value"><?= e($leader['latest_score']) ?></p>
-                                        <p class="dash-leader-label">Skor</p>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </section>
-                <?php endif; ?>
-
                 <!-- Announcements -->
                 <?php if (!empty($announcements)): ?>
                     <section class="dash-section" id="pengumuman">
