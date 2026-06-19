@@ -3562,7 +3562,8 @@ class PageController extends Controller
             || str_contains($haystack, 'hafalan al qur')
             || str_contains($haystack, 'tafsir al qur')
             || str_contains($haystack, 'fahmil qur')
-            || str_contains($haystack, 'syarhil qur');
+            || str_contains($haystack, 'syarhil qur')
+            || str_contains($haystack, 'tartil');
     }
 
     public function categoryMaqraSystemLabel(CompetitionCategory $category): ?string
@@ -3581,6 +3582,7 @@ class PageController extends Controller
             str_contains($branch, 'tafsir al qur') => 'Tafsir',
             str_contains($branch, 'fahmil qur') => 'Fahmil',
             str_contains($branch, 'syarhil qur') => 'Syarhil',
+            str_contains($branch, 'tartil') => 'Tartil',
             str_contains($branch, 'khatib') => 'Khatib',
             str_contains($branch, 'muadzin') => 'Muadzin',
             default => null,
@@ -3597,6 +3599,7 @@ class PageController extends Controller
                 'tafsir' => 'TFS',
                 'fahmil' => 'FHL',
                 'syarhil' => 'SYR',
+                'tartil' => 'TRT',
                 'khatib' => 'KTB',
                 'muadzin' => 'MDZ',
                 default => 'MQR',
@@ -3610,6 +3613,7 @@ class PageController extends Controller
             'Tafsir' => 'TFS',
             'Fahmil' => 'FHL',
             'Syarhil' => 'SYR',
+            'Tartil' => 'TRT',
             'Khatib' => 'KTB',
             'Muadzin' => 'MDZ',
             default => 'MQR',
