@@ -9,6 +9,7 @@ $resultStats = $resultStats ?? ['entries' => 0, 'latest' => '0.00', 'best' => '0
 $scoreTimeline = $scoreTimeline ?? collect();
 $branchCriteria = $branchCriteria ?? [];
 $isParticipant = $isParticipant ?? false;
+$rankings = $rankings ?? [];
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'results');
 ?>
 <!DOCTYPE html>
@@ -308,6 +309,119 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <?php endif; ?>
                     </div>
                 </section>
+
+                <?php if (!empty($rankings)): ?>
+                <!-- Rankings from Admin Settings -->
+                <section class="glass-card rounded-[2rem] p-6">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
+                        <div>
+                            <p class="section-kicker">Ranking Hasil Nilai</p>
+                            <h3 class="mt-1 text-2xl font-bold text-white">Peringkat peserta berdasarkan konfigurasi admin</h3>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 space-y-8">
+                        <?php foreach ($rankings as $rankingConfig): ?>
+                            <?php
+                            $rankingData = $rankingConfig['data'];
+                            $putraRankings = $rankingData['putra'] ?? [];
+                            $putriRankings = $rankingData['putri'] ?? [];
+                            $showPutra = in_array($rankingConfig['gender'], ['putra', 'all']);
+                            $showPutri = in_array($rankingConfig['gender'], ['putri', 'all']);
+                            ?>
+                            <div class="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5">
+                                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                                    <div>
+                                        <h4 class="text-lg font-bold text-amber-200"><?= e($rankingConfig['name']) ?></h4>
+                                        <p class="text-sm text-slate-400"><?= e($rankingConfig['display_label']) ?></p>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <?php if ($showPutra): ?>
+                                            <span class="rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-200">
+                                                &#9794; <?= e($rankingData['putra_count']) ?> Putra
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if ($showPutri): ?>
+                                            <span class="rounded-full border border-pink-400/30 bg-pink-400/10 px-3 py-1 text-xs font-semibold text-pink-200">
+                                                &#9793; <?= e($rankingData['putri_count']) ?> Putri
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <?php if (empty($putraRankings) && empty($putriRankings)): ?>
+                                    <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                                        <p class="text-slate-500">Belum ada data ranking untuk konfigurasi ini.</p>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="grid gap-6 lg:grid-cols-2">
+                                        <?php if ($showPutra && !empty($putraRankings)): ?>
+                                            <!-- Putra Rankings -->
+                                            <div class="rounded-xl border border-blue-500/20 bg-blue-950/30 p-4">
+                                                <div class="flex items-center gap-2 mb-3">
+                                                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500 text-base">&#9794;</span>
+                                                    <h5 class="font-bold text-blue-200">Putra</h5>
+                                                </div>
+                                                <div class="space-y-2 max-h-[300px] overflow-y-auto">
+                                                    <?php foreach ($putraRankings as $idx => $p): ?>
+                                                        <div class="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-2 <?= $p['id'] == $selectedParticipant?->id ? 'border-cyan-400/50 bg-cyan-400/10' : '' ?>">
+                                                            <div class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold <?= $p['rank'] == 1 ? 'bg-amber-400 text-slate-900' : ($p['rank'] == 2 ? 'bg-slate-400 text-slate-900' : ($p['rank'] == 3 ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300')) ?>">
+                                                                <?= e($p['rank']) ?>
+                                                            </div>
+                                                            <div class="min-w-0 flex-1">
+                                                                <p class="text-sm font-semibold text-white truncate <?= $p['id'] == $selectedParticipant?->id ? 'text-cyan-200' : '' ?>"><?= e($p['name']) ?></p>
+                                                                <p class="text-xs text-slate-400 truncate"><?= e($p['district_name']) ?> · Lot <?= e($p['lot_number']) ?></p>
+                                                            </div>
+                                                            <div class="text-right shrink-0">
+                                                                <?php if ($p['has_score']): ?>
+                                                                    <span class="text-sm font-bold text-emerald-300"><?= e(number_format($p['average_score'], 2)) ?></span>
+                                                                <?php else: ?>
+                                                                    <span class="text-xs text-slate-500">Belum</span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <?php if ($showPutri && !empty($putriRankings)): ?>
+                                            <!-- Putri Rankings -->
+                                            <div class="rounded-xl border border-pink-500/20 bg-pink-950/30 p-4">
+                                                <div class="flex items-center gap-2 mb-3">
+                                                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-pink-500 text-base">&#9793;</span>
+                                                    <h5 class="font-bold text-pink-200">Putri</h5>
+                                                </div>
+                                                <div class="space-y-2 max-h-[300px] overflow-y-auto">
+                                                    <?php foreach ($putriRankings as $idx => $p): ?>
+                                                        <div class="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-2 <?= $p['id'] == $selectedParticipant?->id ? 'border-cyan-400/50 bg-cyan-400/10' : '' ?>">
+                                                            <div class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold <?= $p['rank'] == 1 ? 'bg-amber-400 text-slate-900' : ($p['rank'] == 2 ? 'bg-slate-400 text-slate-900' : ($p['rank'] == 3 ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300')) ?>">
+                                                                <?= e($p['rank']) ?>
+                                                            </div>
+                                                            <div class="min-w-0 flex-1">
+                                                                <p class="text-sm font-semibold text-white truncate <?= $p['id'] == $selectedParticipant?->id ? 'text-cyan-200' : '' ?>"><?= e($p['name']) ?></p>
+                                                                <p class="text-xs text-slate-400 truncate"><?= e($p['district_name']) ?> · Lot <?= e($p['lot_number']) ?></p>
+                                                            </div>
+                                                            <div class="text-right shrink-0">
+                                                                <?php if ($p['has_score']): ?>
+                                                                    <span class="text-sm font-bold text-emerald-300"><?= e(number_format($p['average_score'], 2)) ?></span>
+                                                                <?php else: ?>
+                                                                    <span class="text-xs text-slate-500">Belum</span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+                <?php endif; ?>
             </div>
         </div>
     </main>

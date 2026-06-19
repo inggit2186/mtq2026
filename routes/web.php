@@ -15,6 +15,7 @@ use App\Http\Controllers\MfqScoringController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParticipantRegistrationController;
 use App\Http\Controllers\ParticipantResultController;
+use App\Http\Controllers\RankingSettingController;
 use App\Http\Controllers\ScoringController;
 use Illuminate\Support\Facades\Route;
 
@@ -131,6 +132,13 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/admin/penampilan/hasil/{category}/hari/{dayIndex}/pdf', [AppearanceScheduleController::class, 'exportDayRecapPdf'])->middleware('role:admin')->name('appearance.results.day-recap.pdf');
     Route::get('/admin/penampilan/export/pdf', [AppearanceScheduleController::class, 'exportAllPdf'])->middleware('role:admin')->name('appearance.export.all.pdf');
     Route::get('/admin/rangkaian-kegiatan/pdf', [AppearanceScheduleController::class, 'exportFullSchedulePdf'])->middleware('role:admin')->name('full.schedule.pdf');
+    Route::get('/admin/ranking-settings', [RankingSettingController::class, 'index'])->middleware('role:admin')->name('ranking.settings.index');
+    Route::post('/admin/ranking-settings', [RankingSettingController::class, 'store'])->middleware('role:admin')->name('ranking.settings.store');
+    Route::post('/admin/ranking-settings/reorder', [RankingSettingController::class, 'reorder'])->middleware('role:admin')->name('ranking.settings.reorder');
+    Route::post('/admin/ranking-settings/schedule-days', [RankingSettingController::class, 'getScheduleDays'])->middleware('role:admin')->name('ranking.settings.schedule-days');
+    Route::post('/admin/ranking-settings/{rankingSetting}/toggle', [RankingSettingController::class, 'toggle'])->middleware('role:admin')->name('ranking.settings.toggle');
+    Route::post('/admin/ranking-settings/{rankingSetting}', [RankingSettingController::class, 'update'])->middleware('role:admin')->name('ranking.settings.update');
+    Route::delete('/admin/ranking-settings/{rankingSetting}', [RankingSettingController::class, 'destroy'])->middleware('role:admin')->name('ranking.settings.destroy');
     Route::get('/hasil-nilai', [ParticipantResultController::class, 'index'])->name('results.index');
     Route::get('/hasil-nilai/export', [ParticipantResultController::class, 'export'])->name('results.export');
     Route::get('/hasil-nilai/cetak', [ParticipantResultController::class, 'print'])->name('results.print');

@@ -2152,6 +2152,9 @@ class PageController extends Controller
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('scoring', 'Penilaian', route('scoring'), 'chart')
                     : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('ranking.settings', 'Pengaturan Ranking', route('ranking.settings.index'), 'trophy')
+                    : null,
             ]))),
             $this->consoleNavigationGroup('administrasi', 'Administrasi', 'shield', array_values(array_filter([
                 in_array($role, ['admin', 'panitia'], true)

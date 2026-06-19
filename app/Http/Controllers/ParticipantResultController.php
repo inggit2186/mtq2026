@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppearanceSchedule;
 use App\Models\CompetitionCategory;
 use App\Models\Participant;
 use App\Models\ScoreEntry;
 use App\Models\ScoringSetting;
+use App\Models\RankingSetting;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Collection;
@@ -29,6 +31,10 @@ class ParticipantResultController extends Controller
         $stats = $this->calculateScoreStats($scores);
         $latestEntry = $scoreTimeline->first();
 
+        // Get rankings based on admin settings
+        $categoryId = $selectedParticipant?->competition_category_id;
+        $rankings = $this->getRankingsForResults($categoryId);
+
         return view('pages/results-v2', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) $user?->role),
@@ -49,6 +55,7 @@ class ParticipantResultController extends Controller
             'scoreTimeline' => $scoreTimeline,
             'branchCriteria' => $branchCriteria,
             'isParticipant' => $isParticipant,
+            'rankings' => $rankings,
         ]);
     }
 
@@ -923,5 +930,133 @@ class ParticipantResultController extends Controller
             ?? config('scoring.criteria.default', []);
 
         return array_keys($criteria);
+    }
+
+    /**
+     * Get rankings based on admin settings for the results page
+     */
+    protected function getRankingsForResults(?int $categoryId = null): array
+    {
+        $activeRankings = RankingSetting::getActiveRankings($categoryId);
+
+        if ($activeRankings->isEmpty()) {
+            return [];
+        }
+
+        return $activeRankings->map(function (RankingSetting $setting) {
+            return [
+                'id' => $setting->id,
+                'name' => $setting->name,
+                'display_label' => $setting->display_label,
+                'gender' => $setting->gender,
+                'appearance_day' => $setting->appearance_day,
+                'judging_round' => $setting->judging_round,
+                'sort_order' => $setting->sort_order,
+                'data' => $this->buildRankingData($setting),
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Build ranking data for a specific ranking setting
+     */
+    protected function buildRankingData(RankingSetting $setting): array
+    {
+        $categoryId = $setting->competition_category_id;
+        $judgingRound = $setting->judging_round;
+        $appearanceDay = $setting->appearance_day;
+        $gender = $setting->gender;
+
+        // Get appearance schedule for lot number filtering
+        $appearanceSchedule = $categoryId
+            ? AppearanceSchedule::where('competition_category_id', $categoryId)->first()
+            : null;
+
+        // Determine lot numbers to include
+        $lotNumbers = [];
+        if ($appearanceSchedule && $appearanceDay !== null) {
+            $poolData = $appearanceSchedule->getPoolLotNumbers();
+            $allLots = $poolData['all'] ?? [];
+            sort($allLots);
+
+            $daySchedules = $appearanceSchedule->day_schedules ?? [];
+            $offset = 0;
+            for ($i = 0; $i < $appearanceDay; $i++) {
+                $offset += (int) ($daySchedules[$i]['count'] ?? 0);
+            }
+            $dayCount = (int) (($daySchedules[$appearanceDay]['count'] ?? 0));
+            $lotNumbers = array_slice($allLots, $offset, $dayCount);
+        }
+
+        // Build participants query
+        $participantsQuery = Participant::query()
+            ->with(['category', 'district', 'scores' => function ($query) use ($judgingRound) {
+                $query->where('judging_round', $judgingRound);
+            }])
+            ->where('verification_status', 'verified')
+            ->when($categoryId, fn ($query) => $query->where('competition_category_id', $categoryId));
+
+        $participants = $participantsQuery->get();
+
+        // Filter by lot numbers if day is specified
+        if (!empty($lotNumbers)) {
+            $participants = $participants->filter(function ($p) use ($lotNumbers) {
+                $lotNumber = $p->lot_number ?? '';
+                $parts = explode('-', $lotNumber);
+                $suffix = (int) end($parts);
+                return in_array($suffix, $lotNumbers);
+            });
+        }
+
+        // Build ranking data
+        $rankedData = $participants
+            ->map(function ($participant) use ($judgingRound) {
+                $scores = $participant->scores ?? collect();
+                $roundScores = $scores->where('judging_round', $judgingRound);
+                $averageScore = $roundScores->avg('average_score') ?? $roundScores->avg('score') ?? 0;
+
+                $lotNumber = $participant->lot_number ?? '';
+                $parts = explode('-', $lotNumber);
+                $lotSuffix = (int) end($parts);
+
+                return [
+                    'id' => $participant->id,
+                    'name' => $participant->name,
+                    'lot_number' => $lotNumber,
+                    'lot_suffix' => $lotSuffix,
+                    'gender' => $participant->gender ?? 'putra',
+                    'district_name' => $participant->district?->name ?? '-',
+                    'institution' => $participant->institution,
+                    'average_score' => round((float) $averageScore, 2),
+                    'has_score' => $roundScores->count() > 0,
+                ];
+            })
+            ->sortByDesc(function ($item) {
+                return [$item['average_score'], $item['lot_suffix'] * -1];
+            })
+            ->values();
+
+        // Filter by gender if specified
+        if ($gender !== 'all') {
+            $rankedData = $rankedData->where('gender', $gender)->values();
+        }
+
+        // Assign ranks
+        $rankedData = $rankedData->map(function ($item, $index) {
+            $item['rank'] = $index + 1;
+            return $item;
+        });
+
+        // Separate by gender for display
+        $putra = $rankedData->where('gender', 'putra')->values()->map(fn($item, $idx) => array_merge($item, ['gender_rank' => $idx + 1]))->values();
+        $putri = $rankedData->where('gender', 'putri')->values()->map(fn($item, $idx) => array_merge($item, ['gender_rank' => $idx + 1]))->values();
+
+        return [
+            'putra' => $putra->take(10)->all(),
+            'putri' => $putri->take(10)->all(),
+            'putra_count' => $putra->count(),
+            'putri_count' => $putri->count(),
+            'total' => $rankedData->count(),
+        ];
     }
 }
