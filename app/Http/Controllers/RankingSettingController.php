@@ -132,11 +132,40 @@ class RankingSettingController extends Controller
         }
 
         $days = collect($schedule->day_schedules)->map(function ($day, $index) {
+            $name = $day['name'] ?? 'Hari ' . ($index + 1);
+            $date = $day['date'] ?? null;
+            $time = $day['time'] ?? null;
+            $endTime = $day['end_time'] ?? null;
+
+            // Format display string
+            $displayParts = [$name];
+            if ($date) {
+                $displayParts[] = \Carbon\Carbon::parse($date)->translatedFormat('d M Y');
+            }
+            if ($time) {
+                $timeStr = $time . ' WIB';
+                if ($endTime) {
+                    $timeStr .= ' - ' . $endTime . ' WIB';
+                }
+                $displayParts[] = $timeStr;
+            }
+            $display = implode(' · ', $displayParts);
+
+            // Format lot range
+            $lotRange = '-';
+            if (isset($day['count']) && $day['count'] > 0) {
+                $lotRange = 'Lot count: ' . $day['count'];
+            }
+
             return [
                 'index' => $index,
-                'name' => $day['name'] ?? 'Hari ' . ($index + 1),
-                'date' => $day['date'] ?? null,
-                'lot_range' => isset($day['count']) ? "Lot " . ($index + 1) : null,
+                'name' => $name,
+                'date' => $date,
+                'time' => $time,
+                'end_time' => $endTime,
+                'count' => $day['count'] ?? 0,
+                'display' => $display,
+                'lot_range' => $lotRange,
             ];
         })->values();
 

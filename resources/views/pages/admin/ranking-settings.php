@@ -23,7 +23,7 @@ $categories = $categories ?? [];
       x-data="{
           showForm: false,
           editItem: null,
-          selectedCategory: null,
+          selectedCategory: '',
           scheduleDays: [],
           async loadScheduleDays() {
               if (!this.selectedCategory) {
@@ -35,6 +35,7 @@ $categories = $categories ?? [];
                   const data = await res.json();
                   this.scheduleDays = data.days || [];
               } catch (e) {
+                  console.error('Error loading schedule days:', e);
                   this.scheduleDays = [];
               }
           },
@@ -291,7 +292,7 @@ $categories = $categories ?? [];
                                     class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                                 <option value="">Keseluruhan (Semua Hari)</option>
                                 <template x-for="day in scheduleDays" :key="day.index">
-                                    <option :value="day.index" x-text="day.name + (day.date ? ' - ' + day.date : '') + (day.lot_range ? ' (' + day.lot_range + ')' : '')"></option>
+                                    <option :value="day.index" x-text="day.display || day.name"></option>
                                 </template>
                             </select>
                             <p class="mt-1 text-xs text-slate-500">Pilih jadwal penampilan atau kosongkan untuk ranking keseluruhan</p>
