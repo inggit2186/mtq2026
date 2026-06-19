@@ -2021,3 +2021,1020 @@
         --tw-gradient-to: #eef2ff var(--tw-gradient-to-position);
     }
 }
+
+/* ==========================================
+   MAQRA PAGE REDESIGN
+   ========================================== */
+
+/* Brand Logo - Maqra Variant */
+.brand-logo--maqra {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.2) 0%, rgba(168, 85, 247, 0.1) 100%);
+    border-color: rgba(232, 121, 249, 0.3);
+    color: #f0abfc;
+}
+
+/* Maqra Summary Card */
+.maqra-summary-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+    border: 1px solid rgba(232, 121, 249, 0.15);
+}
+
+.maqra-summary-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.875rem;
+    background: rgba(232, 121, 249, 0.2);
+    color: #f0abfc;
+}
+
+.maqra-summary-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    line-height: 1;
+}
+
+.maqra-summary-label {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Maqra Hero Section */
+.maqra-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.5rem;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(88, 28, 135, 0.15) 100%);
+    border: 1px solid rgba(232, 121, 249, 0.2);
+    padding: 1.75rem;
+}
+
+.maqra-hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 10% 50%, rgba(232, 121, 249, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 20%, rgba(168, 85, 247, 0.1) 0%, transparent 40%);
+    pointer-events: none;
+}
+
+.maqra-hero-content {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.maqra-hero-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.25) 0%, rgba(168, 85, 247, 0.15) 100%);
+    border: 1px solid rgba(232, 121, 249, 0.3);
+    color: #f0abfc;
+    box-shadow: 0 8px 24px -6px rgba(232, 121, 249, 0.3);
+}
+
+.maqra-hero-greeting {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #a855f7;
+}
+
+.maqra-hero-title {
+    margin-top: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    line-height: 1.2;
+}
+
+.maqra-hero-subtitle {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    color: #94a3b8;
+}
+
+.maqra-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.maqra-hero-badge--active {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #4ade80;
+}
+
+.maqra-hero-badge--closed {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+}
+
+/* PROMINENT ROUND TABS */
+.maqra-round-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.maqra-round-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 2px solid rgba(100, 116, 139, 0.2);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.maqra-round-tab:hover:not(.maqra-round-tab--disabled) {
+    transform: translateY(-2px);
+    border-color: rgba(232, 121, 249, 0.3);
+}
+
+.maqra-round-tab--active {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.2) 0%, rgba(168, 85, 247, 0.12) 100%);
+    border-color: rgba(232, 121, 249, 0.5);
+    box-shadow: 0 8px 32px -8px rgba(232, 121, 249, 0.35);
+}
+
+.maqra-round-tab--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.maqra-round-tab-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.maqra-round-tab--active .maqra-round-tab-icon {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.3) 0%, rgba(168, 85, 247, 0.2) 100%);
+    color: #f0abfc;
+    box-shadow: 0 4px 16px -4px rgba(232, 121, 249, 0.4);
+}
+
+.maqra-round-tab-content {
+    flex: 1;
+}
+
+.maqra-round-tab-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.maqra-round-tab-status {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.maqra-round-tab--active .maqra-round-tab-status {
+    color: #a855f7;
+}
+
+.maqra-round-tab-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #f0abfc, #a855f7);
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 12px rgba(232, 121, 249, 0.5);
+}
+
+/* Quick Stats Grid */
+.maqra-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.maqra-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.maqra-stat-card--accent {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.08) 0%, rgba(168, 85, 247, 0.05) 100%);
+    border-color: rgba(232, 121, 249, 0.2);
+}
+
+.maqra-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.maqra-stat-card--accent .maqra-stat-icon {
+    background: rgba(232, 121, 249, 0.15);
+    color: #d946ef;
+}
+
+.maqra-stat-value {
+    font-size: 1.375rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    line-height: 1.2;
+}
+
+.maqra-stat-label {
+    margin-top: 0.125rem;
+    font-size: 0.625rem;
+    font-weight: 500;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Status Cards */
+.maqra-status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .maqra-status-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.maqra-status-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.maqra-status-card--active {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border-color: rgba(34, 197, 94, 0.2);
+}
+
+.maqra-status-card--inactive {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(220, 38, 38, 0.05) 100%);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.maqra-status-card--category,
+.maqra-status-card--lot {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+    border-color: rgba(168, 85, 247, 0.2);
+}
+
+.maqra-status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.maqra-status-card--active .maqra-status-icon {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.maqra-status-card--inactive .maqra-status-icon {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+.maqra-status-card--category .maqra-status-icon,
+.maqra-status-card--lot .maqra-status-icon {
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+}
+
+.maqra-status-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+}
+
+.maqra-status-value {
+    margin-top: 0.125rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Maqra Section */
+.maqra-section {
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(100, 116, 139, 0.12);
+}
+
+.maqra-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 1.25rem;
+    color: #64748b;
+}
+
+.maqra-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.maqra-section-badge {
+    margin-left: auto;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(232, 121, 249, 0.15);
+    color: #d946ef;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* Category Grid */
+.maqra-category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem;
+}
+
+.maqra-category-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 2px solid rgba(100, 116, 139, 0.15);
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.maqra-category-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(232, 121, 249, 0.3);
+}
+
+.maqra-category-card--active {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%);
+    border-color: rgba(232, 121, 249, 0.4);
+}
+
+.maqra-category-card--scheduled {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(245, 158, 11, 0.05) 100%);
+    border-color: rgba(251, 191, 36, 0.2);
+}
+
+.maqra-category-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.maqra-category-branch {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+}
+
+.maqra-category-name {
+    margin-top: 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.maqra-category-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.maqra-category-status--active {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.maqra-category-status--scheduled {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+}
+
+.maqra-category-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.maqra-category-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.maqra-category-lot {
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    background: rgba(100, 116, 139, 0.15);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+/* Empty State */
+.maqra-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem 2rem;
+    border-radius: 1.5rem;
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px dashed rgba(100, 116, 139, 0.2);
+    color: #64748b;
+    text-align: center;
+}
+
+/* Category Section */
+.maqra-category-section {
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    background: rgba(30, 41, 59, 0.4);
+    border: 2px solid rgba(232, 121, 249, 0.2);
+}
+
+.maqra-category-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.maqra-category-section-branch {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #a855f7;
+}
+
+.maqra-category-section-name {
+    margin-top: 0.25rem;
+    font-size: 1.375rem;
+    font-weight: 800;
+    color: #f1f5f9;
+}
+
+.maqra-category-section-rule {
+    margin-top: 0.375rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.maqra-category-section-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.maqra-category-section-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 9999px;
+    background: rgba(232, 121, 249, 0.12);
+    border: 1px solid rgba(232, 121, 249, 0.2);
+    color: #d946ef;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.maqra-category-section-badge--warning {
+    background: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+/* Countdown */
+.maqra-countdown {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-radius: 1.25rem;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.maqra-countdown-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #fbbf24;
+}
+
+.maqra-countdown-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.maqra-countdown-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 3rem;
+}
+
+.maqra-countdown-value {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.625rem;
+    background: rgba(251, 191, 36, 0.2);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fef3c7;
+    font-variant-numeric: tabular-nums;
+}
+
+.maqra-countdown-label {
+    margin-top: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(251, 191, 36, 0.7);
+}
+
+.maqra-countdown-sep {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: rgba(251, 191, 36, 0.5);
+}
+
+.maqra-countdown-expired {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #4ade80;
+}
+
+/* District Grid */
+.maqra-district-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.maqra-district-card {
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.maqra-district-card--completed {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border-color: rgba(34, 197, 94, 0.25);
+}
+
+.maqra-district-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.maqra-district-badge {
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    background: rgba(232, 121, 249, 0.15);
+    color: #d946ef;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.maqra-district-card--completed .maqra-district-badge {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.maqra-district-count {
+    font-size: 0.6875rem;
+    color: #64748b;
+}
+
+.maqra-district-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.maqra-district-maqra {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.maqra-district-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #fbbf24;
+}
+
+.maqra-district-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* Buttons */
+.maqra-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.maqra-btn--primary {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.2) 0%, rgba(168, 85, 247, 0.15) 100%);
+    border-color: rgba(232, 121, 249, 0.3);
+    color: #f0abfc;
+}
+
+.maqra-btn--primary:hover {
+    background: linear-gradient(135deg, rgba(232, 121, 249, 0.3) 0%, rgba(168, 85, 247, 0.2) 100%);
+    transform: translateY(-1px);
+}
+
+.maqra-btn--secondary {
+    background: rgba(100, 116, 139, 0.15);
+    border-color: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+}
+
+.maqra-btn--secondary:hover {
+    background: rgba(100, 116, 139, 0.25);
+    color: #f1f5f9;
+}
+
+/* Mobile-Friendly Table */
+.maqra-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(100, 116, 139, 0.12);
+}
+
+.maqra-table {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+}
+
+.maqra-th {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    background: rgba(30, 41, 59, 0.5);
+    border-bottom: 1px solid rgba(100, 116, 139, 0.15);
+    white-space: nowrap;
+}
+
+.maqra-th--center {
+    text-align: center;
+}
+
+.maqra-th--actions {
+    text-align: center;
+    width: 100px;
+}
+
+.maqra-tr {
+    border-bottom: 1px solid rgba(100, 116, 139, 0.1);
+    transition: background 0.2s;
+}
+
+.maqra-tr:hover {
+    background: rgba(30, 41, 59, 0.3);
+}
+
+.maqra-tr:last-child {
+    border-bottom: none;
+}
+
+.maqra-td {
+    padding: 1rem 1.25rem;
+    vertical-align: middle;
+}
+
+.maqra-td--name {
+    min-width: 180px;
+}
+
+.maqra-td--center {
+    text-align: center;
+}
+
+.maqra-td--actions {
+    text-align: center;
+}
+
+.maqra-participant-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.maqra-maqra-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+}
+
+.maqra-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.maqra-chip--success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.maqra-chip--round {
+    background: rgba(232, 121, 249, 0.12);
+    color: #d946ef;
+}
+
+.maqra-chip--warning {
+    background: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+}
+
+.maqra-chip--neutral {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+}
+
+.maqra-lot-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(100, 116, 139, 0.15);
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.maqra-district-name-text {
+    font-size: 0.8125rem;
+    color: #94a3b8;
+}
+
+.maqra-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+}
+
+.maqra-status-badge--success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.maqra-status-badge--warning {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+}
+
+.maqra-status-badge--neutral {
+    background: rgba(100, 116, 139, 0.15);
+    color: #64748b;
+}
+
+.maqra-action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 0.375rem;
+}
+
+.maqra-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.maqra-action-btn--secondary {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+}
+
+.maqra-action-btn--secondary:hover {
+    background: rgba(100, 116, 139, 0.25);
+    color: #f1f5f9;
+}
+
+.maqra-action-btn--primary {
+    background: rgba(232, 121, 249, 0.2);
+    border-color: rgba(232, 121, 249, 0.3);
+    color: #f0abfc;
+}
+
+.maqra-action-btn--primary:hover {
+    background: rgba(232, 121, 249, 0.3);
+}
+
+/* Light mode for maqra */
+[data-theme='light'] .maqra-hero,
+[data-theme='light'] .maqra-section,
+[data-theme='light'] .maqra-category-section,
+[data-theme='light'] .maqra-district-card {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .maqra-stat-card,
+[data-theme='light'] .maqra-status-card,
+[data-theme='light'] .maqra-table-wrapper {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .maqra-stat-value,
+[data-theme='light'] .maqra-status-value,
+[data-theme='light'] .maqra-category-name,
+[data-theme='light'] .maqra-district-name,
+[data-theme='light'] .maqra-participant-name {
+    color: #0f172a;
+}
+
+[data-theme='light'] .maqra-lot-number {
+    background: rgba(0, 0, 0, 0.05);
+    color: #0f172a;
+}
+
+[data-theme='light'] .maqra-category-section-name {
+    color: #7c3aed;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+    .maqra-round-tabs {
+        grid-template-columns: 1fr;
+    }
+
+    .maqra-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .maqra-category-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .maqra-district-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .maqra-hero-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .maqra-hero-badge {
+        width: 100%;
+        justify-content: center;
+    }
+}
