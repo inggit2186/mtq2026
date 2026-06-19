@@ -9,6 +9,7 @@ use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CommitteeRegistrationController;
 use App\Http\Controllers\CompetitionLocationController;
 use App\Http\Controllers\DocumentSettingsController;
+use App\Http\Controllers\HakimController;
 use App\Http\Controllers\JuknisSettingsController;
 use App\Http\Controllers\OfficialRegistrationController;
 use App\Http\Controllers\MfqScoringController;
@@ -139,6 +140,11 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/ranking-settings/{rankingSetting}/toggle', [RankingSettingController::class, 'toggle'])->middleware('role:admin')->name('ranking.settings.toggle');
     Route::post('/admin/ranking-settings/{rankingSetting}', [RankingSettingController::class, 'update'])->middleware('role:admin')->name('ranking.settings.update');
     Route::delete('/admin/ranking-settings/{rankingSetting}', [RankingSettingController::class, 'destroy'])->middleware('role:admin')->name('ranking.settings.destroy');
+    // Admin: Hakim Management
+    Route::get('/admin/hakim', [HakimController::class, 'index'])->middleware('role:admin')->name('admin.hakim.index');
+    Route::post('/admin/hakim', [HakimController::class, 'store'])->middleware('role:admin')->name('admin.hakim.store');
+    Route::put('/admin/hakim/{hakim}', [HakimController::class, 'update'])->middleware('role:admin')->name('admin.hakim.update');
+    Route::delete('/admin/hakim/{hakim}', [HakimController::class, 'destroy'])->middleware('role:admin')->name('admin.hakim.destroy');
     Route::get('/hasil-nilai', [ParticipantResultController::class, 'index'])->name('results.index');
     Route::get('/hasil-nilai/export', [ParticipantResultController::class, 'export'])->name('results.export');
     Route::get('/hasil-nilai/cetak', [ParticipantResultController::class, 'print'])->name('results.print');

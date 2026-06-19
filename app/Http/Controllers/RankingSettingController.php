@@ -34,6 +34,7 @@ class RankingSettingController extends Controller
         return view('pages.admin.ranking-settings', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel(auth()->user()?->role),
+            'navigation' => app(PageController::class)->consoleNavigation((string) auth()->user()?->role, 'ranking.settings'),
             'rankingSettings' => $rankingSettings,
             'categories' => $categories,
         ]);

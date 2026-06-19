@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__.'/../../partials/icon.php';
+require_once __DIR__.'/../../partials/live-notifications.php';
 
 $cssAssets = $assets['css'] ?? [];
 $jsAssets = $assets['js'] ?? [];
 $user = auth()->user();
 $rolePanel = $rolePanel ?? [];
+$navigation = $navigation ?? [];
 $rankingSettings = $rankingSettings ?? collect();
 $categories = $categories ?? [];
 
@@ -24,38 +26,89 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
     <?php endforeach; ?>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased"
-      x-data="rankingForm()">
+      x-data="{ mobileNavOpen: false }">
     <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
 
         <div class="hero-orb hero-orb-amber right-[-7rem] top-10 h-72 w-72"></div>
+        <div class="hero-orb hero-orb-cyan left-[-7rem] top-64 h-64 w-64"></div>
 
-        <!-- Header -->
-        <header class="glass-card rounded-[2rem] p-4 sm:p-6 mb-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <?= mtq_icon('settings', 'h-4 w-4 text-amber-300') ?>
-                            <p class="section-kicker">Admin Console</p>
+        <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block"
+                x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.24em] text-amber-200">e-MTQ Console</p>
+                            <h1 class="mt-1 text-lg font-bold text-white">Pengaturan Ranking</h1>
                         </div>
-                        <h2 class="mt-1 sm:mt-2 text-xl sm:text-3xl font-black tracking-tight">
-                            <span class="gradient-text">Pengaturan Ranking</span>
-                        </h2>
-                        <p class="mt-1 text-sm text-slate-400">
-                            Konfigurasikan ranking yang ditampilkan di halaman hasil nilai.
-                            Admin dapat mengatur ranking berdasarkan golongan, jadwal, dan babak penilaian.
-                        </p>
+                    </div>
+                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
+                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                    </button>
+                </div>
+
+                <div class="mt-8 rounded-[1.75rem] border border-amber-400/14 bg-gradient-to-br from-slate-900/90 via-amber-950/50 to-slate-900/80 p-5">
+                    <p class="section-kicker">Akses Aktif</p>
+                    <h2 class="mt-3 text-xl font-bold text-white"><?= e($user?->name) ?></h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-300">
+                        Konfigurasikan ranking yang ditampilkan di halaman hasil nilai.
+                    </p>
+                    <div class="mt-4 status-pill">
+                        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300"></span>
+                        <?= e($rankingSettings->where('is_active')->count()) ?> Ranking Aktif
                     </div>
                 </div>
-                <button type="button"
-                        @click="openCreate()"
-                        class="primary-button flex items-center gap-2 justify-center">
-                    <?= mtq_icon('plus', 'h-4 w-4') ?>
-                    Tambah Ranking
-                </button>
-            </div>
-        </header>
+
+                <nav class="mt-8 space-y-2">
+                    <p class="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Navigasi</p>
+                    <?php require __DIR__.'/../../partials/console-navigation.php'; ?>
+                </nav>
+
+                <div class="mt-8 grid gap-3">
+                    <a href="<?= e(route('dashboard')) ?>" class="secondary-button w-full">
+                        <?= mtq_icon('home', 'h-4 w-4') ?>
+                        Kembali ke Dashboard
+                    </a>
+                    <form method="POST" action="<?= e(route('logout')) ?>">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <button type="submit" class="secondary-button w-full">
+                            <?= mtq_icon('logout', 'h-4 w-4') ?>
+                            Keluar
+                        </button>
+                    </form>
+                </div>
+            </aside>
+
+            <div class="min-w-0 space-y-6" x-data="rankingForm()">
+                <!-- Header -->
+                <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                            <?= mtq_icon('menu', 'h-4 w-4') ?>
+                        </button>
+                        <div>
+                            <div class="flex items-center gap-2 text-amber-300">
+                                <?= mtq_icon('settings', 'h-5 w-5') ?>
+                                <p class="text-sm font-semibold uppercase tracking-widest">Admin Console</p>
+                            </div>
+                            <h2 class="mt-2 text-2xl sm:text-3xl font-black tracking-tight">
+                                <span class="gradient-text">Pengaturan Ranking</span>
+                            </h2>
+                            <p class="mt-2 max-w-xl text-sm text-slate-400">
+                                Konfigurasikan ranking yang ditampilkan di halaman hasil nilai.
+                                Admin dapat mengatur ranking berdasarkan golongan, jadwal, dan babak penilaian.
+                            </p>
+                        </div>
+                    </div>
+                    <button type="button"
+                            @click="openCreate()"
+                            class="primary-button flex items-center gap-2">
+                        <?= mtq_icon('plus', 'h-4 w-4') ?>
+                        Tambah Ranking
+                    </button>
+                </header>
 
         <?php if(session('success')): ?>
         <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
@@ -289,7 +342,10 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                     </div>
                 </form>
             </div>
-        </div>
+        </div><!-- end modal -->
+
+        </div><!-- end content div -->
+    </div><!-- end grid -->
 
     </main>
 

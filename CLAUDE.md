@@ -46,6 +46,7 @@ Pengguna dapat dibatasi pada districts atau kategori tertentu (`district_id`, re
 - **JuknisSetting**: Konfigurasi global yang dimuat via `AppServiceProvider` boots ke `config('juknis'...)` dan `config('mtq...')`
 - **OfficialAccessSetting**: Flag akses per-official untuk pendaftaran, lot/maqra, dengan kontrol spesifik kategori
 - **ScoringSetting**: Konfigurasi penilaian global dengan pelacakan status edit
+- **Hakim**: Model hakim penilaian dengan relasi many-to-many ke `CompetitionCategory` melalui `hakim_golongan`
 
 ### Broadcasting (Reverb)
 - Broadcasts pada channel `mtq-live` (dikonfigurasi di `config/broadcasting.php`)

@@ -2152,9 +2152,6 @@ class PageController extends Controller
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('scoring', 'Penilaian', route('scoring'), 'chart')
                     : null,
-                $role === 'admin'
-                    ? $this->consoleNavigationLink('ranking.settings', 'Pengaturan Ranking', route('ranking.settings.index'), 'trophy')
-                    : null,
             ]))),
             $this->consoleNavigationGroup('administrasi', 'Administrasi', 'shield', array_values(array_filter([
                 in_array($role, ['admin', 'panitia'], true)
@@ -2162,6 +2159,12 @@ class PageController extends Controller
                     : null,
                 in_array($role, ['admin', 'panitia'], true)
                     ? $this->consoleNavigationLink('admin.documents', 'Dokumen Resmi', route('admin.documents'), 'book-open')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('admin.hakim', 'Manajemen Hakim', route('admin.hakim.index'), 'users')
+                    : null,
+                $role === 'admin'
+                    ? $this->consoleNavigationLink('ranking.settings', 'Pengaturan Ranking', route('ranking.settings.index'), 'trophy')
                     : null,
                 $role === 'admin'
                     ? $this->consoleNavigationLink('admin.juknis', 'Edit Juknis', route('admin.juknis'), 'pencil')
