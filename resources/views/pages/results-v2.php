@@ -98,35 +98,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
-                        <?php if ($selectedParticipant && ! $isParticipant): ?>
-                            <a href="<?= e(route('results.export', array_filter([
-                                'participant_id' => $selectedParticipant?->id,
-                                'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                'keyword' => $filters['keyword'] ?? null,
-                            ]))) ?>" class="secondary-button">
-                                <?= mtq_icon('upload', 'h-4 w-4') ?>
-                                Ekspor CSV
-                            </a>
-                        <?php endif; ?>
-                        <?php if ($selectedParticipant): ?>
-                            <a href="<?= e(route('results.print', array_filter([
-                                'participant_id' => $selectedParticipant?->id,
-                                'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                'keyword' => $filters['keyword'] ?? null,
-                            ]))) ?>" target="_blank" rel="noreferrer" class="secondary-button">
-                                <?= mtq_icon('book-open', 'h-4 w-4') ?>
-                                Cetak Rekap
-                            </a>
-                        <?php endif; ?>
-                        <?php if (! $isParticipant): ?>
-                            <a href="<?= e(route('results.recap', array_filter([
-                                'competition_category_id' => $filters['competition_category_id'] ?? null,
-                                'keyword' => $filters['keyword'] ?? null,
-                            ]))) ?>" class="secondary-button">
-                                <?= mtq_icon('layers', 'h-4 w-4') ?>
-                                Rekap Cabang
-                            </a>
-                        <?php endif; ?>
                         <div class="status-pill">
                             <span class="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300"></span>
                             <?= e($resultStats['entries']) ?> Entri Nilai
