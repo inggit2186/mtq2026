@@ -1,4 +1,6 @@
 <?php
+// TOP DEBUG - This should always show
+echo "<!-- DEBUG_TOP: rankings count = " . count($rankings) . " -->";
 require_once __DIR__.'/../partials/icon.php';
 $cssAssets = $assets['css'] ?? [];
 $jsAssets = $assets['js'] ?? [];
@@ -310,14 +312,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     </div>
                 </section>
 
-                <?php
-                // DEBUG: Check rankings data
-                $debugRankings = $rankings ?? [];
-                ?>
-                <!-- DEBUG VISIBLE: rankings count = <?= count($debugRankings) ?> -->
-                <?php if (!empty($debugRankings)): ?>
+<?php
+// DEBUG: Show rankings data visible in HTML
+$rankingsDebug = $rankings ?? [];
+?>
+<!-- DEBUG: rankings count = <?= count($rankingsDebug) ?> -->
+<?php if (!empty($rankingsDebug)): ?>
                 <!-- Rankings from Admin Settings -->
-                <section class="glass-card rounded-[2rem] p-6">
+                <section class="glass-card rounded-[2rem] p-6 mb-6">
                     <div class="flex items-center gap-3">
                         <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
                         <div>
@@ -428,7 +430,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     </div>
                 </section>
                 <?php else: ?>
-                <!-- No Rankings Available - debug: rankings count = <?= count($debugRankings) ?> -->
+                <!-- No Rankings Available -->
                 <section class="glass-card rounded-[2rem] p-6">
                     <div class="flex items-center gap-3">
                         <div class="icon-chip"><?= mtq_icon('trophy') ?></div>

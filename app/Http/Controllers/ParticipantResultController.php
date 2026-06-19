@@ -937,24 +937,54 @@ class ParticipantResultController extends Controller
      */
     protected function getRankingsForResults(?int $categoryId = null): array
     {
-        $activeRankings = RankingSetting::getActiveRankings($categoryId);
+        try {
+            // If no category specified (no participant selected), show all active rankings
+            // If category specified, show rankings for that category OR global rankings (null category)
+            if ($categoryId === null) {
+                $activeRankings = RankingSetting::active()
+                    ->with('category')
+                    ->orderBy('sort_order')
+                    ->get();
+            } else {
+                $activeRankings = RankingSetting::active()
+                    ->where(function ($q) use ($categoryId) {
+                        $q->whereNull('competition_category_id')
+                          ->orWhere('competition_category_id', $categoryId);
+                    })
+                    ->with('category')
+                    ->orderBy('sort_order')
+                    ->get();
+            }
 
-        if ($activeRankings->isEmpty()) {
+            \Log::debug('RANKINGS_DEBUG', [
+                'categoryId' => $categoryId,
+                'activeRankings_count' => $activeRankings->count(),
+                'activeRankings' => $activeRankings->toArray(),
+            ]);
+
+            if ($activeRankings->isEmpty()) {
+                return [];
+            }
+
+            return $activeRankings->map(function (RankingSetting $setting) {
+                return [
+                    'id' => $setting->id,
+                    'name' => $setting->name,
+                    'display_label' => $setting->display_label,
+                    'gender' => $setting->gender,
+                    'appearance_day' => $setting->appearance_day,
+                    'judging_round' => $setting->judging_round,
+                    'sort_order' => $setting->sort_order,
+                    'data' => $this->buildRankingData($setting),
+                ];
+            })->values()->all();
+        } catch (\Exception $e) {
+            \Log::error('RANKINGS_ERROR', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return [];
         }
-
-        return $activeRankings->map(function (RankingSetting $setting) {
-            return [
-                'id' => $setting->id,
-                'name' => $setting->name,
-                'display_label' => $setting->display_label,
-                'gender' => $setting->gender,
-                'appearance_day' => $setting->appearance_day,
-                'judging_round' => $setting->judging_round,
-                'sort_order' => $setting->sort_order,
-                'data' => $this->buildRankingData($setting),
-            ];
-        })->values()->all();
     }
 
     /**
