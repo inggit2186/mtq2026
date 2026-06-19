@@ -492,10 +492,12 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                                     <div class="maqra-action-buttons">
                                                         <a href="<?= e(route('participants.show', $participant)) ?>" class="maqra-action-btn maqra-action-btn--secondary">
                                                             <?= mtq_icon('eye', 'h-4 w-4') ?>
+                                                            <span>Detail</span>
                                                         </a>
                                                         <?php if (! $hasMaqra && $remainingPackages > 0 && in_array($user?->role, ['admin', 'official', 'pendamping'], true)): ?>
                                                             <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.$roundLabel) ?>" data-maqra-launcher class="maqra-action-btn maqra-action-btn--primary">
                                                                 <?= mtq_icon('sparkles', 'h-4 w-4') ?>
+                                                                <span>Ambil Maqra</span>
                                                             </a>
                                                         <?php endif; ?>
                                                     </div>
