@@ -1236,6 +1236,7 @@ class ScoringController extends Controller
         $filters = $request->validate([
             'competition_category_id' => ['nullable', 'integer'],
             'judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+            'appearance_day' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $selectedCategory = filled($filters['competition_category_id'] ?? null)
@@ -1245,7 +1246,42 @@ class ScoringController extends Controller
             : null;
 
         $selectedJudgingRound = $filters['judging_round'] ?? 'Penyisihan';
+        $selectedAppearanceDay = $filters['appearance_day'] ?? null;
         $scoringSetting = ScoringSetting::forCategory($selectedCategory?->id);
+
+        // Get appearance schedule for the category
+        $appearanceSchedule = $selectedCategory
+            ? \App\Models\AppearanceSchedule::where('competition_category_id', $selectedCategory->id)->first()
+            : null;
+
+        // Build lot numbers pool from appearance schedule
+        $poolLotNumbers = [];
+        $dayRanges = [];
+        if ($appearanceSchedule) {
+            $poolData = $appearanceSchedule->getPoolLotNumbers();
+            $poolLotNumbers = $poolData['all'] ?? [];
+            sort($poolLotNumbers);
+
+            // Build day ranges for display
+            $daySchedules = $appearanceSchedule->day_schedules ?? [];
+            $offset = 0;
+            foreach ($daySchedules as $dayIndex => $daySchedule) {
+                $count = (int) ($daySchedule['count'] ?? 0);
+                $dayLots = array_slice($poolLotNumbers, $offset, $count);
+                $dayRanges[$dayIndex] = [
+                    'day_index' => $dayIndex,
+                    'name' => $daySchedule['name'] ?? ('Hari ' . ($dayIndex + 1)),
+                    'date' => $daySchedule['date'] ?? null,
+                    'time' => $daySchedule['time'] ?? null,
+                    'count' => $count,
+                    'lot_numbers' => $dayLots,
+                    'lot_range' => !empty($dayLots)
+                        ? str_pad((string) reset($dayLots), 2, '0', STR_PAD_LEFT) . '-' . str_pad((string) end($dayLots), 2, '0', STR_PAD_LEFT)
+                        : '-',
+                ];
+                $offset += $count;
+            }
+        }
 
         // Get participants with scores for this category and round
         $participantsQuery = Participant::query()
@@ -1258,32 +1294,98 @@ class ScoringController extends Controller
 
         $participants = $participantsQuery->get();
 
-        // Build rankings based on average score
+        // Build rankings based on average score with gender and lot info
         $rankedParticipants = $participants
-            ->map(function ($participant) {
+            ->map(function ($participant) use ($selectedJudgingRound) {
                 $scores = $participant->scores ?? collect();
-                $averageScore = $scores->avg('average_score') ?? $scores->avg('score') ?? 0;
+                $roundScores = $scores->where('judging_round', $selectedJudgingRound);
+                $averageScore = $roundScores->avg('average_score') ?? $roundScores->avg('score') ?? 0;
+
+                $lotNumber = $participant->lot_number ?? '';
+                $parts = explode('-', $lotNumber);
+                $lotSuffix = (int) end($parts);
 
                 return [
                     'id' => $participant->id,
                     'name' => $participant->name,
-                    'lot_number' => $participant->lot_number,
+                    'lot_number' => $lotNumber,
+                    'lot_suffix' => $lotSuffix,
+                    'gender' => $participant->gender ?? 'putra',
                     'district_name' => $participant->district?->name ?? '-',
                     'institution' => $participant->institution,
                     'photo_url' => $participant->document_photo
                         ? asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'))
                         : null,
                     'average_score' => round((float) $averageScore, 2),
-                    'score_count' => $scores->count(),
-                    'latest_score_entry' => $scores->sortByDesc('submitted_at')->first(),
+                    'score_count' => $roundScores->count(),
+                    'has_score' => $roundScores->count() > 0,
+                    'latest_score_entry' => $roundScores->sortByDesc('submitted_at')->first(),
                 ];
             })
-            ->sortByDesc('average_score')
+            ->sortByDesc(function ($item) {
+                return [$item['average_score'], $item['lot_suffix'] * -1];
+            })
             ->values()
             ->map(function ($item, $index) {
                 $item['rank'] = $index + 1;
                 return $item;
             });
+
+        // Group by gender
+        $putraRankings = $rankedParticipants->where('gender', 'putra')->values();
+        $putriRankings = $rankedParticipants->where('gender', 'putri')->values();
+
+        // Re-rank within each gender
+        $putraRankings = $putraRankings->map(function ($item, $index) {
+            $item['gender_rank'] = $index + 1;
+            return $item;
+        });
+        $putriRankings = $putriRankings->map(function ($item, $index) {
+            $item['gender_rank'] = $index + 1;
+            return $item;
+        });
+
+        // Assign participants to appearance days based on lot suffix
+        $participantsByDay = [];
+        $allDays = $appearanceSchedule?->day_schedules ?? [];
+        $workingPoolLots = $poolLotNumbers; // Copy for manipulation
+        foreach ($allDays as $dayIndex => $daySchedule) {
+            $count = (int) ($daySchedule['count'] ?? 0);
+            $dayLotNumbers = array_slice($workingPoolLots, 0, $count);
+
+            // Get participants for this day
+            $dayParticipants = $rankedParticipants->filter(function ($p) use ($dayLotNumbers) {
+                return in_array($p['lot_suffix'], $dayLotNumbers);
+            })->values();
+
+            // Separate by gender
+            $dayPutra = $dayParticipants->filter(fn($p) => $p['gender'] === 'putra')->values()->map(fn($item, $idx) => array_merge($item, ['day_gender_rank' => $idx + 1]));
+            $dayPutri = $dayParticipants->filter(fn($p) => $p['gender'] === 'putri')->values()->map(fn($item, $idx) => array_merge($item, ['day_gender_rank' => $idx + 1]));
+
+            $participantsByDay[$dayIndex] = [
+                'day_index' => $dayIndex,
+                'name' => $daySchedule['name'] ?? ('Hari ' . ($dayIndex + 1)),
+                'date' => $daySchedule['date'] ?? null,
+                'time' => $daySchedule['time'] ?? null,
+                'formatted_date' => isset($daySchedule['date'])
+                    ? \Carbon\Carbon::parse($daySchedule['date'])->translatedFormat('d F Y')
+                    : null,
+                'lot_range' => !empty($dayLotNumbers)
+                    ? str_pad((string) reset($dayLotNumbers), 2, '0', STR_PAD_LEFT) . '-' . str_pad((string) end($dayLotNumbers), 2, '0', STR_PAD_LEFT)
+                    : '-',
+                'total_lots' => $count,
+                'total_participants' => $dayParticipants->count(),
+                'putra_count' => $dayPutra->count(),
+                'putri_count' => $dayPutri->count(),
+                'participants' => $dayParticipants,
+                'putra' => $dayPutra,
+                'putri' => $dayPutri,
+                'scored_count' => $dayParticipants->filter(fn($p) => $p['has_score'])->count(),
+            ];
+
+            // Reset offset for next iteration
+            array_splice($workingPoolLots, 0, $count);
+        }
 
         // Stats
         $verifiedCount = Participant::query()
@@ -1292,7 +1394,9 @@ class ScoringController extends Controller
             ->when($restrictByCategory, fn ($query) => $query->whereIn('competition_category_id', $restrictedCategoryIds))
             ->count();
 
-        $scoredCount = $rankedParticipants->where('score_count', '>', 0)->count();
+        $scoredCount = $rankedParticipants->where('has_score', true)->count();
+        $putraCount = $rankedParticipants->where('gender', 'putra')->count();
+        $putriCount = $rankedParticipants->where('gender', 'putri')->count();
         $totalParticipants = $rankedParticipants->count();
 
         $categoryLabel = $selectedCategory
@@ -1303,14 +1407,22 @@ class ScoringController extends Controller
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
             'rankedParticipants' => $rankedParticipants,
+            'putraRankings' => $putraRankings,
+            'putriRankings' => $putriRankings,
+            'participantsByDay' => $participantsByDay,
             'selectedCategory' => $selectedCategory,
             'selectedJudgingRound' => $selectedJudgingRound,
+            'selectedAppearanceDay' => $selectedAppearanceDay,
             'categoryLabel' => $categoryLabel,
             'scoringSetting' => $scoringSetting,
+            'appearanceSchedule' => $appearanceSchedule,
+            'dayRanges' => $dayRanges,
             'stats' => [
                 'verified_participants' => $verifiedCount,
                 'scored_participants' => $scoredCount,
                 'total_participants' => $totalParticipants,
+                'putra_count' => $putraCount,
+                'putri_count' => $putriCount,
             ],
             'filters' => $filters,
         ]);

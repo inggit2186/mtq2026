@@ -4,20 +4,18 @@ $cssAssets = $assets['css'] ?? [];
 $jsAssets = $assets['js'] ?? [];
 $user = auth()->user();
 $rankedParticipants = $rankedParticipants ?? collect();
+$putraRankings = $putraRankings ?? collect();
+$putriRankings = $putriRankings ?? collect();
+$participantsByDay = $participantsByDay ?? [];
 $selectedCategory = $selectedCategory ?? null;
 $selectedJudgingRound = $selectedJudgingRound ?? 'Penyisihan';
+$selectedAppearanceDay = $selectedAppearanceDay;
 $categoryLabel = $categoryLabel ?? 'Semua Golongan';
 $stats = $stats ?? [];
 $filters = $filters ?? [];
 $scoringSetting = $scoringSetting ?? null;
-
-$resolvePhoto = function($participant) {
-    if (!$participant || empty($participant['photo_url'])) return null;
-    return $participant['photo_url'];
-};
-
-$topThree = $rankedParticipants->take(3);
-$restParticipants = $rankedParticipants->skip(3);
+$appearanceSchedule = $appearanceSchedule ?? null;
+$dayRanges = $dayRanges ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -36,57 +34,26 @@ $restParticipants = $rankedParticipants->skip(3);
             border: 1px solid rgba(148, 163, 184, 0.1);
         }
         .rank-badge {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
             font-weight: 800;
-            font-size: 1.25rem;
+            font-size: 1rem;
         }
-        .rank-1 {
-            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-            color: #1e1b4b;
-            box-shadow: 0 0 30px rgba(251, 191, 36, 0.4);
-        }
-        .rank-2 {
-            background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-            color: #1e1b4b;
-            box-shadow: 0 0 30px rgba(148, 163, 184, 0.4);
-        }
-        .rank-3 {
-            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-            color: #fff;
-            box-shadow: 0 0 30px rgba(217, 119, 6, 0.4);
-        }
-        .rank-other {
-            background: linear-gradient(135deg, rgba(51, 65, 85, 0.8) 0%, rgba(30, 41, 59, 0.9) 100%);
-            color: #e2e8f0;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-        }
-        .podium-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .podium-card:hover {
-            transform: translateY(-4px);
-        }
-        .participant-row {
-            transition: all 0.2s ease;
-        }
-        .participant-row:hover {
-            background: rgba(34, 211, 238, 0.08);
-        }
-        .glow-amber {
-            box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 0 40px rgba(251, 191, 36, 0.05);
-        }
-        .crown-icon {
-            animation: bounce 2s ease-in-out infinite;
-        }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
-        }
+        .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1e1b4b; }
+        .rank-2 { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: #1e1b4b; }
+        .rank-3 { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: #fff; }
+        .rank-other { background: rgba(51, 65, 85, 0.8); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.2); }
+        .putra-badge { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; }
+        .putri-badge { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); color: #fff; }
+        .participant-row { transition: all 0.2s ease; }
+        .participant-row:hover { background: rgba(34, 211, 238, 0.08); }
+        .glow-amber { box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 0 40px rgba(251, 191, 36, 0.05); }
+        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.15); }
+        .glow-pink { box-shadow: 0 0 20px rgba(236, 72, 153, 0.15); }
     </style>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
@@ -95,25 +62,25 @@ $restParticipants = $rankedParticipants->skip(3);
         <div class="hero-orb hero-orb-amber right-[-7rem] top-10 h-72 w-72"></div>
 
         <!-- Header -->
-        <header class="glass-card rounded-[2rem] p-6 glow-amber mb-6">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
+        <header class="glass-card rounded-[2rem] p-4 sm:p-6 glow-amber mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3 sm:gap-4">
                     <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
                     <div>
                         <div class="flex items-center gap-2">
                             <?= mtq_icon('chart', 'h-4 w-4 text-amber-300') ?>
                             <p class="section-kicker">Ranking Penilaian</p>
                         </div>
-                        <h2 class="mt-2 text-3xl font-black tracking-tight">
-                            <span class="gradient-text">Ranking Peserta</span>
+                        <h2 class="mt-1 sm:mt-2 text-xl sm:text-3xl font-black tracking-tight">
+                            <span class="gradient-text">Ranking per Putra & Putri</span>
                         </h2>
                         <?php if ($selectedCategory): ?>
-                            <div class="mt-2 flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200">
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 sm:px-3 py-1 text-xs font-semibold text-cyan-200">
                                     <?= mtq_icon('layers', 'h-3 w-3') ?>
                                     <?= e($categoryLabel) ?>
                                 </span>
-                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 sm:px-3 py-1 text-xs font-semibold text-amber-200">
                                     <?= mtq_icon('spark', 'h-3 w-3') ?>
                                     <?= e($selectedJudgingRound) ?>
                                 </span>
@@ -121,23 +88,22 @@ $restParticipants = $rankedParticipants->skip(3);
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-3">
-                    <a href="<?= e(route('scoring', array_filter([
-                        'competition_category_id' => $selectedCategory?->id,
-                        'judging_round' => $selectedJudgingRound,
-                        'step' => 3,
-                    ]))) ?>" class="secondary-button flex items-center gap-2">
-                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                        Kembali ke Penilaian
-                    </a>
-                </div>
+                <a href="<?= e(route('scoring', array_filter([
+                    'competition_category_id' => $selectedCategory?->id,
+                    'judging_round' => $selectedJudgingRound,
+                    'step' => 3,
+                ]))) ?>" class="secondary-button flex items-center gap-2 justify-center">
+                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
+                    Kembali ke Penilaian
+                </a>
             </div>
         </header>
 
-        <!-- Filter & Stats -->
-        <div class="glass-card rounded-[2rem] p-6 mb-6">
-            <form method="GET" action="<?= e(route('scoring.ranking')) ?>" class="flex flex-wrap items-end gap-4">
-                <div class="flex-1 min-w-[200px]">
+        <!-- Filter -->
+        <div class="glass-card rounded-[2rem] p-4 sm:p-6 mb-6">
+            <form method="GET" action="<?= e(route('scoring.ranking')) ?>" class="flex flex-col lg:flex-row items-start lg:items-end gap-4">
+                <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
+                <div class="flex-1 w-full">
                     <label class="mb-2 block text-sm font-semibold text-slate-300">Golongan</label>
                     <select name="competition_category_id" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                         <option value="">Semua Golongan</option>
@@ -154,13 +120,21 @@ $restParticipants = $rankedParticipants->skip(3);
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-300">Babak</label>
-                    <select name="judging_round" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
-                        <option value="Penyisihan" <?= $selectedJudgingRound === 'Penyisihan' ? 'selected' : '' ?>>Penyisihan</option>
-                        <option value="Final" <?= $selectedJudgingRound === 'Final' ? 'selected' : '' ?>>Final</option>
+                <?php if (!empty($dayRanges)): ?>
+                <div class="flex-1 w-full">
+                    <label class="mb-2 block text-sm font-semibold text-slate-300">Jadwal Tampil</label>
+                    <select name="appearance_day" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
+                        <option value="">Semua Hari</option>
+                        <?php foreach ($dayRanges as $day):
+                            $dayFormattedDate = isset($day['date']) && $day['date'] ? \Carbon\Carbon::parse($day['date'])->translatedFormat('d M Y') : '';
+                        ?>
+                            <option value="<?= e($day['day_index']) ?>" <?= $selectedAppearanceDay == $day['day_index'] ? 'selected' : '' ?>>
+                                <?= e($day['name']) ?><?= $dayFormattedDate ? ' - ' . e($dayFormattedDate) : '' ?><?= $day['lot_range'] !== '-' ? ' (Lot ' . e($day['lot_range']) . ')' : '' ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
+                <?php endif; ?>
                 <button type="submit" class="primary-button px-5 py-3 flex items-center gap-2">
                     <?= mtq_icon('filter', 'h-4 w-4') ?>
                     Tampilkan
@@ -169,217 +143,375 @@ $restParticipants = $rankedParticipants->skip(3);
         </div>
 
         <!-- Stats -->
-        <div class="grid gap-4 sm:grid-cols-3 mb-6">
-            <div class="glass-card rounded-2xl p-5">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+            <div class="glass-card rounded-2xl p-4 sm:p-5">
                 <div class="flex items-center gap-3">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/20">
-                        <?= mtq_icon('users', 'h-6 w-6 text-cyan-300') ?>
+                    <div class="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-cyan-400/20">
+                        <?= mtq_icon('users', 'h-5 w-5 sm:h-6 sm:w-6 text-cyan-300') ?>
                     </div>
                     <div>
-                        <p class="text-sm text-slate-400">Total Peserta</p>
-                        <p class="mt-1 text-2xl font-extrabold text-white"><?= e($stats['verified_participants'] ?? 0) ?></p>
+                        <p class="text-xs sm:text-sm text-slate-400">Total Peserta</p>
+                        <p class="mt-1 text-xl sm:text-2xl font-extrabold text-white"><?= e($stats['total_participants'] ?? 0) ?></p>
                     </div>
                 </div>
             </div>
-            <div class="glass-card rounded-2xl p-5">
+            <div class="glass-card rounded-2xl p-4 sm:p-5">
                 <div class="flex items-center gap-3">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/20">
-                        <?= mtq_icon('check-circle', 'h-6 w-6 text-emerald-300') ?>
+                    <div class="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-emerald-400/20">
+                        <?= mtq_icon('check-circle', 'h-5 w-5 sm:h-6 sm:w-6 text-emerald-300') ?>
                     </div>
                     <div>
-                        <p class="text-sm text-slate-400">Sudah Dinilai</p>
-                        <p class="mt-1 text-2xl font-extrabold text-emerald-300"><?= e($stats['scored_participants'] ?? 0) ?></p>
+                        <p class="text-xs sm:text-sm text-slate-400">Sudah Dinilai</p>
+                        <p class="mt-1 text-xl sm:text-2xl font-extrabold text-emerald-300"><?= e($stats['scored_participants'] ?? 0) ?></p>
                     </div>
                 </div>
             </div>
-            <div class="glass-card rounded-2xl p-5">
+            <div class="glass-card rounded-2xl p-4 sm:p-5">
                 <div class="flex items-center gap-3">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400/20">
-                        <?= mtq_icon('trophy', 'h-6 w-6 text-amber-300') ?>
+                    <div class="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-400/20">
+                        <?= mtq_icon('user', 'h-5 w-5 sm:h-6 sm:w-6 text-blue-300') ?>
                     </div>
                     <div>
-                        <p class="text-sm text-slate-400">Ranking Ditampilkan</p>
-                        <p class="mt-1 text-2xl font-extrabold text-amber-300"><?= e($rankedParticipants->count()) ?></p>
+                        <p class="text-xs sm:text-sm text-slate-400">Putra</p>
+                        <p class="mt-1 text-xl sm:text-2xl font-extrabold text-blue-300"><?= e($stats['putra_count'] ?? 0) ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-card rounded-2xl p-4 sm:p-5">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-pink-400/20">
+                        <?= mtq_icon('user', 'h-5 w-5 sm:h-6 sm:w-6 text-pink-300') ?>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm text-slate-400">Putri</p>
+                        <p class="mt-1 text-xl sm:text-2xl font-extrabold text-pink-300"><?= e($stats['putri_count'] ?? 0) ?></p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Top 3 Podium -->
-        <?php if ($topThree->isNotEmpty()): ?>
-        <section class="mb-8 overflow-x-auto">
-            <div class="flex flex-wrap items-end justify-center gap-4 min-w-[600px]">
-                <!-- Rank 2 -->
-                <?php if ($topThree->count() >= 2): ?>
-                <?php $second = $topThree[1]; ?>
-                <div class="podium-card glass-card rounded-2xl p-4 sm:p-6 w-36 sm:w-48 text-center order-2 lg:order-2">
-                    <div class="flex justify-center mb-2 sm:mb-3">
-                        <div class="rank-badge rank-2">
-                            <?= e($second['rank']) ?>
+        <?php if ($selectedAppearanceDay !== null && isset($participantsByDay[$selectedAppearanceDay])): ?>
+            <?php $dayData = $participantsByDay[$selectedAppearanceDay]; ?>
+            <!-- Per Day View -->
+            <section class="glass-card rounded-[2rem] p-4 sm:p-6 mb-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="inline-flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl border border-cyan-400/18 bg-cyan-400/10 text-xl sm:text-2xl font-black text-cyan-100">
+                            <?= e($selectedAppearanceDay + 1) ?>
+                        </div>
+                        <div>
+                            <p class="section-kicker">Jadwal Hari <?= e($selectedAppearanceDay + 1) ?></p>
+                            <h3 class="text-lg sm:text-xl font-bold text-white"><?= e($dayData['name']) ?></h3>
+                            <?php if ($dayData['formatted_date']): ?>
+                                <p class="text-xs sm:text-sm text-slate-400"><?= e($dayData['formatted_date']) ?><?= $dayData['time'] ? ' - ' . e($dayData['time']) . ' WIB' : '' ?></p>
+                            <?php endif; ?>
                         </div>
                     </div>
-                    <span class="text-xl sm:text-2xl mb-2 inline-block">&#129352;</span>
-                    <p class="text-base sm:text-lg font-bold text-white truncate"><?= e($second['name']) ?></p>
-                    <p class="text-xs sm:text-sm text-slate-400 truncate"><?= e($second['district_name']) ?></p>
-                    <div class="mt-2 sm:mt-3 inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 sm:px-3 py-1 text-xs text-slate-300">
-                        Lot <?= e($second['lot_number'] ?? '-') ?>
-                    </div>
-                    <div class="mt-2 sm:mt-3 text-2xl sm:text-3xl font-black text-slate-200">
-                        <?= e(number_format($second['average_score'], 2)) ?>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs sm:text-sm font-semibold text-amber-200">
+                            Lot <?= e($dayData['lot_range']) ?>
+                        </span>
+                        <span class="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs sm:text-sm font-semibold text-slate-300">
+                            <?= e($dayData['total_participants']) ?> Peserta
+                        </span>
+                        <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs sm:text-sm font-semibold text-emerald-200">
+                            <?= e($dayData['scored_count']) ?> Dinilai
+                        </span>
                     </div>
                 </div>
-                <?php endif; ?>
 
-                <!-- Rank 1 -->
-                <?php if ($topThree->count() >= 1): ?>
-                <?php $first = $topThree[0]; ?>
-                <div class="podium-card glass-card rounded-2xl p-4 sm:p-6 w-40 sm:w-56 text-center order-1 lg:order-1 border-2 border-amber-400/30">
-                    <div class="flex justify-center mb-2 sm:mb-3">
-                        <div class="rank-badge rank-1">
-                            <?= e($first['rank']) ?>
+                <!-- Putra & Putri Side by Side -->
+                <div class="grid gap-6 lg:grid-cols-2">
+                    <!-- Putra -->
+                    <div class="rounded-2xl border border-blue-500/20 bg-blue-950/30 p-4 sm:p-5 glow-blue">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-lg">&#9794;</span>
+                                <h4 class="text-lg font-bold text-blue-200">Putra</h4>
+                            </div>
+                            <span class="rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-200">
+                                <?= e($dayData['putra_count']) ?> Peserta
+                            </span>
                         </div>
-                    </div>
-                    <span class="crown-icon text-2xl sm:text-3xl mb-2 inline-block">&#128081;</span>
-                    <p class="text-lg sm:text-xl font-bold text-white truncate"><?= e($first['name']) ?></p>
-                    <p class="text-xs sm:text-sm text-slate-400 truncate"><?= e($first['district_name']) ?></p>
-                    <div class="mt-2 sm:mt-3 inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 sm:px-3 py-1 text-xs text-amber-200">
-                        Lot <?= e($first['lot_number'] ?? '-') ?>
-                    </div>
-                    <div class="mt-2 sm:mt-3 text-3xl sm:text-4xl font-black text-amber-200">
-                        <?= e(number_format($first['average_score'], 2)) ?>
-                    </div>
-                </div>
-                <?php endif; ?>
 
-                <!-- Rank 3 -->
-                <?php if ($topThree->count() >= 3): ?>
-                <?php $third = $topThree[2]; ?>
-                <div class="podium-card glass-card rounded-2xl p-4 sm:p-6 w-36 sm:w-48 text-center order-3 lg:order-3">
-                    <div class="flex justify-center mb-2 sm:mb-3">
-                        <div class="rank-badge rank-3">
-                            <?= e($third['rank']) ?>
-                        </div>
-                    </div>
-                    <span class="text-xl sm:text-2xl mb-2 inline-block">&#129353;</span>
-                    <p class="text-base sm:text-lg font-bold text-white truncate"><?= e($third['name']) ?></p>
-                    <p class="text-xs sm:text-sm text-slate-400 truncate"><?= e($third['district_name']) ?></p>
-                    <div class="mt-2 sm:mt-3 inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 sm:px-3 py-1 text-xs text-slate-300">
-                        Lot <?= e($third['lot_number'] ?? '-') ?>
-                    </div>
-                    <div class="mt-2 sm:mt-3 text-2xl sm:text-3xl font-black text-orange-300">
-                        <?= e(number_format($third['average_score'], 2)) ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-        </section>
-        <?php endif; ?>
-
-        <!-- Full Ranking Table -->
-        <section class="glass-card rounded-[2rem] p-4 sm:p-6">
-            <div class="flex flex-wrap items-center gap-3 mb-4 sm:mb-6">
-                <?= mtq_icon('list', 'h-5 w-5 text-cyan-300') ?>
-                <h3 class="text-lg sm:text-xl font-bold text-white">Daftar Ranking Lengkap</h3>
-                <span class="rounded-full border border-slate-700 bg-slate-800 px-2 sm:px-3 py-1 text-xs text-slate-300">
-                    <?= e($rankedParticipants->count()) ?> Peserta
-                </span>
-            </div>
-
-            <?php if ($rankedParticipants->isEmpty()): ?>
-                <div class="rounded-2xl border border-slate-700 bg-slate-900/50 p-6 sm:p-8 text-center">
-                    <span class="text-5xl sm:text-6xl text-slate-600">&#128202;</span>
-                    <p class="mt-4 text-base sm:text-lg text-slate-400">Belum ada data ranking.</p>
-                    <p class="mt-1 text-sm text-slate-500">Pastikan sudah ada nilai yang dimasukkan untuk golongan ini.</p>
-                </div>
-            <?php else: ?>
-                <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
-                    <table class="w-full min-w-[600px]">
-                        <thead>
-                            <tr class="border-b border-slate-700/50">
-                                <th class="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">#</th>
-                                <th class="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Peserta</th>
-                                <th class="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 hidden sm:table-cell">Lot</th>
-                                <th class="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 hidden md:table-cell">Kecamatan</th>
-                                <th class="px-2 sm:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Nilai</th>
-                                <th class="px-2 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($rankedParticipants as $participant): ?>
-                            <tr class="participant-row border-b border-slate-800/50">
-                                <td class="px-2 sm:px-4 py-3 sm:py-4">
-                                    <div class="flex items-center gap-2">
-                                        <?php
-                                        $rankClass = match($participant['rank']) {
-                                            1 => 'rank-1',
-                                            2 => 'rank-2',
-                                            3 => 'rank-3',
-                                            default => 'rank-other',
-                                        };
-                                        ?>
-                                        <div class="rank-badge rank-other <?= e($rankClass) ?>" style="width: 32px; height: 32px; font-size: 0.75rem;">
-                                            <?= e($participant['rank']) ?>
+                        <?php if ($dayData['putra']->isEmpty()): ?>
+                            <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                                <p class="text-slate-500">Belum ada peserta putra</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="space-y-2 max-h-[500px] overflow-y-auto">
+                                <?php foreach ($dayData['putra'] as $idx => $p): ?>
+                                    <div class="participant-row flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                                        <div class="rank-badge <?= $p['day_gender_rank'] == 1 ? 'rank-1' : ($p['day_gender_rank'] == 2 ? 'rank-2' : ($p['day_gender_rank'] == 3 ? 'rank-3' : 'rank-other')) ?>">
+                                            <?= e($p['day_gender_rank']) ?>
                                         </div>
-                                    </div>
-                                </td>
-                                <td class="px-2 sm:px-4 py-3 sm:py-4">
-                                    <div class="flex items-center gap-2 sm:gap-3">
-                                        <?php if ($participant['photo_url']): ?>
-                                            <img src="<?= e($participant['photo_url']) ?>" alt="<?= e($participant['name']) ?>" class="h-8 w-6 sm:h-10 sm:w-8 rounded-lg object-cover border border-slate-700">
-                                        <?php else: ?>
-                                            <div class="flex h-8 w-6 sm:h-10 sm:w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-xs uppercase text-slate-500">
-                                                <?= e(substr($participant['name'] ?? '?', 0, 1)) ?>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="min-w-0">
-                                            <p class="font-semibold text-white truncate max-w-[100px] sm:max-w-none"><?= e($participant['name']) ?></p>
-                                            <div class="flex flex-wrap items-center gap-2 sm:hidden">
-                                                <span class="inline-flex items-center rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
-                                                    Lot <?= e($participant['lot_number'] ?? '-') ?>
-                                                </span>
-                                            </div>
-                                            <?php if (!empty($participant['institution'])): ?>
-                                                <p class="text-[10px] sm:text-xs text-slate-400 truncate max-w-[100px] sm:max-w-[150px]"><?= e($participant['institution']) ?></p>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="font-semibold text-white truncate text-sm"><?= e($p['name']) ?></p>
+                                            <p class="text-xs text-slate-400"><?= e($p['district_name']) ?> · Lot <?= e($p['lot_number']) ?></p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <?php if ($p['has_score']): ?>
+                                                <span class="text-lg font-bold text-emerald-300"><?= e(number_format($p['average_score'], 2)) ?></span>
+                                            <?php else: ?>
+                                                <span class="text-slate-500 text-sm">Belum dinilai</span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                </td>
-                                <td class="px-2 sm:px-4 py-3 sm:py-4 hidden sm:table-cell">
-                                    <span class="inline-flex items-center rounded-full border border-amber-400/20 bg-amber-400/10 px-2 sm:px-3 py-1 text-xs font-semibold text-amber-200">
-                                        <?= e($participant['lot_number'] ?? '-') ?>
-                                    </span>
-                                </td>
-                                <td class="px-2 sm:px-4 py-3 sm:py-4 text-right">
-                                    <?php if ($participant['score_count'] > 0): ?>
-                                        <span class="text-lg sm:text-xl font-bold text-emerald-300">
-                                            <?= e(number_format($participant['average_score'], 2)) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="text-lg font-bold text-slate-500">-</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="px-2 sm:px-4 py-3 sm:py-4 text-center">
-                                    <?php if ($participant['score_count'] > 0): ?>
-                                        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-emerald-200">
-                                            <?= mtq_icon('check', 'h-3 w-3') ?>
-                                            <span class="hidden sm:inline">Sudah Dinilai</span>
-                                            <span class="sm:hidden">&#10003;</span>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-slate-400">
-                                            <?= mtq_icon('clock', 'h-3 w-3') ?>
-                                            <span class="hidden sm:inline">Belum Dinilai</span>
-                                            <span class="sm:hidden">&#10005;</span>
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Putri -->
+                    <div class="rounded-2xl border border-pink-500/20 bg-pink-950/30 p-4 sm:p-5 glow-pink">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500 text-lg">&#9793;</span>
+                                <h4 class="text-lg font-bold text-pink-200">Putri</h4>
+                            </div>
+                            <span class="rounded-full border border-pink-400/30 bg-pink-400/10 px-3 py-1 text-xs font-semibold text-pink-200">
+                                <?= e($dayData['putri_count']) ?> Peserta
+                            </span>
+                        </div>
+
+                        <?php if ($dayData['putri']->isEmpty()): ?>
+                            <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                                <p class="text-slate-500">Belum ada peserta putri</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="space-y-2 max-h-[500px] overflow-y-auto">
+                                <?php foreach ($dayData['putri'] as $idx => $p): ?>
+                                    <div class="participant-row flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                                        <div class="rank-badge <?= $p['day_gender_rank'] == 1 ? 'rank-1' : ($p['day_gender_rank'] == 2 ? 'rank-2' : ($p['day_gender_rank'] == 3 ? 'rank-3' : 'rank-other')) ?>">
+                                            <?= e($p['day_gender_rank']) ?>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="font-semibold text-white truncate text-sm"><?= e($p['name']) ?></p>
+                                            <p class="text-xs text-slate-400"><?= e($p['district_name']) ?> · Lot <?= e($p['lot_number']) ?></p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <?php if ($p['has_score']): ?>
+                                                <span class="text-lg font-bold text-emerald-300"><?= e(number_format($p['average_score'], 2)) ?></span>
+                                            <?php else: ?>
+                                                <span class="text-slate-500 text-sm">Belum dinilai</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            <?php endif; ?>
-        </section>
+            </section>
+        <?php else: ?>
+            <!-- Overall Rankings by Gender -->
+            <div class="grid gap-6 lg:grid-cols-2 mb-6">
+                <!-- Putra Overall -->
+                <section class="glass-card rounded-[2rem] p-4 sm:p-6 glow-blue">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500 text-2xl">&#9794;</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-blue-200">Ranking Putra</h3>
+                                <p class="text-xs text-slate-400"><?= e($putraRankings->count()) ?> Peserta</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <?php if ($putraRankings->isEmpty()): ?>
+                        <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                            <p class="text-slate-500">Belum ada peserta putra</p>
+                        </div>
+                    <?php else: ?>
+                        <!-- Top 3 -->
+                        <?php $top3Putra = $putraRankings->take(3); ?>
+                        <?php if ($top3Putra->count() > 0): ?>
+                        <div class="flex items-end justify-center gap-2 sm:gap-4 mb-6">
+                            <?php if ($top3Putra->count() >= 2): ?>
+                                <?php $second = $top3Putra[1]; ?>
+                                <div class="text-center w-24 sm:w-32 order-2">
+                                    <div class="rank-badge rank-2 mx-auto mb-2"><?= e($second['gender_rank']) ?></div>
+                                    <span class="text-xl sm:text-2xl">&#129352;</span>
+                                    <p class="text-xs sm:text-sm font-bold text-white truncate mt-1"><?= e($second['name']) ?></p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400 truncate"><?= e($second['district_name']) ?></p>
+                                    <span class="text-lg sm:text-xl font-black text-slate-300"><?= e(number_format($second['average_score'], 2)) ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($top3Putra->count() >= 1): ?>
+                                <?php $first = $top3Putra[0]; ?>
+                                <div class="text-center w-28 sm:w-40 order-1 border-2 border-amber-400/30 rounded-2xl p-2 sm:p-3 bg-amber-400/5">
+                                    <div class="rank-badge rank-1 mx-auto mb-2"><?= e($first['gender_rank']) ?></div>
+                                    <span class="text-2xl sm:text-3xl">&#128081;</span>
+                                    <p class="text-sm sm:text-base font-bold text-white truncate mt-1"><?= e($first['name']) ?></p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400 truncate"><?= e($first['district_name']) ?></p>
+                                    <span class="text-xl sm:text-2xl font-black text-amber-200"><?= e(number_format($first['average_score'], 2)) ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($top3Putra->count() >= 3): ?>
+                                <?php $third = $top3Putra[2]; ?>
+                                <div class="text-center w-24 sm:w-32 order-3">
+                                    <div class="rank-badge rank-3 mx-auto mb-2"><?= e($third['gender_rank']) ?></div>
+                                    <span class="text-xl sm:text-2xl">&#129353;</span>
+                                    <p class="text-xs sm:text-sm font-bold text-white truncate mt-1"><?= e($third['name']) ?></p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400 truncate"><?= e($third['district_name']) ?></p>
+                                    <span class="text-lg sm:text-xl font-black text-orange-300"><?= e(number_format($third['average_score'], 2)) ?></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- Full List -->
+                        <div class="space-y-2 max-h-[400px] overflow-y-auto">
+                            <?php foreach ($putraRankings as $p): ?>
+                                <div class="participant-row flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                                    <div class="rank-badge <?= $p['gender_rank'] <= 3 ? 'rank-'.$p['gender_rank'] : 'rank-other' ?>">
+                                        <?= e($p['gender_rank']) ?>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="font-semibold text-white truncate text-sm"><?= e($p['name']) ?></p>
+                                        <p class="text-xs text-slate-400"><?= e($p['district_name']) ?> · Lot <?= e($p['lot_number']) ?></p>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <?php if ($p['has_score']): ?>
+                                            <span class="text-lg font-bold text-emerald-300"><?= e(number_format($p['average_score'], 2)) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-slate-500 text-sm">Belum</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <!-- Putri Overall -->
+                <section class="glass-card rounded-[2rem] p-4 sm:p-6 glow-pink">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-pink-500 text-2xl">&#9793;</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-pink-200">Ranking Putri</h3>
+                                <p class="text-xs text-slate-400"><?= e($putriRankings->count()) ?> Peserta</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <?php if ($putriRankings->isEmpty()): ?>
+                        <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                            <p class="text-slate-500">Belum ada peserta putri</p>
+                        </div>
+                    <?php else: ?>
+                        <!-- Top 3 -->
+                        <?php $top3Putri = $putriRankings->take(3); ?>
+                        <?php if ($top3Putri->count() > 0): ?>
+                        <div class="flex items-end justify-center gap-2 sm:gap-4 mb-6">
+                            <?php if ($top3Putri->count() >= 2): ?>
+                                <?php $second = $top3Putri[1]; ?>
+                                <div class="text-center w-24 sm:w-32 order-2">
+                                    <div class="rank-badge rank-2 mx-auto mb-2"><?= e($second['gender_rank']) ?></div>
+                                    <span class="text-xl sm:text-2xl">&#129352;</span>
+                                    <p class="text-xs sm:text-sm font-bold text-white truncate mt-1"><?= e($second['name']) ?></p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400 truncate"><?= e($second['district_name']) ?></p>
+                                    <span class="text-lg sm:text-xl font-black text-slate-300"><?= e(number_format($second['average_score'], 2)) ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($top3Putri->count() >= 1): ?>
+                                <?php $first = $top3Putri[0]; ?>
+                                <div class="text-center w-28 sm:w-40 order-1 border-2 border-amber-400/30 rounded-2xl p-2 sm:p-3 bg-amber-400/5">
+                                    <div class="rank-badge rank-1 mx-auto mb-2"><?= e($first['gender_rank']) ?></div>
+                                    <span class="text-2xl sm:text-3xl">&#128081;</span>
+                                    <p class="text-sm sm:text-base font-bold text-white truncate mt-1"><?= e($first['name']) ?></p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400 truncate"><?= e($first['district_name']) ?></p>
+                                    <span class="text-xl sm:text-2xl font-black text-amber-200"><?= e(number_format($first['average_score'], 2)) ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($top3Putri->count() >= 3): ?>
+                                <?php $third = $top3Putri[2]; ?>
+                                <div class="text-center w-24 sm:w-32 order-3">
+                                    <div class="rank-badge rank-3 mx-auto mb-2"><?= e($third['gender_rank']) ?></div>
+                                    <span class="text-xl sm:text-2xl">&#129353;</span>
+                                    <p class="text-xs sm:text-sm font-bold text-white truncate mt-1"><?= e($third['name']) ?></p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400 truncate"><?= e($third['district_name']) ?></p>
+                                    <span class="text-lg sm:text-xl font-black text-orange-300"><?= e(number_format($third['average_score'], 2)) ?></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- Full List -->
+                        <div class="space-y-2 max-h-[400px] overflow-y-auto">
+                            <?php foreach ($putriRankings as $p): ?>
+                                <div class="participant-row flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                                    <div class="rank-badge <?= $p['gender_rank'] <= 3 ? 'rank-'.$p['gender_rank'] : 'rank-other' ?>">
+                                        <?= e($p['gender_rank']) ?>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="font-semibold text-white truncate text-sm"><?= e($p['name']) ?></p>
+                                        <p class="text-xs text-slate-400"><?= e($p['district_name']) ?> · Lot <?= e($p['lot_number']) ?></p>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <?php if ($p['has_score']): ?>
+                                            <span class="text-lg font-bold text-emerald-300"><?= e(number_format($p['average_score'], 2)) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-slate-500 text-sm">Belum</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($participantsByDay) && $selectedAppearanceDay === null): ?>
+            <!-- Day by Day Summary Cards -->
+            <section class="glass-card rounded-[2rem] p-4 sm:p-6 mb-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <?= mtq_icon('calendar', 'h-5 w-5 text-cyan-300') ?>
+                    <h3 class="text-lg sm:text-xl font-bold text-white">Ranking per Jadwal Tampil</h3>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <?php foreach ($participantsByDay as $dayIndex => $day): ?>
+                        <a href="<?= e(route('scoring.ranking', array_filter([
+                            'competition_category_id' => $selectedCategory?->id,
+                            'judging_round' => $selectedJudgingRound,
+                            'appearance_day' => $dayIndex,
+                        ]))) ?>"
+                            class="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 hover:border-cyan-400/30 hover:bg-slate-900/80 transition-colors">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-sm font-bold text-cyan-200">
+                                        <?= e($dayIndex + 1) ?>
+                                    </div>
+                                    <span class="font-semibold text-white"><?= e($day['name']) ?></span>
+                                </div>
+                                <?php if ($day['scored_count'] > 0): ?>
+                                    <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                                        <?= e($day['scored_count']) ?>/<?= e($day['total_participants']) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($day['formatted_date']): ?>
+                                <p class="text-xs text-slate-400 mb-3"><?= e($day['formatted_date']) ?><?= $day['time'] ? ' - ' . e($day['time']) . ' WIB' : '' ?></p>
+                            <?php endif; ?>
+                            <div class="flex items-center gap-2">
+                                <span class="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                                    Lot <?= e($day['lot_range']) ?>
+                                </span>
+                                <span class="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-200">
+                                    &#9794; <?= e($day['putra_count']) ?>
+                                </span>
+                                <span class="inline-flex items-center gap-1 rounded-full bg-pink-500/10 px-2 py-0.5 text-[10px] font-semibold text-pink-200">
+                                    &#9793; <?= e($day['putri_count']) ?>
+                                </span>
+                            </div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
+
     </main>
 
     <?php foreach ($jsAssets as $src): ?>
