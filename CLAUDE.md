@@ -89,7 +89,6 @@ Formulir menggunakan submisi XHR kustom dengan overlay progress:
 ### Sistem Penilaian
 - MFQ (Musabaqah Fq) memiliki controller penilaian terpisah (`MfqScoringController`)
 - Penilaian reguler menggunakan workflow `ScoringSetting.edit_state`: minta → admin buka → submit nilai
-- `ScoreCorrectionRequest` untuk koreksi setelah submission
 
 ### Sistem Maqra
 Draw pemilihan cabang maqra (`ParticipantMaqraDraw`) terpisah dari draw `lot_number` reguler:

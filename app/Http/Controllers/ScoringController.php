@@ -6,7 +6,6 @@ use App\Events\ParticipantSelected;
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionCategory;
 use App\Models\Hakim;
-use App\Models\ScoreCorrectionRequest;
 use App\Models\Participant;
 use App\Models\ScoringSetting;
 use App\Models\ScoreEntry;
@@ -832,130 +831,6 @@ class ScoringController extends Controller
                 'tone' => 'success',
                 'title' => 'Nilai tersimpan',
                 'message' => $successMessage,
-            ]);
-    }
-
-    public function storeCorrectionRequest(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'participant_id' => ['required', 'exists:participants,id'],
-            'judging_round' => ['required', 'string', 'max:100'],
-            'note' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $participant = Participant::query()
-            ->with(['category', 'scores' => fn ($query) => $query->orderByDesc('submitted_at')])
-            ->whereKey($validated['participant_id'])
-            ->where('verification_status', 'verified')
-            ->firstOrFail();
-        $this->ensureCategoryAccess((int) $participant->competition_category_id, 'participant_id');
-
-        $scoringSetting = ScoringSetting::forCategory($participant->competition_category_id);
-        if (! $scoringSetting || ! $scoringSetting->isReady()) {
-            throw ValidationException::withMessages([
-                'participant_id' => 'Setting penilaian untuk golongan ini belum disiapkan. Permintaan perbaikan belum bisa dikirim.',
-            ]);
-        }
-
-        if ($participant->scores->isEmpty()) {
-            throw ValidationException::withMessages([
-                'participant_id' => 'Peserta ini belum punya nilai yang bisa diminta perbaikannya.',
-            ]);
-        }
-
-        $judgingRounds = $this->judgingRoundsForSetting($scoringSetting);
-        if (! in_array($validated['judging_round'], $judgingRounds, true)) {
-            throw ValidationException::withMessages([
-                'judging_round' => 'Babak perbaikan harus sesuai setting golongan ini.',
-            ]);
-        }
-
-        $roundConfig = $this->roundConfigForSetting(
-            $participant->category?->branch,
-            $scoringSetting,
-            $validated['judging_round'],
-            (string) auth()->user()?->name
-        );
-        $judgeNames = $roundConfig['judge_names'];
-        $criteria = $roundConfig['scoring_points'];
-
-        // Use config judge_ids as source of truth (handles judges not in hakims table)
-        $configJudgeIds = $roundConfig['judge_ids'] ?? [];
-        $judgeIds = [];
-        foreach ($judgeNames as $index => $name) {
-            $id = $configJudgeIds[$index] ?? $name;
-            $judgeIds[$id] = $name;
-        }
-
-        // Build validation rules using judge IDs
-        $scoreRules = [];
-        foreach ($judgeIds as $judgeId => $judgeName) {
-            $scoreRules['remarks.'.$judgeId] = ['nullable', 'string', 'max:1000'];
-            foreach (array_keys($criteria) as $key) {
-                $scoreRules['scores.'.$judgeId.'.'.$key] = ['nullable', 'numeric', 'min:0', 'max:100'];
-            }
-        }
-        $scorePayload = $request->validate($scoreRules);
-
-        $requestedScores = [];
-        $requestedRemarks = [];
-        foreach ($judgeIds as $judgeId => $judgeName) {
-            $scores = collect(data_get($scorePayload, 'scores.'.$judgeId, []))
-                ->map(fn ($value) => round((float) $value, 2))
-                ->all();
-
-            $requestedScores[] = [
-                'judge_id' => $judgeId,
-                'judge_name' => $judgeName,
-                'score' => round(collect($scores)->avg() ?? 0, 2),
-                'score_breakdown' => $scores,
-                'remarks' => data_get($scorePayload, 'remarks.'.$judgeId),
-            ];
-            $requestedRemarks[$judgeName] = data_get($scorePayload, 'remarks.'.$judgeId);
-        }
-
-        $note = trim((string) ($validated['note'] ?? ''));
-
-        $correctionRequest = ScoreCorrectionRequest::query()->create([
-            'participant_id' => $participant->id,
-            'competition_category_id' => $participant->competition_category_id,
-            'judging_round' => $validated['judging_round'],
-            'requested_by' => auth()->id(),
-            'status' => 'pending',
-            'note' => $note !== '' ? $note : null,
-            'requested_scores' => $requestedScores,
-            'requested_remarks' => $requestedRemarks,
-            'requested_at' => now(),
-        ]);
-
-        ActivityLogger::log(
-            'scoring.correction.requested',
-            (auth()->user()?->name ?? 'Panitia').' meminta perbaikan nilai untuk peserta '.$participant->name.'.',
-            $participant,
-            [
-                'participant_id' => $participant->id,
-                'participant_name' => $participant->name,
-                'lot_number' => $participant->lot_number,
-                'category_id' => $participant->competition_category_id,
-                'category_label' => trim((string) ($participant->category?->branch ?? '').' - '.(string) ($participant->category?->name ?? '')),
-                'judging_round' => $validated['judging_round'],
-                'status' => 'pending',
-                'request_id' => $correctionRequest->id,
-            ]
-        );
-
-        return redirect()
-            ->to(route('scoring', [
-                'participant_id' => $participant->id,
-                'competition_category_id' => $participant->competition_category_id,
-                'branch' => $participant->category?->branch,
-                'judging_round' => $validated['judging_round'],
-                'step' => 3,
-            ]).'#form-penilaian')
-            ->with('toast', [
-                'tone' => 'success',
-                'title' => 'Request terkirim',
-                'message' => 'Permintaan perbaikan nilai untuk lot '.$participant->lot_number.' berhasil dikirim ke admin.',
             ]);
     }
 
