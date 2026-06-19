@@ -533,7 +533,7 @@ class AppearanceScheduleController extends Controller
                 $latestMaqraDraw = $participant->latestMaqraDraw;
                 if ($latestMaqraDraw) {
                     if ($latestMaqraDraw->maqraPackage) {
-                        $maqraLabel = $latestMaqraDraw->maqraPackage->maqra_code ?? $latestMaqraDraw->maqraPackage->title ?? null;
+                        $maqraLabel = $latestMaqraDraw->maqraPackage->title ?? $latestMaqraDraw->maqraPackage->maqra_code ?? null;
                     } elseif ($latestMaqraDraw->msqDistrictTitle) {
                         $maqraLabel = $latestMaqraDraw->msqDistrictTitle->title ?? null;
                     }

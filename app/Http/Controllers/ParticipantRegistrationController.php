@@ -9,6 +9,7 @@ use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraPackage;
 use App\Models\MaqraRound;
+use App\Models\MsqDistrictTitle;
 use App\Models\MaqraSchedule;
 use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
@@ -1397,7 +1398,7 @@ class ParticipantRegistrationController extends Controller
         $applyMaqraCategoryFilter = $maqraOpenCategoryIds !== [];
 
         $participantsQuery = Participant::query()
-            ->with(['category', 'district', 'latestMaqraDraw.maqraPackage'])
+            ->with(['category', 'district', 'latestMaqraDraw.maqraPackage', 'latestMaqraDraw.msqDistrictTitle'])
             ->where('verification_status', 'verified')
             ->when($district, fn ($query) => $query->where('district_id', $district->id))
             ->when(is_array($allowedCategoryIds), fn ($query) => $query->whereIn('competition_category_id', $allowedCategoryIds))
@@ -1515,6 +1516,46 @@ class ParticipantRegistrationController extends Controller
                 return [$categoryId => max($total - $used, 0)];
             });
 
+        // For MSQ (Syarhil) categories: calculate remaining district titles per category
+        // Key format: "categoryId_districtId_gender"
+        $msqRemainingTitlesByDistrict = collect();
+        $msqCategoryIds = $categories
+            ->filter(fn ($cat) => filled($cat->maqra_system_type) && $cat->maqra_system_type === 'syarhil')
+            ->pluck('id')
+            ->toArray();
+
+        if (! empty($msqCategoryIds)) {
+            $msqParticipants = $participants->filter(fn ($p) => in_array($p->competition_category_id, $msqCategoryIds));
+
+            foreach ($msqParticipants->groupBy(fn ($p) => $p->competition_category_id) as $categoryId => $catParticipants) {
+                $districtGroups = $catParticipants->groupBy(fn ($p) => (int) ($p->district_id ?? 0));
+
+                foreach ($districtGroups as $districtId => $districtParticipants) {
+                    // Group by gender
+                    foreach ($districtParticipants->groupBy('gender') as $gender => $genderParticipants) {
+                        // Get total titles for this district + gender
+                        $totalTitles = MsqDistrictTitle::query()
+                            ->where('district_id', $districtId)
+                            ->where('gender', $gender)
+                            ->where('is_active', true)
+                            ->count();
+
+                        // Get used titles for this district + gender + round
+                        $usedTitleIds = ParticipantMaqraDraw::query()
+                            ->where('round_label', $roundLabel)
+                            ->whereNotNull('msq_district_title_id')
+                            ->whereHas('participant', fn ($q) => $q->where('district_id', $districtId)->where('gender', $gender))
+                            ->pluck('msq_district_title_id')
+                            ->unique()
+                            ->count();
+
+                        $key = "{$categoryId}_{$districtId}_{$gender}";
+                        $msqRemainingTitlesByDistrict[$key] = max($totalTitles - $usedTitleIds, 0);
+                    }
+                }
+            }
+        }
+
         $scopeLabel = match ((string) ($user?->role ?? '')) {
             'admin' => 'Semua Golongan',
             'panitia' => 'Golongan sesuai hak akses',
@@ -1550,6 +1591,7 @@ class ParticipantRegistrationController extends Controller
                 'maqra_total' => $participants->sum(fn (Participant $participant): int => $participant->maqraDraws->count()),
             ],
             'maqraRemainingPackagesByCategory' => $maqraRemainingPackagesByCategory,
+            'msqRemainingTitlesByDistrict' => $msqRemainingTitlesByDistrict,
             'filters' => [
                 'round' => $activeRoundLabel,
                 'participant_id' => $selectedParticipant?->id ?? '',
@@ -1905,10 +1947,16 @@ class ParticipantRegistrationController extends Controller
                 ->get(['id', 'name', 'nik', 'kk_number', 'document_photo']);
         }
 
-        // For MSQ: get district-specific titles filtered by gender
+        // For MSQ: get district-specific titles filtered by gender (for logic)
         $districtMaqraTitles = collect();
         if ($usesDistrictMaqraTitles && $participant->district_id) {
             $districtMaqraTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id, $participant->gender);
+        }
+
+        // For MSQ animation: get ALL titles (including inactive) for visual effect
+        $msqAnimationTitles = collect();
+        if ($usesDistrictMaqraTitles && $participant->district_id) {
+            $msqAnimationTitles = app(PageController::class)->allMsqDistrictTitlesForAnimation($category, $participant->district_id, $participant->gender);
         }
 
         // For non-MSQ: get global MaqraPackage
@@ -1955,6 +2003,7 @@ class ParticipantRegistrationController extends Controller
             // MSQ specific
             'usesDistrictMaqraTitles' => $usesDistrictMaqraTitles,
             'districtMaqraTitles' => $districtMaqraTitles,
+            'msqAnimationTitles' => $msqAnimationTitles,
             'currentMsqDistrictTitle' => $currentDraw?->msqDistrictTitle,
         ]);
     }
@@ -3032,7 +3081,7 @@ class ParticipantRegistrationController extends Controller
         $sharedParticipants->each(function (Participant $sharedParticipant) use ($selectedTitle, $roundLabel, $drawnAt): void {
             \App\Models\ParticipantMaqraDraw::query()->create([
                 'participant_id' => $sharedParticipant->id,
-                'maqra_package_id' => null,
+                'maqra_package_id' => $selectedTitle->id, // Store MSQ title ID here
                 'msq_district_title_id' => $selectedTitle->id,
                 'round_label' => $roundLabel,
                 'drawn_at' => $drawnAt,

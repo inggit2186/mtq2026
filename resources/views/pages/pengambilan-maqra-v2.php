@@ -18,6 +18,7 @@ $judgeNameDefault = $judgeNameDefault ?? (string) $user?->name;
 $maqraOpenCategoriesSummary = $maqraOpenCategoriesSummary ?? collect();
 $initialActiveCategoryId = (string) ($selectedCategory?->id ?? ($categories->first()?->id ?? ''));
 $maqraRemainingPackagesByCategory = $maqraRemainingPackagesByCategory ?? collect();
+$msqRemainingTitlesByDistrict = $msqRemainingTitlesByDistrict ?? collect();
 $officialAccessSetting = $officialAccessSetting ?? new \App\Models\OfficialAccessSetting();
 $maqraSelectedCategoryLotRange = $maqraSelectedCategoryLotRange ?? null;
 $selectedMaqraLotRange = is_array($maqraSelectedCategoryLotRange) ? $maqraSelectedCategoryLotRange : null;
@@ -393,11 +394,29 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                     <?php
                                         $districtParticipants = $districtParticipants->values();
                                         $districtName = (string) ($districtParticipants->first()?->district?->name ?? 'Tanpa Kecamatan');
-                                        $leaderParticipant = $districtParticipants->first();
-                                        $districtMaqraParticipant = $districtParticipants->first(fn ($participant) => filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null));
-                                        $districtMaqraLabel = (string) ($districtMaqraParticipant?->latestMaqraDraw?->maqraPackage?->title ?? '');
-                                        $districtMaqraLabel = $districtMaqraLabel !== '' ? (str_starts_with($districtMaqraLabel, 'QS') ? $districtMaqraLabel : 'QS '.$districtMaqraLabel) : '';
-                                        $districtCompleted = filled($districtMaqraLabel);
+                                        $districtId = (int) ($districtParticipants->first()?->district_id ?? 0);
+                                        $firstParticipant = $districtParticipants->first();
+                                        $leaderParticipant = $firstParticipant;
+                                        $gender = $firstParticipant?->gender ?? 'putra';
+                                        $isMsqCategory = app(\App\Http\Controllers\PageController::class)->categoryUsesDistrictMaqraTitles($category);
+                                        $msqKey = "{$category->id}_{$districtId}_{$gender}";
+                                        $msqRemainingForDistrict = $isMsqCategory ? (int) ($msqRemainingTitlesByDistrict[$msqKey] ?? 0) : $remainingPackages;
+
+                                        // Get maqra label - use msqDistrictTitle for MSQ categories, maqraPackage for others
+                                        $districtMaqraLabel = '';
+                                        $districtCompleted = false;
+                                        if ($isMsqCategory) {
+                                            // MSQ: check from msqDistrictTitle
+                                            $districtMaqraParticipant = $districtParticipants->first(fn ($p) => filled($p->latestMaqraDraw?->msqDistrictTitle?->title ?? null));
+                                            $districtMaqraLabel = (string) ($districtMaqraParticipant?->latestMaqraDraw?->msqDistrictTitle?->title ?? '');
+                                            $districtCompleted = filled($districtMaqraLabel);
+                                        } else {
+                                            // Non-MSQ: check from maqraPackage
+                                            $districtMaqraParticipant = $districtParticipants->first(fn ($participant) => filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null));
+                                            $rawLabel = (string) ($districtMaqraParticipant?->latestMaqraDraw?->maqraPackage?->title ?? '');
+                                            $districtMaqraLabel = $rawLabel !== '' ? (str_starts_with($rawLabel, 'QS') ? $rawLabel : 'QS '.$rawLabel) : '';
+                                            $districtCompleted = filled($districtMaqraLabel);
+                                        }
                                         $lotLaunchUrl = $leaderParticipant ? route('participants.maqra.draw', $leaderParticipant).'?autofullscreen=1&round='.$roundLabel : null;
                                     ?>
                                     <div class="maqra-district-card <?= $districtCompleted ? 'maqra-district-card--completed' : '' ?>">
@@ -415,7 +434,7 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                             <?php else: ?>
                                                 <p class="maqra-district-status">
                                                     <?= mtq_icon('clock', 'h-4 w-4') ?>
-                                                    <?= $remainingPackages <= 0 ? 'Stok habis' : 'Belum diambil' ?>
+                                                    <?= $msqRemainingForDistrict <= 0 ? 'Stok habis' : 'Belum diambil' ?>
                                                 </p>
                                             <?php endif; ?>
                                         </div>
@@ -449,10 +468,23 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                     <tbody>
                                         <?php foreach ($categoryParticipants as $participant): ?>
                                             <?php
-                                                $hasMaqra = filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null);
-                                                $maqraTitle = trim((string) preg_replace('/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/u', '', (string) ($participant->latestMaqraDraw?->maqraPackage?->title ?? '')));
-                                                $maqraTitle = $maqraTitle !== '' ? (str_starts_with($maqraTitle, 'QS') ? $maqraTitle : 'QS '.$maqraTitle) : '';
+                                                $isMsqCategory = app(\App\Http\Controllers\PageController::class)->categoryUsesDistrictMaqraTitles($category);
+                                                $districtId = (int) ($participant->district_id ?? 0);
+                                                $gender = $participant->gender ?? 'putra';
+                                                $msqKey = "{$category->id}_{$districtId}_{$gender}";
+                                                $msqRemainingForDistrict = $isMsqCategory ? (int) ($msqRemainingTitlesByDistrict[$msqKey] ?? 0) : $remainingPackages;
+
+                                                // Get maqra info - use msqDistrictTitle for MSQ categories
+                                                if ($isMsqCategory) {
+                                                    $hasMaqra = filled($participant->latestMaqraDraw?->msqDistrictTitle?->title ?? null);
+                                                    $maqraTitle = (string) ($participant->latestMaqraDraw?->msqDistrictTitle?->title ?? '');
+                                                } else {
+                                                    $hasMaqra = filled($participant->latestMaqraDraw?->maqraPackage?->maqra_code ?? null);
+                                                    $rawTitle = trim((string) preg_replace('/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/u', '', (string) ($participant->latestMaqraDraw?->maqraPackage?->title ?? '')));
+                                                    $maqraTitle = $rawTitle !== '' ? (str_starts_with($rawTitle, 'QS') ? $rawTitle : 'QS '.$rawTitle) : '';
+                                                }
                                                 $maqraRound = (string) ($participant->latestMaqraDraw?->round_label ?? 'Penyisihan');
+                                                $currentRemaining = $isMsqCategory ? $msqRemainingForDistrict : $remainingPackages;
                                             ?>
                                             <tr class="maqra-tr" data-participant-row data-participant-id="<?= e((string) $participant->id) ?>" data-category-id="<?= e((string) $category->id) ?>">
                                                 <td class="maqra-td maqra-td--name">
@@ -466,8 +498,8 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                                             <span class="maqra-chip maqra-chip--round"><?= e($maqraRound) ?></span>
                                                         </div>
                                                     <?php else: ?>
-                                                        <span class="maqra-chip <?= $remainingPackages <= 0 ? 'maqra-chip--warning' : 'maqra-chip--neutral' ?>">
-                                                            <?= $remainingPackages <= 0 ? 'Stok Habis' : 'Belum Diambil' ?>
+                                                        <span class="maqra-chip <?= $currentRemaining <= 0 ? 'maqra-chip--warning' : 'maqra-chip--neutral' ?>">
+                                                            <?= $currentRemaining <= 0 ? 'Stok Habis' : 'Belum Diambil' ?>
                                                         </span>
                                                     <?php endif; ?>
                                                 </td>
@@ -483,7 +515,7 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                                             <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                                         </span>
                                                     <?php else: ?>
-                                                        <span class="maqra-status-badge <?= $remainingPackages <= 0 ? 'maqra-status-badge--warning' : 'maqra-status-badge--neutral' ?>">
+                                                        <span class="maqra-status-badge <?= $currentRemaining <= 0 ? 'maqra-status-badge--warning' : 'maqra-status-badge--neutral' ?>">
                                                             <?= mtq_icon('x', 'h-4 w-4') ?>
                                                         </span>
                                                     <?php endif; ?>
@@ -494,7 +526,7 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                                             <?= mtq_icon('eye', 'h-4 w-4') ?>
                                                             <span>Detail</span>
                                                         </a>
-                                                        <?php if (! $hasMaqra && $remainingPackages > 0 && in_array($user?->role, ['admin', 'official', 'pendamping'], true)): ?>
+                                                        <?php if (! $hasMaqra && $currentRemaining > 0 && in_array($user?->role, ['admin', 'official', 'pendamping'], true)): ?>
                                                             <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.$roundLabel) ?>" data-maqra-launcher class="maqra-action-btn maqra-action-btn--primary">
                                                                 <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                                 <span>Ambil Maqra</span>

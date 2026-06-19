@@ -3951,6 +3951,23 @@ class PageController extends Controller
     }
 
     /**
+     * Get ALL MSQ district titles (including inactive) for animation display
+     */
+    public function allMsqDistrictTitlesForAnimation(CompetitionCategory $category, int $districtId, ?string $gender = null): \Illuminate\Support\Collection
+    {
+        if (! $this->categoryUsesDistrictMaqraTitles($category)) {
+            return collect();
+        }
+
+        return \App\Models\MsqDistrictTitle::query()
+            ->forDistrict($districtId)
+            ->when($gender, fn ($query) => $query->forGender($gender))
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get();
+    }
+
+    /**
      * Get all MSQ district titles for admin management
      */
     public function allMsqDistrictTitles(): \Illuminate\Support\Collection

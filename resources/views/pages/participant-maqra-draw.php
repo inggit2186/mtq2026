@@ -49,9 +49,10 @@ $maqraPackageCount = (int) ($maqraPackageCount ?? 0);
 $roundOptions = ['Penyisihan', 'Final'];
 $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
 
-// MSQ candidates for the spinning animation
+// MSQ candidates for the spinning animation - use ALL titles (including inactive) for visual effect
+$msqAnimationTitles = $msqAnimationTitles ?? collect();
 $msqCandidateLabels = $usesDistrictMaqraTitles
-    ? $districtMaqraTitles->map(fn($t) => ['id' => $t->id, 'title' => $t->title, 'content' => $t->description ?? ''])->values()->all()
+    ? $msqAnimationTitles->map(fn($t) => ['id' => $t->id, 'title' => $t->title, 'content' => $t->description ?? '', 'is_active' => $t->is_active ?? true])->values()->all()
     : [];
 ?>
 <!DOCTYPE html>
@@ -312,8 +313,11 @@ $msqCandidateLabels = $usesDistrictMaqraTitles
                             </div>
 
                             <?php
+                            // For button state: check ALL titles (inactive included) for animation to work
+                            // Server will validate active titles anyway
+                            $msqAnimationTitlesCheck = $msqAnimationTitles ?? collect();
                             $noCandidates = $usesDistrictMaqraTitles
-                                ? $districtMaqraTitles->isEmpty()
+                                ? $msqAnimationTitlesCheck->isEmpty()
                                 : $maqraCandidates->isEmpty();
                             ?>
                             <div class="flex flex-wrap justify-center gap-3 pt-1">
@@ -419,6 +423,15 @@ $msqCandidateLabels = $usesDistrictMaqraTitles
             const assignedContent = <?= json_encode($maqraAssignedContent, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const assignedLabel = <?= json_encode($maqraAssignedLabel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const noCandidates = candidates.length === 0;
+
+            // Debug logging for MSQ
+            console.log('[Maqra Draw] Debug info:', {
+                usesDistrictMaqraTitles,
+                candidatesLength: candidates.length,
+                candidates: candidates,
+                alreadyAssigned,
+                noCandidates
+            });
 
             confettiHost.className = 'pointer-events-none absolute inset-0 z-20 overflow-hidden';
             stage.appendChild(confettiHost);
@@ -739,12 +752,15 @@ $msqCandidateLabels = $usesDistrictMaqraTitles
             if (!alreadyAssigned) {
                 // Always disable button if no candidates - prevents both click and Enter issues
                 if (noCandidates) {
+                    console.log('[Maqra Draw] No candidates, disabling button');
                     button.disabled = true;
                     button.classList.add('opacity-60', 'cursor-not-allowed');
                     statusDisplay.textContent = 'Stok maqra habis';
                     rollingLabel.textContent = 'Tidak tersedia';
                 } else {
+                    console.log('[Maqra Draw] Candidates available, enabling button. Button:', button);
                     button.addEventListener('click', startDraw);
+                    console.log('[Maqra Draw] Click handler attached');
                     // Enter key support
                     document.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter' && !button.disabled && !drawStarted) {
