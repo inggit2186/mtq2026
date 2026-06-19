@@ -1454,11 +1454,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     <div class="flex items-center justify-between">
                                                         <div>
                                                             <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Total Nilai</p>
-                                                            <p class="mt-1 text-xs text-slate-400">Jumlah semua poin / jumlah poin</p>
+                                                            <p class="mt-1 text-xs text-slate-400">Jumlah rata-rata poin per hakim</p>
                                                         </div>
                                                         <div class="text-right">
                                                             <p class="text-3xl sm:text-4xl font-black text-white" x-text="calculateTotalScore()"></p>
-                                                            <p class="mt-1 text-sm text-cyan-200" x-text="`dari ${judgeNames.length} hakim`"></p>
+                                                            <p class="mt-1 text-sm text-cyan-200" x-text="`Total semua poin`"></p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1486,16 +1486,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     </template>
                                                 </div>
 
-                                                <!-- Total per Poin -->
-                                                <h4 class="mb-3 text-sm font-semibold text-slate-300">Total per Poin (Jumlah Semua Hakim)</h4>
+                                                <!-- Total per Poin (Rata-rata per Poin) -->
+                                                <h4 class="mb-3 text-sm font-semibold text-slate-300">Total per Poin (Rata-rata Hakim)</h4>
                                                 <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                                     <template x-for="item in previewPointTotals" :key="item.label">
                                                         <div class="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 sm:px-4 py-2 sm:py-3">
                                                             <div class="flex items-center justify-between gap-2">
                                                                 <span class="text-xs text-emerald-200 truncate" x-text="item.label"></span>
-                                                                <span class="text-base sm:text-lg font-bold text-emerald-300 shrink-0" x-text="item.total"></span>
+                                                                <span class="text-base sm:text-lg font-bold text-emerald-300 shrink-0" x-text="item.average"></span>
                                                             </div>
-                                                            <p class="mt-1 text-[10px] text-emerald-200/60" x-text="`(${judgeNames.length} hakim)`"></p>
+                                                            <p class="mt-1 text-[10px] text-emerald-200/60" x-text="`(Jumlah: ${item.sum} / ${item.count} hakim)`"></p>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -2446,8 +2446,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         const scoreInputs = panel ? [...panel.querySelectorAll('input[type="number"]')] : [];
                         const scores = scoreInputs.map((input) => ({
                             label: input.dataset.scoreLabel || 'Poin',
-                            value: input.value || '0',
-                            numericValue: Number(input.value || 0),
+                            value: input.value || '',
+                            numericValue: input.value !== '' ? Number(input.value) : null,
                         }));
                         const remarksField = panel ? panel.querySelector('textarea') : null;
 
@@ -2458,20 +2458,28 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         };
                     });
 
-                    // Calculate point totals (sum of all judges per point)
+                    // Calculate per-point averages: sum / count of judges who gave non-null values
                     if (judgeData.length > 0 && judgeData[0].scores.length > 0) {
-                        const pointTotals = judgeData[0].scores.map((score, idx) => {
+                        const pointAverages = judgeData[0].scores.map((score, idx) => {
                             let sum = 0;
+                            let count = 0;
                             judgeData.forEach(judge => {
-                                sum += judge.scores[idx]?.numericValue || 0;
+                                const val = judge.scores[idx]?.numericValue;
+                                if (val !== null && val !== undefined) {
+                                    sum += val;
+                                    count++;
+                                }
                             });
+                            const avg = count > 0 ? sum / count : 0;
                             return {
                                 label: score.label,
-                                total: sum.toFixed(2),
-                                numericTotal: sum,
+                                sum: sum.toFixed(2),
+                                count: count,
+                                average: avg.toFixed(2),
+                                numericAverage: avg,
                             };
                         });
-                        this.previewPointTotals = pointTotals;
+                        this.previewPointTotals = pointAverages;
                     } else {
                         this.previewPointTotals = [];
                     }
@@ -2483,9 +2491,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     if (!this.previewPointTotals || this.previewPointTotals.length === 0) {
                         return '0.00';
                     }
-                    const sum = this.previewPointTotals.reduce((acc, pt) => acc + pt.numericTotal, 0);
-                    const avg = sum / this.previewPointTotals.length;
-                    return avg.toFixed(2);
+                    // Total Score = sum of all per-point averages
+                    const sum = this.previewPointTotals.reduce((acc, pt) => acc + pt.numericAverage, 0);
+                    return sum.toFixed(2);
                 },
                 openPreview() {
                     this.previewData = this.collectPreviewData();

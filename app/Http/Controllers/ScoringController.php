@@ -677,23 +677,28 @@ class ScoringController extends Controller
         }
 
         // Collect all judge scores into JSON format
-        // Perpoin: jumlah semua hakim, bukan rata-rata
-        // Total: jumlah semua poin / jumlah poin
+        // Perpoin: hitung rata-rata per poin dari hakim yang memberi nilai
+        // Total Score = jumlah semua poin (setelah dirata-ratakan per poin)
         $allJudgeScores = [];
-        $pointTotals = []; // Menyimpan jumlah per poin
+        $pointSums = [];    // Menyimpan jumlah per poin (untuk rata-rata)
+        $pointCounts = [];  // Menyimpan jumlah hakim yang memberi nilai per poin
 
-        // First pass: collect scores per judge and calculate point totals
+        // First pass: collect scores per judge
         foreach ($judgeIds as $judgeId => $judgeName) {
             $scores = collect(data_get($scorePayload, 'scores.'.$judgeId, []))
-                ->map(fn ($value) => round((float) $value, 2))
+                ->map(fn ($value) => $value !== null && $value !== '' ? round((float) $value, 2) : null)
                 ->all();
 
-            // Accumulate point totals
+            // Accumulate point sums and counts (hanya yang tidak null)
             foreach ($scores as $pointKey => $pointValue) {
-                if (!isset($pointTotals[$pointKey])) {
-                    $pointTotals[$pointKey] = 0;
+                if ($pointValue !== null) {
+                    if (!isset($pointSums[$pointKey])) {
+                        $pointSums[$pointKey] = 0;
+                        $pointCounts[$pointKey] = 0;
+                    }
+                    $pointSums[$pointKey] += $pointValue;
+                    $pointCounts[$pointKey]++;
                 }
-                $pointTotals[$pointKey] += $pointValue;
             }
 
             $allJudgeScores[$judgeName] = [
@@ -703,30 +708,41 @@ class ScoringController extends Controller
             ];
         }
 
-        // Calculate total score: sum of point totals / number of points
-        $totalScore = count($pointTotals) > 0
-            ? round(array_sum($pointTotals) / count($pointTotals), 2)
+        // Calculate point averages: jumlah / jumlah hakim yang memberi nilai
+        $pointAverages = [];
+        $pointTotals = [];
+        foreach ($pointSums as $pointKey => $sum) {
+            $count = $pointCounts[$pointKey] ?? 1;
+            $pointAverages[$pointKey] = $count > 0 ? round($sum / $count, 2) : 0;
+            $pointTotals[$pointKey] = $sum; // Untuk display/debugging
+        }
+
+        // Total Score = jumlah semua rata-rata poin
+        $totalScore = count($pointAverages) > 0
+            ? round(array_sum($pointAverages), 2)
             : 0;
 
-        // Add per-point totals and final score to each judge entry
+        // Add point averages and final score to each judge entry
         foreach ($allJudgeScores as $judgeName => &$data) {
+            $data['point_averages'] = $pointAverages;
             $data['point_totals'] = $pointTotals;
+            $data['point_counts'] = $pointCounts;
             $data['score'] = $totalScore;
         }
         unset($data);
 
-        // Calculate average score (for display purposes - average of judge scores)
-        $averageScore = round(
-            collect($allJudgeScores)->avg(fn ($s) => $s['score']) ?? 0,
-            2
-        );
+        // Total score is used for ranking (same as average_score for backward compatibility)
+        $averageScore = $totalScore;
 
         \Log::info('SCORE_SAVED', [
             'participant_id' => $participant->id,
             'judging_round' => $validated['judging_round'],
             'judge_ids_used' => array_keys($allJudgeScores),
             'all_judge_scores' => $allJudgeScores,
-            'average_score' => $averageScore,
+            'point_sums' => $pointSums,
+            'point_counts' => $pointCounts,
+            'point_averages' => $pointAverages,
+            'total_score' => $totalScore,
         ]);
 
         // Create score entries for all participants (for MSQ) or single participant (regular)
