@@ -21,7 +21,6 @@ class AppearanceScheduleController extends Controller
         $lotPerDistrictBranches = [
             'Fahmil Qur`an',
             'Syarhil Qur`an',
-            'Khutbah Jumat dan Adzan',
         ];
 
         return in_array($branch, $lotPerDistrictBranches);

@@ -13,10 +13,6 @@ class AppearanceSchedule extends Model
 
     /**
      * Categories where 1 district = 1 lot number
-     * Note: Khutbah Jumat dan Adzan were combined, but now split into:
-     * - Khutbah Jumat (solo)
-     * - Adzan (solo)
-     * Both are now single (1 participant = 1 lot)
      */
     private const LOT_PER_DISTRICT_BRANCHES = [
         'Fahmil Qur`an',
