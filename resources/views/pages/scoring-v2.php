@@ -646,7 +646,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <div class="space-y-3 rounded-2xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-2xl backdrop-blur-md">
                             <!-- Penyisihan -->
                             <?php if ($roundLocked['Penyisihan']): ?>
-                            <div class="flex items-center gap-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 opacity-70">
+                            <button type="button" x-on:click="confirmRoundAndProceed('Penyisihan')"
+                                class="group flex w-full items-center gap-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-left transition-all duration-200 hover:border-cyan-400/40 hover:bg-gradient-to-r hover:from-cyan-400/8 hover:to-transparent hover:shadow-[0_0_20px_-6px_rgba(34,211,238,0.2)]">
                                 <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
                                     <?= mtq_icon('layers', 'h-6 w-6') ?>
                                 </span>
@@ -654,8 +655,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <p class="font-bold text-white">Penyisihan</p>
                                     <p class="text-xs text-emerald-300">Sudah dikunci</p>
                                 </div>
-                                <?= mtq_icon('check-circle', 'h-5 w-5 text-emerald-300 shrink-0') ?>
-                            </div>
+                                <?= mtq_icon('lock', 'h-5 w-5 text-emerald-300 shrink-0') ?>
+                            </button>
                             <?php else: ?>
                             <button type="button" x-on:click="confirmRoundAndProceed('Penyisihan')"
                                 class="group flex w-full items-center gap-4 rounded-xl border border-slate-700/60 bg-slate-800/50 p-4 text-left transition-all duration-200 hover:border-cyan-400/40 hover:bg-gradient-to-r hover:from-cyan-400/8 hover:to-transparent hover:shadow-[0_0_20px_-6px_rgba(34,211,238,0.2)]">
@@ -674,7 +675,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                             <!-- Final -->
                             <?php if ($roundLocked['Final']): ?>
-                            <div class="flex items-center gap-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 opacity-70">
+                            <button type="button" x-on:click="confirmRoundAndProceed('Final')"
+                                class="group flex w-full items-center gap-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-left transition-all duration-200 hover:border-cyan-400/40 hover:bg-gradient-to-r hover:from-cyan-400/8 hover:to-transparent hover:shadow-[0_0_20px_-6px_rgba(34,211,238,0.2)]">
                                 <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-amber-300">
                                     <?= mtq_icon('crown', 'h-6 w-6') ?>
                                 </span>
@@ -682,8 +684,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <p class="font-bold text-white">Final</p>
                                     <p class="text-xs text-emerald-300">Sudah dikunci</p>
                                 </div>
-                                <?= mtq_icon('check-circle', 'h-5 w-5 text-emerald-300 shrink-0') ?>
-                            </div>
+                                <?= mtq_icon('lock', 'h-5 w-5 text-amber-300 shrink-0') ?>
+                            </button>
                             <?php else: ?>
                             <button type="button" x-on:click="confirmRoundAndProceed('Final')"
                                 class="group flex w-full items-center gap-4 rounded-xl border border-slate-700/60 bg-slate-800/50 p-4 text-left transition-all duration-200 hover:border-amber-400/40 hover:bg-gradient-to-r hover:from-amber-400/8 hover:to-transparent hover:shadow-[0_0_20px_-6px_rgba(251,191,36,0.2)]">
