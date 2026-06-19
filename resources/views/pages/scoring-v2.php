@@ -1383,6 +1383,30 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <h4 class="text-sm font-bold text-cyan-100 uppercase tracking-[0.18em]">Poin Penilaian</h4>
                                                     </div>
                                                     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                                        <?php
+                                                        // Helper to get score value: old() > draft > ''
+                                                        $judgeId = $judgeIds[$index] ?? '';
+                                                        $getScoreValue = function(string $key) use ($judgeId, $judgeName): string {
+                                                            $oldScores = old('scores', []);
+                                                            $oldValue = data_get($oldScores, $judgeId.'.'.str_replace('.', '\\.', $key));
+                                                            if ($oldValue !== null && $oldValue !== '') {
+                                                                return e($oldValue);
+                                                            }
+                                                            // Check existing draft
+                                                            $draftValue = data_get($participantScoreDraft, $judgeName.'.scores.'.$key);
+                                                            return $draftValue !== null && $draftValue !== '' ? e($draftValue) : '';
+                                                        };
+                                                        $getRemarksValue = function() use ($judgeId, $judgeName): string {
+                                                            $oldRemarks = old('remarks', []);
+                                                            $oldValue = data_get($oldRemarks, $judgeId);
+                                                            if ($oldValue !== null) {
+                                                                return e($oldValue);
+                                                            }
+                                                            // Check existing draft
+                                                            $draftValue = data_get($participantScoreDraft, $judgeName.'.remarks');
+                                                            return $draftValue ?? '';
+                                                        };
+                                                        ?>
                                                         <?php foreach ($criteria as $key => $label): ?>
                                                             <div class="rounded-[1rem] border border-cyan-400/20 bg-slate-950/80 p-3 shadow-[0_4px_16px_-8px_rgba(34,211,238,0.15)]">
                                                                 <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
@@ -1395,7 +1419,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                     min="0"
                                                                     max="100"
                                                                     step="0.01"
-                                                                    value="<?= e(data_get(old('scores', []), ($judgeIds[$index] ?? '').'.'.str_replace('.', '\\.', $key))) ?>"
+                                                                    value="<?= $getScoreValue($key) ?>"
                                                                     class="w-full rounded-xl border-2 border-cyan-400/30 bg-slate-900/90 px-2 sm:px-3.5 py-2 sm:py-3 text-center text-base sm:text-lg font-bold text-white outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20 focus:bg-slate-900"
                                                                     placeholder="0">
                                                             </div>
@@ -1410,7 +1434,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         name="remarks[<?= e($judgeIds[$index] ?? '') ?>]"
                                                         rows="2"
                                                         class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
-                                                        placeholder="Opsional, misalnya catatan performa atau keputusan teknis."><?= e(data_get(old('remarks', []), $judgeIds[$index] ?? '')) ?></textarea>
+                                                        placeholder="Opsional, misalnya catatan performa atau keputusan teknis."><?= $getRemarksValue() ?></textarea>
                                                 </div>
 
                                                 <!-- Navigation Buttons -->
