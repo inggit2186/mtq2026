@@ -14,6 +14,7 @@ class MsqDistrictTitleFactory extends Factory
     {
         return [
             'district_id' => District::factory(),
+            'gender' => $this->faker->randomElement(['putra', 'putri']),
             'title' => $this->faker->sentence(3),
             'description' => $this->faker->optional()->paragraph(),
             'sort_order' => $this->faker->numberBetween(0, 100),
@@ -25,6 +26,20 @@ class MsqDistrictTitleFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'is_active' => false,
+        ]);
+    }
+
+    public function putra(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'gender' => 'putra',
+        ]);
+    }
+
+    public function putri(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'gender' => 'putri',
         ]);
     }
 }

@@ -12,6 +12,7 @@ class MsqDistrictTitle extends Model
 
     protected $fillable = [
         'district_id',
+        'gender',
         'title',
         'description',
         'sort_order',
@@ -36,6 +37,11 @@ class MsqDistrictTitle extends Model
     public function scopeForDistrict($query, int $districtId)
     {
         return $query->where('district_id', $districtId);
+    }
+
+    public function scopeForGender($query, string $gender)
+    {
+        return $query->where('gender', $gender);
     }
 
     public function scopeOrdered($query)

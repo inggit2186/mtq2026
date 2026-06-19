@@ -128,6 +128,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::delete('/admin/penampilan/{schedule}', [AppearanceScheduleController::class, 'destroy'])->middleware('role:admin')->name('appearance.schedules.destroy');
     Route::get('/admin/penampilan/hasil/{category}', [AppearanceScheduleController::class, 'results'])->middleware('role:admin')->name('appearance.results');
     Route::get('/admin/penampilan/hasil/{category}/pdf', [AppearanceScheduleController::class, 'exportPdf'])->middleware('role:admin')->name('appearance.results.pdf');
+    Route::get('/admin/penampilan/hasil/{category}/hari/{dayIndex}/pdf', [AppearanceScheduleController::class, 'exportDayRecapPdf'])->middleware('role:admin')->name('appearance.results.day-recap.pdf');
     Route::get('/admin/penampilan/export/pdf', [AppearanceScheduleController::class, 'exportAllPdf'])->middleware('role:admin')->name('appearance.export.all.pdf');
     Route::get('/admin/rangkaian-kegiatan/pdf', [AppearanceScheduleController::class, 'exportFullSchedulePdf'])->middleware('role:admin')->name('full.schedule.pdf');
     Route::get('/hasil-nilai', [ParticipantResultController::class, 'index'])->name('results.index');

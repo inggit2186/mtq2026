@@ -882,25 +882,28 @@ POWERSHELL;
 
         $validated = $request->validate([
             'district_id' => ['required', 'integer', 'exists:districts,id'],
+            'gender' => ['required', 'string', 'in:putra,putri'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        // Check if title already exists for this district
+        // Check if title already exists for this district and gender
         $exists = MsqDistrictTitle::query()
             ->where('district_id', $validated['district_id'])
+            ->where('gender', $validated['gender'])
             ->where('title', $validated['title'])
             ->exists();
 
         if ($exists) {
             return back()
                 ->withInput()
-                ->withErrors(['title' => 'Judul ini sudah ada untuk kecamatan tersebut.']);
+                ->withErrors(['title' => 'Judul ini sudah ada untuk kecamatan dan gender tersebut.']);
         }
 
         $districtTitle = MsqDistrictTitle::query()->create([
             'district_id' => $validated['district_id'],
+            'gender' => $validated['gender'],
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'sort_order' => $validated['sort_order'] ?? 0,
@@ -908,14 +911,15 @@ POWERSHELL;
         ]);
 
         $district = District::find($validated['district_id']);
+        $genderLabel = $validated['gender'] === 'putra' ? 'Putra' : 'Putri';
 
         ActivityLogger::log(
             'msq_district_title.created',
-            (auth()->user()?->name ?? 'Admin').' menambahkan judul MSQ "'.$validated['title'].'" untuk kecamatan '.$district?->name.'.',
+            (auth()->user()?->name ?? 'Admin').' menambahkan judul MSQ '.$genderLabel.' "'.$validated['title'].'" untuk kecamatan '.$district?->name.'.',
             $districtTitle
         );
 
-        return back()->with('status', 'Judul MSQ "'.$validated['title'].'" untuk kecamatan '.$district?->name.' berhasil ditambahkan.');
+        return back()->with('status', 'Judul MSQ '.$genderLabel.' "'.$validated['title'].'" untuk kecamatan '.$district?->name.' berhasil ditambahkan.');
     }
 
     /**

@@ -1905,10 +1905,10 @@ class ParticipantRegistrationController extends Controller
                 ->get(['id', 'name', 'nik', 'kk_number', 'document_photo']);
         }
 
-        // For MSQ: get district-specific titles
+        // For MSQ: get district-specific titles filtered by gender
         $districtMaqraTitles = collect();
         if ($usesDistrictMaqraTitles && $participant->district_id) {
-            $districtMaqraTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id);
+            $districtMaqraTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id, $participant->gender);
         }
 
         // For non-MSQ: get global MaqraPackage
@@ -1976,11 +1976,11 @@ class ParticipantRegistrationController extends Controller
         $roundLabel = (string) $validated['maqra_round'];
         $this->authorizeOfficialMaqraAccess($participant, $roundLabel);
 
-        // Validate MSQ district titles exist before proceeding
+        // Validate MSQ district titles exist before proceeding (filtered by gender)
         if ($usesDistrictMaqraTitles) {
             abort_unless($participant->district_id, 422, 'Peserta tidak memiliki district.');
-            $availableTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id);
-            abort_unless($availableTitles->isNotEmpty(), 422, 'Belum ada judul MSQ untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.');
+            $availableTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id, $participant->gender);
+            abort_unless($availableTitles->isNotEmpty(), 422, 'Belum ada judul MSQ '.($participant->gender === 'putra' ? 'Putra' : 'Putri').' untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.');
         }
 
         $drawResult = DB::transaction(function () use ($participant, $roundLabel, $usesDistrictMaqraTitles, $category): array {
@@ -2991,6 +2991,7 @@ class ParticipantRegistrationController extends Controller
 
     /**
      * Assign MSQ district-specific maqra title to shared participants
+     * Titles are selected based on participant's gender
      */
     protected function assignDistrictMaqraTitle(
         Participant $lockedParticipant,
@@ -2999,27 +3000,30 @@ class ParticipantRegistrationController extends Controller
         CompetitionCategory $category
     ): array {
         $districtId = $lockedParticipant->district_id;
+        $participantGender = $lockedParticipant->gender;
         abort_unless($districtId, 422, 'Peserta tidak memiliki district.');
+        abort_unless($participantGender, 422, 'Peserta tidak memiliki gender.');
 
-        // Get available titles for this district
+        // Get available titles for this district filtered by gender
         $availableTitles = \App\Models\MsqDistrictTitle::query()
             ->forDistrict($districtId)
+            ->forGender($participantGender)
             ->active()
             ->orderBy('sort_order')
             ->get();
 
-        abort_unless($availableTitles->isNotEmpty(), 422, 'Belum ada judul MSQ untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.');
+        abort_unless($availableTitles->isNotEmpty(), 422, 'Belum ada judul MSQ '.($participantGender === 'putra' ? 'Putra' : 'Putri').' untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.');
 
-        // Check which titles are already used by this district in this round
+        // Check which titles are already used by this district AND gender in this round
         $usedTitleIds = \App\Models\ParticipantMaqraDraw::query()
             ->where('round_label', $roundLabel)
             ->whereNotNull('msq_district_title_id')
-            ->whereHas('participant', fn ($query) => $query->where('district_id', $districtId))
+            ->whereHas('participant', fn ($query) => $query->where('district_id', $districtId)->where('gender', $participantGender))
             ->pluck('msq_district_title_id');
 
         $unusedTitles = $availableTitles->reject(fn ($title) => $usedTitleIds->contains($title->id))->values();
 
-        abort_unless($unusedTitles->isNotEmpty(), 422, 'Semua judul MSQ untuk kecamatan ini sudah digunakan pada babak '.$roundLabel.'.');
+        abort_unless($unusedTitles->isNotEmpty(), 422, 'Semua judul MSQ '.($participantGender === 'putra' ? 'Putra' : 'Putri').' untuk kecamatan ini sudah digunakan pada babak '.$roundLabel.'.');
 
         // Random selection from unused titles
         $selectedTitle = $unusedTitles->random();

@@ -154,11 +154,19 @@ $dayData = $dayData ?? [];
                                 <?php if ($lotCount > 0): ?>
                                 <span class="rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200">
                                     <?= e(str_pad((string) reset($dayLotNumbers), 2, '0', STR_PAD_LEFT)) ?> - <?= e(str_pad((string) end($dayLotNumbers), 2, '0', STR_PAD_LEFT)) ?>
-</span>
+                                </span>
                                 <?php endif; ?>
                                 <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100">
                                     <?= e($lotCount) ?> Lot
                                 </span>
+                                <?php if ($lotCount > 0): ?>
+                                <a href="<?= e(route('appearance.results.day-recap.pdf', [$category->id, $dayIndex])) ?>"
+                                    target="_blank"
+                                    class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/20 transition-colors inline-flex items-center gap-2">
+                                    <?= mtq_icon('download', 'h-4 w-4') ?>
+                                    Rekap PDF
+                                </a>
+                                <?php endif; ?>
                             </div>
                         </div>
 

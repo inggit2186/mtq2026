@@ -450,6 +450,156 @@ class AppearanceScheduleController extends Controller
         return $pdf->download($filename);
     }
 
+    /**
+     * Export daily recap PDF for a specific day
+     * Shows participants scheduled for that day with scores
+     */
+    public function exportDayRecapPdf(int $categoryId, int $dayIndex)
+    {
+        $category = CompetitionCategory::query()
+            ->with('locations')
+            ->findOrFail($categoryId);
+
+        $schedule = AppearanceSchedule::query()
+            ->where('competition_category_id', $categoryId)
+            ->firstOrFail();
+
+        // Validate day index
+        if ($dayIndex < 0 || $dayIndex >= $schedule->number_of_days) {
+            abort(404, 'Hari tidak ditemukan.');
+        }
+
+        $dayData = $schedule->getDayParticipants($dayIndex);
+        $daySchedule = $dayData['schedule'] ?? [];
+        $participants = $dayData['participants'] ?? collect();
+        $range = $dayData['range'] ?? [];
+
+        // Get location for this category
+        $location = $category->locations->first();
+        $locationName = $location?->venue_name ?? config('juknis.host', 'Lokasi Belum Ditentukan');
+
+        // Get lot prefix
+        $lotCode = $category->lot_code ?? 'XX';
+
+        // Format lot range
+        $lotNumbers = $range['lot_numbers'] ?? [];
+        $lotStart = $lotNumbers[0] ?? null;
+        $lotEnd = count($lotNumbers) > 1 ? end($lotNumbers) : $lotStart;
+        $lotRangeLabel = $lotStart && $lotEnd
+            ? str_pad((string) $lotStart, 2, '0', STR_PAD_LEFT) . ' - ' . str_pad((string) $lotEnd, 2, '0', STR_PAD_LEFT)
+            : ($lotStart ? str_pad((string) $lotStart, 2, '0', STR_PAD_LEFT) : '-');
+
+        // Prepare participant data with scores
+        $participantData = [];
+        $rowNumber = 1;
+
+        // Create lookup by lot suffix
+        $participantByLot = [];
+        foreach ($participants as $p) {
+            $parts = explode('-', $p->lot_number);
+            $lotSuffix = (int) end($parts);
+            $participantByLot[$lotSuffix] = $p;
+        }
+
+        foreach ($lotNumbers as $lot) {
+            $participant = $participantByLot[$lot] ?? null;
+
+            // Get score data
+            $totalNilai = null;
+            $latestScore = null;
+            if ($participant) {
+                $scores = $participant->scores;
+                if ($scores->isNotEmpty()) {
+                    $latestEntry = $scores->sortByDesc('submitted_at')->first();
+                    $latestScore = $latestEntry ? ($latestEntry->average_score ?? $latestEntry->score ?? null) : null;
+
+                    // Calculate average score across all entries
+                    $allScores = [];
+                    foreach ($scores as $score) {
+                        if ($score->scores && is_array($score->scores)) {
+                            foreach ($score->scores as $judgeData) {
+                                $allScores[] = (float) ($judgeData['score'] ?? 0);
+                            }
+                        } else {
+                            $allScores[] = (float) ($score->score ?? 0);
+                        }
+                    }
+                    $totalNilai = count($allScores) > 0 ? array_sum($allScores) / count($allScores) : null;
+                }
+            }
+
+            // Get maqra data
+            $maqraLabel = null;
+            if ($participant) {
+                $latestMaqraDraw = $participant->latestMaqraDraw;
+                if ($latestMaqraDraw) {
+                    if ($latestMaqraDraw->maqraPackage) {
+                        $maqraLabel = $latestMaqraDraw->maqraPackage->maqra_code ?? $latestMaqraDraw->maqraPackage->title ?? null;
+                    } elseif ($latestMaqraDraw->msqDistrictTitle) {
+                        $maqraLabel = $latestMaqraDraw->msqDistrictTitle->title ?? null;
+                    }
+                }
+            }
+
+            // Photo path
+            $photoPath = null;
+            if ($participant && $participant->document_photo) {
+                $photoPath = $participant->document_photo;
+            }
+
+            // Format total nilai - empty if 0 or null
+            $formattedTotalNilai = ($totalNilai !== null && $totalNilai > 0)
+                ? number_format((float) $totalNilai, 2)
+                : '';
+
+            $participantData[] = [
+                'row_number' => $rowNumber++,
+                'lot' => $participant?->lot_number ?? ($lotCode . '-' . str_pad((string) $lot, 2, '0', STR_PAD_LEFT)),
+                'name' => $participant?->name ?? null,
+                'photo' => $photoPath,
+                'district' => $participant?->district?->name ?? null,
+                'gender' => $participant?->gender ?? null,
+                'maqra' => $maqraLabel,
+                'total_nilai' => $formattedTotalNilai,
+                'has_participant' => $participant !== null,
+            ];
+        }
+
+        // Format session info
+        $sessionName = $daySchedule['name'] ?? 'Hari ' . ($dayIndex + 1);
+        $sessionDate = $daySchedule['date'] ?? null;
+        $sessionTime = $daySchedule['time'] ?? null;
+        $sessionEndTime = $daySchedule['end_time'] ?? null;
+
+        $formattedDate = null;
+        if ($sessionDate) {
+            $carbonDate = \Carbon\Carbon::parse($sessionDate);
+            $formattedDate = $carbonDate->translatedFormat('d F Y');
+            $dayName = $carbonDate->translatedFormat('l');
+            $formattedDate = $dayName . ', ' . $formattedDate;
+        }
+
+        $eventName = config('mtq.event_name', 'MTQ Kabupaten');
+
+        return view('pages.admin.appearance-results-recap-pdf', [
+            'category' => $category,
+            'schedule' => $schedule,
+            'dayIndex' => $dayIndex,
+            'dayNumber' => $dayIndex + 1,
+            'sessionName' => $sessionName,
+            'sessionDate' => $formattedDate,
+            'sessionTime' => $sessionTime,
+            'sessionEndTime' => $sessionEndTime,
+            'lotCode' => $lotCode,
+            'lotRangeLabel' => $lotRangeLabel,
+            'lotCount' => count($lotNumbers),
+            'participantData' => $participantData,
+            'locationName' => $locationName,
+            'eventName' => $eventName,
+            'generatedAt' => now(),
+        ]);
+    }
+
     public function exportFullSchedulePdf()
     {
         // Get event schedule from juknis

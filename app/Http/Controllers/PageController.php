@@ -3929,9 +3929,9 @@ class PageController extends Controller
     }
 
     /**
-     * Get active MSQ district titles for a category and district
+     * Get active MSQ district titles for a category, district, and gender
      */
-    public function categoryMsqDistrictTitles(CompetitionCategory $category, int $districtId): \Illuminate\Support\Collection
+    public function categoryMsqDistrictTitles(CompetitionCategory $category, int $districtId, ?string $gender = null): \Illuminate\Support\Collection
     {
         if (! $this->categoryUsesDistrictMaqraTitles($category)) {
             return collect();
@@ -3939,6 +3939,7 @@ class PageController extends Controller
 
         return \App\Models\MsqDistrictTitle::query()
             ->forDistrict($districtId)
+            ->when($gender, fn ($query) => $query->forGender($gender))
             ->active()
             ->orderBy('sort_order')
             ->orderBy('title')
