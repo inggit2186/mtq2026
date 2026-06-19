@@ -11,6 +11,7 @@ use App\Models\MaqraPackage;
 use App\Models\MaqraRound;
 use App\Models\MsqDistrictTitle;
 use App\Models\MaqraSchedule;
+use App\Services\MaqraScheduleCacheService;
 use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
 use App\Models\ParticipantMaqraDraw;
@@ -2836,27 +2837,31 @@ class ParticipantRegistrationController extends Controller
             abort(403, 'Golongan peserta ini belum dibuka untuk pengambilan maqra oleh admin.');
         }
 
-        // Check draw_access_by setting from MaqraSchedule
+        // Check draw_access_by setting from MaqraSchedule (using cache for performance)
         if ($user?->role !== 'admin') {
-            $schedule = MaqraSchedule::currentlyOpen()
-                ->forCategory((int) $participant->competition_category_id)
-                ->first();
+            $categoryId = (int) $participant->competition_category_id;
 
-            if ($schedule && ! $schedule->canRoleDrawMaqra($user->role)) {
-                $accessLabel = $schedule->draw_access_by_label;
-                abort(403, sprintf('Pengambilan maqra untuk golongan ini hanya dapat dilakukan oleh %s.', $accessLabel));
+            // Use cache to check if category has open schedule
+            if (MaqraScheduleCacheService::hasOpenScheduleForCategory($categoryId)) {
+                $schedule = MaqraScheduleCacheService::getFirstOpenScheduleForCategory($categoryId);
+
+                if ($schedule && ! $schedule->canRoleDrawMaqra($user->role)) {
+                    $accessLabel = $schedule->draw_access_by_label;
+                    abort(403, sprintf('Pengambilan maqra untuk golongan ini hanya dapat dilakukan oleh %s.', $accessLabel));
+                }
             }
         }
 
-        // Check lot range from MaqraSchedule
+        // Check lot range from MaqraSchedule (using cache for performance)
         if ($user?->role !== 'admin') {
             $participantLotSequence = $this->participantLotSequenceNumber($participant);
 
             if (filled($participantLotSequence)) {
-                $hasValidSchedule = MaqraSchedule::currentlyOpen()
-                    ->forCategory((int) $participant->competition_category_id)
-                    ->get()
-                    ->contains(fn ($schedule) => $schedule->isLotInRange((int) $participantLotSequence));
+                // Use cache to check if lot is in open schedule
+                $hasValidSchedule = MaqraScheduleCacheService::isLotInOpenSchedule(
+                    (int) $participant->competition_category_id,
+                    (int) $participantLotSequence
+                );
 
                 abort_unless($hasValidSchedule, 403, sprintf(
                     'Pengambilan maqra untuk nomor lot %s belum dibuka oleh admin.',

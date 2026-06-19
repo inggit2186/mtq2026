@@ -7,6 +7,7 @@ use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraRound;
 use App\Models\MaqraSchedule;
+use App\Services\MaqraScheduleCacheService;
 use App\Models\MsqDistrictTitle;
 use App\Events\MaqraScheduleUpdated;
 use App\Models\OfficialAccessSetting;
@@ -715,6 +716,9 @@ POWERSHELL;
 
         MaqraScheduleUpdated::dispatch($schedule, 'created');
 
+        // Invalidate and refresh cache
+        MaqraScheduleCacheService::refresh();
+
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal maqra berhasil ditambahkan.');
@@ -757,6 +761,9 @@ POWERSHELL;
             $maqraSchedule->is_active ? 'opened' : 'closed'
         );
 
+        // Invalidate and refresh cache
+        MaqraScheduleCacheService::refresh();
+
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal maqra berhasil diperbarui.');
@@ -772,6 +779,9 @@ POWERSHELL;
         MaqraScheduleUpdated::dispatch($maqraSchedule, 'deleted');
 
         $maqraSchedule->delete();
+
+        // Invalidate and refresh cache
+        MaqraScheduleCacheService::refresh();
 
         ActivityLogger::log(
             'maqra_schedule.deleted',
@@ -814,6 +824,9 @@ POWERSHELL;
             $maqraSchedule->is_active ? 'opened' : 'closed'
         );
 
+        // Invalidate and refresh cache
+        MaqraScheduleCacheService::refresh();
+
         return redirect()
             ->route('admin.content')
             ->with('status', 'Jadwal maqra untuk '.$info.' berhasil '.$status.'.');
@@ -839,6 +852,9 @@ POWERSHELL;
             $maqraSchedule,
             ['draw_access_by' => $maqraSchedule->draw_access_by]
         );
+
+        // Invalidate and refresh cache
+        MaqraScheduleCacheService::refresh();
 
         return redirect()
             ->route('admin.content')
