@@ -1226,4 +1226,93 @@ class ScoringController extends Controller
 
         return false;
     }
+
+    public function ranking(Request $request): View
+    {
+        $user = auth()->user();
+        $restrictedCategoryIds = $this->accessibleCategoryIdsForUser($user);
+        $restrictByCategory = $user?->role === 'panitia';
+
+        $filters = $request->validate([
+            'competition_category_id' => ['nullable', 'integer'],
+            'judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $selectedCategory = filled($filters['competition_category_id'] ?? null)
+            ? CompetitionCategory::query()
+                ->when($restrictByCategory, fn ($query) => $query->whereIn('id', $restrictedCategoryIds))
+                ->find($filters['competition_category_id'])
+            : null;
+
+        $selectedJudgingRound = $filters['judging_round'] ?? 'Penyisihan';
+        $scoringSetting = ScoringSetting::forCategory($selectedCategory?->id);
+
+        // Get participants with scores for this category and round
+        $participantsQuery = Participant::query()
+            ->with(['category', 'district', 'scores' => function ($query) use ($selectedJudgingRound) {
+                $query->where('judging_round', $selectedJudgingRound);
+            }])
+            ->where('verification_status', 'verified')
+            ->when($selectedCategory, fn ($query) => $query->where('competition_category_id', $selectedCategory->id))
+            ->when($restrictByCategory, fn ($query) => $query->whereIn('competition_category_id', $restrictedCategoryIds));
+
+        $participants = $participantsQuery->get();
+
+        // Build rankings based on average score
+        $rankedParticipants = $participants
+            ->map(function ($participant) {
+                $scores = $participant->scores ?? collect();
+                $averageScore = $scores->avg('average_score') ?? $scores->avg('score') ?? 0;
+
+                return [
+                    'id' => $participant->id,
+                    'name' => $participant->name,
+                    'lot_number' => $participant->lot_number,
+                    'district_name' => $participant->district?->name ?? '-',
+                    'institution' => $participant->institution,
+                    'photo_url' => $participant->document_photo
+                        ? asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'))
+                        : null,
+                    'average_score' => round((float) $averageScore, 2),
+                    'score_count' => $scores->count(),
+                    'latest_score_entry' => $scores->sortByDesc('submitted_at')->first(),
+                ];
+            })
+            ->sortByDesc('average_score')
+            ->values()
+            ->map(function ($item, $index) {
+                $item['rank'] = $index + 1;
+                return $item;
+            });
+
+        // Stats
+        $verifiedCount = Participant::query()
+            ->where('verification_status', 'verified')
+            ->when($selectedCategory, fn ($query) => $query->where('competition_category_id', $selectedCategory->id))
+            ->when($restrictByCategory, fn ($query) => $query->whereIn('competition_category_id', $restrictedCategoryIds))
+            ->count();
+
+        $scoredCount = $rankedParticipants->where('score_count', '>', 0)->count();
+        $totalParticipants = $rankedParticipants->count();
+
+        $categoryLabel = $selectedCategory
+            ? trim(($selectedCategory->branch ?? '').' - '.($selectedCategory->name ?? ''))
+            : 'Semua Golongan';
+
+        return view('pages/scoring-ranking', [
+            'assets' => app(PageController::class)->viteAssets(),
+            'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
+            'rankedParticipants' => $rankedParticipants,
+            'selectedCategory' => $selectedCategory,
+            'selectedJudgingRound' => $selectedJudgingRound,
+            'categoryLabel' => $categoryLabel,
+            'scoringSetting' => $scoringSetting,
+            'stats' => [
+                'verified_participants' => $verifiedCount,
+                'scored_participants' => $scoredCount,
+                'total_participants' => $totalParticipants,
+            ],
+            'filters' => $filters,
+        ]);
+    }
 }

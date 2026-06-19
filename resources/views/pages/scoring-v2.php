@@ -283,10 +283,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
         })">
         <div class="hero-orb hero-orb-cyan right-[-7rem] top-10 h-72 w-72"></div>
 
-        <div class="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+        <div class="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)]">
+
+        <!-- Mobile Overlay for Sidebar -->
+        <div x-show="mobileNavOpen" x-cloak x-on:click="mobileNavOpen = false" class="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden"></div>
+
             <!-- Sidebar -->
-            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:static lg:inset-auto lg:block glass-card"
-                x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 lg:translate-x-0 lg:opacity-100'">
+            <aside class="sidebar-shell fixed inset-y-4 left-4 z-30 w-[290px] rounded-[2rem] p-5 transition duration-300 lg:relative lg:inset-auto lg:z-auto lg:ml-0 -translate-x-full lg:translate-x-0 glass-card"
+                x-bind:class="mobileNavOpen ? 'translate-x-0 opacity-100' : '-translate-x-full lg:translate-x-0 lg:opacity-100'">
                 <!-- Logo -->
                 <div class="flex items-center gap-3 mb-6">
                     <div class="icon-chip"><?= mtq_icon('chart') ?></div>
@@ -341,11 +345,12 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 </a>
             </aside>
 
-            <div class="min-w-0 space-y-6">
+            <!-- Main Content -->
+            <div class="min-w-0 space-y-6 pb-8">
                 <!-- Header -->
-                <header class="glass-card rounded-[2rem] p-6 glow-cyan">
+                <header class="glass-card rounded-[2rem] p-4 sm:p-6 glow-cyan">
                     <div class="flex flex-wrap items-center justify-between gap-4">
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-3 sm:gap-4">
                             <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden hamburger-btn" x-on:click="mobileNavOpen = true">
                                 <?= mtq_icon('menu', 'h-4 w-4') ?>
                             </button>
@@ -380,6 +385,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <a href="<?= e($bigScreenUrl) ?>" target="_blank" rel="noreferrer" class="secondary-button flex items-center gap-2">
                                     <?= mtq_icon('eye', 'h-4 w-4') ?>
                                     Big Screen
+                                </a>
+                                <a href="<?= e(route('scoring.ranking', array_filter([
+                                    'competition_category_id' => $selectedCategory?->id,
+                                    'judging_round' => $selectedJudgingRound,
+                                ]))) ?>" target="_blank" rel="noreferrer" class="secondary-button flex items-center gap-2">
+                                    <?= mtq_icon('trophy', 'h-4 w-4') ?>
+                                    Ranking
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -1137,15 +1149,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         </template>
                                     </div>
                                     <?php endif; ?>
-                                            <div class="flex flex-wrap gap-3">
-                                                <button type="button" class="secondary-button px-4 py-3" x-on:click="resetSearch()" :disabled="!search && !selectedParticipant && !selectedDistrict" x-bind:class="!search && !selectedParticipant && !selectedDistrict ? 'cursor-not-allowed opacity-60' : ''">
-                                                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                                                    Bersihkan
-                                                </button>
-                                                <button type="button" class="primary-button px-4 py-3" x-on:click="goToSelected()" :disabled="!selectedParticipant && !selectedDistrict" x-bind:class="!selectedParticipant && !selectedDistrict ? 'cursor-not-allowed opacity-60' : ''">
-                                                    <?= mtq_icon('chart', 'h-4 w-4') ?>
-                                                    <span x-text="isMsq ? 'Aktifkan Kecamatan' : 'Aktifkan Peserta'"></span>
-                                                </button>
                                             </div>
                                 </div>
                                 <div class="mt-5 rounded-[1.5rem] border border-slate-800 bg-slate-950/45 p-4">
@@ -1225,25 +1228,25 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?php endif; ?>
                         </div>
 
-                    <div id="form-penilaian" class="glass-card rounded-[2rem] p-6">
-                            <div class="rounded-[1.65rem] border border-cyan-400/14 bg-gradient-to-br from-cyan-400/10 via-slate-950/70 to-slate-950/95 p-5 shadow-[0_20px_60px_-36px_rgba(34,211,238,0.45)]">
-                                <div class="flex flex-wrap items-start justify-between gap-4">
-                                    <div class="max-w-2xl">
+                    <div id="form-penilaian" class="glass-card rounded-[2rem] p-4 sm:p-6">
+                            <div class="rounded-[1.65rem] border border-cyan-400/14 bg-gradient-to-br from-cyan-400/10 via-slate-950/70 to-slate-950/95 p-4 sm:p-5 shadow-[0_20px_60px_-36px_rgba(34,211,238,0.45)]">
+                                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                    <div class="max-w-full sm:max-w-2xl">
                                         <div class="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
                                             <?= mtq_icon('check-circle', 'h-3.5 w-3.5') ?>
                                             Form Penilaian
                                         </div>
-                                        <h2 class="mt-3 text-2xl font-black text-white sm:text-[2rem]">Input nilai hakim per peserta</h2>
-                                        <p class="mt-3 max-w-xl text-sm leading-6 text-slate-300">Babak aktif mengikuti setting yang sudah dipilih operator. Gunakan tab hakim di bawah untuk berpindah panel, lalu simpan seluruh batch sekaligus.</p>
+                                        <h2 class="mt-2 sm:mt-3 text-xl sm:text-2xl font-black text-white">Input nilai hakim per peserta</h2>
+                                        <p class="mt-2 sm:mt-3 max-w-xl text-sm leading-6 text-slate-300">Babak aktif mengikuti setting yang sudah dipilih operator. Gunakan tab hakim di bawah untuk berpindah panel, lalu simpan seluruh batch sekaligus.</p>
                                     </div>
-                                    <div class="grid gap-3 sm:grid-cols-2">
-                                        <div class="rounded-[1.2rem] border border-slate-800 bg-slate-950/70 px-4 py-3">
+                                    <div class="grid grid-cols-2 gap-3 shrink-0">
+                                        <div class="rounded-[1.2rem] border border-slate-800 bg-slate-950/70 px-3 sm:px-4 py-2 sm:py-3">
                                             <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Babak aktif</p>
-                                            <p class="mt-1 text-base font-bold text-white"><?= e($selectedJudgingRound) ?></p>
+                                            <p class="mt-1 text-sm sm:text-base font-bold text-white"><?= e($selectedJudgingRound) ?></p>
                                         </div>
-                                        <div class="rounded-[1.2rem] border border-slate-800 bg-slate-950/70 px-4 py-3">
+                                        <div class="rounded-[1.2rem] border border-slate-800 bg-slate-950/70 px-3 sm:px-4 py-2 sm:py-3">
                                             <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Jumlah hakim</p>
-                                            <p class="mt-1 text-base font-bold text-cyan-200"><?= e(count($judgeNames)) ?> orang</p>
+                                            <p class="mt-1 text-sm sm:text-base font-bold text-cyan-200"><?= e(count($judgeNames)) ?> orang</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1277,7 +1280,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         Babak aktif saat ini: <span class="font-bold"><?= e($selectedJudgingRound) ?></span>. Isi nilai hakim per panel, pindah dengan tombol `Lanjut`, lalu simpan semua sekaligus di akhir.
                                     </div>
 
-                                    <div class="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                                    <div class="grid gap-4 md:grid-cols-2">
                                         <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/45 px-4 py-4">
                                             <div class="flex flex-wrap items-center justify-between gap-3">
                                                 <div>
@@ -1292,21 +1295,21 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                             <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
                                                 <div class="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-emerald-300 transition-all duration-200" :style="`width: ${progressPercent()}%`"></div>
                                             </div>
-                                            <p class="mt-3 text-xs text-slate-400">Klik kartu hakim di bawah untuk berpindah panel tanpa keluar dari form.</p>
+                                            <p class="mt-3 text-xs text-slate-400">Klik kartu hakim di bawah untuk berpindah panel.</p>
                                         </div>
                                         <div class="rounded-[1.4rem] border border-slate-800 bg-slate-950/45 px-4 py-4">
                                             <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Babak penilaian</p>
                                             <div class="mt-2 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
                                                 <?= e($selectedJudgingRound) ?>
                                             </div>
-                                            <p class="mt-3 text-sm text-slate-300">Seluruh input pada panel ini mengikuti babak yang sedang aktif.</p>
+                                            <p class="mt-3 text-sm text-slate-300">Seluruh input mengikuti babak aktif.</p>
                                         </div>
                                     </div>
 
-                                    <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/45 p-3">
+                                    <div class="rounded-[1.5rem] border border-slate-800 bg-slate-950/45 p-3 overflow-x-auto">
                                         <?php foreach ($judgeNames as $index => $judgeName): ?>
                                             <section x-show="activeJudgeIndex === <?= e($index) ?>" x-cloak data-judge-panel="<?= e($index) ?>" class="space-y-4">
-                                                <!-- Tab Hakim (max 3 per row) -->
+                                                <!-- Tab Hakim -->
                                                 <div class="rounded-[1.1rem] border border-slate-800 bg-slate-950/40 p-3">
                                                     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                                                         <div>
@@ -1317,16 +1320,16 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             Panel: <?= e($judgeName) ?>
                                                         </div>
                                                     </div>
-                                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                    <div class="flex flex-wrap gap-2">
                                                         <?php foreach ($judgeNames as $idx => $jn): ?>
                                                             <button type="button"
-                                                                class="rounded-[0.9rem] border px-3 py-2.5 text-left transition"
+                                                                class="rounded-[0.9rem] border px-3 py-2 text-left transition shrink-0"
                                                                 :class="activeJudgeIndex === <?= e($idx) ?> ? 'border-cyan-300 bg-cyan-400/10 shadow-[0_8px_24px_-10px_rgba(34,211,238,0.5)]' : 'border-slate-800 bg-slate-950/45 hover:border-cyan-400/25'"
                                                                 x-on:click="goToJudge(<?= e($idx) ?>)">
-                                                                <div class="flex items-center justify-between gap-2">
+                                                                <div class="flex items-center gap-2">
                                                                     <div class="min-w-0 flex-1">
                                                                         <p class="text-[10px] uppercase tracking-[0.18em]" :class="activeJudgeIndex === <?= e($idx) ?> ? 'text-cyan-200' : 'text-slate-500'">Hakim <?= e($idx + 1) ?></p>
-                                                                        <p class="mt-0.5 truncate text-sm font-semibold text-white"><?= e($jn) ?></p>
+                                                                        <p class="mt-0.5 text-xs sm:text-sm font-semibold text-white truncate max-w-[100px] sm:max-w-[150px]"><?= e($jn) ?></p>
                                                                     </div>
                                                                     <span class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
                                                                         :class="judgeStatusDotClass(<?= e($idx) ?>)"
@@ -1354,7 +1357,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <?= mtq_icon('spark', 'h-4 w-4 text-cyan-300') ?>
                                                         <h4 class="text-sm font-bold text-cyan-100 uppercase tracking-[0.18em]">Poin Penilaian</h4>
                                                     </div>
-                                                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                                         <?php foreach ($criteria as $key => $label): ?>
                                                             <div class="rounded-[1rem] border border-cyan-400/20 bg-slate-950/80 p-3 shadow-[0_4px_16px_-8px_rgba(34,211,238,0.15)]">
                                                                 <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
@@ -1368,7 +1371,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                     max="100"
                                                                     step="0.01"
                                                                     value="<?= e(data_get(old('scores', []), ($judgeIds[$index] ?? '').'.'.str_replace('.', '\\.', $key))) ?>"
-                                                                    class="w-full rounded-xl border-2 border-cyan-400/30 bg-slate-900/90 px-3.5 py-3 text-center text-lg font-bold text-white outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20 focus:bg-slate-900"
+                                                                    class="w-full rounded-xl border-2 border-cyan-400/30 bg-slate-900/90 px-2 sm:px-3.5 py-2 sm:py-3 text-center text-base sm:text-lg font-bold text-white outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20 focus:bg-slate-900"
                                                                     placeholder="0">
                                                             </div>
                                                         <?php endforeach; ?>
@@ -1410,47 +1413,51 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         <?php endforeach; ?>
                                     </div>
 
-                                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-slate-800 bg-slate-950/45 px-4 py-4">
-                                        <div>
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-[1.25rem] border border-slate-800 bg-slate-950/45 px-4 py-4">
+                                        <div class="mb-2 sm:mb-0">
                                             <p class="text-sm text-slate-300">Pastikan nilai seluruh hakim sudah lengkap sebelum disimpan.</p>
-                                            <p class="mt-1 text-xs text-slate-500">Satu kali simpan akan membuat entri nilai untuk semua hakim pada babak ini.</p>
+                                            <p class="mt-1 text-xs text-slate-500">Satu kali simpan akan membuat entri nilai untuk semua hakim.</p>
                                         </div>
-                                        <div class="rounded-[1rem] border border-slate-800 bg-slate-950/60 px-3 py-2 text-right">
-                                            <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Kelengkapan Batch</p>
-                                            <p class="mt-1 text-sm font-bold text-white" x-text="completionSummary()"></p>
+                                        <div class="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+                                            <div class="rounded-[1rem] border border-slate-800 bg-slate-950/60 px-3 py-2 text-center sm:text-right">
+                                                <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Kelengkapan</p>
+                                                <p class="mt-1 text-sm font-bold text-white" x-text="completionSummary()"></p>
+                                            </div>
+                                            <button type="button" class="primary-button justify-center px-5 py-3 w-full sm:w-auto" x-on:click="openPreview()" :disabled="isSubmitting" :class="isSubmitting ? 'opacity-60 cursor-not-allowed' : ''">
+                                                <?= mtq_icon('check-circle', 'h-4 w-4') ?>
+                                                <span x-show="!isSubmitting">Pratinjau & Simpan</span>
+                                                <span x-show="isSubmitting">Menyimpan...</span>
+                                            </button>
                                         </div>
-                                        <button type="button" class="primary-button justify-center px-5 py-3" x-on:click="openPreview()" :disabled="isSubmitting" :class="isSubmitting ? 'opacity-60 cursor-not-allowed' : ''">
-                                            <?= mtq_icon('check-circle', 'h-4 w-4') ?>
-                                            <span x-show="!isSubmitting">Pratinjau Sebelum Simpan</span>
-                                            <span x-show="isSubmitting">Menyimpan...</span>
-                                        </button>
                                     </div>
 
-                                    <div x-show="previewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6">
+                                    <!-- Modal Preview -->
+                                    <div x-show="previewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm px-2 sm:px-4 py-4 sm:py-6"
+                                        x-on:keydown.escape.window="closePreview()">
                                         <div class="absolute inset-0" x-on:click="closePreview()"></div>
-                                        <div class="relative z-10 max-h-[88vh] w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-cyan-400/16 bg-slate-950 shadow-[0_28px_90px_-40px_rgba(34,211,238,0.45)]">
-                                            <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 px-6 py-5">
+                                        <div class="relative z-10 max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-cyan-400/16 bg-slate-950 shadow-[0_28px_90px_-40px_rgba(34,211,238,0.45)]">
+                                            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-slate-800 px-4 sm:px-6 py-4 sm:py-5">
                                                 <div>
                                                     <p class="section-kicker">Pratinjau Nilai</p>
-                                                    <h3 class="mt-2 text-2xl font-bold text-white">Cek kembali sebelum disimpan</h3>
+                                                    <h3 class="mt-2 text-xl sm:text-2xl font-bold text-white">Cek kembali sebelum disimpan</h3>
                                                     <p class="mt-2 text-sm text-slate-300" x-text="selectedParticipantLabel()"></p>
                                                 </div>
-                                                <button type="button" class="secondary-button px-4 py-2" x-on:click="closePreview()">
-                                                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                                                    Kembali Edit
+                                                <button type="button" class="secondary-button px-4 py-2 shrink-0" x-on:click="closePreview()">
+                                                    <?= mtq_icon('x', 'h-4 w-4') ?>
+                                                    Tutup
                                                 </button>
                                             </div>
 
-                                            <div class="max-h-[60vh] overflow-y-auto px-6 py-5">
+                                            <div class="max-h-[60vh] overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
                                                 <!-- Summary: Total Nilai -->
-                                                <div class="mb-6 rounded-2xl border-2 border-cyan-400/30 bg-gradient-to-br from-cyan-500/15 to-sky-500/10 p-5 shadow-[0_12px_40px_-20px_rgba(34,211,238,0.3)]">
+                                                <div class="mb-6 rounded-2xl border-2 border-cyan-400/30 bg-gradient-to-br from-cyan-500/15 to-sky-500/10 p-4 sm:p-5 shadow-[0_12px_40px_-20px_rgba(34,211,238,0.3)]">
                                                     <div class="flex items-center justify-between">
                                                         <div>
                                                             <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Total Nilai</p>
                                                             <p class="mt-1 text-xs text-slate-400">Jumlah semua poin / jumlah poin</p>
                                                         </div>
                                                         <div class="text-right">
-                                                            <p class="text-4xl font-black text-white" x-text="calculateTotalScore()"></p>
+                                                            <p class="text-3xl sm:text-4xl font-black text-white" x-text="calculateTotalScore()"></p>
                                                             <p class="mt-1 text-sm text-cyan-200" x-text="`dari ${judgeNames.length} hakim`"></p>
                                                         </div>
                                                     </div>
@@ -1458,20 +1465,20 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                                                 <!-- Rincian Poin per Hakim -->
                                                 <h4 class="mb-3 text-sm font-semibold text-slate-300">Rincian Nilai per Hakim</h4>
-                                                <div class="grid gap-4 xl:grid-cols-2 mb-6">
+                                                <div class="grid gap-4 sm:grid-cols-2">
                                                     <template x-for="(judgeData, judgeIdx) in previewData" :key="judgeData.name">
-                                                        <section class="rounded-[1.35rem] border border-slate-700/50 bg-slate-900/40 p-4">
-                                                            <div class="flex items-center justify-between gap-3 mb-3">
+                                                        <section class="rounded-[1.35rem] border border-slate-700/50 bg-slate-900/40 p-3 sm:p-4">
+                                                            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                                                                 <div>
                                                                     <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Hakim</p>
-                                                                    <h4 class="mt-1 text-base font-bold text-white" x-text="judgeData.name"></h4>
+                                                                    <h4 class="mt-1 text-sm sm:text-base font-bold text-white truncate" x-text="judgeData.name"></h4>
                                                                 </div>
                                                             </div>
                                                             <div class="grid gap-2">
                                                                 <template x-for="item in judgeData.scores" :key="item.label">
                                                                     <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
-                                                                        <span class="text-sm text-slate-300" x-text="item.label"></span>
-                                                                        <span class="text-sm font-bold text-white" x-text="item.value"></span>
+                                                                        <span class="text-xs sm:text-sm text-slate-300 truncate" x-text="item.label"></span>
+                                                                        <span class="text-sm font-bold text-white shrink-0" x-text="item.value"></span>
                                                                     </div>
                                                                 </template>
                                                             </div>
@@ -1481,12 +1488,12 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                                                 <!-- Total per Poin -->
                                                 <h4 class="mb-3 text-sm font-semibold text-slate-300">Total per Poin (Jumlah Semua Hakim)</h4>
-                                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                                     <template x-for="item in previewPointTotals" :key="item.label">
-                                                        <div class="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+                                                        <div class="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 sm:px-4 py-2 sm:py-3">
                                                             <div class="flex items-center justify-between gap-2">
-                                                                <span class="text-xs text-emerald-200" x-text="item.label"></span>
-                                                                <span class="text-lg font-bold text-emerald-300" x-text="item.total"></span>
+                                                                <span class="text-xs text-emerald-200 truncate" x-text="item.label"></span>
+                                                                <span class="text-base sm:text-lg font-bold text-emerald-300 shrink-0" x-text="item.total"></span>
                                                             </div>
                                                             <p class="mt-1 text-[10px] text-emerald-200/60" x-text="`(${judgeNames.length} hakim)`"></p>
                                                         </div>
@@ -1494,13 +1501,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 </div>
                                             </div>
 
-                                            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 px-6 py-5">
-                                                <p class="text-sm text-slate-300">Jika semua sudah benar, lanjutkan simpan ke sistem.</p>
-                                                <div class="flex flex-wrap gap-3">
-                                                    <button type="button" class="secondary-button px-5 py-3" x-on:click="closePreview()">
+                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-800 px-4 sm:px-6 py-4 sm:py-5">
+                                                <p class="text-sm text-slate-300 order-2 sm:order-1">Jika semua sudah benar, lanjutkan simpan ke sistem.</p>
+                                                <div class="flex flex-col sm:flex-row gap-3 order-1 sm:order-2">
+                                                    <button type="button" class="secondary-button px-4 sm:px-5 py-3 w-full sm:w-auto" x-on:click="closePreview()">
+                                                        <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                                                         Edit Lagi
                                                     </button>
-                                                    <button type="button" class="primary-button px-5 py-3" x-on:click="submitConfirmed()">
+                                                    <button type="button" class="primary-button px-4 sm:px-5 py-3 w-full sm:w-auto" x-on:click="submitConfirmed()">
                                                         <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                                         Ya, Simpan Nilai
                                                     </button>
@@ -1511,22 +1519,23 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     </fieldset>
                                 </form>
 
-                                        <div x-show="correctionRequestOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6">
-                                        <div class="absolute inset-0" x-on:click="correctionRequestOpen = false"></div>
-                                        <div class="relative z-10 max-h-[88vh] w-full max-w-6xl overflow-hidden rounded-[1.75rem] border border-amber-400/18 bg-slate-950 shadow-[0_28px_90px_-40px_rgba(251,191,36,0.45)]">
-                                            <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 px-6 py-5">
-                                                <div>
-                                                    <p class="section-kicker">Request Perbaikan</p>
-                                                    <h3 class="mt-2 text-2xl font-bold text-white">Masukkan nilai baru untuk dikirim ke admin</h3>
-                                                    <p class="mt-2 text-sm text-slate-300" x-text="`${correctionRequestName || '-'} | Lot ${correctionRequestLot || '-'} | ${correctionRequestRound || '-'}`"></p>
-                                                </div>
-                                                <button type="button" class="secondary-button px-4 py-2" x-on:click="correctionRequestOpen = false">
-                                                    <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
-                                                    Tutup
-                                                </button>
-                                            </div>
+                                        <div x-show="correctionRequestOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm px-2 sm:px-4 py-4 sm:py-6"
+    x-on:keydown.escape.window="correctionRequestOpen = false">
+    <div class="absolute inset-0" x-on:click="correctionRequestOpen = false"></div>
+    <div class="relative z-10 max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-[1.75rem] border border-amber-400/18 bg-slate-950 shadow-[0_28px_90px_-40px_rgba(251,191,36,0.45)]">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-slate-800 px-4 sm:px-6 py-4 sm:py-5">
+            <div>
+                <p class="section-kicker">Request Perbaikan</p>
+                <h3 class="mt-2 text-xl sm:text-2xl font-bold text-white">Masukkan nilai baru untuk dikirim ke admin</h3>
+                <p class="mt-2 text-sm text-slate-300" x-text="`${correctionRequestName || '-'} | Lot ${correctionRequestLot || '-'} | ${correctionRequestRound || '-'}`"></p>
+            </div>
+            <button type="button" class="secondary-button px-4 py-2 shrink-0" x-on:click="correctionRequestOpen = false">
+                <?= mtq_icon('x', 'h-4 w-4') ?>
+                Tutup
+            </button>
+        </div>
 
-                                            <form method="POST" action="<?= e(route('scoring.corrections.store')) ?>" class="max-h-[70vh] overflow-y-auto px-6 py-5">
+                                            <form method="POST" action="<?= e(route('scoring.corrections.store')) ?>" class="max-h-[70vh] overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
                                                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                                                 <input type="hidden" name="participant_id" value="<?= e($selectedParticipant->id) ?>">
                                                 <input type="hidden" name="judging_round" value="<?= e($participantScoreRound) ?>">
@@ -1537,21 +1546,21 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                                                 <div class="mt-4 space-y-4">
                                                     <?php foreach ($judgeNames as $index => $judgeName): ?>
-                                                        <section class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 p-4">
-                                                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                                        <section class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 p-3 sm:p-4">
+                                                            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                                                                 <div>
                                                                     <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Hakim <?= e($index + 1) ?></p>
-                                                                    <h4 class="mt-1 text-lg font-bold text-white"><?= e($judgeName) ?></h4>
+                                                                    <h4 class="mt-1 text-base sm:text-lg font-bold text-white"><?= e($judgeName) ?></h4>
                                                                 </div>
-                                                                <div class="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200">Usulan nilai baru</div>
+                                                                <div class="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200 shrink-0">Usulan nilai baru</div>
                                                             </div>
 
-                                                            <!-- Info Pemberitahuan (single line, bigger) -->
-                                                            <div class="flex items-center gap-3 rounded-[1rem] border border-amber-400/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-5 py-4">
-                                                                <div class="shrink-0">
-                                                                    <?= mtq_icon('info', 'h-5 w-5 text-amber-300') ?>
+                                                            <!-- Info Pemberitahuan -->
+                                                            <div class="flex items-start gap-3 rounded-[1rem] border border-amber-400/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-4 sm:px-5 py-3 sm:py-4">
+                                                                <div class="shrink-0 mt-0.5">
+                                                                    <?= mtq_icon('info', 'h-4 w-4 sm:h-5 sm:w-5 text-amber-300') ?>
                                                                 </div>
-                                                                <div class="flex-1 text-sm text-amber-50">
+                                                                <div class="flex-1 text-xs sm:text-sm text-amber-50">
                                                                     <span class="font-semibold text-amber-100">Penting:</span>
                                                                     Bilangan berkoma pakai <span class="font-bold text-amber-100">titik (.)</span> ·
                                                                     Nilai kosong diisi <span class="font-bold text-amber-100">nol (0)</span>
@@ -1559,7 +1568,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             </div>
 
                                                             <!-- Poin Penilaian -->
-                                                            <div class="rounded-[1.1rem] border-2 border-amber-400/30 bg-gradient-to-br from-amber-500/8 to-orange-500/5 p-4 shadow-[0_8px_30px_-12px_rgba(251,191,36,0.2)]">
+                                                            <div class="rounded-[1.1rem] border-2 border-amber-400/30 bg-gradient-to-br from-amber-500/8 to-orange-500/5 p-3 sm:p-4 shadow-[0_8px_30px_-12px_rgba(251,191,36,0.2)]">
                                                                 <div class="flex items-center gap-2 mb-3">
                                                                     <?= mtq_icon('spark', 'h-4 w-4 text-amber-300') ?>
                                                                     <h4 class="text-sm font-bold text-amber-100 uppercase tracking-[0.18em]">Poin Penilaian</h4>
@@ -1577,7 +1586,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                                                 max="100"
                                                                                 step="0.01"
                                                                                 x-bind:value="correctionRequestDraft?.[<?= e(json_encode($judgeName)) ?>]?.scores?.[<?= e(json_encode($key)) ?>] ?? ''"
-                                                                                class="w-full rounded-xl border-2 border-amber-400/30 bg-slate-900/90 px-3.5 py-3 text-center text-lg font-bold text-white outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-400/20 focus:bg-slate-900"
+                                                                                class="w-full rounded-xl border-2 border-amber-400/30 bg-slate-900/90 px-2 sm:px-3.5 py-2 sm:py-3 text-center text-base sm:text-lg font-bold text-white outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-400/20 focus:bg-slate-900"
                                                                                 placeholder="0">
                                                                         </div>
                                                                     <?php endforeach; ?>
@@ -1585,7 +1594,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             </div>
 
                                                             <!-- Catatan -->
-                                                            <div>
+                                                            <div class="mt-4">
                                                                 <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan <?= e($judgeName) ?></label>
                                                                 <textarea
                                                                     name="remarks[<?= e($judgeIds[$index] ?? '') ?>]"
@@ -1607,11 +1616,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         placeholder="Opsional, misalnya alasan koreksi atau instruksi untuk admin."></textarea>
                                                 </div>
 
-                                                <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
-                                                    <p class="text-sm text-slate-300">Request akan disimpan sebagai permintaan perbaikan dan menunggu tindak lanjut admin.</p>
-                                                    <div class="flex flex-wrap gap-3">
-                                                        <button type="button" class="secondary-button px-5 py-3" x-on:click="correctionRequestOpen = false">Batal</button>
-                                                        <button type="submit" class="primary-button px-5 py-3">
+                                                <div class="mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-800 pt-4">
+                                                    <p class="text-sm text-slate-300 order-2 sm:order-1">Request akan disimpan dan menunggu tindak lanjut admin.</p>
+                                                    <div class="flex flex-col sm:flex-row gap-3 order-1 sm:order-2">
+                                                        <button type="button" class="secondary-button px-5 py-3 w-full sm:w-auto" x-on:click="correctionRequestOpen = false">Batal</button>
+                                                        <button type="submit" class="primary-button px-5 py-3 w-full sm:w-auto">
                                                             <?= mtq_icon('check-circle', 'h-4 w-4') ?>
                                                             Kirim Request
                                                         </button>
