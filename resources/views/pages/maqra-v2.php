@@ -42,7 +42,7 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
                             <h1 class="mt-1 text-lg font-bold text-white">Kelola Maqra</h1>
                         </div>
                     </div>
-                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = false">
+                    <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden hamburger-btn" x-on:click="mobileNavOpen = false">
                         <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                     </button>
                 </div>
@@ -97,7 +97,7 @@ $hasCreateDraft = $errors->any() || collect(['competition_category_id', 'round_l
             <div class="min-w-0 space-y-5">
                 <header class="topbar-card flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
-                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                        <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden hamburger-btn" x-on:click="mobileNavOpen = true">
                             <?= mtq_icon('menu', 'h-4 w-4') ?>
                         </button>
                         <div class="max-w-3xl">

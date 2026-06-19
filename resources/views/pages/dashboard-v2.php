@@ -80,7 +80,7 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                     </button>
                 </div>
 
-                <div class="sidebar-profile-card">
+                <div class="sidebar-profile-card lg:block hidden">
                     <div class="flex flex-col items-center gap-4 text-center">
                         <?php if ($userProfilePhotoUrl): ?>
                             <img src="<?= e($userProfilePhotoUrl) ?>" alt="Foto profil <?= e($user?->name) ?>" class="profile-avatar">
@@ -120,6 +120,34 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
                                 title="Ganti password akun"
                                 aria-label="Ganti password akun"
                             >
+                                <?= mtq_icon('key', 'h-4 w-4') ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile: Simple user info -->
+                <div class="sidebar-profile-mobile lg:hidden">
+                    <div class="flex items-center gap-3">
+                        <?php if ($userProfilePhotoUrl): ?>
+                            <img src="<?= e($userProfilePhotoUrl) ?>" alt="Avatar" class="w-10 h-10 rounded-full object-cover border-2 border-cyan-400/30">
+                        <?php else: ?>
+                            <div class="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-300 font-bold text-sm">
+                                <?= e($userInitials) ?>
+                            </div>
+                        <?php endif; ?>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-white truncate"><?= e($user?->name) ?></p>
+                            <p class="text-xs text-slate-400"><?= e($user?->roleLabel()) ?></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <form method="POST" action="<?= e(route('dashboard.user-sync')) ?>" class="inline">
+                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                                <button type="submit" class="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 transition" <?= $canSyncSilatarUser ? '' : 'disabled' ?>>
+                                    <?= mtq_icon('refresh-cw', 'h-4 w-4') ?>
+                                </button>
+                            </form>
+                            <button type="button" class="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 transition" @click="showPasswordModal = true">
                                 <?= mtq_icon('key', 'h-4 w-4') ?>
                             </button>
                         </div>

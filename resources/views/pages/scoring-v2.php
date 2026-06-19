@@ -346,7 +346,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 <header class="glass-card rounded-[2rem] p-6 glow-cyan">
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div class="flex items-center gap-4">
-                            <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden" x-on:click="mobileNavOpen = true">
+                            <button type="button" class="secondary-button rounded-xl px-3 py-2 lg:hidden hamburger-btn" x-on:click="mobileNavOpen = true">
                                 <?= mtq_icon('menu', 'h-4 w-4') ?>
                             </button>
                             <div>

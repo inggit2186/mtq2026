@@ -136,6 +136,12 @@
         @apply border-slate-300 bg-white text-slate-700 shadow-[0_15px_35px_-24px_rgba(15,23,42,0.12)] hover:border-cyan-400/30 hover:text-slate-900;
     }
 
+    /* Mobile hamburger menu button - must be above sidebar */
+    .hamburger-btn {
+        position: relative;
+        z-index: 80;
+    }
+
     .icon-chip {
         @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-400/16 bg-cyan-400/10 text-cyan-200;
     }
@@ -223,9 +229,9 @@
         .sidebar-shell {
             position: fixed !important;
             inset: 0 !important;
-            width: auto !important;
-            max-width: none !important;
-            height: auto !important;
+            width: 85vw !important;
+            max-width: 320px !important;
+            height: 100dvh !important;
             max-height: 100dvh !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
@@ -240,7 +246,7 @@
             overscroll-behavior-y: contain;
             touch-action: pan-y;
             border-radius: 0 !important;
-            padding: 1rem 1rem calc(6.5rem + env(safe-area-inset-bottom)) 1rem !important;
+            padding: 1rem !important;
         }
 
         .sidebar-shell.translate-x-0.opacity-100 {
@@ -513,6 +519,7 @@
         color: #94a3b8;
         transition: all 0.2s ease;
         cursor: pointer;
+        z-index: 80;
     }
 
     .sidebar-close-btn:hover {
@@ -534,6 +541,16 @@
         .sidebar-profile-card {
             padding: 0.875rem;
             border-radius: 1rem;
+        }
+    }
+
+    /* Mobile-only simple profile card */
+    @media (max-width: 767px) {
+        .sidebar-profile-mobile {
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 0.75rem;
+            border: 1px solid rgba(34, 211, 238, 0.1);
         }
     }
 
