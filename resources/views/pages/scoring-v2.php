@@ -1386,7 +1386,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                         <?php
                                                         // Helper to get score value: old() > draft > ''
                                                         $judgeId = $judgeIds[$index] ?? '';
-                                                        $getScoreValue = function(string $key) use ($judgeId, $judgeName): string {
+                                                        $getScoreValue = function(string $key) use ($judgeId, $judgeName, $participantScoreDraft): string {
                                                             $oldScores = old('scores', []);
                                                             $oldValue = data_get($oldScores, $judgeId.'.'.str_replace('.', '\\.', $key));
                                                             if ($oldValue !== null && $oldValue !== '') {
@@ -1396,7 +1396,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             $draftValue = data_get($participantScoreDraft, $judgeName.'.scores.'.$key);
                                                             return $draftValue !== null && $draftValue !== '' ? e($draftValue) : '';
                                                         };
-                                                        $getRemarksValue = function() use ($judgeId, $judgeName): string {
+                                                        $getRemarksValue = function() use ($judgeId, $judgeName, $participantScoreDraft): string {
                                                             $oldRemarks = old('remarks', []);
                                                             $oldValue = data_get($oldRemarks, $judgeId);
                                                             if ($oldValue !== null) {
