@@ -1417,6 +1417,8 @@ class ScoringController extends Controller
             'scoringSetting' => $scoringSetting,
             'appearanceSchedule' => $appearanceSchedule,
             'dayRanges' => $dayRanges,
+            'restrictedCategoryIds' => $restrictedCategoryIds,
+            'isRestricted' => $restrictByCategory,
             'stats' => [
                 'verified_participants' => $verifiedCount,
                 'scored_participants' => $scoredCount,

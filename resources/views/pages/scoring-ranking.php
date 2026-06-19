@@ -108,10 +108,16 @@ $dayRanges = $dayRanges ?? [];
                     <select name="competition_category_id" class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                         <option value="">Semua Golongan</option>
                         <?php
-                        $categories = \App\Models\CompetitionCategory::query()
+                        $categoriesQuery = \App\Models\CompetitionCategory::query()
                             ->orderBy('branch')
-                            ->orderBy('sort_order')
-                            ->get();
+                            ->orderBy('sort_order');
+
+                        // Filter by restricted category IDs if user is restricted (panitia)
+                        if ($isRestricted && !empty($restrictedCategoryIds)) {
+                            $categoriesQuery->whereIn('id', $restrictedCategoryIds);
+                        }
+
+                        $categories = $categoriesQuery->get();
                         foreach ($categories as $cat):
                         ?>
                             <option value="<?= e($cat->id) ?>" <?= ($selectedCategory?->id ?? '') == $cat->id ? 'selected' : '' ?>>
