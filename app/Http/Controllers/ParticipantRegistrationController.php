@@ -1928,7 +1928,7 @@ class ParticipantRegistrationController extends Controller
         $participant->loadMissing(['category', 'district', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle']);
         $roundLabel = $this->maqraRoundFromRequest(request());
         $this->authorizeOfficialMaqraAccess($participant, $roundLabel);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantAccess($participant, true);
         abort_unless($participant->verification_status === 'verified', 403, 'Layar maqra hanya tersedia untuk peserta yang sudah terverifikasi.');
         abort_unless($this->participantUsesMaqra($participant), 403, 'Kategori peserta ini tidak menggunakan pengambilan maqra.');
 
@@ -2011,7 +2011,7 @@ class ParticipantRegistrationController extends Controller
     public function assignMaqra(Request $request, Participant $participant): RedirectResponse|JsonResponse
     {
         $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle']);
-        $this->authorizeParticipantAccess($participant);
+        $this->authorizeParticipantAccess($participant, true);
         abort_unless($participant->verification_status === 'verified', 403, 'Maqra hanya dapat diambil untuk peserta yang sudah terverifikasi.');
         abort_unless($this->participantUsesMaqra($participant), 403, 'Kategori peserta ini tidak menggunakan pengambilan maqra.');
 
@@ -2726,7 +2726,7 @@ class ParticipantRegistrationController extends Controller
         ];
     }
 
-    protected function authorizeParticipantAccess(Participant $participant): void
+    protected function authorizeParticipantAccess(Participant $participant, bool $forMaqra = false): void
     {
         $user = auth()->user();
 
@@ -2734,6 +2734,13 @@ class ParticipantRegistrationController extends Controller
             abort_unless((int) $user?->district_id === (int) $participant->district_id, 403);
         }
 
+        // For maqra access, authorization is handled in authorizeOfficialMaqraAccess
+        // which checks category access via accessibleCategoryIds, not district
+        if ($forMaqra) {
+            return;
+        }
+
+        // For participant edit/view, check district access for panitia
         if ($user?->role === 'panitia') {
             $this->authorizeDistrictVerificationAccess($participant->district);
         }
@@ -2804,7 +2811,8 @@ class ParticipantRegistrationController extends Controller
 
         abort_unless(in_array($user?->role, ['admin', 'official', 'pendamping', 'panitia'], true), 403);
 
-        if ($user?->role !== 'admin') {
+        // District check only for official and pendamping (panitia uses category access)
+        if (in_array($user?->role, ['official', 'pendamping'], true)) {
             abort_unless((int) $user->district_id === (int) $participant->district_id, 403);
         }
 
