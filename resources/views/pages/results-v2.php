@@ -310,7 +310,12 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     </div>
                 </section>
 
-                <?php if (!empty($rankings)): ?>
+                <?php
+                // DEBUG: Check rankings data
+                $debugRankings = $rankings ?? [];
+                ?>
+                <!-- DEBUG VISIBLE: rankings count = <?= count($debugRankings) ?> -->
+                <?php if (!empty($debugRankings)): ?>
                 <!-- Rankings from Admin Settings -->
                 <section class="glass-card rounded-[2rem] p-6">
                     <div class="flex items-center gap-3">
@@ -318,6 +323,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         <div>
                             <p class="section-kicker">Ranking Hasil Nilai</p>
                             <h3 class="mt-1 text-2xl font-bold text-white">Peringkat peserta berdasarkan konfigurasi admin</h3>
+                            <p class="mt-1 text-sm text-slate-400"><?= count($rankings) ?> konfigurasi ranking aktif</p>
                         </div>
                     </div>
 
@@ -419,6 +425,24 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
+                    </div>
+                </section>
+                <?php else: ?>
+                <!-- No Rankings Available - debug: rankings count = <?= count($debugRankings) ?> -->
+                <section class="glass-card rounded-[2rem] p-6">
+                    <div class="flex items-center gap-3">
+                        <div class="icon-chip"><?= mtq_icon('trophy') ?></div>
+                        <div>
+                            <p class="section-kicker">Ranking Hasil Nilai</p>
+                            <h3 class="mt-1 text-2xl font-bold text-white">Belum ada ranking dikonfigurasi</h3>
+                        </div>
+                    </div>
+                    <div class="mt-4 rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                        <p class="text-slate-400 mb-3">Belum ada konfigurasi ranking yang aktif.</p>
+                        <a href="<?= e(route('ranking.settings.index')) ?>" class="primary-button inline-flex items-center gap-2">
+                            <?= mtq_icon('settings', 'h-4 w-4') ?>
+                            Kelola Pengaturan Ranking
+                        </a>
                     </div>
                 </section>
                 <?php endif; ?>

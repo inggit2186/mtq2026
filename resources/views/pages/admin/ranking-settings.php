@@ -7,6 +7,10 @@ $user = auth()->user();
 $rolePanel = $rolePanel ?? [];
 $rankingSettings = $rankingSettings ?? collect();
 $categories = $categories ?? [];
+
+// Pre-generate URLs for JavaScript
+$storeUrl = route('ranking.settings.store');
+$updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -20,53 +24,7 @@ $categories = $categories ?? [];
     <?php endforeach; ?>
 </head>
 <body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased"
-      x-data="{
-          showForm: false,
-          editItem: null,
-          selectedCategory: '',
-          scheduleDays: [],
-          async loadScheduleDays() {
-              if (!this.selectedCategory) {
-                  this.scheduleDays = [];
-                  return;
-              }
-              try {
-                  const res = await fetch(`/admin/ranking-settings/schedule-days?category_id=${this.selectedCategory}`);
-                  const data = await res.json();
-                  this.scheduleDays = data.days || [];
-              } catch (e) {
-                  console.error('Error loading schedule days:', e);
-                  this.scheduleDays = [];
-              }
-          },
-          openEdit(setting) {
-              this.editItem = setting;
-              this.selectedCategory = setting.competition_category_id ? String(setting.competition_category_id) : '';
-              this.showForm = true;
-              this.loadScheduleDays();
-              this.$nextTick(() => {
-                  document.getElementById('form-modal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              });
-          },
-          openCreate() {
-              this.editItem = null;
-              this.selectedCategory = '';
-              this.scheduleDays = [];
-              this.showForm = true;
-              this.$nextTick(() => {
-                  document.getElementById('form-modal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              });
-          },
-          submitForm() {
-              const form = this.$refs.formElement;
-              if (this.editItem) {
-                  form.action = '<?= e(route('ranking.settings.update', ['rankingSetting' => '__ID__'])) ?>'.replace('__ID__', this.editItem.id);
-              } else {
-                  form.action = '<?= e(route('ranking.settings.store')) ?>';
-              }
-              form.submit();
-          }
-      }">
+      x-data="rankingForm()">
     <main class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
 
         <div class="hero-orb hero-orb-amber right-[-7rem] top-10 h-72 w-72"></div>
@@ -142,8 +100,7 @@ $categories = $categories ?? [];
             <?php else: ?>
                 <div class="space-y-3">
                     <?php foreach($rankingSettings as $setting): ?>
-                    <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/50 p-4 transition-colors hover:bg-slate-900/80"
-                         x-data="{ expanded: false }">
+                    <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/50 p-4 transition-colors hover:bg-slate-900/80">
                         <div class="flex items-center gap-4">
                             <div class="flex h-10 w-10 items-center justify-center rounded-xl <?= $setting->is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700/50 text-slate-400' ?>">
                                 <?= $setting->is_active ? mtq_icon('check-circle', 'h-5 w-5') : mtq_icon('x-circle', 'h-5 w-5') ?>
@@ -164,14 +121,7 @@ $categories = $categories ?? [];
                                     <?php endif; ?>
                                 </div>
                                 <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                    <?php
-                                    $genderBadge = match($setting->gender) {
-                                        'putra' => '<span class=\"text-blue-300\">Putra</span>',
-                                        'putri' => '<span class=\"text-pink-300\">Putri</span>',
-                                        default => '<span>Putra & Putri</span>',
-                                    };
-                                    ?>
-                                    <span><?= $setting->display_label ?></span>
+                                    <span><?= e($setting->display_label) ?></span>
                                 </div>
                             </div>
                         </div>
@@ -190,8 +140,8 @@ $categories = $categories ?? [];
                                         'appearance_day' => $setting->appearance_day,
                                         'judging_round' => $setting->judging_round,
                                         'sort_order' => $setting->sort_order,
-                                        'is_active' => $setting->is_active,
-                                    ])) ?>)"
+                                        'is_active' => (bool)$setting->is_active,
+                                    ], JSON_HEX_APOS | JSON_HEX_QUOT)) ?>)"
                                     class="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 transition-colors hover:border-amber-400/50 hover:text-amber-300"
                                     title="Edit">
                                 <?= mtq_icon('edit', 'h-4 w-4') ?>
@@ -239,12 +189,9 @@ $categories = $categories ?? [];
                     </button>
                 </div>
 
-                <form method="POST"
-                      x-ref="formElement">
+                <form method="POST" x-ref="formElement">
                     <?= csrf_field() ?>
-                    <template x-if="editItem">
-                        <input type="hidden" name="_method" value="PUT">
-                    </template>
+                    <input type="hidden" name="_method" x-model="formMethod">
 
                     <div class="space-y-5">
                         <!-- Name -->
@@ -252,7 +199,7 @@ $categories = $categories ?? [];
                             <label class="mb-2 block text-sm font-semibold text-slate-300">Nama Ranking</label>
                             <input type="text"
                                    name="name"
-                                   x-model="editItem?.name"
+                                   x-model="form.name"
                                    placeholder="Contoh: Ranking Putra Hari 1"
                                    class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                    required>
@@ -262,7 +209,7 @@ $categories = $categories ?? [];
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-300">Golongan</label>
                             <select name="competition_category_id"
-                                    x-model="selectedCategory"
+                                    x-model="form.competition_category_id"
                                     @change="loadScheduleDays()"
                                     class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                                 <option value="">Semua Golongan</option>
@@ -276,7 +223,7 @@ $categories = $categories ?? [];
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-300">Jenis Kelamin</label>
                             <select name="gender"
-                                    x-model="editItem?.gender"
+                                    x-model="form.gender"
                                     class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                                 <option value="all">Putra & Putri</option>
                                 <option value="putra">Putra</option>
@@ -288,7 +235,7 @@ $categories = $categories ?? [];
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-300">Jadwal / Sesi</label>
                             <select name="appearance_day"
-                                    x-model="editItem?.appearance_day"
+                                    x-model="form.appearance_day"
                                     class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                                 <option value="">Keseluruhan (Semua Hari)</option>
                                 <template x-for="day in scheduleDays" :key="day.index">
@@ -302,7 +249,7 @@ $categories = $categories ?? [];
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-slate-300">Babak Penilaian</label>
                             <select name="judging_round"
-                                    x-model="editItem?.judging_round"
+                                    x-model="form.judging_round"
                                     class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                                 <option value="Penyisihan">Penyisihan</option>
                                 <option value="Final">Final</option>
@@ -314,7 +261,7 @@ $categories = $categories ?? [];
                             <label class="mb-2 block text-sm font-semibold text-slate-300">Urutan Tampilan</label>
                             <input type="number"
                                    name="sort_order"
-                                   x-model="editItem?.sort_order"
+                                   x-model="form.sort_order"
                                    min="0"
                                    class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
                             <p class="mt-1 text-xs text-slate-500">Angka lebih kecil ditampilkan lebih dulu</p>
@@ -325,7 +272,7 @@ $categories = $categories ?? [];
                             <input type="checkbox"
                                    name="is_active"
                                    id="is_active"
-                                   x-model="editItem?.is_active"
+                                   x-model="form.is_active"
                                    value="1"
                                    class="h-5 w-5 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0">
                             <label for="is_active" class="text-sm font-semibold text-slate-300">Aktifkan ranking ini</label>
@@ -349,5 +296,90 @@ $categories = $categories ?? [];
     <?php foreach ($jsAssets as $src): ?>
         <script type="module" src="<?= e($src) ?>"></script>
     <?php endforeach; ?>
+
+    <script>
+        function rankingForm() {
+            return {
+                showForm: false,
+                editItem: null,
+                formMethod: '',
+                form: {
+                    name: '',
+                    competition_category_id: '',
+                    gender: 'all',
+                    appearance_day: '',
+                    judging_round: 'Penyisihan',
+                    sort_order: 0,
+                    is_active: false,
+                },
+                scheduleDays: [],
+
+                async loadScheduleDays() {
+                    if (!this.form.competition_category_id) {
+                        this.scheduleDays = [];
+                        return;
+                    }
+                    try {
+                        const formData = new FormData();
+                        formData.append('category_id', this.form.competition_category_id);
+                        formData.append('_token', document.querySelector('meta[name=csrf-token]')?.content || '');
+                        const res = await fetch('/admin/ranking-settings/schedule-days', {
+                            method: 'POST',
+                            body: formData,
+                        });
+                        const data = await res.json();
+                        this.scheduleDays = data.days || [];
+                    } catch (e) {
+                        console.error('Error loading schedule days:', e);
+                        this.scheduleDays = [];
+                    }
+                },
+
+                openEdit(setting) {
+                    this.editItem = setting;
+                    this.formMethod = 'PUT';
+                    this.form = {
+                        name: setting.name || '',
+                        competition_category_id: setting.competition_category_id || '',
+                        gender: setting.gender || 'all',
+                        appearance_day: setting.appearance_day ?? '',
+                        judging_round: setting.judging_round || 'Penyisihan',
+                        sort_order: setting.sort_order || 0,
+                        is_active: setting.is_active || false,
+                    };
+                    this.showForm = true;
+                    this.$nextTick(() => {
+                        this.loadScheduleDays();
+                    });
+                },
+
+                openCreate() {
+                    this.editItem = null;
+                    this.formMethod = '';
+                    this.form = {
+                        name: '',
+                        competition_category_id: '',
+                        gender: 'all',
+                        appearance_day: '',
+                        judging_round: 'Penyisihan',
+                        sort_order: 0,
+                        is_active: false,
+                    };
+                    this.scheduleDays = [];
+                    this.showForm = true;
+                },
+
+                submitForm() {
+                    const form = this.$refs.formElement;
+                    if (this.editItem && this.editItem.id) {
+                        form.action = '/admin/ranking-settings/' + this.editItem.id;
+                    } else {
+                        form.action = '<?= e($storeUrl) ?>';
+                    }
+                    form.submit();
+                }
+            };
+        }
+    </script>
 </body>
 </html>

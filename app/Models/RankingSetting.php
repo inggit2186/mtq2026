@@ -44,6 +44,11 @@ class RankingSetting extends Model
      */
     public function scopeForCategory($query, ?int $categoryId)
     {
+        if ($categoryId === null) {
+            // If no category specified, show all rankings (both global and category-specific)
+            return $query;
+        }
+
         return $query->where(function ($q) use ($categoryId) {
             $q->whereNull('competition_category_id')
               ->orWhere('competition_category_id', $categoryId);
