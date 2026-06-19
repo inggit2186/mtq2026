@@ -659,21 +659,21 @@ class ScoringController extends Controller
             $judgeIds[$id] = $name;
         }
 
-        // Build validation rules using judge IDs (scores can be empty, treated as 0)
+        // Build validation rules using judge IDs (scores can be empty, minimum 1 if filled)
         $scoreRules = [];
         foreach ($judgeIds as $judgeId => $judgeName) {
             $scoreRules['remarks.'.$judgeId] = ['nullable', 'string', 'max:1000'];
             foreach (array_keys($criteria) as $key) {
-                $scoreRules['scores.'.$judgeId.'.'.$key] = ['nullable', 'numeric', 'min:0', 'max:100'];
+                $scoreRules['scores.'.$judgeId.'.'.$key] = ['nullable', 'numeric', 'min:1', 'max:100'];
             }
         }
         $scorePayload = $request->validate($scoreRules);
 
-        // Normalize scores: treat empty/null as 0
+        // Normalize scores: keep empty/null as null, round filled values (min 1)
         foreach ($scorePayload['scores'] ?? [] as $judgeId => &$pointScores) {
             foreach ($pointScores as $pointKey => &$value) {
-                if ($value === '' || $value === null) {
-                    $value = 0;
+                if ($value === '' || $value === null || (float) $value < 1) {
+                    $value = null; // 0 or empty treated as not filled
                 } else {
                     $value = round((float) $value, 2);
                 }
@@ -681,7 +681,7 @@ class ScoringController extends Controller
         }
 
         // Collect all judge scores into JSON format
-        // Perpoin: hitung rata-rata per poin dari hakim yang memberi nilai
+        // Perpoin: hitung rata-rata per poin dari hakim yang memberi nilai (nilai >= 1)
         // Total Score = jumlah semua poin (setelah dirata-ratakan per poin)
         $allJudgeScores = [];
         $pointSums = [];    // Menyimpan jumlah per poin (untuk rata-rata)
@@ -690,12 +690,12 @@ class ScoringController extends Controller
         // First pass: collect scores per judge
         foreach ($judgeIds as $judgeId => $judgeName) {
             $scores = collect(data_get($scorePayload, 'scores.'.$judgeId, []))
-                ->map(fn ($value) => $value !== null && $value !== '' ? round((float) $value, 2) : null)
+                ->map(fn ($value) => $value !== null && $value !== '' && (float) $value >= 1 ? round((float) $value, 2) : null)
                 ->all();
 
-            // Accumulate point sums and counts (hanya yang tidak null)
+            // Accumulate point sums and counts (hanya yang >= 1 / valid)
             foreach ($scores as $pointKey => $pointValue) {
-                if ($pointValue !== null) {
+                if ($pointValue !== null && $pointValue >= 1) {
                     if (!isset($pointSums[$pointKey])) {
                         $pointSums[$pointKey] = 0;
                         $pointCounts[$pointKey] = 0;
