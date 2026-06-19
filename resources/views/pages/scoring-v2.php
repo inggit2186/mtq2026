@@ -1196,19 +1196,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                     <span class="inline-flex rounded-full border px-3 py-1 text-xs" :class="Number(selectedParticipant.score_count || 0) > 0 ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-slate-700 bg-slate-900/80 text-slate-400'" x-text="selectedParticipant.scoring_status"></span>
                                                     <span class="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-slate-300" x-show="Number(selectedParticipant.score_count || 0) > 0" x-text="`Nilai terakhir ${selectedParticipant.latest_score} (${selectedParticipant.latest_round})`"></span>
                                                 </div>
-                                                <button type="button" class="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:border-amber-300/30 hover:bg-amber-400/15"
-                                                    x-show="Number(selectedParticipant.score_count || 0) > 0"
-                                                    x-on:click="window.dispatchEvent(new CustomEvent('open-scoring-correction-request', {
-                                                        detail: {
-                                                            name: selectedParticipant.name,
-                                                            lot: selectedParticipant.lot_number,
-                                                            round: selectedParticipant.correction_request_round,
-                                                            draft: selectedParticipant.correction_request_draft,
-                                                        }
-                                                    }))">
-                                                        <?= mtq_icon('pencil', 'h-4 w-4') ?>
-                                                        Request Perbaikan
-                                                    </button>
                                             </div>
                                         </div>
                                     </template>
@@ -1579,118 +1566,6 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     </div>
                                     <?php endif; ?>
                                 </form>
-
-                                        <div x-show="correctionRequestOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm px-2 sm:px-4 py-4 sm:py-6"
-    x-on:keydown.escape.window="correctionRequestOpen = false">
-    <div class="absolute inset-0" x-on:click="correctionRequestOpen = false"></div>
-    <div class="relative z-10 max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-[1.75rem] border border-amber-400/18 bg-slate-950 shadow-[0_28px_90px_-40px_rgba(251,191,36,0.45)]">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-slate-800 px-4 sm:px-6 py-4 sm:py-5">
-            <div>
-                <p class="section-kicker">Request Perbaikan</p>
-                <h3 class="mt-2 text-xl sm:text-2xl font-bold text-white">Masukkan nilai baru untuk dikirim ke admin</h3>
-                <p class="mt-2 text-sm text-slate-300" x-text="`${correctionRequestName || '-'} | Lot ${correctionRequestLot || '-'} | ${correctionRequestRound || '-'}`"></p>
-            </div>
-            <button type="button" class="secondary-button px-4 py-2 shrink-0" x-on:click="correctionRequestOpen = false">
-                <?= mtq_icon('x', 'h-4 w-4') ?>
-                Tutup
-            </button>
-        </div>
-
-                                            <form method="POST" action="<?= e(route('scoring.corrections.store')) ?>" class="max-h-[70vh] overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
-                                                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                                                <input type="hidden" name="participant_id" value="<?= e($selectedParticipant->id) ?>">
-                                                <input type="hidden" name="judging_round" value="<?= e($participantScoreRound) ?>">
-
-                                                <div class="rounded-[1.25rem] border border-amber-400/16 bg-amber-400/10 px-4 py-3 text-sm text-amber-50">
-                                                    Nilai utama sudah terkunci. Isi usulan nilai baru di bawah ini agar admin bisa meninjau perbaikannya.
-                                                </div>
-
-                                                <div class="mt-4 space-y-4">
-                                                    <?php foreach ($judgeNames as $index => $judgeName): ?>
-                                                        <section class="rounded-[1.35rem] border border-slate-800 bg-slate-950/55 p-3 sm:p-4">
-                                                            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-                                                                <div>
-                                                                    <p class="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Hakim <?= e($index + 1) ?></p>
-                                                                    <h4 class="mt-1 text-base sm:text-lg font-bold text-white"><?= e($judgeName) ?></h4>
-                                                                </div>
-                                                                <div class="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200 shrink-0">Usulan nilai baru</div>
-                                                            </div>
-
-                                                            <!-- Info Pemberitahuan -->
-                                                            <div class="flex items-start gap-3 rounded-[1rem] border border-amber-400/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-4 sm:px-5 py-3 sm:py-4">
-                                                                <div class="shrink-0 mt-0.5">
-                                                                    <?= mtq_icon('info', 'h-4 w-4 sm:h-5 sm:w-5 text-amber-300') ?>
-                                                                </div>
-                                                                <div class="flex-1 text-xs sm:text-sm text-amber-50">
-                                                                    <span class="font-semibold text-amber-100">Penting:</span>
-                                                                    Bilangan berkoma pakai <span class="font-bold text-amber-100">titik (.)</span> ·
-                                                                    Nilai kosong diisi <span class="font-bold text-amber-100">nol (0)</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <!-- Poin Penilaian -->
-                                                            <div class="rounded-[1.1rem] border-2 border-amber-400/30 bg-gradient-to-br from-amber-500/8 to-orange-500/5 p-3 sm:p-4 shadow-[0_8px_30px_-12px_rgba(251,191,36,0.2)]">
-                                                                <div class="flex items-center gap-2 mb-3">
-                                                                    <?= mtq_icon('spark', 'h-4 w-4 text-amber-300') ?>
-                                                                    <h4 class="text-sm font-bold text-amber-100 uppercase tracking-[0.18em]">Poin Penilaian</h4>
-                                                                </div>
-                                                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                                                    <?php foreach ($criteria as $key => $label): ?>
-                                                                        <div class="rounded-[1rem] border border-amber-400/20 bg-slate-950/80 p-3 shadow-[0_4px_16px_-8px_rgba(251,191,36,0.12)]">
-                                                                            <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
-                                                                                <?= e($label) ?>
-                                                                            </label>
-                                                                            <input
-                                                                                name="scores[<?= e($judgeIds[$index] ?? '') ?>][<?= e($key) ?>]"
-                                                                                type="number"
-                                                                                min="0"
-                                                                                max="100"
-                                                                                step="0.01"
-                                                                                x-bind:value="correctionRequestDraft?.[<?= e(json_encode($judgeName)) ?>]?.scores?.[<?= e(json_encode($key)) ?>] ?? ''"
-                                                                                class="w-full rounded-xl border-2 border-amber-400/30 bg-slate-900/90 px-2 sm:px-3.5 py-2 sm:py-3 text-center text-base sm:text-lg font-bold text-white outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-400/20 focus:bg-slate-900"
-                                                                                placeholder="0">
-                                                                        </div>
-                                                                    <?php endforeach; ?>
-                                                                </div>
-                                                            </div>
-
-                                                            <!-- Catatan -->
-                                                            <div class="mt-4">
-                                                                <label class="mb-2 block text-sm font-semibold text-slate-200">Catatan <?= e($judgeName) ?></label>
-                                                                <textarea
-                                                                    name="remarks[<?= e($judgeIds[$index] ?? '') ?>]"
-                                                                    rows="2"
-                                                                    class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-400/20"
-                                                                    placeholder="Opsional, jelaskan alasan perbaikan nilai."
-                                                                    x-bind:value="correctionRequestDraft?.[<?= e(json_encode($judgeName)) ?>]?.remarks ?? ''"></textarea>
-                                                            </div>
-                                                        </section>
-                                                    <?php endforeach; ?>
-                                                </div>
-
-                                                <div class="mt-4">
-                                                    <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Catatan Request</label>
-                                                    <textarea
-                                                        name="note"
-                                                        rows="3"
-                                                        class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-400/20"
-                                                        placeholder="Opsional, misalnya alasan koreksi atau instruksi untuk admin."></textarea>
-                                                </div>
-
-                                                <div class="mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-800 pt-4">
-                                                    <p class="text-sm text-slate-300 order-2 sm:order-1">Request akan disimpan dan menunggu tindak lanjut admin.</p>
-                                                    <div class="flex flex-col sm:flex-row gap-3 order-1 sm:order-2">
-                                                        <button type="button" class="secondary-button px-5 py-3 w-full sm:w-auto" x-on:click="correctionRequestOpen = false">Batal</button>
-                                                        <button type="submit" class="primary-button px-5 py-3 w-full sm:w-auto">
-                                                            <?= mtq_icon('check-circle', 'h-4 w-4') ?>
-                                                            Kirim Request
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
                             <?php endif; ?>
                         </div>
 

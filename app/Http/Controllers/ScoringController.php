@@ -622,12 +622,16 @@ class ScoringController extends Controller
                 ]);
             }
         } else {
-            if ($participant->scores()->where('judging_round', $validated['judging_round'])->exists()) {
-                throw ValidationException::withMessages([
-                    'participant_id' => 'Peserta ini sudah pernah dinilai untuk babak ini. Gunakan Request Perbaikan Nilai untuk mengajukan nilai baru.',
-                ]);
+            // Allow direct update if already scored (edit mode)
+            $existingScore = $participant->scores()->where('judging_round', $validated['judging_round'])->first();
+            if ($existingScore) {
+                // Update existing score entry
+                $participantsToScore = collect([$participant]);
+                $updateExisting = true;
+            } else {
+                $participantsToScore = collect([$participant]);
+                $updateExisting = false;
             }
-            $participantsToScore = collect([$participant]);
         }
 
         $judgingRounds = $this->judgingRoundsForSetting($scoringSetting);
@@ -745,24 +749,42 @@ class ScoringController extends Controller
             'total_score' => $totalScore,
         ]);
 
-        // Create score entries for all participants (for MSQ) or single participant (regular)
+        // Create score entries for all participants (for MSQ) or single participant (regular/update)
         $createdScoreEntries = [];
         $districtName = $participant->district?->name ?? 'Kecamatan '.$participant->district_id;
 
         foreach ($participantsToScore as $p) {
-            $scoreEntry = ScoreEntry::create([
-                'participant_id' => $p->id,
-                'judging_round' => $validated['judging_round'],
-                'scores' => $allJudgeScores,
-                'average_score' => $averageScore,
-                'submitted_at' => now(),
-            ]);
+            // Check if update mode or create mode
+            $existingEntry = isset($updateExisting) && $updateExisting
+                ? ScoreEntry::where('participant_id', $p->id)
+                    ->where('judging_round', $validated['judging_round'])
+                    ->first()
+                : null;
+
+            if ($existingEntry) {
+                // Update existing entry
+                $existingEntry->update([
+                    'scores' => $allJudgeScores,
+                    'average_score' => $averageScore,
+                    'submitted_at' => now(),
+                ]);
+                $scoreEntry = $existingEntry->fresh();
+            } else {
+                // Create new entry
+                $scoreEntry = ScoreEntry::create([
+                    'participant_id' => $p->id,
+                    'judging_round' => $validated['judging_round'],
+                    'scores' => $allJudgeScores,
+                    'average_score' => $averageScore,
+                    'submitted_at' => now(),
+                ]);
+            }
             $createdScoreEntries[] = $scoreEntry;
 
             // Log activity for each entry
             ActivityLogger::log(
-                'scoring.score.created',
-                (auth()->user()?->name ?? 'Panitia').' menginput nilai '.$validated['judging_round'].($isMsqCategory ? ' (MSQ)' : '').' untuk peserta '.$p->name.'.',
+                $existingEntry ? 'scoring.score.updated' : 'scoring.score.created',
+                (auth()->user()?->name ?? 'Panitia').' '.($existingEntry ? 'memperbarui' : 'menginput').' nilai '.$validated['judging_round'].($isMsqCategory ? ' (MSQ)' : '').' untuk peserta '.$p->name.'.',
                 $p,
                 [
                     'participant_id' => $p->id,
@@ -1077,20 +1099,52 @@ class ScoringController extends Controller
             return [];
         }
 
-        $scoreEntries = $participant->scores
+        // Get the latest score entry for this round
+        $scoreEntry = $participant->scores
             ->where('judging_round', $judgingRound)
-            ->keyBy('judge_name');
+            ->latest('submitted_at')
+            ->first();
+
         $draft = [];
 
+        // Check if using new format (scores JSON) or old format
+        $isNewFormat = $scoreEntry && $scoreEntry->scores && is_array($scoreEntry->scores);
+
+        if ($isNewFormat) {
+            // New format: scores JSON with judge names as keys
+            $allJudgeScores = $scoreEntry->scores;
+        } else {
+            // Old format or no scores: empty
+            $allJudgeScores = [];
+        }
+
         foreach ($judgeNames as $judgeName) {
-            $entry = $scoreEntries->get($judgeName);
+            $judgeData = $allJudgeScores[$judgeName] ?? null;
+
+            if ($isNewFormat && $judgeData) {
+                // New format: get scores from judge's scores array
+                $judgeScores = $judgeData['scores'] ?? [];
+                $remarks = $judgeData['remarks'] ?? '';
+            } else {
+                // No score for this judge or old format
+                $judgeScores = [];
+                $remarks = '';
+            }
+
             $draft[$judgeName] = [
                 'scores' => [],
-                'remarks' => (string) ($entry?->remarks ?? ''),
+                'remarks' => (string) $remarks,
             ];
 
             foreach (array_keys($criteria) as $key) {
-                $draft[$judgeName]['scores'][$key] = $entry ? data_get($entry->score_breakdown, $key, '') : '';
+                // Try to get from new format first, then fallback to old format
+                if ($isNewFormat && isset($judgeScores[$key])) {
+                    $draft[$judgeName]['scores'][$key] = (string) $judgeScores[$key];
+                } elseif ($scoreEntry && $scoreEntry->score_breakdown) {
+                    $draft[$judgeName]['scores'][$key] = (string) data_get($scoreEntry->score_breakdown, $key, '');
+                } else {
+                    $draft[$judgeName]['scores'][$key] = '';
+                }
             }
         }
 
