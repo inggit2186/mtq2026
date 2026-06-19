@@ -1410,9 +1410,9 @@ class ParticipantRegistrationController extends Controller
             ->filter(fn (Participant $participant): bool => $this->participantUsesMaqra($participant))
             ->values();
 
-        // Lot range filter for official/pendamping - only apply if schedules exist
+        // Lot range filter for official/pendamping/panitia - only apply if schedules exist
         $hasAnySchedule = MaqraSchedule::currentlyOpen()->exists();
-        if (in_array($user?->role, ['official', 'pendamping'], true) && $hasAnySchedule) {
+        if (in_array($user?->role, ['official', 'panitia', 'pendamping'], true) && $hasAnySchedule) {
             $participants = $participants
                 ->filter(function (Participant $participant): bool {
                     $participantLotSequence = $this->participantLotSequenceNumber($participant);

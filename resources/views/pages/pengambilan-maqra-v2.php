@@ -439,7 +439,7 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                             <?php endif; ?>
                                         </div>
                                         <div class="maqra-district-actions">
-                                            <?php if ($leaderParticipant && $leaderParticipant->verification_status === 'verified' && in_array($user?->role, ['admin', 'official', 'pendamping'], true)): ?>
+                                            <?php if ($leaderParticipant && $leaderParticipant->verification_status === 'verified' && in_array($user?->role, ['admin', 'official', 'panitia', 'pendamping'], true)): ?>
                                                 <a href="<?= e($lotLaunchUrl) ?>" data-maqra-launcher class="maqra-btn maqra-btn--primary">
                                                     <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                     Ambil Maqra
@@ -526,7 +526,7 @@ $selectedMaqraCategoryLabel = $selectedCategory
                                                             <?= mtq_icon('eye', 'h-4 w-4') ?>
                                                             <span>Detail</span>
                                                         </a>
-                                                        <?php if (! $hasMaqra && $currentRemaining > 0 && in_array($user?->role, ['admin', 'official', 'pendamping'], true)): ?>
+                                                        <?php if (! $hasMaqra && $currentRemaining > 0 && in_array($user?->role, ['admin', 'official', 'panitia', 'pendamping'], true)): ?>
                                                             <a href="<?= e(route('participants.maqra.draw', $participant).'?autofullscreen=1&round='.$roundLabel) ?>" data-maqra-launcher class="maqra-action-btn maqra-action-btn--primary">
                                                                 <?= mtq_icon('sparkles', 'h-4 w-4') ?>
                                                                 <span>Ambil Maqra</span>
