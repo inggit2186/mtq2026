@@ -1099,10 +1099,10 @@ class ScoringController extends Controller
             return [];
         }
 
-        // Get the latest score entry for this round
-        $scoreEntry = $participant->scores
+        // Get the latest score entry for this round (use query builder, not collection)
+        $scoreEntry = $participant->scores()
             ->where('judging_round', $judgingRound)
-            ->latest('submitted_at')
+            ->orderBy('submitted_at', 'desc')
             ->first();
 
         $draft = [];
