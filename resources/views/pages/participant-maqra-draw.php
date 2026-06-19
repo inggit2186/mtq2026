@@ -16,6 +16,18 @@ $maqraAssignedPackage = $maqraPackage ?? null;
 $maqraAssignedCode = (string) ($maqraAssignedPackage?->maqra_code ?? '');
 $maqraAssignedTitle = (string) ($maqraAssignedPackage?->title ?? '');
 $maqraAssignedContent = (string) ($maqraAssignedPackage?->content ?? '');
+
+// MSQ specific
+$usesDistrictMaqraTitles = $usesDistrictMaqraTitles ?? false;
+$districtMaqraTitles = $districtMaqraTitles ?? collect();
+$currentMsqDistrictTitle = $currentMsqDistrictTitle ?? null;
+$maqraAssignedTitle = $usesDistrictMaqraTitles && $currentMsqDistrictTitle
+    ? (string) $currentMsqDistrictTitle->title
+    : $maqraAssignedTitle;
+$maqraAssignedContent = $usesDistrictMaqraTitles && $currentMsqDistrictTitle
+    ? (string) ($currentMsqDistrictTitle->description ?? '')
+    : $maqraAssignedContent;
+
 $formatMaqraLabel = static function (string $label): string {
     $cleanLabel = trim((string) preg_replace('/^(Tilawah|Tahfizh|Tafsir|Fahmil)\s*-\s*/u', '', $label));
 
@@ -27,7 +39,7 @@ $formatMaqraLabel = static function (string $label): string {
 };
 
 $maqraAssignedLabel = $formatMaqraLabel($maqraAssignedTitle);
-$maqraAssigned = filled($maqraAssignedCode);
+$maqraAssigned = filled($maqraAssignedTitle);
 $maqraDrawnAt = $maqraDrawnAt ?? null;
 $photoDataUri = (string) ($maqraPhotoDataUri ?? '');
 $initials = (string) ($initials ?? 'P');
@@ -36,6 +48,11 @@ $autoFullscreen = request()->boolean('autofullscreen');
 $maqraPackageCount = (int) ($maqraPackageCount ?? 0);
 $roundOptions = ['Penyisihan', 'Final'];
 $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
+
+// MSQ candidates for the spinning animation
+$msqCandidateLabels = $usesDistrictMaqraTitles
+    ? $districtMaqraTitles->map(fn($t) => ['id' => $t->id, 'title' => $t->title, 'content' => $t->description ?? ''])->values()->all()
+    : [];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -181,20 +198,41 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                             <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Sistem</p>
                             <p class="text-base font-semibold text-white"><?= e($maqraSystemLabel) ?></p>
                         </div>
+                        <?php if (! $usesDistrictMaqraTitles): ?>
                         <div class="flex-1 min-w-[80px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
                             <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Kode</p>
                             <p class="text-2xl font-black tracking-[0.24em] text-cyan-200"><?= e($maqraCodePrefix) ?></p>
                         </div>
+                        <?php endif; ?>
                         <div class="flex-1 min-w-[80px] text-center px-4 py-3 border-r border-white/10 last:border-r-0">
                             <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Babak</p>
                             <p class="text-base font-semibold text-white"><?= e($maqraRoundLabel) ?></p>
                         </div>
                         <div class="flex-1 min-w-[100px] text-center px-4 py-3">
+                            <?php if ($usesDistrictMaqraTitles): ?>
+                            <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Judul Tersedia</p>
+                            <p class="text-base font-semibold text-white"><?= e(number_format($districtMaqraTitles->count())) ?></p>
+                            <?php else: ?>
                             <p class="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Jumlah Paket</p>
                             <p class="text-base font-semibold text-white"><?= e(number_format($maqraPackageCount)) ?></p>
+                            <?php endif; ?>
                         </div>
                     </div>
-                    <?php if (! $maqraAssigned && $maqraPackageCount <= 0): ?>
+                    <?php if ($usesDistrictMaqraTitles): ?>
+                        <?php if (! $maqraAssigned && $districtMaqraTitles->isEmpty()): ?>
+                        <div class="mt-4 flex justify-center">
+                            <div class="inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-rose-100">
+                                Belum ada judul MSQ untuk kecamatan ini
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <div class="mt-3 flex justify-center">
+                            <div class="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-xs font-semibold text-amber-100">
+                                <?= mtq_icon('information-circle', 'h-4 w-4') ?>
+                                MSQ Berbasis Kecamatan
+                            </div>
+                        </div>
+                    <?php elseif (! $maqraAssigned && $maqraPackageCount <= 0): ?>
                         <div class="mt-4 flex justify-center">
                             <div class="inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-rose-100">
                                 Stok maqra habis
@@ -217,8 +255,14 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                     <div class="rounded-[2rem] border border-slate-700/80 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))] p-4 sm:p-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <p class="text-[11px] uppercase tracking-[0.24em] text-slate-400">Nomor Maqra</p>
-                                <p class="mt-1.5 text-[11px] text-slate-300 sm:text-xs">Klik tombol untuk memulai pengacakan paket.</p>
+                                <p class="text-[11px] uppercase tracking-[0.24em] text-slate-400"><?= $usesDistrictMaqraTitles ? 'Judul MSQ' : 'Nomor Maqra' ?></p>
+                                <p class="mt-1.5 text-[11px] text-slate-300 sm:text-xs">
+                                    <?php if ($usesDistrictMaqraTitles): ?>
+                                        Klik tombol untuk memilih judul secara acak.
+                                    <?php else: ?>
+                                        Klik tombol untuk memulai pengacakan paket.
+                                    <?php endif; ?>
+                                </p>
                             </div>
                             <span class="inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
                                 <?= e($maqraRoundLabel) ?>
@@ -231,7 +275,7 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                                 <div class="relative flex w-full flex-col items-center gap-3">
                                     <div class="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-300">
                                         <?= mtq_icon('sparkles', 'h-4 w-4') ?>
-                                        Maqra
+                                        <?= $usesDistrictMaqraTitles ? 'Judul MSQ' : 'Maqra' ?>
                                     </div>
                                     <div class="flex w-full flex-col items-center justify-center gap-2 overflow-hidden px-2">
                                         <span
@@ -242,11 +286,11 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                                             class="block w-full max-w-3xl text-center font-black leading-[0.95] tracking-[0.01em] text-white drop-shadow-[0_0_24px_rgba(255,255,255,0.15)]"
                                             style="font-size: clamp(1.15rem, 2.4vw, 3.1rem);"
                                             id="maqra-title-display"
-                                        ><?= e($maqraAssignedTitle ?: 'Paket belum dipilih') ?></span>
+                                        ><?= e($maqraAssignedTitle ?: ($usesDistrictMaqraTitles ? 'Judul belum dipilih' : 'Paket belum dipilih')) ?></span>
                                     </div>
                                     <div class="max-w-3xl rounded-[1.5rem] border border-white/8 bg-slate-950/70 px-4 py-2.5 text-left shadow-[0_16px_80px_-60px_rgba(34,211,238,0.3)]">
-                                        <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Isi Maqra</p>
-                                        <p class="mt-1.5 whitespace-pre-line text-[12px] leading-5 text-slate-200" id="maqra-content-display"><?= e($maqraAssignedContent ?: 'Maqra akan muncul setelah paket terkunci.') ?></p>
+                                        <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400"><?= $usesDistrictMaqraTitles ? 'Deskripsi' : 'Isi Maqra' ?></p>
+                                        <p class="mt-1.5 whitespace-pre-line text-[12px] leading-5 text-slate-200" id="maqra-content-display"><?= e($maqraAssignedContent ?: ($usesDistrictMaqraTitles ? 'Deskripsi judul akan muncul setelah terpilih.' : 'Maqra akan muncul setelah paket terkunci.')) ?></p>
                                     </div>
                                     <p class="text-[11px] uppercase tracking-[0.24em] text-slate-400" id="maqra-status"><?= e($maqraAssigned ? $maqraAssignedLabel : 'Tekan tombol untuk memulai pengacakan') ?></p>
                                 </div>
@@ -258,8 +302,8 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                                     <p class="mt-1.5 text-sm font-semibold text-white"><?= e($participant?->name) ?></p>
                                 </div>
                                 <div class="rounded-2xl border border-slate-700/80 bg-slate-950/70 px-3 py-2.5 text-left">
-                                    <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Maqra</p>
-                                    <p class="mt-1.5 text-sm font-semibold text-white" id="maqra-final-display"><?= e($maqraAssignedLabel ?: $maqraCodePrefix.'-___') ?></p>
+                                    <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500"><?= $usesDistrictMaqraTitles ? 'Judul MSQ' : 'Maqra' ?></p>
+                                    <p class="mt-1.5 text-sm font-semibold text-white" id="maqra-final-display"><?= e($maqraAssignedLabel ?: ($usesDistrictMaqraTitles ? '---' : $maqraCodePrefix.'-___')) ?></p>
                                 </div>
                                 <div class="rounded-2xl border border-slate-700/80 bg-slate-950/70 px-3 py-2.5 text-left">
                                     <p class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Status</p>
@@ -267,23 +311,40 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                                 </div>
                             </div>
 
+                            <?php
+                            $noCandidates = $usesDistrictMaqraTitles
+                                ? $districtMaqraTitles->isEmpty()
+                                : $maqraCandidates->isEmpty();
+                            ?>
                             <div class="flex flex-wrap justify-center gap-3 pt-1">
                                 <button
                                     id="start-draw-button"
                                     type="button"
-                                    class="primary-button px-5 py-3.5 text-[11px] sm:px-6 sm:py-4 sm:text-sm <?= ($maqraAssigned || (! $maqraAssigned && $maqraCandidates->isEmpty())) ? 'cursor-not-allowed opacity-60' : '' ?>"
-                                    <?= ($maqraAssigned || (! $maqraAssigned && $maqraCandidates->isEmpty())) ? 'disabled' : '' ?>
+                                    class="primary-button px-5 py-3.5 text-[11px] sm:px-6 sm:py-4 sm:text-sm <?= ($maqraAssigned || (! $maqraAssigned && $noCandidates)) ? 'cursor-not-allowed opacity-60' : '' ?>"
+                                    <?= ($maqraAssigned || (! $maqraAssigned && $noCandidates)) ? 'disabled' : '' ?>
                                 >
                                     <?= mtq_icon('sparkles', 'h-5 w-5') ?>
-                                    <?= e($maqraAssigned ? $maqraAssignedLabel : ($maqraCandidates->isEmpty() ? 'Stok Habis' : 'Ambil Maqra')) ?>
+                                    <?php if ($maqraAssigned): ?>
+                                        <?= e($maqraAssignedLabel) ?>
+                                    <?php elseif ($noCandidates): ?>
+                                        <?= $usesDistrictMaqraTitles ? 'Belum Ada Judul' : 'Stok Habis' ?>
+                                    <?php else: ?>
+                                        <?= $usesDistrictMaqraTitles ? 'Ambil Judul MSQ' : 'Ambil Maqra' ?>
+                                    <?php endif; ?>
                                 </button>
                                 <a href="<?= e(route('participants.show', $participant)) ?>" class="secondary-button px-5 py-3.5 text-[11px] sm:px-6 sm:py-4 sm:text-sm">
                                     <?= mtq_icon('id-card', 'h-5 w-5') ?>
                                     Detail Peserta
                                 </a>
                             </div>
-                            <?php if (! $maqraAssigned && $maqraCandidates->isEmpty()): ?>
-                                <p class="text-center text-xs text-rose-200">Tidak ada paket maqra tersisa untuk babak ini. Silakan cek pengaturan paket atau gunakan babak lain.</p>
+                            <?php if (! $maqraAssigned && $noCandidates): ?>
+                                <p class="text-center text-xs text-rose-200">
+                                    <?php if ($usesDistrictMaqraTitles): ?>
+                                        Belum ada judul MSQ untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.
+                                    <?php else: ?>
+                                        Tidak ada paket maqra tersisa untuk babak ini. Silakan cek pengaturan paket atau gunakan babak lain.
+                                    <?php endif; ?>
+                                </p>
                             <?php endif; ?>
                             <div id="maqra-history" class="hidden"></div>
                         </div>
@@ -346,7 +407,10 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const assignUrl = <?= json_encode($assignUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const roundLabel = <?= json_encode($maqraRoundLabel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-            const candidates = <?= json_encode($maqraCandidates->values()->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+            const usesDistrictMaqraTitles = <?= $usesDistrictMaqraTitles ? 'true' : 'false' ?>;
+            // Use MSQ candidates if MSQ, otherwise use regular maqra candidates
+            const candidates = <?= json_encode($msqCandidateLabels, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+            const regularCandidates = <?= json_encode($maqraCandidates->values()->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const alreadyAssigned = <?= $maqraAssigned ? 'true' : 'false' ?>;
             const assignedCode = <?= json_encode($maqraAssignedCode, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
             const assignedTitle = <?= json_encode($maqraAssignedTitle, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -495,24 +559,26 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
             function renderCandidate(candidate) {
                 if (!candidate) {
                     codeDisplay.textContent = '---';
-                    titleDisplay.textContent = 'Belum ada paket';
-                    contentDisplay.textContent = 'Belum tersedia paket maqra untuk kategori dan babak ini.';
+                    titleDisplay.textContent = usesDistrictMaqraTitles ? 'Belum ada judul' : 'Belum ada paket';
+                    contentDisplay.textContent = usesDistrictMaqraTitles
+                        ? 'Belum tersedia judul MSQ untuk kecamatan ini.'
+                        : 'Belum tersedia paket maqra untuk kategori dan babak ini.';
                     finalDisplay.textContent = '---';
                     return;
                 }
 
-                const label = formatMaqraLabel(candidate.title || candidate.code || 'Paket Maqra');
+                const label = formatMaqraLabel(candidate.title || candidate.code || (usesDistrictMaqraTitles ? 'Judul MSQ' : 'Paket Maqra'));
                 codeDisplay.textContent = label;
                 titleDisplay.textContent = label;
-                contentDisplay.textContent = candidate.content || 'Isi maqra akan tampil setelah terkunci.';
+                contentDisplay.textContent = candidate.content || (usesDistrictMaqraTitles ? 'Deskripsi judul.' : 'Isi maqra akan tampil setelah terkunci.');
                 finalDisplay.textContent = label;
             }
 
             function finalizeDisplay(payload, withEffects = true) {
                 const code = payload?.maqra_code || assignedCode || '---';
-                const title = payload?.maqra_title || assignedTitle || 'Paket Maqra';
-                const content = payload?.maqra_content || assignedContent || 'Isi maqra telah dikunci.';
-                const label = formatMaqraLabel(title || assignedLabel || code || 'Paket Maqra');
+                const title = payload?.maqra_title || assignedTitle || (usesDistrictMaqraTitles ? 'Judul MSQ' : 'Paket Maqra');
+                const content = payload?.maqra_content || assignedContent || (usesDistrictMaqraTitles ? 'Judul MSQ telah dikunci.' : 'Isi maqra telah dikunci.');
+                const label = formatMaqraLabel(title || assignedLabel || code || (usesDistrictMaqraTitles ? 'Judul MSQ' : 'Paket Maqra'));
 
                 codeDisplay.textContent = label;
                 titleDisplay.textContent = label;
@@ -696,7 +762,12 @@ $currentRoundLabel = $maqraRound === 'Final' ? 'Final' : 'Penyisihan';
                     .trim();
 
                 if (!cleaned) {
-                    return 'Paket Maqra';
+                    return usesDistrictMaqraTitles ? 'Judul MSQ' : 'Paket Maqra';
+                }
+
+                // MSQ titles don't need "QS" prefix - they're already proper titles
+                if (usesDistrictMaqraTitles) {
+                    return cleaned;
                 }
 
                 return /^QS\b/i.test(cleaned) ? cleaned : `QS ${cleaned}`;

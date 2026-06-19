@@ -1883,7 +1883,7 @@ class ParticipantRegistrationController extends Controller
 
     public function maqraDraw(Participant $participant): View
     {
-        $participant->loadMissing(['category', 'district', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage']);
+        $participant->loadMissing(['category', 'district', 'latestMaqraDraw.maqraPackage', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle']);
         $roundLabel = $this->maqraRoundFromRequest(request());
         $this->authorizeOfficialMaqraAccess($participant, $roundLabel);
         $this->authorizeParticipantAccess($participant);
@@ -1892,6 +1892,7 @@ class ParticipantRegistrationController extends Controller
 
         $category = $participant->category;
         $districtSharedMaqra = app(PageController::class)->categoryMaqraUsesDistrictSharing($category);
+        $usesDistrictMaqraTitles = app(PageController::class)->categoryUsesDistrictMaqraTitles($category);
 
         // For district-shared maqra categories, get all participants from same district
         $districtParticipants = collect();
@@ -1904,19 +1905,30 @@ class ParticipantRegistrationController extends Controller
                 ->get(['id', 'name', 'nik', 'kk_number', 'document_photo']);
         }
 
-        $candidatePackages = MaqraPackage::query()
-            ->where('competition_category_id', $participant->competition_category_id)
-            ->where('round_label', $roundLabel)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
+        // For MSQ: get district-specific titles
+        $districtMaqraTitles = collect();
+        if ($usesDistrictMaqraTitles && $participant->district_id) {
+            $districtMaqraTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id);
+        }
+
+        // For non-MSQ: get global MaqraPackage
+        $candidatePackages = collect();
+        if (! $usesDistrictMaqraTitles) {
+            $candidatePackages = MaqraPackage::query()
+                ->where('competition_category_id', $participant->competition_category_id)
+                ->where('round_label', $roundLabel)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+        }
 
         $currentDraw = $participant->maqraDraws
             ->firstWhere('round_label', $roundLabel);
 
         if ($currentDraw) {
             $currentDraw->loadMissing('maqraPackage');
+            $currentDraw->loadMissing('msqDistrictTitle');
         }
 
         return view('pages.participant-maqra-draw', [
@@ -1940,15 +1952,22 @@ class ParticipantRegistrationController extends Controller
             'initials' => $this->participantInitials($participant),
             'districtSharedMaqra' => $districtSharedMaqra,
             'districtParticipants' => $districtParticipants,
+            // MSQ specific
+            'usesDistrictMaqraTitles' => $usesDistrictMaqraTitles,
+            'districtMaqraTitles' => $districtMaqraTitles,
+            'currentMsqDistrictTitle' => $currentDraw?->msqDistrictTitle,
         ]);
     }
 
     public function assignMaqra(Request $request, Participant $participant): RedirectResponse|JsonResponse
     {
-        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage']);
+        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle']);
         $this->authorizeParticipantAccess($participant);
         abort_unless($participant->verification_status === 'verified', 403, 'Maqra hanya dapat diambil untuk peserta yang sudah terverifikasi.');
         abort_unless($this->participantUsesMaqra($participant), 403, 'Kategori peserta ini tidak menggunakan pengambilan maqra.');
+
+        $category = $participant->category;
+        $usesDistrictMaqraTitles = app(PageController::class)->categoryUsesDistrictMaqraTitles($category);
 
         $validated = $request->validate([
             'maqra_round' => ['required', 'in:Penyisihan,Final'],
@@ -1956,9 +1975,17 @@ class ParticipantRegistrationController extends Controller
 
         $roundLabel = (string) $validated['maqra_round'];
         $this->authorizeOfficialMaqraAccess($participant, $roundLabel);
-        $drawResult = DB::transaction(function () use ($participant, $roundLabel): array {
+
+        // Validate MSQ district titles exist before proceeding
+        if ($usesDistrictMaqraTitles) {
+            abort_unless($participant->district_id, 422, 'Peserta tidak memiliki district.');
+            $availableTitles = app(PageController::class)->categoryMsqDistrictTitles($category, $participant->district_id);
+            abort_unless($availableTitles->isNotEmpty(), 422, 'Belum ada judul MSQ untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.');
+        }
+
+        $drawResult = DB::transaction(function () use ($participant, $roundLabel, $usesDistrictMaqraTitles, $category): array {
             $lockedParticipant = Participant::query()
-                ->with(['category', 'maqraDraws.maqraPackage'])
+                ->with(['category', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle'])
                 ->lockForUpdate()
                 ->findOrFail($participant->id);
 
@@ -1967,11 +1994,13 @@ class ParticipantRegistrationController extends Controller
 
             $existingDraw = ParticipantMaqraDraw::query()
                 ->with('maqraPackage')
+                ->with('msqDistrictTitle')
                 ->where('round_label', $roundLabel)
                 ->whereIn('participant_id', $sharedParticipantIds->all())
                 ->first();
 
             if ($existingDraw) {
+                // Share existing maqra to all group members
                 $sharedParticipants->each(function (Participant $sharedParticipant) use ($existingDraw, $roundLabel): void {
                     ParticipantMaqraDraw::query()->firstOrCreate(
                         [
@@ -1980,6 +2009,7 @@ class ParticipantRegistrationController extends Controller
                         ],
                         [
                             'maqra_package_id' => $existingDraw->maqra_package_id,
+                            'msq_district_title_id' => $existingDraw->msq_district_title_id,
                             'drawn_at' => $existingDraw->drawn_at ?? now(),
                         ]
                     );
@@ -1989,9 +2019,16 @@ class ParticipantRegistrationController extends Controller
                     'draw' => $existingDraw,
                     'created' => false,
                     'shared' => $sharedParticipants->count() > 1,
+                    'is_msq' => $usesDistrictMaqraTitles,
                 ];
             }
 
+            // MSQ: Use district-specific titles
+            if ($usesDistrictMaqraTitles) {
+                return $this->assignDistrictMaqraTitle($lockedParticipant, $sharedParticipants, $roundLabel, $category);
+            }
+
+            // Non-MSQ: Use global MaqraPackage
             $packagePool = MaqraPackage::query()
                 ->where('competition_category_id', $lockedParticipant->competition_category_id)
                 ->where('round_label', $roundLabel)
@@ -2034,28 +2071,42 @@ class ParticipantRegistrationController extends Controller
                 'draw' => $draw,
                 'created' => true,
                 'shared' => $sharedParticipants->count() > 1,
+                'is_msq' => false,
             ];
         });
         /** @var ParticipantMaqraDraw $draw */
         $draw = $drawResult['draw'];
+        $isMsq = $drawResult['is_msq'] ?? false;
+
+        $actionType = $drawResult['created'] ? 'participant.maqra.assigned' : 'participant.maqra.reused';
+        $actionDesc = ($isMsq ? 'judul MSQ' : 'maqra').' peserta '.$participant->name.' pada babak '.$roundLabel.'.';
 
         $this->logParticipantActivity(
-            $drawResult['created'] ? 'participant.maqra.assigned' : 'participant.maqra.reused',
+            $actionType,
             $participant,
-            (auth()->user()?->name ?? 'Panitia').' '.($drawResult['created'] ? 'mengambil' : 'membuka kembali').' maqra peserta '.$participant->name.' pada babak '.$roundLabel.'.',
+            (auth()->user()?->name ?? 'Panitia').' '.($drawResult['created'] ? 'mengambil' : 'membuka kembali').' '.$actionDesc,
             [
                 'maqra_round' => $roundLabel,
                 'maqra_package_id' => $draw->maqra_package_id,
+                'msq_district_title_id' => $draw->msq_district_title_id,
                 'maqra_code' => $draw->maqraPackage?->maqra_code,
-                'maqra_title' => $draw->maqraPackage?->title,
+                'maqra_title' => $isMsq ? $draw->msqDistrictTitle?->title : $draw->maqraPackage?->title,
                 'created' => (bool) $drawResult['created'],
                 'shared' => (bool) ($drawResult['shared'] ?? false),
             ]
         );
 
-        // Broadcast maqra assignment event (with fallback try-catch in case Reverb is down)
+        // Broadcast maqra assignment event
         try {
-            if ($draw->maqraPackage) {
+            if ($isMsq && $draw->msqDistrictTitle) {
+                MaqraAssigned::dispatch(
+                    $participant,
+                    $draw->msqDistrictTitle,
+                    $roundLabel,
+                    (string) (auth()->user()?->name ?? 'System'),
+                    (bool) ($drawResult['shared'] ?? false)
+                );
+            } elseif ($draw->maqraPackage) {
                 MaqraAssigned::dispatch(
                     $participant,
                     $draw->maqraPackage,
@@ -2065,7 +2116,6 @@ class ParticipantRegistrationController extends Controller
                 );
             }
         } catch (\Throwable $e) {
-            // Log error but don't fail the request - broadcast is optional
             \Log::warning('MaqraAssigned broadcast failed: '.$e->getMessage(), [
                 'participant_id' => $participant->id,
                 'round_label' => $roundLabel,
@@ -2073,23 +2123,32 @@ class ParticipantRegistrationController extends Controller
         }
 
         if ($request->expectsJson()) {
-            return response()->json([
+            $response = [
                 'status' => 'ok',
                 'message' => 'Maqra berhasil diambil.',
                 'participant_id' => $participant->id,
                 'participant_name' => $participant->name,
                 'maqra_round' => $roundLabel,
                 'maqra_round_label' => $this->maqraRoundLabel($roundLabel),
-                'maqra_code' => $draw->maqraPackage?->maqra_code,
-                'maqra_title' => $draw->maqraPackage?->title,
-                'maqra_content' => $draw->maqraPackage?->content,
                 'drawn_at' => optional($draw->drawn_at)->format('d M Y H:i'),
-                'maqra_prefix' => app(PageController::class)->categoryMaqraCodePrefix($participant->category),
-                'system_label' => app(PageController::class)->categoryMaqraSystemLabel($participant->category),
                 'district_id' => $participant->district_id,
                 'district_shared' => $this->participantMaqraUsesDistrictSharing($participant),
                 'category_id' => $participant->competition_category_id,
-            ]);
+                'is_msq' => $isMsq,
+            ];
+
+            if ($isMsq) {
+                $response['maqra_title'] = $draw->msqDistrictTitle?->title;
+                $response['district_title_id'] = $draw->msq_district_title_id;
+            } else {
+                $response['maqra_code'] = $draw->maqraPackage?->maqra_code;
+                $response['maqra_title'] = $draw->maqraPackage?->title;
+                $response['maqra_content'] = $draw->maqraPackage?->content;
+                $response['maqra_prefix'] = app(PageController::class)->categoryMaqraCodePrefix($participant->category);
+                $response['system_label'] = app(PageController::class)->categoryMaqraSystemLabel($participant->category);
+            }
+
+            return response()->json($response);
         }
 
         return redirect()
@@ -2165,7 +2224,7 @@ class ParticipantRegistrationController extends Controller
     public function resetMaqra(Request $request, Participant $participant): RedirectResponse
     {
         $this->authorizeAdminMaqraManagement();
-        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage']);
+        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle']);
         abort_unless($participant->verification_status === 'verified', 422, 'Hanya peserta terverifikasi yang dapat direset maqra-nya.');
         abort_unless($this->participantUsesMaqra($participant), 422, 'Kategori peserta ini tidak menggunakan pengambilan maqra.');
 
@@ -2176,6 +2235,7 @@ class ParticipantRegistrationController extends Controller
         $roundLabel = (string) $validated['maqra_round'];
         $drawsToDelete = ParticipantMaqraDraw::query()
             ->with('maqraPackage')
+            ->with('msqDistrictTitle')
             ->where('participant_id', $participant->id)
             ->where('round_label', $roundLabel)
             ->get();
@@ -2196,8 +2256,9 @@ class ParticipantRegistrationController extends Controller
                 'deleted_packages' => $drawsToDelete
                     ->map(fn (ParticipantMaqraDraw $draw): array => [
                         'id' => $draw->maqra_package_id,
+                        'msq_district_title_id' => $draw->msq_district_title_id,
                         'code' => $draw->maqraPackage?->maqra_code,
-                        'title' => $draw->maqraPackage?->title,
+                        'title' => $draw->msqDistrictTitle?->title ?? $draw->maqraPackage?->title,
                     ])
                     ->values()
                     ->all(),
@@ -2210,9 +2271,17 @@ class ParticipantRegistrationController extends Controller
     public function swapMaqra(Request $request, Participant $participant): RedirectResponse
     {
         $this->authorizeAdminMaqraManagement();
-        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage']);
+        $participant->loadMissing(['category', 'district', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle']);
         abort_unless($participant->verification_status === 'verified', 422, 'Peserta harus terverifikasi sebelum maqra bisa ditukar.');
         abort_unless($this->participantUsesMaqra($participant), 422, 'Kategori peserta ini tidak menggunakan pengambilan maqra.');
+
+        $category = $participant->category;
+        $usesDistrictMaqraTitles = app(PageController::class)->categoryUsesDistrictMaqraTitles($category);
+
+        // MSQ with district titles cannot be swapped (maqra is per district, not per participant)
+        if ($usesDistrictMaqraTitles) {
+            abort(422, 'Maqra MSQ berbasis kecamatan tidak dapat ditukar antar peserta.');
+        }
 
         $validated = $request->validate([
             'maqra_round' => ['required', 'in:Penyisihan,Final'],
@@ -2221,7 +2290,7 @@ class ParticipantRegistrationController extends Controller
 
         $roundLabel = (string) $validated['maqra_round'];
         $swapParticipant = Participant::query()
-            ->with(['category', 'district', 'maqraDraws.maqraPackage'])
+            ->with(['category', 'district', 'maqraDraws.maqraPackage', 'maqraDraws.msqDistrictTitle'])
             ->findOrFail((int) $validated['swap_participant_id']);
 
         abort_unless($swapParticipant->id !== $participant->id, 422, 'Peserta tujuan tukar tidak boleh sama.');
@@ -2918,6 +2987,66 @@ class ParticipantRegistrationController extends Controller
             'Final' => 'Final',
             default => 'Penyisihan',
         };
+    }
+
+    /**
+     * Assign MSQ district-specific maqra title to shared participants
+     */
+    protected function assignDistrictMaqraTitle(
+        Participant $lockedParticipant,
+        \Illuminate\Support\Collection $sharedParticipants,
+        string $roundLabel,
+        CompetitionCategory $category
+    ): array {
+        $districtId = $lockedParticipant->district_id;
+        abort_unless($districtId, 422, 'Peserta tidak memiliki district.');
+
+        // Get available titles for this district
+        $availableTitles = \App\Models\MsqDistrictTitle::query()
+            ->forDistrict($districtId)
+            ->active()
+            ->orderBy('sort_order')
+            ->get();
+
+        abort_unless($availableTitles->isNotEmpty(), 422, 'Belum ada judul MSQ untuk kecamatan ini. Hubungi admin untuk menambahkan judul MSQ.');
+
+        // Check which titles are already used by this district in this round
+        $usedTitleIds = \App\Models\ParticipantMaqraDraw::query()
+            ->where('round_label', $roundLabel)
+            ->whereNotNull('msq_district_title_id')
+            ->whereHas('participant', fn ($query) => $query->where('district_id', $districtId))
+            ->pluck('msq_district_title_id');
+
+        $unusedTitles = $availableTitles->reject(fn ($title) => $usedTitleIds->contains($title->id))->values();
+
+        abort_unless($unusedTitles->isNotEmpty(), 422, 'Semua judul MSQ untuk kecamatan ini sudah digunakan pada babak '.$roundLabel.'.');
+
+        // Random selection from unused titles
+        $selectedTitle = $unusedTitles->random();
+
+        $drawnAt = now();
+        $sharedParticipants->each(function (Participant $sharedParticipant) use ($selectedTitle, $roundLabel, $drawnAt): void {
+            \App\Models\ParticipantMaqraDraw::query()->create([
+                'participant_id' => $sharedParticipant->id,
+                'maqra_package_id' => null,
+                'msq_district_title_id' => $selectedTitle->id,
+                'round_label' => $roundLabel,
+                'drawn_at' => $drawnAt,
+            ]);
+        });
+
+        $draw = \App\Models\ParticipantMaqraDraw::query()
+            ->with('msqDistrictTitle')
+            ->where('participant_id', $lockedParticipant->id)
+            ->where('round_label', $roundLabel)
+            ->firstOrFail();
+
+        return [
+            'draw' => $draw,
+            'created' => true,
+            'shared' => $sharedParticipants->count() > 1,
+            'is_msq' => true,
+        ];
     }
 
     protected function participantLotPrefix(Participant $participant): string

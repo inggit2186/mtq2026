@@ -68,6 +68,14 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/hapus', [AdminContentController::class, 'destroyMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.destroy');
     Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/toggle', [AdminContentController::class, 'toggleMaqraSchedule'])->middleware('role:admin')->name('admin.content.maqra-schedules.toggle');
     Route::post('/admin/konten/maqra-schedule/{maqraSchedule}/access', [AdminContentController::class, 'updateMaqraScheduleAccess'])->middleware('role:admin')->name('admin.content.maqra-schedules.access');
+
+    // MSQ District Titles
+    Route::get('/admin/msq-titles', [AdminContentController::class, 'msqTitles'])->middleware('role:admin')->name('admin.msq-titles');
+    Route::post('/admin/msq-titles', [AdminContentController::class, 'storeMsqTitle'])->middleware('role:admin')->name('admin.msq-titles.store');
+    Route::post('/admin/msq-titles/{msqDistrictTitle}', [AdminContentController::class, 'updateMsqTitle'])->middleware('role:admin')->name('admin.msq-titles.update');
+    Route::post('/admin/msq-titles/{msqDistrictTitle}/hapus', [AdminContentController::class, 'destroyMsqTitle'])->middleware('role:admin')->name('admin.msq-titles.destroy');
+    Route::post('/admin/msq-titles/{msqDistrictTitle}/toggle', [AdminContentController::class, 'toggleMsqTitle'])->middleware('role:admin')->name('admin.msq-titles.toggle');
+
     Route::post('/admin/konten/sinkronisasi-kecamatan', [AdminContentController::class, 'syncDistricts'])->middleware('role:admin')->name('admin.content.districts.sync');
     Route::get('/admin/konten/projector-installer.ps1', [AdminContentController::class, 'projectorInstaller'])->middleware('role:admin,panitia')->name('admin.content.projector-installer');
     Route::post('/admin/konten/pengumuman', [AdminContentController::class, 'storeAnnouncement'])->middleware('role:admin,panitia')->name('admin.content.announcements.store');

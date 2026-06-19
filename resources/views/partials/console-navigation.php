@@ -1,3 +1,4 @@
+<style>[x-cloak]{display:none!important;}</style>
 <div class="console-nav" x-data="{ expandedGroups: {} }">
     <?php
     $navigationItems = $navigation ?? [];
@@ -36,9 +37,8 @@
 
                 <div class="nav-group-children"
                      x-show="open"
-                     x-collapse
                      x-cloak>
-                    <div class="nav-children-inner">
+                    <div class="nav-children-inner" :class="open ? 'block' : 'hidden'">
                         <?php foreach ($children as $child): ?>
                             <?php
                             $childActive = !empty($child['active']);

@@ -42,6 +42,16 @@ class District extends Model
         return $this->hasMany(Participant::class);
     }
 
+    public function msqDistrictTitles(): HasMany
+    {
+        return $this->hasMany(MsqDistrictTitle::class)->orderBy('sort_order')->orderBy('title');
+    }
+
+    public function activeMsqDistrictTitles(): HasMany
+    {
+        return $this->hasMany(MsqDistrictTitle::class)->where('is_active', true)->orderBy('sort_order')->orderBy('title');
+    }
+
     public function mandateVerifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'mandate_verified_by');

@@ -7,6 +7,7 @@ use App\Models\CompetitionCategory;
 use App\Models\District;
 use App\Models\MaqraRound;
 use App\Models\MaqraSchedule;
+use App\Models\MsqDistrictTitle;
 use App\Events\MaqraScheduleUpdated;
 use App\Models\OfficialAccessSetting;
 use App\Models\SessionSchedule;
@@ -842,5 +843,172 @@ POWERSHELL;
         return redirect()
             ->route('admin.content')
             ->with('status', 'Akses pengambilan maqra untuk '.$info.' berhasil diubah menjadi "'.$accessLabel.'".');
+    }
+
+    /**
+     * Display MSQ district titles management page
+     */
+    public function msqTitles(): View
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $districts = District::query()
+            ->with(['activeMsqDistrictTitles'])
+            ->orderBy('name')
+            ->get();
+
+        $categories = CompetitionCategory::query()
+            ->where('maqra_system_type', 'syarhil')
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        return view('pages/admin-msq-titles', [
+            'assets' => app(PageController::class)->viteAssets(),
+            'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
+            'navigation' => app(PageController::class)->consoleNavigation((string) auth()->user()?->role, 'admin.msq-titles'),
+            'districts' => $districts,
+            'categories' => $categories,
+        ]);
+    }
+
+    /**
+     * Store a new MSQ district title
+     */
+    public function storeMsqTitle(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'district_id' => ['required', 'integer', 'exists:districts,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        // Check if title already exists for this district
+        $exists = MsqDistrictTitle::query()
+            ->where('district_id', $validated['district_id'])
+            ->where('title', $validated['title'])
+            ->exists();
+
+        if ($exists) {
+            return back()
+                ->withInput()
+                ->withErrors(['title' => 'Judul ini sudah ada untuk kecamatan tersebut.']);
+        }
+
+        $districtTitle = MsqDistrictTitle::query()->create([
+            'district_id' => $validated['district_id'],
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_active' => true,
+        ]);
+
+        $district = District::find($validated['district_id']);
+
+        ActivityLogger::log(
+            'msq_district_title.created',
+            (auth()->user()?->name ?? 'Admin').' menambahkan judul MSQ "'.$validated['title'].'" untuk kecamatan '.$district?->name.'.',
+            $districtTitle
+        );
+
+        return back()->with('status', 'Judul MSQ "'.$validated['title'].'" untuk kecamatan '.$district?->name.' berhasil ditambahkan.');
+    }
+
+    /**
+     * Update an MSQ district title
+     */
+    public function updateMsqTitle(Request $request, MsqDistrictTitle $msqDistrictTitle): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        // Check if title already exists for this district (excluding current record)
+        $exists = MsqDistrictTitle::query()
+            ->where('district_id', $msqDistrictTitle->district_id)
+            ->where('title', $validated['title'])
+            ->where('id', '!=', $msqDistrictTitle->id)
+            ->exists();
+
+        if ($exists) {
+            return back()
+                ->withInput()
+                ->withErrors(['title' => 'Judul ini sudah ada untuk kecamatan tersebut.']);
+        }
+
+        $msqDistrictTitle->update([
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'sort_order' => $validated['sort_order'] ?? $msqDistrictTitle->sort_order,
+            'is_active' => $validated['is_active'] ?? $msqDistrictTitle->is_active,
+        ]);
+
+        $msqDistrictTitle->load('district');
+
+        ActivityLogger::log(
+            'msq_district_title.updated',
+            (auth()->user()?->name ?? 'Admin').' mengubah judul MSQ menjadi "'.$validated['title'].'" untuk kecamatan '.$msqDistrictTitle->district?->name.'.',
+            $msqDistrictTitle
+        );
+
+        return back()->with('status', 'Judul MSQ berhasil diperbarui.');
+    }
+
+    /**
+     * Delete an MSQ district title
+     */
+    public function destroyMsqTitle(Request $request, MsqDistrictTitle $msqDistrictTitle): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $districtName = $msqDistrictTitle->district?->name;
+        $titleName = $msqDistrictTitle->title;
+
+        // Check if this title is currently in use
+        $inUse = $msqDistrictTitle->draws()->exists();
+
+        if ($inUse) {
+            return back()->withErrors(['title' => 'Judul MSQ ini sedang digunakan oleh peserta dan tidak dapat dihapus.']);
+        }
+
+        ActivityLogger::log(
+            'msq_district_title.deleted',
+            (auth()->user()?->name ?? 'Admin').' menghapus judul MSQ "'.$titleName.'" dari kecamatan '.$districtName.'.',
+            null
+        );
+
+        $msqDistrictTitle->delete();
+
+        return back()->with('status', 'Judul MSQ "'.$titleName.'" berhasil dihapus.');
+    }
+
+    /**
+     * Toggle MSQ district title active status
+     */
+    public function toggleMsqTitle(MsqDistrictTitle $msqDistrictTitle): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $msqDistrictTitle->update(['is_active' => ! $msqDistrictTitle->is_active]);
+        $msqDistrictTitle->load('district');
+
+        $status = $msqDistrictTitle->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        ActivityLogger::log(
+            'msq_district_title.toggled',
+            (auth()->user()?->name ?? 'Admin').' '.$status.' judul MSQ "'.$msqDistrictTitle->title.'" untuk kecamatan '.$msqDistrictTitle->district?->name.'.',
+            $msqDistrictTitle
+        );
+
+        return back()->with('status', 'Judul MSQ "'.$msqDistrictTitle->title.'" berhasil '.$status.'.');
     }
 }

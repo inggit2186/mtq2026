@@ -13,6 +13,7 @@ class ParticipantMaqraDraw extends Model
     protected $fillable = [
         'participant_id',
         'maqra_package_id',
+        'msq_district_title_id',
         'round_label',
         'drawn_at',
     ];
@@ -29,5 +30,10 @@ class ParticipantMaqraDraw extends Model
     public function maqraPackage(): BelongsTo
     {
         return $this->belongsTo(MaqraPackage::class);
+    }
+
+    public function msqDistrictTitle(): BelongsTo
+    {
+        return $this->belongsTo(MsqDistrictTitle::class);
     }
 }

@@ -16,9 +16,21 @@ return new class extends Migration
         $this->dropColumnIfExists('scoring_settings', 'round_settings');
         $this->dropColumnIfExists('scoring_settings', 'edit_state');
         $this->dropColumnIfExists('scoring_settings', 'edit_requested_at');
-        $this->dropColumnIfExists('scoring_settings', 'edit_requested_by');
-        $this->dropColumnIfExists('scoring_settings', 'edit_opened_at');
-        $this->dropColumnIfExists('scoring_settings', 'edit_opened_by');
+
+        // Drop foreign key first, then the constrained column
+        if (Schema::hasColumn('scoring_settings', 'edit_requested_by')) {
+            DB::statement('ALTER TABLE scoring_settings DROP FOREIGN KEY scoring_settings_edit_requested_by_foreign');
+            DB::statement('ALTER TABLE scoring_settings DROP COLUMN edit_requested_by');
+        }
+
+        if (Schema::hasColumn('scoring_settings', 'edit_opened_at')) {
+            DB::statement('ALTER TABLE scoring_settings DROP COLUMN edit_opened_at');
+        }
+
+        if (Schema::hasColumn('scoring_settings', 'edit_opened_by')) {
+            DB::statement('ALTER TABLE scoring_settings DROP FOREIGN KEY scoring_settings_edit_opened_by_foreign');
+            DB::statement('ALTER TABLE scoring_settings DROP COLUMN edit_opened_by');
+        }
     }
 
     public function down(): void

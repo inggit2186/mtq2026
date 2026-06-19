@@ -2173,6 +2173,9 @@ class PageController extends Controller
                     ? $this->consoleNavigationLink('maqra', 'Kelola Maqra', route('maqra.index'), 'book-open')
                     : null,
                 $role === 'admin'
+                    ? $this->consoleNavigationLink('admin.msq-titles', 'Judul MSQ', route('admin.msq-titles'), 'list')
+                    : null,
+                $role === 'admin'
                     ? $this->consoleNavigationLink('admin.lot-auto-calculate', 'Auto-Calculate Lot', route('admin.lot-auto-calculate'), 'calculator')
                     : null,
                 in_array($role, ['admin', 'panitia'], true)
@@ -3913,5 +3916,45 @@ class PageController extends Controller
                 return null;
             }
         }
+    }
+
+    /**
+     * Check if a category uses MSQ district-specific maqra titles
+     * MSQ (Syarhil Qur'an) uses district-specific titles instead of global MaqraPackage
+     */
+    public function categoryUsesDistrictMaqraTitles(CompetitionCategory $category): bool
+    {
+        // MSQ (Syarhil Qur'an) uses district-specific maqra titles
+        return filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+    }
+
+    /**
+     * Get active MSQ district titles for a category and district
+     */
+    public function categoryMsqDistrictTitles(CompetitionCategory $category, int $districtId): \Illuminate\Support\Collection
+    {
+        if (! $this->categoryUsesDistrictMaqraTitles($category)) {
+            return collect();
+        }
+
+        return \App\Models\MsqDistrictTitle::query()
+            ->forDistrict($districtId)
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get();
+    }
+
+    /**
+     * Get all MSQ district titles for admin management
+     */
+    public function allMsqDistrictTitles(): \Illuminate\Support\Collection
+    {
+        return \App\Models\MsqDistrictTitle::query()
+            ->with('district')
+            ->orderBy('district_id')
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get();
     }
 }

@@ -153,6 +153,18 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
             <!-- Main Content -->
             <div class="min-w-0 space-y-6">
 
+                <!-- Mobile Menu Button -->
+                <button
+                    type="button"
+                    class="fixed top-4 left-4 z-[100] flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500 shadow-lg shadow-cyan-500/40 transition-all duration-300 lg:hidden"
+                    :class="mobileNavOpen ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'"
+                    @click="mobileNavOpen = true"
+                    aria-label="Buka menu">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+                    </svg>
+                </button>
+
                 <!-- Session Alerts -->
                 <?php if (session('status')): ?>
                     <div class="dash-alert dash-alert--success">
@@ -567,3 +579,4 @@ $canSyncSilatarUser = filled($user?->nomor_induk);
     </script>
 </body>
 </html>
+
