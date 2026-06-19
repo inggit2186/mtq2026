@@ -1259,8 +1259,32 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?php elseif (! $selectedParticipant): ?>
                                 <div class="mt-6 data-card text-sm text-slate-300">Belum ada peserta dipilih untuk dinilai.</div>
                             <?php else: ?>
-                                <div x-data="{ correctionRequestOpen: false, correctionRequestName: '', correctionRequestLot: '', correctionRequestRound: '', correctionRequestDraft: {}, init() { window.addEventListener('open-scoring-correction-request', (event) => { const detail = event?.detail ?? {}; this.correctionRequestOpen = true; this.correctionRequestName = detail.name || this.correctionRequestName; this.correctionRequestLot = detail.lot || this.correctionRequestLot; this.correctionRequestRound = detail.round || this.correctionRequestRound; this.correctionRequestDraft = detail.draft || this.correctionRequestDraft; }); } }">
-                                <form method="POST" action="<?= e(route('scoring.store')) ?>" x-ref="scoreForm" class="mt-6 grid gap-4 <?= $participantHasScores ? 'pointer-events-none opacity-45' : '' ?>"
+                                <div x-data="{ correctionRequestOpen: false, correctionRequestName: '', correctionRequestLot: '', correctionRequestRound: '', correctionRequestDraft: {}, editModeEnabled: false, init() { window.addEventListener('open-scoring-correction-request', (event) => { const detail = event?.detail ?? {}; this.correctionRequestOpen = true; this.correctionRequestName = detail.name || this.correctionRequestName; this.correctionRequestLot = detail.lot || this.correctionRequestLot; this.correctionRequestRound = detail.round || this.correctionRequestRound; this.correctionRequestDraft = detail.draft || this.correctionRequestDraft; }); } }">
+                                <?php if ($participantHasScores): ?>
+                                <!-- Edit Mode Button - PROMINENT -->
+                                <div class="mt-6 rounded-2xl border-2 border-amber-400/40 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 p-6 text-center"
+                                     x-show="!editModeEnabled">
+                                    <div class="flex flex-col items-center gap-4">
+                                        <div class="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/30 text-amber-200">
+                                            <?= mtq_icon('pencil', 'h-8 w-8') ?>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-xl font-bold text-amber-100">Peserta Sudah Dinilai</h3>
+                                            <p class="mt-1 text-sm text-amber-200/70">Klik tombol di bawah untuk mengedit nilai</p>
+                                        </div>
+                                        <button type="button"
+                                                @click="editModeEnabled = true"
+                                                class="group relative overflow-hidden rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:from-amber-400 hover:to-orange-400 hover:shadow-amber-500/30 hover:scale-105">
+                                            <span class="relative z-10 flex items-center gap-2">
+                                                <?= mtq_icon('pencil', 'h-5 w-5') ?>
+                                                Edit Nilai
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+
+                                <form method="POST" action="<?= e(route('scoring.store')) ?>" x-ref="scoreForm" class="mt-6 grid gap-4"
                                     x-data="judgeBatchForm({
                                         judgeNames: <?= e(json_encode(array_values($judgeNames), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                         judgeIds: <?= e(json_encode(array_values($judgeIds ?? []), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
@@ -1268,13 +1292,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         selectedParticipantName: <?= e(json_encode($selectedParticipant->name ?? '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                         selectedParticipantLot: <?= e(json_encode($selectedParticipant->lot_number ?? '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                                         selectedJudgingRound: <?= e(json_encode($selectedJudgingRound, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
-                                    })">
+                                    })"
+                                    :class="<?= $participantHasScores ? '' : '' ?>">
                                     <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                                     <input type="hidden" name="participant_id" x-bind:value="window.currentParticipantId || '<?= e($selectedParticipant?->id ?? '') ?>'">
                                     <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
                                     <input type="hidden" name="active_judge_index" :value="activeJudgeIndex">
 
-                                    <fieldset <?= $participantHasScores ? 'disabled' : '' ?>>
+                                    <fieldset x-bind:disabled="!editModeEnabled && <?= $participantHasScores ? 'true' : 'false' ?>">
 
                                     <div class="rounded-[1.25rem] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
                                         Babak aktif saat ini: <span class="font-bold"><?= e($selectedJudgingRound) ?></span>. Isi nilai hakim per panel, pindah dengan tombol `Lanjut`, lalu simpan semua sekaligus di akhir.
@@ -1517,6 +1542,18 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                         </div>
                                     </div>
                                     </fieldset>
+
+                                    <!-- Cancel Edit Mode Button -->
+                                    <?php if ($participantHasScores): ?>
+                                    <div class="mt-4 flex justify-center" x-show="editModeEnabled">
+                                        <button type="button"
+                                                @click="editModeEnabled = false"
+                                                class="rounded-full border border-red-400/30 bg-red-500/10 px-6 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 hover:border-red-400/50">
+                                            <?= mtq_icon('x', 'h-4 w-4 inline') ?>
+                                            Batal Edit
+                                        </button>
+                                    </div>
+                                    <?php endif; ?>
                                 </form>
 
                                         <div x-show="correctionRequestOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm px-2 sm:px-4 py-4 sm:py-6"

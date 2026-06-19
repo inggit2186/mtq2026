@@ -16,6 +16,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParticipantRegistrationController;
 use App\Http\Controllers\ParticipantResultController;
 use App\Http\Controllers\RankingSettingController;
+use App\Http\Controllers\ScoreCorrectionController;
 use App\Http\Controllers\ScoringController;
 use Illuminate\Support\Facades\Route;
 
@@ -200,6 +201,12 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/request-perbaikan', [ScoringController::class, 'storeCorrectionRequest'])->middleware('role:admin,panitia')->name('scoring.corrections.store');
     Route::get('/penilaian/poll', [ScoringController::class, 'poll'])->middleware('role:admin,panitia')->name('scoring.poll');
     Route::get('/penilaian/ranking', [ScoringController::class, 'ranking'])->middleware('role:admin,panitia')->name('scoring.ranking');
+    // Admin: Score Correction Verification
+    Route::get('/admin/perbaikan-nilai', [ScoreCorrectionController::class, 'index'])->middleware('role:admin')->name('admin.score-corrections.index');
+    Route::get('/admin/perbaikan-nilai/{correction}', [ScoreCorrectionController::class, 'show'])->middleware('role:admin')->name('admin.score-corrections.show');
+    Route::post('/admin/perbaikan-nilai/{correction}/setujui', [ScoreCorrectionController::class, 'approve'])->middleware('role:admin')->name('admin.score-corrections.approve');
+    Route::post('/admin/perbaikan-nilai/{correction}/tolak', [ScoreCorrectionController::class, 'reject'])->middleware('role:admin')->name('admin.score-corrections.reject');
+    Route::post('/admin/perbaikan-nilai/{correction}/reset', [ScoreCorrectionController::class, 'reset'])->middleware('role:admin')->name('admin.score-corrections.reset');
     Route::get('/penilaian/mfq', [MfqScoringController::class, 'index'])->middleware('role:admin,panitia')->name('scoring.mfq');
     Route::post('/penilaian/mfq/sesi', [MfqScoringController::class, 'storeSession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.store');
     Route::post('/penilaian/mfq/sesi/{sessionId}/kecamatan', [MfqScoringController::class, 'selectDistricts'])->middleware('role:admin,panitia')->name('scoring.mfq.districts.store');
