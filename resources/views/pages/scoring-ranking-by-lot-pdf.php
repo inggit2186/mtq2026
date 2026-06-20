@@ -5,8 +5,8 @@ $judgeNames = $judgeNames ?? [];
 $judgeIds = $judgeIds ?? [];
 $criteria = $criteria ?? [];
 $scoringSetting = $scoringSetting ?? null;
-$putra = $putra ?? collect();
-$putri = $putri ?? collect();
+$participants = $participants ?? collect();
+$totalCount = $totalCount ?? 0;
 $printDate = $printDate ?? date('d F Y H:i');
 $eventName = $eventName ?? 'MTQ';
 $eventYear = $eventYear ?? date('Y');
@@ -33,7 +33,7 @@ $shortenName = function($name) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Rekap Nilai - <?= e($categoryLabel) ?> - <?= e($selectedJudgingRound) ?></title>
+    <title>Rekap Nilai Berdasarkan Lot - <?= e($categoryLabel) ?> - <?= e($selectedJudgingRound) ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         @page { size: A4 landscape; margin: 12mm; }
@@ -49,7 +49,7 @@ $shortenName = function($name) {
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
             color: #fff;
             padding: 20px 25px;
             border-radius: 12px;
@@ -115,7 +115,7 @@ $shortenName = function($name) {
         /* Section */
         .section { margin-bottom: 25px; }
         .section-header {
-            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
             color: #fff;
             padding: 12px 20px;
             border-radius: 10px 10px 0 0;
@@ -125,7 +125,6 @@ $shortenName = function($name) {
             font-size: 16px;
             font-weight: 700;
         }
-        .section-header.female { background: linear-gradient(135deg, #db2777 0%, #f472b6 100%); }
         .section-header .icon { font-size: 20px; margin-right: 8px; }
         .section-header .count { font-size: 12px; opacity: 0.9; font-weight: 500; }
 
@@ -154,13 +153,27 @@ $shortenName = function($name) {
         tr:last-child td { border-bottom: none; }
 
         /* Participant Row */
-        .row-main { background: #eff6ff; font-weight: 600; }
-        .row-main td { border-bottom: 2px solid #bfdbfe; }
-        .row-main.sticky { background: #eff6ff; }
+        .row-main { font-weight: 600; }
+        .row-main.putra { background: #eff6ff; }
+        .row-main.putra td { border-bottom: 2px solid #bfdbfe; }
+        .row-main.putri { background: #fdf2f8; }
+        .row-main.putri td { border-bottom: 2px solid #fbcfe8; }
 
         .name-cell { text-align: left; }
         .name-main { font-weight: 700; font-size: 13px; color: #1e293b; }
         .name-sub { font-size: 10px; color: #64748b; margin-top: 2px; }
+
+        /* Gender Badge */
+        .gender-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .gender-badge.putra { background: #dbeafe; color: #1e40af; }
+        .gender-badge.putri { background: #fce7f3; color: #be185d; }
 
         /* Score Cells */
         .score-cell { text-align: center; }
@@ -190,11 +203,11 @@ $shortenName = function($name) {
             font-size: 10px;
         }
         .detail-name { font-weight: 600; color: #475569; }
-        .detail-value { font-weight: 700; color: #0f766e; }
+        .detail-value { font-weight: 700; color: #7c3aed; }
 
         /* Total Cell */
         .total-cell {
-            background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
             color: #fff;
             font-weight: 800;
             font-size: 15px;
@@ -202,30 +215,19 @@ $shortenName = function($name) {
         }
         .total-empty { color: #94a3b8; }
 
-        /* Rank Badge */
-        .rank {
+        /* Lot Badge */
+        .lot {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 28px; height: 28px;
-            border-radius: 50%;
-            font-weight: 800;
-            font-size: 12px;
-        }
-        .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1e1b4b; }
-        .rank-2 { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: #1e1b4b; }
-        .rank-3 { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: #fff; }
-        .rank-other { background: #e2e8f0; color: #475569; }
-
-        /* Lot Badge */
-        .lot {
-            display: inline-block;
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            min-width: 36px;
+            height: 28px;
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
             color: #fff;
-            font-weight: 700;
+            font-weight: 800;
             padding: 4px 10px;
-            border-radius: 5px;
-            font-size: 11px;
+            border-radius: 6px;
+            font-size: 12px;
         }
 
         /* Empty State */
@@ -241,7 +243,7 @@ $shortenName = function($name) {
             font-size: 11px;
             color: #64748b;
         }
-        .footer-logo { font-weight: 700; color: #0f766e; font-size: 14px; }
+        .footer-logo { font-weight: 700; color: #7c3aed; font-size: 14px; }
 
         /* Remarks */
         .remarks-row { background: #fffbeb; }
@@ -270,9 +272,9 @@ $shortenName = function($name) {
     <!-- Header -->
     <div class="header">
         <div class="header-left">
-            <div class="header-icon">📊</div>
+            <div class="header-icon">📋</div>
             <div>
-                <div class="header-title">📋 REKAP NILAI PENILAIAN</div>
+                <div class="header-title">📋 REKAP NILAI BERDASARKAN NOMOR LOT</div>
                 <div class="header-subtitle"><?= e($categoryLabel) ?></div>
             </div>
         </div>
@@ -309,15 +311,15 @@ $shortenName = function($name) {
         </div>
     </div>
 
-    <!-- Putra Section -->
+    <!-- Combined Section -->
     <div class="section">
         <div class="section-header">
-            <span><span class="icon">👦</span> RANKING PUTRA</span>
-            <span class="count">🎯 <?= $putra->count() ?> Peserta</span>
+            <span><span class="icon">📊</span> DAFTAR NILAI BERDASARKAN NOMOR LOT</span>
+            <span class="count">🎯 <?= $totalCount ?> Peserta</span>
         </div>
         <div class="table-box">
-            <?php if ($putra->isEmpty()): ?>
-                <div class="empty">Belum ada data peserta putra</div>
+            <?php if ($participants->isEmpty()): ?>
+                <div class="empty">Belum ada data peserta</div>
             <?php else: ?>
                 <table>
                     <thead>
@@ -325,36 +327,42 @@ $shortenName = function($name) {
                             <th class="sticky" style="width: 40px;">#</th>
                             <th style="width: 50px;">Foto</th>
                             <th style="width: 50px;">Lot</th>
-                            <th style="min-width: 140px;">Nama Peserta</th>
+                            <th style="min-width: 120px;">Nama Peserta</th>
+                            <th style="width: 55px;">Gender</th>
+                            <th style="min-width: 90px;">Kecamatan</th>
                             <?php foreach ($criteria as $k => $l): ?>
-                                <th style="min-width: 70px;"><?= e($l) ?></th>
+                                <th style="min-width: 65px;"><?= e($l) ?></th>
                             <?php endforeach; ?>
-                            <th style="width: 70px;">Total</th>
+                            <th style="width: 65px;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($putra as $p): ?>
+                        <?php foreach ($participants as $p): ?>
                             <!-- Main Row -->
-                            <tr class="row-main">
-                                <td class="sticky" style="text-align: center;">
-                                    <span class="rank rank-<?= $p['rank'] <= 3 ? $p['rank'] : 'other' ?>"><?= e($p['rank']) ?></span>
+                            <tr class="row-main <?= e($p['gender']) ?>">
+                                <td class="sticky" style="text-align: center; background: inherit;">
+                                    <span style="font-weight: 700; font-size: 12px; color: #7c3aed;"><?= e($p['lot_index']) ?></span>
                                 </td>
                                 <td style="text-align: center;">
                                     <?php if (!empty($p['photo_url'])): ?>
-                                        <img src="<?= e($p['photo_url']) ?>" alt="<?= e($p['name']) ?>" style="width: 40px; height: 50px; object-fit: cover; border-radius: 6px; border: 2px solid #e2e8f0;">
+                                        <img src="<?= e($p['photo_url']) ?>" alt="<?= e($p['name']) ?>" style="width: 38px; height: 48px; object-fit: cover; border-radius: 6px; border: 2px solid #e2e8f0;">
                                     <?php else: ?>
-                                        <div style="width: 40px; height: 50px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 2px solid #e2e8f0;">
-                                            <span style="font-size: 20px;">👤</span>
+                                        <div style="width: 38px; height: 48px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 2px solid #e2e8f0;">
+                                            <span style="font-size: 18px;">👤</span>
                                         </div>
                                     <?php endif; ?>
                                 </td>
                                 <td style="text-align: center;">
                                     <span class="lot"><?= e($p['lot_number']) ?></span>
                                 </td>
-                                <td class="name-cell">
+                                <td class="name-cell" style="background: inherit;">
                                     <div class="name-main"><?= e($p['name']) ?></div>
-                                    <div class="name-sub">📍 <?= e($p['district_name']) ?></div>
+                                    <div class="name-sub"><?= e($p['institution'] ?? '') ?></div>
                                 </td>
+                                <td style="text-align: center;">
+                                    <span class="gender-badge <?= e($p['gender']) ?>"><?= e($p['gender']) ?></span>
+                                </td>
+                                <td style="text-align: center; font-size: 10px;"><?= e($p['district_name']) ?></td>
                                 <?php foreach ($criteria as $key => $label): ?>
                                     <?php
                                     $v = $p['point_averages'][$key] ?? null;
@@ -378,10 +386,12 @@ $shortenName = function($name) {
                             </tr>
                             <!-- Judge Detail Row -->
                             <tr class="row-detail">
-                                <td class="sticky"></td>
+                                <td class="sticky" style="background: #f8fafc;"></td>
                                 <td></td>
                                 <td></td>
                                 <td class="detail-label">📋 Nilai per Hakim ▼</td>
+                                <td></td>
+                                <td></td>
                                 <?php foreach ($criteria as $key => $label): ?>
                                     <td>
                                         <?php
@@ -423,6 +433,8 @@ $shortenName = function($name) {
                                 <td></td>
                                 <td></td>
                                 <td class="remarks-cell" style="font-size:10px;color:#92400e;"><strong>💬 Catatan:</strong></td>
+                                <td></td>
+                                <td></td>
                                 <td colspan="<?= count($criteria) ?>" class="remarks-cell">
                                     <div class="remarks-content">
                                         <?php foreach ($judgeNames as $jn): ?>
@@ -437,143 +449,7 @@ $shortenName = function($name) {
                             </tr>
                             <?php endif; ?>
                             <!-- Spacer -->
-                            <tr class="spacer"><td colspan="<?= 4 + count($criteria) + 1 ?>"></td></tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Putri Section -->
-    <div class="section">
-        <div class="section-header female">
-            <span><span class="icon">👧</span> RANKING PUTRI</span>
-            <span class="count">🎯 <?= $putri->count() ?> Peserta</span>
-        </div>
-        <div class="table-box">
-            <?php if ($putri->isEmpty()): ?>
-                <div class="empty">Belum ada data peserta putri</div>
-            <?php else: ?>
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="sticky" style="width: 40px;">#</th>
-                            <th style="width: 50px;">Foto</th>
-                            <th style="width: 50px;">Lot</th>
-                            <th style="min-width: 140px;">Nama Peserta</th>
-                            <?php foreach ($criteria as $k => $l): ?>
-                                <th style="min-width: 70px;"><?= e($l) ?></th>
-                            <?php endforeach; ?>
-                            <th style="width: 70px;">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($putri as $p): ?>
-                            <!-- Main Row -->
-                            <tr class="row-main" style="background: #fdf2f8;">
-                                <td class="sticky" style="text-align: center; background: #fdf2f8;">
-                                    <span class="rank rank-<?= $p['rank'] <= 3 ? $p['rank'] : 'other' ?>"><?= e($p['rank']) ?></span>
-                                </td>
-                                <td style="text-align: center; background: #fdf2f8;">
-                                    <?php if (!empty($p['photo_url'])): ?>
-                                        <img src="<?= e($p['photo_url']) ?>" alt="<?= e($p['name']) ?>" style="width: 40px; height: 50px; object-fit: cover; border-radius: 6px; border: 2px solid #fbcfe8;">
-                                    <?php else: ?>
-                                        <div style="width: 40px; height: 50px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 2px solid #fbcfe8;">
-                                            <span style="font-size: 20px;">👤</span>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td style="text-align: center; background: #fdf2f8;">
-                                    <span class="lot"><?= e($p['lot_number']) ?></span>
-                                </td>
-                                <td class="name-cell" style="background: #fdf2f8;">
-                                    <div class="name-main"><?= e($p['name']) ?></div>
-                                    <div class="name-sub">📍 <?= e($p['district_name']) ?></div>
-                                </td>
-                                <?php foreach ($criteria as $key => $label): ?>
-                                    <?php
-                                    $v = $p['point_averages'][$key] ?? null;
-                                    $c = $p['point_counts'][$key] ?? 0;
-                                    $cls = 'score-cell score-main';
-                                    $txt = '';
-                                    if ($v !== null && $v > 0) {
-                                        $txt = number_format($v, 2);
-                                        $cls .= ' score-filled';
-                                        if ($v >= 25) $cls .= ' score-high';
-                                        elseif ($v < 15) $cls .= ' score-low';
-                                    } else {
-                                        $cls .= ' score-empty';
-                                    }
-                                    ?>
-                                    <td class="<?= e($cls) ?>" style="background: #fdf2f8;" title="<?= e($label) ?> (<?= $c ?> hakim)"><?= e($txt) ?></td>
-                                <?php endforeach; ?>
-                                <td class="total-cell <?= !$p['has_score'] ? 'total-empty' : '' ?>">
-                                    <?= $p['has_score'] ? number_format($p['total_score'], 2) : '-' ?>
-                                </td>
-                            </tr>
-                            <!-- Judge Detail Row -->
-                            <tr class="row-detail" style="background: #faf5ff;">
-                                <td class="sticky" style="background: #faf5ff;"></td>
-                                <td style="background: #faf5ff;"></td>
-                                <td style="background: #faf5ff;"></td>
-                                <td class="detail-label" style="background: #faf5ff;">📋 Nilai per Hakim ▼</td>
-                                <?php foreach ($criteria as $key => $label): ?>
-                                    <td style="background: #faf5ff;">
-                                        <?php
-                                        $hasAny = false;
-                                        foreach ($judgeNames as $jn) {
-                                            $jd = $p['judge_score_details'][$jn] ?? null;
-                                            $v = $jd['point_scores'][$key]['value'] ?? null;
-                                            if ($v !== null && $v > 0) $hasAny = true;
-                                        }
-                                        if (!$hasAny) {
-                                            echo '<span style="color:#cbd5e1;font-size:9px;">-</span>';
-                                        } else {
-                                            echo '<div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;">';
-                                            foreach ($judgeNames as $jn) {
-                                                $jd = $p['judge_score_details'][$jn] ?? null;
-                                                $v = $jd['point_scores'][$key]['value'] ?? null;
-                                                if ($v !== null && $v > 0) {
-                                                    echo '<span class="detail-item" style="background:#fdf2f8;"><span class="detail-name">'.e(substr($shortenName($jn),0,8)).'</span><span class="detail-value">'.number_format($v,1).'</span></span>';
-                                                }
-                                            }
-                                            echo '</div>';
-                                        }
-                                        ?>
-                                    </td>
-                                <?php endforeach; ?>
-                                <td style="background: #faf5ff;"></td>
-                            </tr>
-                            <!-- Remarks Row -->
-                            <?php
-                            $hasRemarks = false;
-                            foreach ($judgeNames as $jn) {
-                                $jd = $p['judge_score_details'][$jn] ?? null;
-                                if (!empty($jd['remarks'])) { $hasRemarks = true; break; }
-                            }
-                            ?>
-                            <?php if ($hasRemarks): ?>
-                            <tr class="remarks-row">
-                                <td class="sticky"></td>
-                                <td></td>
-                                <td></td>
-                                <td class="remarks-cell" style="font-size:10px;color:#92400e;"><strong>💬 Catatan:</strong></td>
-                                <td colspan="<?= count($criteria) ?>" class="remarks-cell">
-                                    <div class="remarks-content">
-                                        <?php foreach ($judgeNames as $jn): ?>
-                                            <?php $jd = $p['judge_score_details'][$jn] ?? null; ?>
-                                            <?php if (!empty($jd['remarks'])): ?>
-                                                <span class="remarks-item"><strong><?= e(substr($shortenName($jn),0,10)) ?>:</strong> <span class="remarks-text"><?= e($jd['remarks']) ?></span></span>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </td>
-                                <td></td>
-                            </tr>
-                            <?php endif; ?>
-                            <!-- Spacer -->
-                            <tr class="spacer"><td colspan="<?= 4 + count($criteria) + 1 ?>"></td></tr>
+                            <tr class="spacer"><td colspan="<?= 5 + count($criteria) + 1 ?>"></td></tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>

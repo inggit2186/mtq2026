@@ -1011,31 +1011,76 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 </section>
 
                 <section id="step-3" class="grid gap-6" x-show="currentStep === 3" x-cloak>
-                    <!-- PDF Recap Button -->
+                    <!-- PDF Recap Buttons -->
                     <?php if ($selectedCategory): ?>
-                    <a href="<?= e(route('scoring.ranking.pdf', ['competition_category_id' => $selectedCategory->id, 'judging_round' => $selectedJudgingRound])) ?>"
-                       target="_blank"
-                       class="group relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border-2 border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 p-5 transition-all hover:border-amber-400 hover:scale-[1.01] hover:shadow-[0_0_40px_-10px_rgba(245,158,11,0.4)]">
-                        <div class="flex items-center gap-4">
-                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30">
-                                <svg class="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="rounded-[1.5rem] border border-amber-400/30 bg-gradient-to-br from-slate-900/80 to-slate-950/90 p-6 shadow-lg">
+                        <!-- Header Title -->
+                        <div class="text-center mb-6">
+                            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-amber-500 shadow-xl shadow-amber-500/30 mb-4">
+                                <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
                             </div>
-                            <div>
-                                <h3 class="text-lg font-bold text-amber-100">📄 Rekap Rincian Nilai Peserta</h3>
-                                <p class="mt-0.5 text-sm text-amber-200/70">Lihat & cetak PDF ranking beserta rincian nilai per hakim</p>
+                            <h3 class="text-2xl font-black text-white tracking-tight">📄 Rekap Rincian Nilai Peserta</h3>
+                            <p class="mt-2 text-sm text-slate-300">Cetak PDF dengan rincian nilai per hakim untuk <?= e($selectedJudgingRound) ?></p>
+                            <div class="mt-3 inline-flex items-center gap-2">
+                                <span class="h-px w-12 bg-gradient-to-r from-transparent to-amber-400/50"></span>
+                                <span class="text-xs font-semibold uppercase tracking-widest text-amber-400/70">Pilih Tipe Laporan</span>
+                                <span class="h-px w-12 bg-gradient-to-l from-transparent to-amber-400/50"></span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <span class="rounded-full bg-amber-400/20 px-4 py-2 text-sm font-bold text-amber-200">
-                                🖨️ Cetak PDF
-                            </span>
-                            <svg class="h-6 w-6 text-amber-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-                            </svg>
+                        <!-- Buttons Grid -->
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <!-- Ranking PDF -->
+                            <a href="<?= e(route('scoring.ranking.pdf', ['competition_category_id' => $selectedCategory->id, 'judging_round' => $selectedJudgingRound])) ?>"
+                               target="_blank"
+                               class="group relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border-2 border-amber-400/50 bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-500/10 p-5 transition-all hover:border-amber-400 hover:scale-[1.02] hover:shadow-[0_0_50px_-10px_rgba(245,158,11,0.5)] hover:from-amber-500/20 hover:via-orange-500/20 hover:to-amber-500/20">
+                                <div class="flex items-center gap-4">
+                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/40">
+                                        <svg class="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-lg font-bold text-amber-100">📊 Berdasarkan Ranking</h4>
+                                        <p class="mt-1 text-sm text-amber-200/60">Putra & Putri terpisah</p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end gap-2">
+                                    <span class="rounded-full bg-amber-400/20 px-4 py-2 text-sm font-bold text-amber-200 border border-amber-400/30">
+                                        🏆 Ranking
+                                    </span>
+                                    <svg class="h-5 w-5 text-amber-400 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                                    </svg>
+                                </div>
+                            </a>
+                            <!-- Lot PDF -->
+                            <a href="<?= e(route('scoring.ranking-lot.pdf', ['competition_category_id' => $selectedCategory->id, 'judging_round' => $selectedJudgingRound])) ?>"
+                               target="_blank"
+                               class="group relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border-2 border-purple-400/50 bg-gradient-to-br from-purple-500/10 via-violet-500/10 to-purple-500/10 p-5 transition-all hover:border-purple-400 hover:scale-[1.02] hover:shadow-[0_0_50px_-10px_rgba(168,85,247,0.5)] hover:from-purple-500/20 hover:via-violet-500/20 hover:to-purple-500/20">
+                                <div class="flex items-center gap-4">
+                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-400 to-violet-500 shadow-lg shadow-purple-500/40">
+                                        <svg class="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-lg font-bold text-purple-100">📋 Berdasarkan Nomor Lot</h4>
+                                        <p class="mt-1 text-sm text-purple-200/60">Putra & Putri digabung</p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end gap-2">
+                                    <span class="rounded-full bg-purple-400/20 px-4 py-2 text-sm font-bold text-purple-200 border border-purple-400/30">
+                                        🎯 Lot
+                                    </span>
+                                    <svg class="h-5 w-5 text-purple-400 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                                    </svg>
+                                </div>
+                            </a>
                         </div>
-                    </a>
+                    </div>
                     <?php endif; ?>
 
                     <div class="glass-card rounded-[2rem] p-6"
