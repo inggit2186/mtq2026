@@ -2052,14 +2052,16 @@ class ParticipantRegistrationController extends Controller
 
             if ($existingDraw) {
                 // Share existing maqra to all group members
-                $sharedParticipants->each(function (Participant $sharedParticipant) use ($existingDraw, $roundLabel): void {
+                // For MSQ draws, maqra_package_id should be NULL (only msq_district_title_id is used)
+                $isMsqDraw = filled($existingDraw->msq_district_title_id);
+                $sharedParticipants->each(function (Participant $sharedParticipant) use ($existingDraw, $roundLabel, $isMsqDraw): void {
                     ParticipantMaqraDraw::query()->firstOrCreate(
                         [
                             'participant_id' => $sharedParticipant->id,
                             'round_label' => $roundLabel,
                         ],
                         [
-                            'maqra_package_id' => $existingDraw->maqra_package_id,
+                            'maqra_package_id' => $isMsqDraw ? null : $existingDraw->maqra_package_id,
                             'msq_district_title_id' => $existingDraw->msq_district_title_id,
                             'drawn_at' => $existingDraw->drawn_at ?? now(),
                         ]
@@ -3095,7 +3097,7 @@ class ParticipantRegistrationController extends Controller
         $sharedParticipants->each(function (Participant $sharedParticipant) use ($selectedTitle, $roundLabel, $drawnAt): void {
             \App\Models\ParticipantMaqraDraw::query()->create([
                 'participant_id' => $sharedParticipant->id,
-                'maqra_package_id' => $selectedTitle->id, // Store MSQ title ID here
+                'maqra_package_id' => null, // MSQ uses msq_district_title_id instead
                 'msq_district_title_id' => $selectedTitle->id,
                 'round_label' => $roundLabel,
                 'drawn_at' => $drawnAt,
