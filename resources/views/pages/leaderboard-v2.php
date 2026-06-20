@@ -293,6 +293,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?= mtq_icon('crown', 'h-4 w-4 inline mr-1') ?>
                             Juara Umum
                         </button>
+                        <a href="<?= e(route('finalists.index')) ?>" class="secondary-button">
+                            <?= mtq_icon('users', 'h-4 w-4') ?>
+                            Kelola Finalis
+                        </a>
                         <a href="<?= e(route('dashboard')) ?>" class="secondary-button">
                             <?= mtq_icon('arrow-left', 'h-4 w-4') ?>
                             Dashboard

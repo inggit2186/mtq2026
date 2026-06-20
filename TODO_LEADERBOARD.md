@@ -94,3 +94,56 @@
 
 ## LAST UPDATED
 2026-06-17 - All UI improvements completed, MFQ ranking functions fixed
+
+---
+
+## Phase 5: Peserta Final System (2026-06-20)
+
+### Overview
+Added a system to generate and manage finalists (top 3 participants per gender per category).
+
+### Features
+- **Generate Finalis**: Take top 3 participants (putra) and top 3 participants (putri) per category
+- **Smart Ranking**: Final scores > Penyisihan scores, with tiebreakers
+- **Status Tracking**: Track finalist status (pending, active, completed, scratched)
+- **Regenerate**: Can regenerate finalists at any time
+- **Use for Scoring/Maqra**: Data stored in DB for reuse
+
+### Files Created
+
+1. **Database Migration**: `database/migrations/2026_06_20_000001_create_finalists_table.php`
+   - Stores finalist records with participant_id, category, gender, rank, score, round, status
+
+2. **Model**: `app/Models/Finalist.php`
+   - Relationships: participant(), competitionCategory()
+   - Helper methods: rankLabel, genderLabel, scopes for filtering
+
+3. **Controller**: `app/Http/Controllers/FinalistController.php`
+   - `index()` - Display finalists management page
+   - `generate()` - Generate finalists for a specific category
+   - `generateAll()` - Generate finalists for ALL categories
+   - `updateStatus()` - Update finalist status (scratch, etc.)
+   - `destroy()` - Delete finalists for a category
+   - `getByCategory()` - API endpoint for fetching finalists
+
+4. **View**: `resources/views/pages/finalists.php`
+   - Category cards with finalist lists
+   - Generate/Regenerate/Delete buttons
+   - Modals for confirmation
+
+5. **Routes Added** (`routes/web.php`):
+   - `GET /admin/finalis` - Finalists management page
+   - `POST /admin/finalis/generate` - Generate all finalists
+   - `POST /admin/finalis/generate/{category}` - Generate for specific category
+   - `POST /admin/finalis/{finalist}/status` - Update status
+   - `POST /admin/finalis/category/{category}` - Delete finalists
+
+6. **Leaderboard Update** (`resources/views/pages/leaderboard-v2.php`):
+   - Added "Kelola Finalis" button linking to /admin/finalis
+
+### Usage
+1. Go to `/leaderboard` and click "Kelola Finalis"
+2. Or go directly to `/admin/finalis`
+3. Click "Generate Semua Golongan" to create finalists for all categories
+4. Or click "Generate" on individual category cards
+5. Data can be regenerated anytime - old data is replaced
