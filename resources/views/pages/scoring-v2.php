@@ -1011,6 +1011,33 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 </section>
 
                 <section id="step-3" class="grid gap-6" x-show="currentStep === 3" x-cloak>
+                    <!-- PDF Recap Button -->
+                    <?php if ($selectedCategory): ?>
+                    <a href="<?= e(route('scoring.ranking.pdf', ['competition_category_id' => $selectedCategory->id, 'judging_round' => $selectedJudgingRound])) ?>"
+                       target="_blank"
+                       class="group relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border-2 border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 p-5 transition-all hover:border-amber-400 hover:scale-[1.01] hover:shadow-[0_0_40px_-10px_rgba(245,158,11,0.4)]">
+                        <div class="flex items-center gap-4">
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30">
+                                <svg class="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-amber-100">📄 Rekap Rincian Nilai Peserta</h3>
+                                <p class="mt-0.5 text-sm text-amber-200/70">Lihat & cetak PDF ranking beserta rincian nilai per hakim</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="rounded-full bg-amber-400/20 px-4 py-2 text-sm font-bold text-amber-200">
+                                🖨️ Cetak PDF
+                            </span>
+                            <svg class="h-6 w-6 text-amber-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <?php endif; ?>
+
                     <div class="glass-card rounded-[2rem] p-6"
                         x-data="participantPicker({
                             participants: <?= e(json_encode($participantOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
@@ -1248,7 +1275,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?php elseif (! $selectedParticipant): ?>
                                 <div class="mt-6 data-card text-sm text-slate-300">Belum ada peserta dipilih untuk dinilai.</div>
                             <?php else: ?>
-                                <div x-data="{ correctionRequestOpen: false, correctionRequestName: '', correctionRequestLot: '', correctionRequestRound: '', correctionRequestDraft: {}, editModeEnabled: false, init() { window.addEventListener('open-scoring-correction-request', (event) => { const detail = event?.detail ?? {}; this.correctionRequestOpen = true; this.correctionRequestName = detail.name || this.correctionRequestName; this.correctionRequestLot = detail.lot || this.correctionRequestLot; this.correctionRequestRound = detail.round || this.correctionRequestRound; this.correctionRequestDraft = detail.draft || this.correctionRequestDraft; }); } }">
+                                <div x-data="{ correctionRequestOpen: false, correctionRequestName: '', correctionRequestLot: '', correctionRequestRound: '', correctionRequestDraft: {}, init() { window.addEventListener('open-scoring-correction-request', (event) => { const detail = event?.detail ?? {}; this.correctionRequestOpen = true; this.correctionRequestName = detail.name || this.correctionRequestName; this.correctionRequestLot = detail.lot || this.correctionRequestLot; this.correctionRequestRound = detail.round || this.correctionRequestRound; this.correctionRequestDraft = detail.draft || this.correctionRequestDraft; }); window.addEventListener('enable-edit-mode', () => { Alpine.store('scoringEdit').enabled = true; }); } }">
 
                                 <!-- Form Penilaian Container - MORE PROMINENT -->
                                 <div id="form-penilaian" class="relative mt-6 rounded-[2rem] border-2 border-cyan-400/40 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 p-6 shadow-[0_0_60px_-20px_rgba(34,211,238,0.3)] overflow-hidden">
@@ -1291,7 +1318,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <?php if ($participantHasScores): ?>
                                     <!-- Edit Mode Toggle - Prominent but Clean -->
                                     <div class="relative mb-6 rounded-2xl border-2 border-dashed border-amber-400/40 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-5"
-                                         x-show="!editModeEnabled"
+                                         x-show="!$store.scoringEdit.enabled"
                                          x-transition:enter="transition ease-out duration-200"
                                          x-transition:enter-start="opacity-0 transform -translate-y-2"
                                          x-transition:enter-end="opacity-100 transform translate-y-0">
@@ -1306,7 +1333,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                 </div>
                                             </div>
                                             <button type="button"
-                                                    @click="editModeEnabled = true"
+                                                    @click="confirmEditModeGlobal(<?= e(count($judgeNames)) ?>)"
                                                     class="group relative overflow-hidden rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-amber-400 hover:to-orange-400 hover:shadow-amber-500/30 hover:scale-105 active:scale-95">
                                                 <span class="relative z-10 flex items-center gap-2">
                                                     <?= mtq_icon('pencil', 'h-5 w-5') ?>
@@ -1317,23 +1344,27 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     </div>
 
                                     <!-- Edit Mode Active Banner -->
-                                    <div class="relative mb-6 rounded-2xl border-2 border-dashed border-emerald-400/40 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 p-5"
-                                         x-show="editModeEnabled"
+                                    <div class="relative mb-6 rounded-2xl border-2 border-dashed border-red-400/50 bg-gradient-to-r from-red-500/20 to-orange-500/20 p-5"
+                                         x-show="$store.scoringEdit.enabled"
                                          x-transition:enter="transition ease-out duration-200"
                                          x-transition:enter-start="opacity-0 transform -translate-y-2"
                                          x-transition:enter-end="opacity-100 transform translate-y-0">
                                         <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                                             <div class="flex items-center gap-4">
-                                                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-400/30">
-                                                    <?= mtq_icon('check-circle', 'h-7 w-7 text-emerald-300') ?>
+                                                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/30 border border-red-400/40">
+                                                    <svg class="h-7 w-7 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                                    </svg>
                                                 </div>
                                                 <div>
-                                                    <h3 class="text-lg font-bold text-emerald-100">Mode Edit Aktif</h3>
-                                                    <p class="mt-0.5 text-sm text-emerald-200/70">Form penilaian dapat diedit. Klik Simpan saat selesai.</p>
+                                                    <h3 class="text-lg font-bold text-red-100">⚠️ Mode Edit Aktif - Isi Ulang Semua Nilai!</h3>
+                                                    <p class="mt-1 text-sm text-red-200/80">
+                                                        <strong>Wajib!</strong> Masukkan nilai untuk semua <?= e(count($judgeNames)) ?> Dewan Hakim. Nilai lama sudah dihapus.
+                                                    </p>
                                                 </div>
                                             </div>
                                             <button type="button"
-                                                    @click="editModeEnabled = false"
+                                                    @click="$store.scoringEdit.enabled = false"
                                                     class="group relative overflow-hidden rounded-full bg-gradient-to-r from-slate-600 to-slate-700 px-6 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-slate-500 hover:to-slate-600 hover:scale-105 active:scale-95">
                                                 <span class="relative z-10 flex items-center gap-2">
                                                     <?= mtq_icon('x', 'h-5 w-5') ?>
@@ -1358,7 +1389,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <input type="hidden" name="judging_round" value="<?= e($selectedJudgingRound) ?>">
                                     <input type="hidden" name="active_judge_index" :value="activeJudgeIndex">
 
-                                    <fieldset x-bind:disabled="!editModeEnabled && <?= $participantHasScores ? 'true' : 'false' ?>">
+                                    <fieldset x-bind:disabled="!$store.scoringEdit.enabled && <?= $participantHasScores ? 'true' : 'false' ?>">
 
                                     <!-- Info Bar - Minimal -->
                                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5">
@@ -1478,24 +1509,39 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                                                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                                         <?php
+                                                        // Build lookup from judge ID to judge name for consistent access
+                                                        // Note: Using judge ID as the primary lookup key since it's numeric and reliable
+                                                        $judgeIdToNameMap = [];
+                                                        foreach ($judgeNames as $idx => $name) {
+                                                            $id = $judgeIds[$idx] ?? null;
+                                                            if ($id !== null) {
+                                                                $judgeIdToNameMap[$id] = $name;
+                                                            }
+                                                        }
                                                         $judgeId = $judgeIds[$index] ?? '';
-                                                        $getScoreValue = function(string $key) use ($judgeId, $judgeName, $participantScoreDraft): string {
+                                                        $getScoreValue = function(string $key) use ($judgeId, $judgeName, $participantScoreDraft, $judgeIdToNameMap): string {
+                                                            // First check old() values (from failed validation) - keyed by judge ID
                                                             $oldScores = old('scores', []);
                                                             $oldValue = data_get($oldScores, $judgeId.'.'.str_replace('.', '\\.', $key));
                                                             if ($oldValue !== null && $oldValue !== '') {
                                                                 return e($oldValue);
                                                             }
-                                                            $draftValue = data_get($participantScoreDraft, $judgeName.'.scores.'.$key);
-                                                            return $draftValue !== null && $draftValue !== '' ? e($draftValue) : '';
+                                                            // Then check draft - use judge name from mapping, then direct array access
+                                                            // to avoid issues with data_get and special characters in names
+                                                            $draftJudgeName = $judgeIdToNameMap[$judgeId] ?? $judgeName;
+                                                            $draftScores = $participantScoreDraft[$draftJudgeName]['scores'] ?? [];
+                                                            return e($draftScores[$key] ?? '');
                                                         };
-                                                        $getRemarksValue = function() use ($judgeId, $judgeName, $participantScoreDraft): string {
+                                                        $getRemarksValue = function() use ($judgeId, $judgeName, $participantScoreDraft, $judgeIdToNameMap): string {
+                                                            // First check old() values - keyed by judge ID
                                                             $oldRemarks = old('remarks', []);
                                                             $oldValue = data_get($oldRemarks, $judgeId);
                                                             if ($oldValue !== null) {
                                                                 return e($oldValue);
                                                             }
-                                                            $draftValue = data_get($participantScoreDraft, $judgeName.'.remarks');
-                                                            return $draftValue ?? '';
+                                                            // Then check draft - use direct array access
+                                                            $draftJudgeName = $judgeIdToNameMap[$judgeId] ?? $judgeName;
+                                                            return e($participantScoreDraft[$draftJudgeName]['remarks'] ?? '');
                                                         };
                                                         ?>
                                                         <?php foreach ($criteria as $key => $label): ?>
@@ -1741,9 +1787,9 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                                     <!-- Cancel Edit Mode Button -->
                                     <?php if ($participantHasScores): ?>
-                                    <div class="mt-4 flex justify-center" x-show="editModeEnabled">
+                                    <div class="mt-4 flex justify-center" x-show="$store.scoringEdit.enabled">
                                         <button type="button"
-                                                @click="editModeEnabled = false"
+                                                @click="$store.scoringEdit.enabled = false"
                                                 class="rounded-full border border-red-400/30 bg-red-500/10 px-6 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 hover:border-red-400/50">
                                             <?= mtq_icon('x', 'h-4 w-4 inline') ?>
                                             Batal Edit
@@ -1876,6 +1922,13 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
         <script type="module" src="<?= e($src) ?>"></script>
     <?php endforeach; ?>
     <script>
+        // Alpine store for scoring edit mode state
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('scoringEdit', {
+                enabled: false
+            });
+        });
+
         function scoringWorkflow(initialState) {
             const step = Number(initialState.initialStep ?? 1);
 
@@ -2833,6 +2886,36 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                 },
             };
         }
+
+        // Global function for edit mode confirmation
+        window.confirmEditModeGlobal = function(judgeCount) {
+            Swal.fire({
+                icon: 'warning',
+                title: '<span class="text-xl">⚠️ Perhatian!</span>',
+                html: '<div class="text-left mt-3"><p class="mb-3 text-slate-200">Saat mode edit aktif, <strong class="text-amber-300">semua nilai lama akan dihapus</strong>.</p><p class="mb-2 text-slate-300">Anda <strong class="text-red-400">HARUS</strong> mengisi ulang:</p><ul class="text-left text-slate-300 ml-4 list-disc"><li>✅ Semua nilai ' + judgeCount + ' Dewan Hakim</li><li>✅ Semua poin penilaian</li><li>✅ Catatan (jika ada)</li></ul></div>',
+                confirmButtonText: '👍 Saya Paham, Lanjutkan',
+                confirmButtonColor: '#f59e0b',
+                cancelButtonText: 'Batal',
+                cancelButtonColor: '#64748b',
+                showCancelButton: true,
+                background: '#1e293b',
+                color: '#f1f5f9',
+                customClass: {
+                    popup: 'rounded-3xl !max-w-lg !w-full',
+                    confirmButton: '!rounded-xl !px-6 !py-3 !font-bold !text-slate-900',
+                    cancelButton: '!rounded-xl !px-6 !py-3 !font-bold',
+                },
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.dispatchEvent(new CustomEvent('enable-edit-mode'));
+                    // Clear all score inputs after enabling edit mode
+                    setTimeout(() => {
+                        document.querySelectorAll('input[name^="scores"]').forEach(input => { input.value = ''; });
+                        document.querySelectorAll('textarea[name^="remarks"]').forEach(input => { input.value = ''; });
+                    }, 100);
+                }
+            });
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.location.hash !== '#form-penilaian') {

@@ -163,7 +163,8 @@ class ScoringController extends Controller
             $selectedParticipant,
             $participantScoreRound,
             $judgeNames,
-            $criteria
+            $criteria,
+            $judgeIds
         );
 
         $recentScores = ScoreEntry::query()
@@ -968,7 +969,7 @@ class ScoringController extends Controller
         return $scoreRules;
     }
 
-    protected function scoreDraftForParticipant(?Participant $participant, string $judgingRound, array $judgeNames, array $criteria): array
+    protected function scoreDraftForParticipant(?Participant $participant, string $judgingRound, array $judgeNames, array $criteria, array $judgeIds = []): array
     {
         if (! $participant) {
             return [];
@@ -993,6 +994,12 @@ class ScoringController extends Controller
             $allJudgeScores = [];
         }
 
+        // Build name to ID mapping (parallel arrays)
+        $judgeNameToId = [];
+        foreach ($judgeNames as $idx => $name) {
+            $judgeNameToId[mb_strtolower($name)] = $judgeIds[$idx] ?? null;
+        }
+
         foreach ($judgeNames as $judgeName) {
             $judgeData = $allJudgeScores[$judgeName] ?? null;
 
@@ -1009,6 +1016,7 @@ class ScoringController extends Controller
             $draft[$judgeName] = [
                 'scores' => [],
                 'remarks' => (string) $remarks,
+                '_judgeId' => $judgeNameToId[mb_strtolower($judgeName)] ?? null,
             ];
 
             foreach (array_keys($criteria) as $key) {
@@ -1372,6 +1380,159 @@ class ScoringController extends Controller
                 'putri_count' => $putriCount,
             ],
             'filters' => $filters,
+        ]);
+    }
+
+    public function rankingPdf(Request $request): View
+    {
+        $user = auth()->user();
+        $restrictedCategoryIds = $this->accessibleCategoryIdsForUser($user);
+        $restrictByCategory = $user?->role === 'panitia';
+
+        $filters = $request->validate([
+            'competition_category_id' => ['nullable', 'integer'],
+            'judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $selectedCategory = filled($filters['competition_category_id'] ?? null)
+            ? CompetitionCategory::query()
+                ->when($restrictByCategory, fn ($query) => $query->whereIn('id', $restrictedCategoryIds))
+                ->find($filters['competition_category_id'])
+            : null;
+
+        $selectedJudgingRound = $filters['judging_round'] ?? 'Penyisihan';
+        $scoringSetting = ScoringSetting::forCategory($selectedCategory?->id);
+
+        // Get round config
+        $roundConfig = $this->roundConfigForSetting(
+            $selectedCategory?->branch,
+            $scoringSetting,
+            $selectedJudgingRound,
+            (string) auth()->user()?->name
+        );
+        $judgeNames = $roundConfig['judge_names'] ?? [];
+        $judgeIds = $roundConfig['judge_ids'] ?? [];
+        $criteria = $roundConfig['scoring_points'] ?? [];
+
+        // Get participants with scores
+        $participantsQuery = Participant::query()
+            ->with(['category', 'district', 'scores' => function ($query) use ($selectedJudgingRound) {
+                $query->where('judging_round', $selectedJudgingRound);
+            }])
+            ->where('verification_status', 'verified')
+            ->when($selectedCategory, fn ($query) => $query->where('competition_category_id', $selectedCategory->id))
+            ->when($restrictByCategory, fn ($query) => $query->whereIn('competition_category_id', $restrictedCategoryIds));
+
+        $participants = $participantsQuery->get();
+
+        // Build detailed data per participant
+        $detailedParticipants = $participants->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria) {
+            $scores = $participant->scores ?? collect();
+            $roundScores = $scores->where('judging_round', $selectedJudgingRound);
+
+            // Get score entry (latest for this round)
+            $scoreEntry = $roundScores->sortByDesc('submitted_at')->first();
+            $allJudgeScores = $scoreEntry?->getAllJudgeScores() ?? [];
+
+            // Build per-judge scores
+            $judgeScoreDetails = [];
+            foreach ($judgeNames as $judgeName) {
+                $judgeData = $allJudgeScores[$judgeName] ?? null;
+                $pointScores = [];
+
+                foreach ($criteria as $key => $label) {
+                    $value = $judgeData['scores'][$key] ?? null;
+                    $pointScores[$key] = [
+                        'label' => $label,
+                        'value' => $value !== null && $value !== '' ? (float) $value : null,
+                    ];
+                }
+
+                $judgeScoreDetails[$judgeName] = [
+                    'judge_id' => $judgeData['judge_id'] ?? null,
+                    'point_scores' => $pointScores,
+                    'remarks' => $judgeData['remarks'] ?? '',
+                    'score' => $judgeData['score'] ?? null,
+                ];
+            }
+
+            // Calculate totals
+            $pointTotals = [];
+            $pointCounts = [];
+            foreach ($criteria as $key => $label) {
+                $pointTotals[$key] = 0;
+                $pointCounts[$key] = 0;
+            }
+
+            foreach ($allJudgeScores as $judgeName => $data) {
+                foreach ($criteria as $key => $label) {
+                    $val = $data['scores'][$key] ?? null;
+                    if ($val !== null && $val !== '' && (float) $val >= 1) {
+                        $pointTotals[$key] += (float) $val;
+                        $pointCounts[$key]++;
+                    }
+                }
+            }
+
+            // Calculate point averages
+            $pointAverages = [];
+            foreach ($pointTotals as $key => $total) {
+                $count = $pointCounts[$key] ?? 0;
+                $pointAverages[$key] = $count > 0 ? round($total / $count, 2) : 0;
+            }
+
+            // Total score = sum of averages
+            $totalScore = array_sum($pointAverages);
+
+            return [
+                'id' => $participant->id,
+                'name' => $participant->name,
+                'lot_number' => $participant->lot_number ?? '-',
+                'district_name' => $participant->district?->name ?? '-',
+                'institution' => $participant->institution,
+                'gender' => $participant->gender ?? 'putra',
+                'photo_url' => $participant->document_photo
+                    ? asset('storage/'.ltrim(str_replace('\\', '/', $participant->document_photo), '/'))
+                    : null,
+                'has_score' => $roundScores->count() > 0,
+                'average_score' => round((float) ($roundScores->avg('average_score') ?? $totalScore), 2),
+                'total_score' => round($totalScore, 2),
+                'judge_score_details' => $judgeScoreDetails,
+                'point_totals' => $pointTotals,
+                'point_averages' => $pointAverages,
+                'point_counts' => $pointCounts,
+                'submitted_at' => $scoreEntry?->submitted_at,
+            ];
+        })->values();
+
+        // Sort by score descending, then by lot
+        $detailedParticipants = $detailedParticipants->sortByDesc(function ($p) {
+            return [$p['total_score'], -(int) preg_replace('/[^0-9]/', '', $p['lot_number'])];
+        })->values();
+
+        // Separate by gender and assign ranks
+        $putra = $detailedParticipants->filter(fn ($p) => $p['gender'] === 'putra')->values()
+            ->map(fn ($p, $i) => array_merge($p, ['rank' => $i + 1]));
+        $putri = $detailedParticipants->filter(fn ($p) => $p['gender'] === 'putri')->values()
+            ->map(fn ($p, $i) => array_merge($p, ['rank' => $i + 1]));
+
+        $categoryLabel = $selectedCategory
+            ? trim(($selectedCategory->branch ?? '').' - '.($selectedCategory->name ?? ''))
+            : 'Semua Golongan';
+
+        return view('pages/scoring-ranking-pdf', [
+            'categoryLabel' => $categoryLabel,
+            'selectedCategory' => $selectedCategory,
+            'selectedJudgingRound' => $selectedJudgingRound,
+            'judgeNames' => $judgeNames,
+            'judgeIds' => $judgeIds,
+            'criteria' => $criteria,
+            'scoringSetting' => $scoringSetting,
+            'putra' => $putra,
+            'putri' => $putri,
+            'printDate' => now()->translatedFormat('d F Y H:i').' WIB',
+            'eventName' => config('mtq.branding.name', 'MTQ'),
+            'eventYear' => config('mtq.branding.year', date('Y')),
         ]);
     }
 }

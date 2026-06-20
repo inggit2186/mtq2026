@@ -145,6 +145,15 @@ $dayRanges = $dayRanges ?? [];
                     <?= mtq_icon('filter', 'h-4 w-4') ?>
                     Tampilkan
                 </button>
+                <?php if ($selectedCategory): ?>
+                <a href="<?= e(route('scoring.ranking.pdf', array_filter([
+                    'competition_category_id' => $selectedCategory?->id,
+                    'judging_round' => $selectedJudgingRound,
+                ]))) ?>" target="_blank" class="secondary-button px-5 py-3 flex items-center gap-2">
+                    <?= mtq_icon('printer', 'h-4 w-4') ?>
+                    Cetak PDF
+                </a>
+                <?php endif; ?>
             </form>
         </div>
 

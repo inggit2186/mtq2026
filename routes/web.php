@@ -205,6 +205,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian', [ScoringController::class, 'store'])->middleware('role:admin,panitia')->name('scoring.store');
     Route::get('/penilaian/poll', [ScoringController::class, 'poll'])->middleware('role:admin,panitia')->name('scoring.poll');
     Route::get('/penilaian/ranking', [ScoringController::class, 'ranking'])->middleware('role:admin,panitia')->name('scoring.ranking');
+    Route::get('/penilaian/ranking/cetak', [ScoringController::class, 'rankingPdf'])->middleware('role:admin,panitia')->name('scoring.ranking.pdf');
     Route::get('/penilaian/mfq', [MfqScoringController::class, 'index'])->middleware('role:admin,panitia')->name('scoring.mfq');
     Route::post('/penilaian/mfq/sesi', [MfqScoringController::class, 'storeSession'])->middleware('role:admin,panitia')->name('scoring.mfq.session.store');
     Route::post('/penilaian/mfq/sesi/{sessionId}/kecamatan', [MfqScoringController::class, 'selectDistricts'])->middleware('role:admin,panitia')->name('scoring.mfq.districts.store');
