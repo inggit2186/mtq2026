@@ -1500,10 +1500,11 @@ class ParticipantRegistrationController extends Controller
             ->map(fn ($count): int => (int) $count);
         $maqraUsedPackageTotalsByCategory = ParticipantMaqraDraw::query()
             ->join('maqra_packages', 'maqra_packages.id', '=', 'participant_maqra_draws.maqra_package_id')
+            ->join('participants', 'participants.id', '=', 'participant_maqra_draws.participant_id')
             ->where('participant_maqra_draws.round_label', $roundLabel)
-            ->when($maqraCategoryIds->isNotEmpty(), fn ($query) => $query->whereIn('maqra_packages.competition_category_id', $maqraCategoryIds))
-            ->selectRaw('maqra_packages.competition_category_id as competition_category_id, COUNT(DISTINCT participant_maqra_draws.maqra_package_id) as used_packages')
-            ->groupBy('maqra_packages.competition_category_id')
+            ->where('participants.competition_category_id', $maqraPackageTotalsByCategory->keys()->all())
+            ->selectRaw('participants.competition_category_id as competition_category_id, COUNT(DISTINCT participant_maqra_draws.maqra_package_id) as used_packages')
+            ->groupBy('participants.competition_category_id')
             ->pluck('used_packages', 'competition_category_id')
             ->map(fn ($count): int => (int) $count);
         $maqraRemainingPackagesByCategory = $maqraPackageTotalsByCategory
