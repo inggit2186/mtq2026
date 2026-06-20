@@ -530,12 +530,22 @@ class AppearanceScheduleController extends Controller
             // Get maqra data
             $maqraLabel = null;
             if ($participant) {
-                $latestMaqraDraw = $participant->latestMaqraDraw;
-                if ($latestMaqraDraw) {
-                    if ($latestMaqraDraw->maqraPackage) {
-                        $maqraLabel = $latestMaqraDraw->maqraPackage->title ?? $latestMaqraDraw->maqraPackage->maqra_code ?? null;
-                    } elseif ($latestMaqraDraw->msqDistrictTitle) {
-                        $maqraLabel = $latestMaqraDraw->msqDistrictTitle->title ?? null;
+                $branch = $category->branch ?? '';
+                $isMsqBranch = stripos($branch, 'Fahmil') !== false || stripos($branch, 'Syarhil') !== false;
+
+                // For MSQ categories (Fahmil Qur'an, Syarhil Qur'an), get maqra from district's active MSQ titles
+                if ($isMsqBranch && $participant->district) {
+                    $activeMsqTitles = $participant->district->activeMsqDistrictTitles ?? collect();
+                    $maqraLabel = $activeMsqTitles->first()?->title;
+                } else {
+                    // For regular categories, get from maqra draw
+                    $latestMaqraDraw = $participant->latestMaqraDraw;
+                    if ($latestMaqraDraw) {
+                        if ($latestMaqraDraw->maqraPackage) {
+                            $maqraLabel = $latestMaqraDraw->maqraPackage->title ?? $latestMaqraDraw->maqraPackage->maqra_code ?? null;
+                        } elseif ($latestMaqraDraw->msqDistrictTitle) {
+                            $maqraLabel = $latestMaqraDraw->msqDistrictTitle->title ?? null;
+                        }
                     }
                 }
             }

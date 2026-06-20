@@ -235,9 +235,14 @@
         .lot-cell {
             font-weight: 700;
             color: #92400e;
-            font-size: 11pt;
+            font-size: 9pt;
         }
-        .name-cell { font-weight: 600; color: #1e293b; }
+        .name-cell {
+            font-weight: 600;
+            color: #1e293b;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
         .name-sub { font-size: 7pt; color: #64748b; margin-top: 2pt; }
         .district-cell { font-size: 9pt; color: #475569; }
         .maqra-cell { font-weight: 600; color: #7c3aed; font-size: 9pt; }
@@ -455,7 +460,7 @@
                                 @if ($data['gender'])
                                     <div class="name-sub">
                                         <span class="gender-badge gender-{{ $data['gender'] }}">
-                                            {{ $data['gender'] === 'putra' ? 'L' : 'P' }}
+                                            {{ $data['gender'] === 'putra' ? 'Putra' : 'Putri' }}
                                         </span>
                                     </div>
                                 @endif
@@ -485,7 +490,7 @@
                     Tanah Datar, {{ $generatedAt->translatedFormat('d F Y') }}
                 </div>
                 <div style="height: 50pt;">&nbsp;</div>
-                <div class="signature-title">Pengurus LPTQ</div>
+                <div class="signature-title">Koordinator Dewan Hakim</div>
                 <div>Kabupaten Tanah Datar</div>
             </div>
         </div>
