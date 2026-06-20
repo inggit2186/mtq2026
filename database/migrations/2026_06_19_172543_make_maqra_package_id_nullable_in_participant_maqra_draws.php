@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('participant_maqra_draws', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+        Schema::table('participant_maqra_draws', function (Blueprint $table) {
+            $table->unsignedBigInteger('maqra_package_id')->nullable()->change();
         });
     }
 
@@ -22,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('participant_maqra_draws');
+        Schema::table('participant_maqra_draws', function (Blueprint $table) {
+            $table->unsignedBigInteger('maqra_package_id')->nullable(false)->change();
+        });
     }
 };
