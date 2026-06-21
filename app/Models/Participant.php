@@ -94,6 +94,11 @@ class Participant extends Model
         return $this->hasMany(ScoreEntry::class);
     }
 
+    public function finalists(): HasMany
+    {
+        return $this->hasMany(Finalist::class);
+    }
+
     public function maqraDraws(): HasMany
     {
         return $this->hasMany(ParticipantMaqraDraw::class);

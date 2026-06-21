@@ -13,6 +13,9 @@ $isParticipant = $isParticipant ?? false;
 $rankings = $rankings ?? [];
 $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigation((string) $user?->role, 'results');
 $latestEntry = $scoreTimeline->first();
+$officialCanViewScoreDetail = $officialCanViewScoreDetail ?? false;
+$isOfficial = in_array($user?->role, ['official', 'pendamping'], true);
+$canViewScoreDetail = !$isOfficial || $officialCanViewScoreDetail;
 
 // Get breakdown - new format uses point_averages from aggregated scores
 $latestBreakdown = null;
@@ -377,6 +380,16 @@ $hasRankings = !empty($rankings);
 
                     <!-- Score Breakdown Card -->
                     <div class="glass-card rounded-[2rem] p-6 animate-slide-up" style="animation-delay: 0.4s;">
+                        <?php if (!$canViewScoreDetail): ?>
+                        <!-- Hidden for officials -->
+                        <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-800/30 p-8 text-center">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-500">
+                                <?= mtq_icon('lock', 'h-5 w-5') ?>
+                            </div>
+                            <h3 class="mt-4 text-lg font-bold text-slate-300">Detail Nilai Ditutup</h3>
+                            <p class="mt-2 text-sm text-slate-400">Detail komponen nilai (breakdown) tidak dapat dilihat oleh official. Hubungi panitia untuk informasi lebih lanjut.</p>
+                        </div>
+                        <?php else: ?>
                         <div class="flex items-center gap-3 mb-5">
                             <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10">
                                 <?= mtq_icon('check-circle', 'h-5 w-5 text-cyan-300') ?>
@@ -447,6 +460,7 @@ $hasRankings = !empty($rankings);
                             <?php endif; ?>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </section>
 
                 <section class="glass-card rounded-[2rem] p-6 animate-slide-up" style="animation-delay: 0.5s;">

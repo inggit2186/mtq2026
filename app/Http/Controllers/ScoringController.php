@@ -41,7 +41,13 @@ class ScoringController extends Controller
             'judge_index' => ['nullable', 'integer', 'min:0', 'max:20'],
         ]);
 
-        $participants = Participant::query()
+        // Determine the selected judging round
+        $selectedJudgingRound = in_array(($filters['judging_round'] ?? null), self::ALLOWED_JUDGING_ROUNDS, true)
+            ? $filters['judging_round']
+            : (self::ALLOWED_JUDGING_ROUNDS[0] ?? 'Penyisihan');
+
+        // Build base participants query
+        $participantsQuery = Participant::query()
             ->with(['category', 'district', 'scores'])
             ->where('verification_status', 'verified')
             ->when($restrictByCategory, fn ($query) => $query->whereIn('competition_category_id', $restrictedCategoryIds))
@@ -56,7 +62,16 @@ class ScoringController extends Controller
                         ->orWhere('registration_number', 'like', '%'.$keyword.'%')
                         ->orWhere('institution', 'like', '%'.$keyword.'%');
                 });
-            })
+            });
+
+        // For Final round: only show finalists
+        if ($selectedJudgingRound === 'Final') {
+            $participantsQuery->whereHas('finalists', function ($query) {
+                $query->where('status', '!=', \App\Models\Finalist::STATUS_SCRATCHED);
+            });
+        }
+
+        $participants = $participantsQuery
             ->orderBy('name')
             ->get();
 
@@ -165,15 +180,17 @@ class ScoringController extends Controller
             'selectedJudgingRound' => $selectedJudgingRound,
         ]);
 
-        $participantHasScores = (bool) ($selectedParticipant?->scores?->isNotEmpty() ?? false);
-        $participantScoreRound = (string) ($selectedParticipant?->scores?->first()?->judging_round ?? $selectedJudgingRound);
+        // Check if participant has scores for the SPECIFIC round we're trying to score
+        $participantHasScores = (bool) ($selectedParticipant?->scores?->where('judging_round', $selectedJudgingRound)?->isNotEmpty() ?? false);
         $participantScoreDraft = $this->scoreDraftForParticipant(
             $selectedParticipant,
-            $participantScoreRound,
+            $selectedJudgingRound, // Use the selected round, not the first score's round
             $judgeNames,
             $criteria,
             $judgeIds
         );
+        // For backward compatibility with view
+        $participantScoreRound = (string) ($selectedParticipant?->scores?->first()?->judging_round ?? $selectedJudgingRound);
 
         $recentScores = ScoreEntry::query()
             ->with('participant.category')
@@ -432,12 +449,150 @@ class ScoringController extends Controller
         return back()->with('status', "Setting {$roundLabel} dibuka kembali. Silakan ubah lalu simpan ulang.");
     }
 
+    public function finalizeRound(Request $request): RedirectResponse
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $validated = $request->validate([
+            'competition_category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'judging_round' => ['required', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $category = CompetitionCategory::query()->findOrFail((int) $validated['competition_category_id']);
+        $this->ensureCategoryAccess((int) $category->id, 'competition_category_id');
+
+        $scoringSetting = ScoringSetting::forCategory((int) $category->id);
+        if (!$scoringSetting) {
+            return back()->with('warning', 'Setting babak untuk golongan ini belum pernah dibuat.');
+        }
+
+        $roundLabel = $validated['judging_round'];
+        $scoringSetting->finalizeRound($roundLabel);
+
+        ActivityLogger::log(
+            'scoring.round.finalized',
+            (auth()->user()?->name ?? 'Admin')." menutup babak {$roundLabel} golongan {$category->name}.",
+            $scoringSetting,
+            [
+                'category_id' => $category->id,
+                'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
+                'judging_round' => $roundLabel,
+            ],
+            $request
+        );
+
+        return back()->with('status', "Babak {$roundLabel} telah ditutup. Peserta tidak dapat memilih babak ini.");
+    }
+
+    public function unfinalizeRound(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'competition_category_id' => ['required', 'integer', 'exists:competition_categories,id'],
+            'judging_round' => ['required', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $category = CompetitionCategory::query()->findOrFail((int) $validated['competition_category_id']);
+        $this->ensureCategoryAccess((int) $category->id, 'competition_category_id');
+
+        $scoringSetting = ScoringSetting::forCategory((int) $category->id);
+        if (!$scoringSetting) {
+            return back()->with('warning', 'Setting babak untuk golongan ini belum pernah dibuat.');
+        }
+
+        $roundLabel = $validated['judging_round'];
+        $scoringSetting->unfinalizeRound($roundLabel);
+
+        ActivityLogger::log(
+            'scoring.round.unfinalized',
+            (auth()->user()?->name ?? 'Admin')." membuka kembali babak {$roundLabel} golongan {$category->name}.",
+            $scoringSetting,
+            [
+                'category_id' => $category->id,
+                'category_label' => trim((string) $category->branch.' - '.(string) $category->name),
+                'judging_round' => $roundLabel,
+            ],
+            $request
+        );
+
+        return back()->with('status', "Babak {$roundLabel} dibuka kembali. Peserta dapat memilih babak ini.");
+    }
+
+    public function finalizeAllRounds(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'round_to_finalize' => ['required', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $roundLabel = $validated['round_to_finalize'];
+        $count = 0;
+
+        // Get all scoring settings and finalize the specified round
+        $settings = ScoringSetting::all();
+        foreach ($settings as $setting) {
+            if (!$setting->isFinalized($roundLabel)) {
+                $setting->finalizeRound($roundLabel);
+                $count++;
+            }
+        }
+
+        ActivityLogger::log(
+            'scoring.round.finalized_all',
+            (auth()->user()?->name ?? 'Admin')." menutup babak {$roundLabel} untuk semua golongan ({$count} golongan).",
+            null,
+            [
+                'round' => $roundLabel,
+                'categories_count' => $count,
+            ],
+            $request
+        );
+
+        return back()->with('status', "Babak {$roundLabel} ditutup untuk {$count} golongan.");
+    }
+
+    public function unfinalizeAllRounds(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'round_to_unfinalize' => ['required', 'string', 'in:Penyisihan,Final'],
+        ]);
+
+        $roundLabel = $validated['round_to_unfinalize'];
+        $count = 0;
+
+        // Get all scoring settings and unfinalize the specified round
+        $settings = ScoringSetting::all();
+        foreach ($settings as $setting) {
+            if ($setting->isFinalized($roundLabel)) {
+                $setting->unfinalizeRound($roundLabel);
+                $count++;
+            }
+        }
+
+        ActivityLogger::log(
+            'scoring.round.unfinalized_all',
+            (auth()->user()?->name ?? 'Admin')." membuka babak {$roundLabel} untuk semua golongan ({$count} golongan).",
+            null,
+            [
+                'round' => $roundLabel,
+                'categories_count' => $count,
+            ],
+            $request
+        );
+
+        return back()->with('status', "Babak {$roundLabel} dibuka untuk {$count} golongan.");
+    }
+
     public function storeSettings(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'competition_category_id' => ['required', 'exists:competition_categories,id'],
             'judging_rounds_text' => ['required', 'string', 'max:1500'],
-            'selected_judging_round' => ['nullable', 'string', 'in:Penyisihan,Final'],
+            'selected_judging_round' => ['required', 'string', 'in:Penyisihan,Final,final,penyisihan'],
             'rounds.penyisihan.judge_count' => ['required', 'integer', 'min:1', 'max:15'],
             'rounds.penyisihan.judge_names_text' => ['required', 'string', 'max:3000'],
             'rounds.penyisihan.judge_ids' => ['nullable'],
@@ -448,9 +603,40 @@ class ScoringController extends Controller
             'rounds.final.scoring_points_text' => ['nullable', 'string', 'max:3000'],
         ]);
 
+        // Normalize selected_judging_round to proper case
+        $selectedRoundRaw = trim((string) ($validated['selected_judging_round'] ?? ''));
+        $selectedRound = $this->normalizeJudgingRound($selectedRoundRaw);
+
+        if (!in_array($selectedRound, self::ALLOWED_JUDGING_ROUNDS, true)) {
+            throw ValidationException::withMessages([
+                'selected_judging_round' => 'Babak yang dipilih tidak valid. Pilih antara Penyisihan atau Final.',
+            ]);
+        }
+
         // Debug logging
         \Log::info('Store settings request', [
-            'validated' => $validated['rounds'] ?? 'NO ROUNDS',
+            'selected_judging_round_raw' => $selectedRoundRaw,
+            'selected_judging_round_normalized' => $selectedRound,
+            'penyisihan_judge_names' => data_get($validated, 'rounds.penyisihan.judge_names_text', 'NOT_FOUND'),
+            'final_judge_names' => data_get($validated, 'rounds.final.judge_names_text', 'NOT_FOUND'),
+        ]);
+
+        // Normalize selected_judging_round to proper case
+        $selectedRoundRaw = trim((string) ($validated['selected_judging_round'] ?? ''));
+        $selectedRound = $this->normalizeJudgingRound($selectedRoundRaw);
+
+        if (!in_array($selectedRound, self::ALLOWED_JUDGING_ROUNDS, true)) {
+            throw ValidationException::withMessages([
+                'selected_judging_round' => 'Babak yang dipilih tidak valid. Pilih antara Penyisihan atau Final.',
+            ]);
+        }
+
+        // Debug logging
+        \Log::info('Store settings request', [
+            'selected_judging_round_raw' => $selectedRoundRaw,
+            'selected_judging_round_normalized' => $selectedRound,
+            'penyisihan_judge_names' => data_get($validated, 'rounds.penyisihan.judge_names_text', 'NOT_FOUND'),
+            'final_judge_names' => data_get($validated, 'rounds.final.judge_names_text', 'NOT_FOUND'),
         ]);
 
         $category = CompetitionCategory::query()->findOrFail((int) $validated['competition_category_id']);
@@ -462,9 +648,43 @@ class ScoringController extends Controller
             ]);
         }
 
-        $selectedRound = $validated['selected_judging_round'] ?? $judgingRounds[0] ?? 'Penyisihan';
+        // Validate that the active round (from hidden input) has complete data
+        $activeRoundKey = strtolower($selectedRound);
+        $activeJudgeNames = $this->normalizeLines((string) data_get($validated, 'rounds.'.$activeRoundKey.'.judge_names_text', ''));
+        $activeScoringPoints = $this->normalizeLines((string) data_get($validated, 'rounds.'.$activeRoundKey.'.scoring_points_text', ''));
+        $activeJudgeCount = (int) data_get($validated, 'rounds.'.$activeRoundKey.'.judge_count', 0);
+
+        // Debug logging for active round validation
+        \Log::info('Store settings - active round validation', [
+            'selectedRound' => $selectedRound,
+            'activeRoundKey' => $activeRoundKey,
+            'activeJudgeNames' => $activeJudgeNames,
+            'activeScoringPoints' => $activeScoringPoints,
+            'activeJudgeCount' => $activeJudgeCount,
+        ]);
+
+        // Validate active round has required data
+        if ($activeJudgeNames === [] || $activeScoringPoints === []) {
+            throw ValidationException::withMessages([
+                'rounds.'.$activeRoundKey.'.judge_names_text' => 'Nama hakim dan poin penilaian untuk babak '.$selectedRound.' wajib diisi.',
+            ]);
+        }
+
+        if ($activeJudgeCount !== count($activeJudgeNames)) {
+            throw ValidationException::withMessages([
+                'rounds.'.$activeRoundKey.'.judge_count' => 'Jumlah hakim babak '.$selectedRound.' harus sama dengan jumlah nama hakim yang ditulis.',
+            ]);
+        }
+
+        if (count($activeJudgeNames) !== count(array_unique(array_map('mb_strtolower', $activeJudgeNames)))) {
+            throw ValidationException::withMessages([
+                'rounds.'.$activeRoundKey.'.judge_names_text' => 'Nama hakim babak '.$selectedRound.' tidak boleh duplikat.',
+            ]);
+        }
+
         $roundSettings = [];
         $roundsToLock = [];
+        $roundsToLock[] = $selectedRound;
 
         // Build judge name to ID mapping from database
         $availableJudges = Hakim::byGolongan($category->id)->get()->keyBy('nama');
@@ -508,28 +728,6 @@ class ScoringController extends Controller
                 })
                 ->all();
 
-            if ($isSelected) {
-                if ($judgeNames === [] || $scoringPoints === []) {
-                    throw ValidationException::withMessages([
-                        'rounds.'.$roundKey.'.judge_names_text' => 'Nama hakim dan poin penilaian untuk babak '.$roundLabel.' wajib diisi.',
-                    ]);
-                }
-
-                if ($judgeCount !== count($judgeNames)) {
-                    throw ValidationException::withMessages([
-                        'rounds.'.$roundKey.'.judge_count' => 'Jumlah hakim babak '.$roundLabel.' harus sama dengan jumlah nama hakim yang ditulis.',
-                    ]);
-                }
-
-                if (count($judgeNames) !== count(array_unique(array_map('mb_strtolower', $judgeNames)))) {
-                    throw ValidationException::withMessages([
-                        'rounds.'.$roundKey.'.judge_names_text' => 'Nama hakim babak '.$roundLabel.' tidak boleh duplikat.',
-                    ]);
-                }
-
-                $roundsToLock[] = $roundLabel;
-            }
-
             $roundSettings[$roundLabel] = [
                 'judge_count' => $judgeCount,
                 'judge_names' => array_values($judgeNames),
@@ -553,39 +751,65 @@ class ScoringController extends Controller
         $penyisihanConfig = $roundSettings['Penyisihan'] ?? [];
         $finalConfig = $roundSettings['Final'] ?? [];
 
+        // Get existing Penyisihan data to detect stale form data
+        $existingSetting = ScoringSetting::forCategory($category->id);
+        $existingPenyisihanNames = $existingSetting?->penyisihan_judge_names ?? [];
+        $existingFinalNames = $existingSetting?->final_judge_names ?? [];
+        $existingFinalPoints = $existingSetting?->final_scoring_points ?? [];
+        $existingPenyisihanPoints = $existingSetting?->penyisihan_scoring_points ?? [];
+
+        // Detect stale Penyisihan data: if Penyisihan config matches existing DB but Final has new data, skip Penyisihan update
+        $penyisihanIsStale = (
+            $selectedRound === 'Final'
+            && $finalConfig['judge_names'] !== $existingFinalNames
+            && $penyisihanConfig['judge_names'] === $existingPenyisihanNames
+        );
+
         // Debug logging before save
         \Log::info('Store settings - configs to save', [
             'penyisihan' => $penyisihanConfig,
             'final' => $finalConfig,
+            'penyisihanIsStale' => $penyisihanIsStale,
         ]);
+
+        // Build fill attributes for update - skip Penyisihan if stale (user only edited Final)
+        $fillAttributes = [
+            'final_judge_count' => (int) ($finalConfig['judge_count'] ?? 0),
+            'final_judge_names' => array_values($finalConfig['judge_names'] ?? []),
+            'final_judge_ids' => $finalConfig['judge_ids'] ?? [],
+            'final_scoring_points' => $finalConfig['scoring_points'] ?? [],
+            'final_edit_state' => in_array('Final', $roundsToLock) ? 'locked' : 'editable',
+            // Legacy columns
+            'judge_count' => (int) ($primaryRoundConfig['judge_count'] ?? 0),
+            'judge_names' => array_values($primaryRoundConfig['judge_names'] ?? []),
+            'judging_rounds' => array_values($judgingRounds),
+            'scoring_points' => $primaryRoundConfig['scoring_points'] ?? [],
+            'scoring_priorities' => $primaryRoundConfig['scoring_priorities'] ?? [],
+            'round_settings' => $roundSettings,
+            'configured_by' => auth()->id(),
+            // Legacy edit state columns (cleared)
+            'edit_state' => 'locked',
+            'edit_requested_at' => null,
+            'edit_requested_by' => null,
+        ];
+
+        // Only update Penyisihan if NOT stale (user didn't just edit Penyisihan tab)
+        if (!$penyisihanIsStale) {
+            $fillAttributes['penyisihan_judge_count'] = (int) ($penyisihanConfig['judge_count'] ?? 0);
+            $fillAttributes['penyisihan_judge_names'] = array_values($penyisihanConfig['judge_names'] ?? []);
+            $fillAttributes['penyisihan_judge_ids'] = $penyisihanConfig['judge_ids'] ?? [];
+            $fillAttributes['penyisihan_scoring_points'] = $penyisihanConfig['scoring_points'] ?? [];
+            $fillAttributes['penyisihan_edit_state'] = in_array('Penyisihan', $roundsToLock) ? 'locked' : 'editable';
+        } else {
+            // Keep existing Penyisihan data
+            $fillAttributes['penyisihan_judge_count'] = $existingSetting?->penyisihan_judge_count ?? 0;
+            $fillAttributes['penyisihan_edit_state'] = $existingSetting?->penyisihan_edit_state ?? 'locked';
+            // Don't update Penyisihan judge_names, judge_ids, scoring_points
+        }
 
         $setting = ScoringSetting::query()->updateOrCreate(
             ['competition_category_id' => $category->id],
-            [
-                // New prefix columns per round
-                'penyisihan_judge_count' => (int) ($penyisihanConfig['judge_count'] ?? 0),
-                'penyisihan_judge_names' => array_values($penyisihanConfig['judge_names'] ?? []),
-                'penyisihan_judge_ids' => $penyisihanConfig['judge_ids'] ?? [],
-                'penyisihan_scoring_points' => $penyisihanConfig['scoring_points'] ?? [],
-                'penyisihan_edit_state' => in_array('Penyisihan', $roundsToLock) ? 'locked' : 'editable',
-                'final_judge_count' => (int) ($finalConfig['judge_count'] ?? 0),
-                'final_judge_names' => array_values($finalConfig['judge_names'] ?? []),
-                'final_judge_ids' => $finalConfig['judge_ids'] ?? [],
-                'final_scoring_points' => $finalConfig['scoring_points'] ?? [],
-                'final_edit_state' => in_array('Final', $roundsToLock) ? 'locked' : 'editable',
-                // Legacy columns (for backward compat)
-                'judge_count' => (int) ($primaryRoundConfig['judge_count'] ?? 0),
-                'judge_names' => array_values($primaryRoundConfig['judge_names'] ?? []),
-                'judging_rounds' => array_values($judgingRounds),
-                'scoring_points' => $primaryRoundConfig['scoring_points'] ?? [],
-                'scoring_priorities' => $primaryRoundConfig['scoring_priorities'] ?? [],
-                'round_settings' => $roundSettings,
-                'configured_by' => auth()->id(),
-                // Legacy edit state columns (cleared)
-                'edit_state' => 'locked',
-                'edit_requested_at' => null,
-                'edit_requested_by' => null,
-            ]
+            $fillAttributes
         );
 
         ActivityLogger::log(
@@ -1096,6 +1320,30 @@ class ScoringController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * Normalize judging round string to proper case (Penyisihan or Final)
+     */
+    protected function normalizeJudgingRound(string $value): string
+    {
+        $normalized = trim(mb_strtolower($value));
+
+        if ($normalized === 'final') {
+            return 'Final';
+        }
+
+        if ($normalized === 'penyisihan') {
+            return 'Penyisihan';
+        }
+
+        // If already in proper case or unknown, return as-is
+        if (in_array($value, self::ALLOWED_JUDGING_ROUNDS, true)) {
+            return $value;
+        }
+
+        // Default to Penyisihan if unknown
+        return self::ALLOWED_JUDGING_ROUNDS[0] ?? 'Penyisihan';
     }
 
     protected function escapeDottedKey(string $key): string

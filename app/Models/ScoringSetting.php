@@ -20,6 +20,7 @@ class ScoringSetting extends Model
         'penyisihan_edit_requested_by',
         'penyisihan_edit_opened_at',
         'penyisihan_edit_opened_by',
+        'penyisihan_finalized_at',
         // Final
         'final_judge_count',
         'final_judge_names',
@@ -30,6 +31,7 @@ class ScoringSetting extends Model
         'final_edit_requested_by',
         'final_edit_opened_at',
         'final_edit_opened_by',
+        'final_finalized_at',
     ];
 
     protected function casts(): array
@@ -40,11 +42,13 @@ class ScoringSetting extends Model
             'penyisihan_scoring_points' => 'array',
             'penyisihan_edit_requested_at' => 'datetime',
             'penyisihan_edit_opened_at' => 'datetime',
+            'penyisihan_finalized_at' => 'datetime',
             'final_judge_names' => 'array',
             'final_judge_ids' => 'array',
             'final_scoring_points' => 'array',
             'final_edit_requested_at' => 'datetime',
             'final_edit_opened_at' => 'datetime',
+            'final_finalized_at' => 'datetime',
         ];
     }
 
@@ -128,6 +132,25 @@ class ScoringSetting extends Model
         $state = $this->{$this->roundPrefix($roundLabel).'_edit_state'} ?? 'locked';
 
         return $state === 'requested';
+    }
+
+    public function isFinalized(string $roundLabel): bool
+    {
+        $prefix = $this->roundPrefix($roundLabel);
+
+        return filled($this->{$prefix.'_finalized_at'});
+    }
+
+    public function finalizeRound(string $roundLabel): void
+    {
+        $prefix = $this->roundPrefix($roundLabel);
+        $this->forceFill([$prefix.'_finalized_at' => now()])->save();
+    }
+
+    public function unfinalizeRound(string $roundLabel): void
+    {
+        $prefix = $this->roundPrefix($roundLabel);
+        $this->forceFill([$prefix.'_finalized_at' => null])->save();
     }
 
     public function lockRound(string $roundLabel): void

@@ -210,6 +210,10 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/penilaian/setting', [ScoringController::class, 'storeSettings'])->middleware('role:admin,panitia')->name('scoring.settings.store');
     Route::post('/penilaian/setting/request', [ScoringController::class, 'requestSettingEdit'])->middleware('role:admin,panitia')->name('scoring.settings.request');
     Route::post('/penilaian/setting/buka', [ScoringController::class, 'openSettingEdit'])->middleware('role:admin')->name('scoring.settings.open');
+    Route::post('/penilaian/finalize-round', [ScoringController::class, 'finalizeRound'])->middleware('role:admin,panitia')->name('scoring.finalize-round');
+    Route::post('/penilaian/unfinalize-round', [ScoringController::class, 'unfinalizeRound'])->middleware('role:admin,panitia')->name('scoring.unfinalize-round');
+    Route::post('/penilaian/finalize-all', [ScoringController::class, 'finalizeAllRounds'])->middleware('role:admin')->name('scoring.finalize-all');
+    Route::post('/penilaian/unfinalize-all', [ScoringController::class, 'unfinalizeAllRounds'])->middleware('role:admin')->name('scoring.unfinalize-all');
     Route::post('/penilaian', [ScoringController::class, 'store'])->middleware('role:admin,panitia')->name('scoring.store');
     Route::get('/penilaian/poll', [ScoringController::class, 'poll'])->middleware('role:admin,panitia')->name('scoring.poll');
     Route::get('/penilaian/ranking', [ScoringController::class, 'ranking'])->middleware('role:admin,panitia')->name('scoring.ranking');

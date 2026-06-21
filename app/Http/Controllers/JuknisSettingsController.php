@@ -76,6 +76,7 @@ class JuknisSettingsController extends Controller
             'performance_rules_text' => ['nullable', 'string', 'max:8000'],
             'competition_system_text' => ['nullable', 'string', 'max:8000'],
             'objection_rules_text' => ['nullable', 'string', 'max:8000'],
+            'official.can_view_score_detail' => ['nullable', 'boolean'],
         ]);
 
         $content = [
@@ -172,6 +173,9 @@ class JuknisSettingsController extends Controller
             'performance_rules' => $this->textLines($validated['performance_rules_text'] ?? null),
             'competition_system' => $this->textLines($validated['competition_system_text'] ?? null),
             'objection_rules' => $this->textLines($validated['objection_rules_text'] ?? null),
+            'official' => [
+                'can_view_score_detail' => ! empty($validated['official']['can_view_score_detail'] ?? null),
+            ],
         ];
 
         $setting = JuknisSetting::current() ?? new JuknisSetting();

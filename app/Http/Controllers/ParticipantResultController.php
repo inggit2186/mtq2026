@@ -35,6 +35,10 @@ class ParticipantResultController extends Controller
         $categoryId = $selectedParticipant?->competition_category_id;
         $rankings = $this->getRankingsForResults($categoryId);
 
+        // Check if officials can view score detail
+        $juknis = \App\Models\JuknisSetting::currentOrDefault();
+        $officialCanViewScoreDetail = $juknis->content()['official']['can_view_score_detail'] ?? false;
+
         return view('pages/results-v2', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) $user?->role),
@@ -56,6 +60,7 @@ class ParticipantResultController extends Controller
             'branchCriteria' => $branchCriteria,
             'isParticipant' => $isParticipant,
             'rankings' => $rankings,
+            'officialCanViewScoreDetail' => $officialCanViewScoreDetail,
         ]);
     }
 
