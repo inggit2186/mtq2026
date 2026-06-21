@@ -1002,22 +1002,31 @@ class ParticipantResultController extends Controller
     protected function getRankingsForResults(?int $categoryId = null): array
     {
         try {
-            // Always show ALL active rankings regardless of selected participant's category
-            $activeRankings = RankingSetting::active()
+            $user = auth()->user();
+            $isAdmin = $user?->role === 'admin';
+
+            // Admin can see ALL rankings, others only see active ones
+            $rankingsQuery = RankingSetting::query()
                 ->with(['category', 'finalistCategory'])
-                ->orderBy('sort_order')
-                ->get();
+                ->orderBy('sort_order');
+
+            if (!$isAdmin) {
+                $rankingsQuery->where('is_active', true);
+            }
+
+            $rankings = $rankingsQuery->get();
 
             \Log::info('RANKINGS_FETCH', [
                 'categoryId' => $categoryId,
-                'totalActiveRankings' => $activeRankings->count(),
+                'totalRankings' => $rankings->count(),
+                'isAdmin' => $isAdmin,
             ]);
 
-            if ($activeRankings->isEmpty()) {
+            if ($rankings->isEmpty()) {
                 return [];
             }
 
-            return $activeRankings->map(function (RankingSetting $setting) {
+            return $rankings->map(function (RankingSetting $setting) {
                 return [
                     'id' => $setting->id,
                     'name' => $setting->name,
@@ -1026,6 +1035,7 @@ class ParticipantResultController extends Controller
                     'appearance_day' => $setting->appearance_day,
                     'judging_round' => $setting->judging_round,
                     'sort_order' => $setting->sort_order,
+                    'is_active' => $setting->is_active,
                     'finalist_category_id' => $setting->finalist_category_id,
                     'finalist_display_name' => $setting->getFinalistDisplayName(),
                     'is_finalist_announcement' => $setting->isFinalistAnnouncement(),

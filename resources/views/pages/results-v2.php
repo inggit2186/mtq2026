@@ -627,7 +627,12 @@ $hasRankings = !empty($rankings);
                                                         FINALIS
                                                     </span>
                                                 <?php endif; ?>
-                                                <h3 class="text-xl font-bold text-white"><?= e($rankingConfig['name']) ?></h3>
+                                                <h3 class="text-xl font-bold text-white <?= empty($rankingConfig['is_active']) ? 'opacity-50' : '' ?>"><?= e($rankingConfig['name']) ?></h3>
+                                                <?php if (empty($rankingConfig['is_active'])): ?>
+                                                    <span class="flex items-center gap-1 rounded-full border border-slate-500/50 bg-slate-500/20 px-2 py-0.5 text-xs font-medium text-slate-400">
+                                                        <?= mtq_icon('eye-off', 'h-3 w-3') ?> Nonaktif
+                                                    </span>
+                                                <?php endif; ?>
                                                 <?php if ($isFinalist): ?>
                                                     <span class="rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-sm font-semibold text-amber-200">
                                                         <?= e($finalistDisplayName) ?>
