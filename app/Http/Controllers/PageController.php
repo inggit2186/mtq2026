@@ -2680,7 +2680,7 @@ class PageController extends Controller
                 }
 
                 $latestScore = $roundScores->sortByDesc('submitted_at')->first();
-                $priorityValues = $this->participantPriorityValuesFromScores($participant, $roundScores);
+                $priorityValues = $this->participantPriorityValuesFromScores($participant, $roundScores, $roundLabel);
                 $averageScore = (float) ($roundScores->avg('score') ?? 0);
                 $latestScoreValue = (float) ($latestScore->score ?? 0);
 
@@ -4175,9 +4175,9 @@ class PageController extends Controller
         ]);
     }
 
-    protected function participantPriorityValues(Participant $participant): array
+    protected function participantPriorityValues(Participant $participant, string $roundLabel = 'Penyisihan'): array
     {
-        $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch);
+        $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch, $roundLabel);
         $scores = collect($participant->scores);
 
         // Try to get point_averages from new JSON format first (per-judge averaged scores)
@@ -4232,9 +4232,9 @@ class PageController extends Controller
             ->all();
     }
 
-    protected function participantPriorityValuesFromScores(Participant $participant, $scores): array
+    protected function participantPriorityValuesFromScores(Participant $participant, $scores, string $roundLabel = 'Penyisihan'): array
     {
-        $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch);
+        $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch, $roundLabel);
         $scoreCollection = collect($scores);
 
         // Try to get point_averages from new JSON format first (per-judge averaged scores)
@@ -4290,15 +4290,20 @@ class PageController extends Controller
             ->all();
     }
 
-    protected function priorityKeysForCategory(?int $categoryId, ?string $branch = null): array
+    protected function priorityKeysForCategory(?int $categoryId, ?string $branch = null, string $roundLabel = 'Penyisihan'): array
     {
         $setting = ScoringSetting::forCategory($categoryId);
-        $priorityKeys = array_values(array_filter($setting?->scoring_priorities ?? []));
 
-        if ($priorityKeys !== []) {
-            return $priorityKeys;
+        // Get scoring_points from roundConfig (handles Penyisihan vs Final)
+        if ($setting) {
+            $config = $setting->roundConfig($roundLabel);
+            $scoringPoints = $config['scoring_points'] ?? [];
+            if (!empty($scoringPoints)) {
+                return array_keys($scoringPoints);
+            }
         }
 
+        // Fallback: use legacy scoring_points or config criteria
         $criteria = $setting?->scoring_points
             ?? config('scoring.criteria.'.($branch ?? ''))
             ?? config('scoring.criteria.default', []);

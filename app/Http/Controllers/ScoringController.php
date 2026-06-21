@@ -1150,9 +1150,9 @@ class ScoringController extends Controller
     /**
      * Get priority values from score entries for tiebreaker ranking
      */
-    protected function getPriorityValuesFromScores($scores, ?int $categoryId, ?string $branch): array
+    protected function getPriorityValuesFromScores($scores, ?int $categoryId, ?string $branch, string $roundLabel = 'Penyisihan'): array
     {
-        $priorityKeys = $this->priorityKeysForCategory($categoryId, $branch);
+        $priorityKeys = $this->priorityKeysForCategory($categoryId, $branch, $roundLabel);
         $scoreCollection = collect($scores);
 
         if ($scoreCollection->isEmpty()) {
@@ -1211,16 +1211,22 @@ class ScoringController extends Controller
 
     /**
      * Get priority keys for a category (used for tiebreaker ranking)
+     * Uses roundConfig to get the correct scoring_points from Penyisihan or Final
      */
-    protected function priorityKeysForCategory(?int $categoryId, ?string $branch): array
+    protected function priorityKeysForCategory(?int $categoryId, ?string $branch, string $roundLabel = 'Penyisihan'): array
     {
         $setting = ScoringSetting::forCategory($categoryId);
-        $priorityKeys = array_values(array_filter($setting?->scoring_priorities ?? []));
 
-        if ($priorityKeys !== []) {
-            return $priorityKeys;
+        // Get scoring_points from roundConfig (handles Penyisihan vs Final)
+        if ($setting) {
+            $config = $setting->roundConfig($roundLabel);
+            $scoringPoints = $config['scoring_points'] ?? [];
+            if (!empty($scoringPoints)) {
+                return array_keys($scoringPoints);
+            }
         }
 
+        // Fallback: use legacy scoring_points or config criteria
         $criteria = $setting?->scoring_points
             ?? config('scoring.criteria.'.($branch ?? ''))
             ?? config('scoring.criteria.default', []);
@@ -1394,7 +1400,7 @@ class ScoringController extends Controller
                 $lotSuffix = (int) end($parts);
 
                 // Get priority values for tiebreaker
-                $priorityValues = $this->getPriorityValuesFromScores($roundScores, $selectedCategory?->id, $selectedCategory?->branch);
+                $priorityValues = $this->getPriorityValuesFromScores($roundScores, $selectedCategory?->id, $selectedCategory?->branch, $selectedJudgingRound);
 
                 return [
                     'id' => $participant->id,
