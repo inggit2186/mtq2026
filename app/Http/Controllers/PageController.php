@@ -4180,6 +4180,50 @@ class PageController extends Controller
         $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch);
         $scores = collect($participant->scores);
 
+        // Try to get point_averages from new JSON format first (per-judge averaged scores)
+        if ($scores->isNotEmpty()) {
+            $firstEntry = $scores->first();
+            $allJudgeScores = $firstEntry->getAllJudgeScores();
+
+            if (!empty($allJudgeScores)) {
+                $firstJudge = array_key_first($allJudgeScores);
+                $pointAverages = $allJudgeScores[$firstJudge]['point_averages'] ?? null;
+
+                if ($pointAverages !== null) {
+                    return collect($priorityKeys)
+                        ->map(fn (string $key): float => (float) ($pointAverages[$key] ?? 0))
+                        ->values()
+                        ->all();
+                }
+
+                // Fallback: calculate from individual judge scores
+                $pointTotals = [];
+                $pointCounts = [];
+
+                foreach ($allJudgeScores as $judgeData) {
+                    $judgeScores = $judgeData['scores'] ?? [];
+                    foreach ($priorityKeys as $key) {
+                        $value = $judgeScores[$key] ?? null;
+                        if ($value !== null && $value !== '' && (float) $value >= 1) {
+                            $pointTotals[$key] = ($pointTotals[$key] ?? 0) + (float) $value;
+                            $pointCounts[$key] = ($pointCounts[$key] ?? 0) + 1;
+                        }
+                    }
+                }
+
+                return collect($priorityKeys)
+                    ->map(function (string $key) use ($pointTotals, $pointCounts): float {
+                        $total = $pointTotals[$key] ?? 0;
+                        $count = $pointCounts[$key] ?? 0;
+
+                        return $count > 0 ? round($total / $count, 2) : 0;
+                    })
+                    ->values()
+                    ->all();
+            }
+        }
+
+        // Legacy fallback: use score_breakdown
         return collect($priorityKeys)
             ->map(function (string $key) use ($scores): float {
                 return (float) ($scores->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);
@@ -4193,6 +4237,51 @@ class PageController extends Controller
         $priorityKeys = $this->priorityKeysForCategory($participant->competition_category_id, $participant->category?->branch);
         $scoreCollection = collect($scores);
 
+        // Try to get point_averages from new JSON format first (per-judge averaged scores)
+        if ($scoreCollection->isNotEmpty()) {
+            $firstEntry = $scoreCollection->first();
+            $allJudgeScores = $firstEntry->getAllJudgeScores();
+
+            if (!empty($allJudgeScores)) {
+                $firstJudge = array_key_first($allJudgeScores);
+                $pointAverages = $allJudgeScores[$firstJudge]['point_averages'] ?? null;
+
+                if ($pointAverages !== null) {
+                    // Return point_averages in priority order
+                    return collect($priorityKeys)
+                        ->map(fn (string $key): float => (float) ($pointAverages[$key] ?? 0))
+                        ->values()
+                        ->all();
+                }
+
+                // Fallback: calculate from individual judge scores
+                $pointTotals = [];
+                $pointCounts = [];
+
+                foreach ($allJudgeScores as $judgeData) {
+                    $judgeScores = $judgeData['scores'] ?? [];
+                    foreach ($priorityKeys as $key) {
+                        $value = $judgeScores[$key] ?? null;
+                        if ($value !== null && $value !== '' && (float) $value >= 1) {
+                            $pointTotals[$key] = ($pointTotals[$key] ?? 0) + (float) $value;
+                            $pointCounts[$key] = ($pointCounts[$key] ?? 0) + 1;
+                        }
+                    }
+                }
+
+                return collect($priorityKeys)
+                    ->map(function (string $key) use ($pointTotals, $pointCounts): float {
+                        $total = $pointTotals[$key] ?? 0;
+                        $count = $pointCounts[$key] ?? 0;
+
+                        return $count > 0 ? round($total / $count, 2) : 0;
+                    })
+                    ->values()
+                    ->all();
+            }
+        }
+
+        // Legacy fallback: use score_breakdown
         return collect($priorityKeys)
             ->map(function (string $key) use ($scoreCollection): float {
                 return (float) ($scoreCollection->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);

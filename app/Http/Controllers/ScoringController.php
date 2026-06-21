@@ -157,6 +157,14 @@ class ScoringController extends Controller
             (string) auth()->user()?->name,
             $availableJudgeNames
         );
+
+        // Debug: log roundSetupConfigs on load
+        \Log::info('Load scoring index - roundSetupConfigs', [
+            'category_id' => $selectedCategory?->id,
+            'roundSetupConfigs' => $roundSetupConfigs,
+            'selectedJudgingRound' => $selectedJudgingRound,
+        ]);
+
         $participantHasScores = (bool) ($selectedParticipant?->scores?->isNotEmpty() ?? false);
         $participantScoreRound = (string) ($selectedParticipant?->scores?->first()?->judging_round ?? $selectedJudgingRound);
         $participantScoreDraft = $this->scoreDraftForParticipant(
@@ -440,6 +448,11 @@ class ScoringController extends Controller
             'rounds.final.scoring_points_text' => ['nullable', 'string', 'max:3000'],
         ]);
 
+        // Debug logging
+        \Log::info('Store settings request', [
+            'validated' => $validated['rounds'] ?? 'NO ROUNDS',
+        ]);
+
         $category = CompetitionCategory::query()->findOrFail((int) $validated['competition_category_id']);
         $this->ensureCategoryAccess((int) $category->id, 'competition_category_id');
         $judgingRounds = $this->normalizeLines($validated['judging_rounds_text']);
@@ -462,6 +475,15 @@ class ScoringController extends Controller
 
         foreach (self::ROUND_KEYS as $roundKey => $roundLabel) {
             $isSelected = $roundLabel === $selectedRound;
+
+            // Debug: log isSelected
+            \Log::info("Checking isSelected for $roundLabel", [
+                'roundKey' => $roundKey,
+                'roundLabel' => $roundLabel,
+                'selectedRound' => $selectedRound,
+                'isSelected' => $isSelected,
+            ]);
+
             $judgeCount = (int) data_get($validated, 'rounds.'.$roundKey.'.judge_count');
             $judgeNames = $this->normalizeLines((string) data_get($validated, 'rounds.'.$roundKey.'.judge_names_text', ''));
             // Judge IDs might be sent as JSON string from form
@@ -515,6 +537,13 @@ class ScoringController extends Controller
                 'scoring_points' => $scoringPoints,
                 'scoring_priorities' => array_keys($scoringPoints),
             ];
+
+            // Debug logging for each round
+            \Log::info("Store settings round: $roundLabel", [
+                'judgeCount' => $judgeCount,
+                'judgeNames' => $judgeNames,
+                'scoringPoints' => $scoringPoints,
+            ]);
         }
 
         $primaryRoundConfig = $roundSettings[$selectedRound] ?? reset($roundSettings) ?: [];
@@ -523,6 +552,12 @@ class ScoringController extends Controller
         // Build config per round
         $penyisihanConfig = $roundSettings['Penyisihan'] ?? [];
         $finalConfig = $roundSettings['Final'] ?? [];
+
+        // Debug logging before save
+        \Log::info('Store settings - configs to save', [
+            'penyisihan' => $penyisihanConfig,
+            'final' => $finalConfig,
+        ]);
 
         $setting = ScoringSetting::query()->updateOrCreate(
             ['competition_category_id' => $category->id],
@@ -1112,6 +1147,87 @@ class ScoringController extends Controller
         return str_contains($haystack, 'fahmil');
     }
 
+    /**
+     * Get priority values from score entries for tiebreaker ranking
+     */
+    protected function getPriorityValuesFromScores($scores, ?int $categoryId, ?string $branch): array
+    {
+        $priorityKeys = $this->priorityKeysForCategory($categoryId, $branch);
+        $scoreCollection = collect($scores);
+
+        if ($scoreCollection->isEmpty()) {
+            return array_fill(0, count($priorityKeys), 0.0);
+        }
+
+        // Try to get point_averages from new JSON format first
+        $firstEntry = $scoreCollection->first();
+        $allJudgeScores = $firstEntry->getAllJudgeScores();
+
+        if (!empty($allJudgeScores)) {
+            $firstJudge = array_key_first($allJudgeScores);
+            $pointAverages = $allJudgeScores[$firstJudge]['point_averages'] ?? null;
+
+            if ($pointAverages !== null) {
+                return collect($priorityKeys)
+                    ->map(fn (string $key): float => (float) ($pointAverages[$key] ?? 0))
+                    ->values()
+                    ->all();
+            }
+
+            // Fallback: calculate from individual judge scores
+            $pointTotals = [];
+            $pointCounts = [];
+
+            foreach ($allJudgeScores as $judgeData) {
+                $judgeScores = $judgeData['scores'] ?? [];
+                foreach ($priorityKeys as $key) {
+                    $value = $judgeScores[$key] ?? null;
+                    if ($value !== null && $value !== '' && (float) $value >= 1) {
+                        $pointTotals[$key] = ($pointTotals[$key] ?? 0) + (float) $value;
+                        $pointCounts[$key] = ($pointCounts[$key] ?? 0) + 1;
+                    }
+                }
+            }
+
+            return collect($priorityKeys)
+                ->map(function (string $key) use ($pointTotals, $pointCounts): float {
+                    $total = $pointTotals[$key] ?? 0;
+                    $count = $pointCounts[$key] ?? 0;
+
+                    return $count > 0 ? round($total / $count, 2) : 0;
+                })
+                ->values()
+                ->all();
+        }
+
+        // Legacy fallback: use score_breakdown
+        return collect($priorityKeys)
+            ->map(function (string $key) use ($scoreCollection): float {
+                return (float) ($scoreCollection->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Get priority keys for a category (used for tiebreaker ranking)
+     */
+    protected function priorityKeysForCategory(?int $categoryId, ?string $branch): array
+    {
+        $setting = ScoringSetting::forCategory($categoryId);
+        $priorityKeys = array_values(array_filter($setting?->scoring_priorities ?? []));
+
+        if ($priorityKeys !== []) {
+            return $priorityKeys;
+        }
+
+        $criteria = $setting?->scoring_points
+            ?? config('scoring.criteria.'.($branch ?? ''))
+            ?? config('scoring.criteria.default', []);
+
+        return array_keys($criteria);
+    }
+
     public function poll(Request $request): \Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
@@ -1268,7 +1384,7 @@ class ScoringController extends Controller
 
         // Build rankings based on average score with gender and lot info
         $rankedParticipants = $participants
-            ->map(function ($participant) use ($selectedJudgingRound) {
+            ->map(function ($participant) use ($selectedJudgingRound, $selectedCategory) {
                 $scores = $participant->scores ?? collect();
                 $roundScores = $scores->where('judging_round', $selectedJudgingRound);
                 $averageScore = $roundScores->avg('average_score') ?? $roundScores->avg('score') ?? 0;
@@ -1276,6 +1392,9 @@ class ScoringController extends Controller
                 $lotNumber = $participant->lot_number ?? '';
                 $parts = explode('-', $lotNumber);
                 $lotSuffix = (int) end($parts);
+
+                // Get priority values for tiebreaker
+                $priorityValues = $this->getPriorityValuesFromScores($roundScores, $selectedCategory?->id, $selectedCategory?->branch);
 
                 return [
                     'id' => $participant->id,
@@ -1292,14 +1411,49 @@ class ScoringController extends Controller
                     'score_count' => $roundScores->count(),
                     'has_score' => $roundScores->count() > 0,
                     'latest_score_entry' => $roundScores->sortByDesc('submitted_at')->first(),
+                    'priority_values' => $priorityValues,
                 ];
             })
             ->sortByDesc(function ($item) {
+                // Primary: average_score descending
+                // Tiebreaker: priority_values in order (higher is better)
+                $comparison = $item['average_score'] <=> null; // placeholder
                 return [$item['average_score'], $item['lot_suffix'] * -1];
             })
             ->values()
             ->map(function ($item, $index) {
                 $item['rank'] = $index + 1;
+                return $item;
+            });
+
+        // Apply proper sorting with priority tiebreaker
+        $participantsArray = $rankedParticipants->all();
+        usort($participantsArray, function ($left, $right) {
+            // Primary: average_score descending
+            $scoreComparison = $right['average_score'] <=> $left['average_score'];
+            if ($scoreComparison !== 0) {
+                return $scoreComparison;
+            }
+
+            // Tiebreaker: priority values in order
+            $maxPriorityCount = max(count($left['priority_values'] ?? []), count($right['priority_values'] ?? []));
+            for ($i = 0; $i < $maxPriorityCount; $i++) {
+                $leftValue = (float) ($left['priority_values'][$i] ?? 0);
+                $rightValue = (float) ($right['priority_values'][$i] ?? 0);
+                $priorityComparison = $rightValue <=> $leftValue;
+                if ($priorityComparison !== 0) {
+                    return $priorityComparison;
+                }
+            }
+
+            // Final tiebreaker: lot suffix (lower is better, so negate)
+            return $left['lot_suffix'] <=> $right['lot_suffix'];
+        });
+
+        $rankedParticipants = collect($participantsArray)
+            ->map(function ($item, $index) {
+                $item['rank'] = $index + 1;
+                unset($item['priority_values']);
                 return $item;
             });
 
@@ -1461,7 +1615,7 @@ class ScoringController extends Controller
             : [];
 
         // Build detailed data per participant
-        $detailedParticipants = $participantsForRanking->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria, $isMsqCategory, $districtParticipantCounts) {
+        $detailedParticipants = $participantsForRanking->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria, $isMsqCategory, $districtParticipantCounts, $selectedCategory) {
             $scores = $participant->scores ?? collect();
             $roundScores = $scores->where('judging_round', $selectedJudgingRound);
 
@@ -1519,6 +1673,13 @@ class ScoringController extends Controller
             // Total score = sum of averages
             $totalScore = array_sum($pointAverages);
 
+            // Get priority values for tiebreaker
+            $priorityKeys = $this->priorityKeysForCategory($selectedCategory?->id, $selectedCategory?->branch);
+            $priorityValues = collect($priorityKeys)
+                ->map(fn (string $key): float => (float) ($pointAverages[$key] ?? 0))
+                ->values()
+                ->all();
+
             // For MSQ: build name with "dkk." suffix if there are more participants in district
             $districtId = $participant->district_id;
             $districtCount = $districtParticipantCounts[$districtId] ?? 1;
@@ -1545,14 +1706,46 @@ class ScoringController extends Controller
                 'point_counts' => $pointCounts,
                 'submitted_at' => $scoreEntry?->submitted_at,
                 'lot_number' => $participant->lot_number ?? '-',
+                'lot_suffix' => (int) preg_replace('/[^0-9]/', '', $participant->lot_number ?? '0'),
                 'is_msq' => $isMsqCategory,
+                'priority_values' => $priorityValues,
             ];
         })->values();
 
-        // Sort by score descending, then by lot
+        // Sort by score descending, then by priority values, then by lot
         $detailedParticipants = $detailedParticipants->sortByDesc(function ($p) {
-            return [$p['total_score'], -(int) preg_replace('/[^0-9]/', '', $p['lot_number'])];
+            return [$p['total_score'], $p['lot_suffix'] * -1];
         })->values();
+
+        // Apply proper sorting with priority tiebreaker
+        $detailedArray = $detailedParticipants->all();
+        usort($detailedArray, function ($left, $right) {
+            // Primary: total_score descending
+            $scoreComparison = $right['total_score'] <=> $left['total_score'];
+            if ($scoreComparison !== 0) {
+                return $scoreComparison;
+            }
+
+            // Tiebreaker: priority values in order (higher is better)
+            $maxPriorityCount = max(count($left['priority_values'] ?? []), count($right['priority_values'] ?? []));
+            for ($i = 0; $i < $maxPriorityCount; $i++) {
+                $leftValue = (float) ($left['priority_values'][$i] ?? 0);
+                $rightValue = (float) ($right['priority_values'][$i] ?? 0);
+                $priorityComparison = $rightValue <=> $leftValue;
+                if ($priorityComparison !== 0) {
+                    return $priorityComparison;
+                }
+            }
+
+            // Final tiebreaker: lot suffix (lower is better)
+            return $left['lot_suffix'] <=> $right['lot_suffix'];
+        });
+
+        $detailedParticipants = collect($detailedArray)
+            ->map(function ($p) {
+                unset($p['priority_values'], $p['lot_suffix']);
+                return $p;
+            });
 
         // Separate by gender and assign ranks
         $putra = $detailedParticipants->filter(fn ($p) => $p['gender'] === 'putra')->values()
