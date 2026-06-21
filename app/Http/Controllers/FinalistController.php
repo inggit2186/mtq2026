@@ -561,13 +561,18 @@ class FinalistController extends Controller
 
     /**
      * Calculate rankings for a collection of participants.
-     * Uses the same logic as leaderboard: Final scores > Penyisihan scores.
-     * Tie-breaker: average score, then latest score, then name.
+     * Uses the same logic as leaderboard: priority points tiebreaker, then average score.
      */
     private function calculateRankings($participants): \Illuminate\Support\Collection
     {
+        $categoryId = $participants->first()?->competition_category_id;
+        $branch = $participants->first()?->category?->branch;
+
+        // Get priority keys from scoring settings
+        $priorityKeys = $this->getPriorityKeysForCategory($categoryId, $branch);
+
         $rows = collect($participants)
-            ->map(function (Participant $participant): ?array {
+            ->map(function (Participant $participant) use ($priorityKeys, $categoryId): ?array {
                 $penyisihanScores = $participant->scores->filter(
                     fn (ScoreEntry $entry) => (string) $entry->judging_round === 'Penyisihan'
                 );
@@ -582,24 +587,35 @@ class FinalistController extends Controller
                     return null;
                 }
 
+                // Calculate priority values for tiebreaker
+                $priorityValues = $this->calculatePriorityValues($penyisihanScores, $categoryId, $priorityKeys);
+
                 // Get score based on availability (Final preferred)
                 $scoreValue = 0;
                 $round = 'Penyisihan';
 
                 if ($hasFinal) {
                     $latestFinal = $finalScores->sortByDesc('submitted_at')->first();
-                    $scoreValue = (float) ($latestFinal->score ?? 0);
+                    $scoreValue = (float) ($latestFinal->average_score ?? $latestFinal->score ?? 0);
                     $round = 'Final';
+                    // Recalculate priority values for Final round if available
+                    $priorityValues = $this->calculatePriorityValues($finalScores, $categoryId, $priorityKeys);
                 } elseif ($hasPenyisihan) {
                     $latestPenyisihan = $penyisihanScores->sortByDesc('submitted_at')->first();
-                    $scoreValue = (float) ($latestPenyisihan->score ?? 0);
+                    $scoreValue = (float) ($latestPenyisihan->average_score ?? $latestPenyisihan->score ?? 0);
                 }
+
+                $lotNumber = $participant->lot_number ?? '';
+                $parts = explode('-', $lotNumber);
+                $lotSuffix = (int) end($parts);
 
                 return [
                     'participant_id' => $participant->id,
                     'name' => $participant->name,
                     'district' => $participant->district?->name ?? '-',
                     'score' => $scoreValue,
+                    'priority_values' => $priorityValues,
+                    'lot_suffix' => $lotSuffix,
                     'round' => $round,
                     'has_final' => $hasFinal,
                     'latest_score' => $scoreValue,
@@ -610,6 +626,7 @@ class FinalistController extends Controller
             ->all();
 
         // Sort: Final participants first (by score), then Penyisihan-only (by score)
+        // Tiebreaker: priority values in order, then lot suffix
         usort($rows, function (array $left, array $right): int {
             // Final participants always above Penyisihan-only
             if ($left['has_final'] && !$right['has_final']) {
@@ -625,9 +642,115 @@ class FinalistController extends Controller
                 return $scoreComparison;
             }
 
-            return strcmp((string) $left['name'], (string) $right['name']);
+            // Tiebreaker: priority values in order (higher is better)
+            $maxPriorityCount = max(count($left['priority_values'] ?? []), count($right['priority_values'] ?? []));
+            for ($i = 0; $i < $maxPriorityCount; $i++) {
+                $leftValue = (float) ($left['priority_values'][$i] ?? 0);
+                $rightValue = (float) ($right['priority_values'][$i] ?? 0);
+                $priorityComparison = $rightValue <=> $leftValue;
+                if ($priorityComparison !== 0) {
+                    return $priorityComparison;
+                }
+            }
+
+            // Final tiebreaker: lot suffix (lower is better)
+            return $left['lot_suffix'] <=> $right['lot_suffix'];
         });
 
         return collect($rows);
+    }
+
+    /**
+     * Get priority keys from scoring settings for a category
+     */
+    private function getPriorityKeysForCategory(?int $categoryId, ?string $branch): array
+    {
+        $setting = \App\Models\ScoringSetting::forCategory($categoryId);
+
+        // TryPenyisihan round first (since finalists come from Penyisihan)
+        $config = $setting?->roundConfig('Penyisihan');
+        $priorityKeys = array_values(array_filter($config['scoring_priorities'] ?? []));
+
+        if ($priorityKeys !== []) {
+            return $priorityKeys;
+        }
+
+        // Fallback to Final round if Penyisihan not configured
+        $config = $setting?->roundConfig('Final');
+        $priorityKeys = array_values(array_filter($config['scoring_priorities'] ?? []));
+
+        if ($priorityKeys !== []) {
+            return $priorityKeys;
+        }
+
+        // Legacy fallback
+        $criteria = $setting?->scoring_points
+            ?? config('scoring.criteria.'.($branch ?? ''))
+            ?? config('scoring.criteria.default', []);
+
+        return array_keys($criteria);
+    }
+
+    /**
+     * Calculate priority values from score entries
+     */
+    private function calculatePriorityValues($scores, ?int $categoryId, array $priorityKeys): array
+    {
+        $scoreCollection = collect($scores);
+
+        if ($scoreCollection->isEmpty()) {
+            return array_fill(0, count($priorityKeys), 0.0);
+        }
+
+        // Try to get point_averages from new JSON format first
+        $firstEntry = $scoreCollection->first();
+        $allJudgeScores = method_exists($firstEntry, 'getAllJudgeScores')
+            ? $firstEntry->getAllJudgeScores()
+            : ($firstEntry->scores ?? []);
+
+        if (!empty($allJudgeScores)) {
+            $firstJudge = array_key_first($allJudgeScores);
+            $pointAverages = $allJudgeScores[$firstJudge]['point_averages'] ?? null;
+
+            if ($pointAverages !== null) {
+                return collect($priorityKeys)
+                    ->map(fn (string $key): float => (float) ($pointAverages[$key] ?? 0))
+                    ->values()
+                    ->all();
+            }
+
+            // Fallback: calculate from individual judge scores
+            $pointTotals = [];
+            $pointCounts = [];
+
+            foreach ($allJudgeScores as $judgeData) {
+                $judgeScores = $judgeData['scores'] ?? [];
+                foreach ($priorityKeys as $key) {
+                    $value = $judgeScores[$key] ?? null;
+                    if ($value !== null && $value !== '' && (float) $value >= 1) {
+                        $pointTotals[$key] = ($pointTotals[$key] ?? 0) + (float) $value;
+                        $pointCounts[$key] = ($pointCounts[$key] ?? 0) + 1;
+                    }
+                }
+            }
+
+            return collect($priorityKeys)
+                ->map(function (string $key) use ($pointTotals, $pointCounts): float {
+                    $total = $pointTotals[$key] ?? 0;
+                    $count = $pointCounts[$key] ?? 0;
+
+                    return $count > 0 ? round($total / $count, 2) : 0;
+                })
+                ->values()
+                ->all();
+        }
+
+        // Legacy fallback: use score_breakdown
+        return collect($priorityKeys)
+            ->map(function (string $key) use ($scoreCollection): float {
+                return (float) ($scoreCollection->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);
+            })
+            ->values()
+            ->all();
     }
 }

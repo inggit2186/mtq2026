@@ -608,8 +608,10 @@ $hasRankings = !empty($rankings);
                             $showPutra = in_array($rankingConfig['gender'], ['putra', 'all']);
                             $showPutri = in_array($rankingConfig['gender'], ['putri', 'all']);
                             $hasAnyData = !empty($putraRankings) || !empty($putriRankings);
+                            $isFinalist = ($rankingConfig['is_finalist_announcement'] ?? false);
+                            $finalistDisplayName = $rankingConfig['finalist_display_name'] ?? 'Pengumuman Finalis';
                             ?>
-                            <div class="relative overflow-hidden rounded-[2rem] border border-amber-400/20 bg-gradient-to-br from-slate-900 via-amber-950/30 to-slate-900 p-6 shadow-[0_0_60px_-20px_rgba(251,191,36,0.15)]">
+                            <div class="relative overflow-hidden rounded-[2rem] border <?= $isFinalist ? 'border-amber-400/40 bg-gradient-to-br from-amber-900/40 via-amber-950/30 to-slate-900' : 'border-amber-400/20 bg-gradient-to-br from-slate-900 via-amber-950/30 to-slate-900' ?> p-6 shadow-[0_0_60px_-20px_rgba(251,191,36,0.15)]">
                                 <!-- Decorative Background -->
                                 <div class="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-amber-400/10 blur-3xl"></div>
                                 <div class="absolute -left-4 -bottom-4 h-24 w-24 rounded-full bg-orange-400/10 blur-3xl"></div>
@@ -619,14 +621,24 @@ $hasRankings = !empty($rankings);
                                     <div class="flex flex-wrap items-start justify-between gap-4">
                                         <div>
                                             <div class="flex items-center gap-3 flex-wrap">
+                                                <?php if ($isFinalist): ?>
+                                                    <span class="flex items-center gap-2 rounded-full border border-amber-400/50 bg-amber-400/20 px-3 py-1.5 text-sm font-bold text-amber-200">
+                                                        <?= mtq_icon('star', 'h-4 w-4') ?>
+                                                        FINALIS
+                                                    </span>
+                                                <?php endif; ?>
                                                 <h3 class="text-xl font-bold text-white"><?= e($rankingConfig['name']) ?></h3>
-                                                <?php if ($rankingConfig['appearance_day'] !== null): ?>
+                                                <?php if ($isFinalist): ?>
+                                                    <span class="rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-sm font-semibold text-amber-200">
+                                                        <?= e($finalistDisplayName) ?>
+                                                    </span>
+                                                <?php elseif ($rankingConfig['appearance_day'] !== null): ?>
                                                     <span class="flex items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-xs font-semibold text-cyan-200">
                                                         <?= mtq_icon('calendar', 'h-3.5 w-3.5') ?>
                                                         Sesi <?= e(($rankingConfig['appearance_day'] ?? 0) + 1) ?>
                                                     </span>
                                                 <?php endif; ?>
-                                                <?php if (!empty($rankingData['schedule_date'])): ?>
+                                                <?php if (!empty($rankingData['schedule_date']) && !$isFinalist): ?>
                                                     <span class="flex items-center gap-1 rounded-lg border border-violet-400/30 bg-violet-400/10 px-2.5 py-1 text-xs font-semibold text-violet-200">
                                                         <?= mtq_icon('clock', 'h-3.5 w-3.5') ?>
                                                         <?= e(Carbon::parse($rankingData['schedule_date'])->locale('id')->isoFormat('ddd, D MMM YYYY')) ?>
@@ -636,7 +648,13 @@ $hasRankings = !empty($rankings);
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
-                                            <p class="mt-1 text-sm text-amber-200/70"><?= e($rankingConfig['display_label']) ?></p>
+                                            <p class="mt-1 text-sm <?= $isFinalist ? 'text-amber-300/70' : 'text-amber-200/70' ?>">
+                                                <?php if ($isFinalist): ?>
+                                                    Juara Babak Penyisihan untuk晋级 Final
+                                                <?php else: ?>
+                                                    <?= e($rankingConfig['display_label']) ?>
+                                                <?php endif; ?>
+                                            </p>
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <?php if ($showPutra && ($rankingData['putra_count'] ?? 0) > 0): ?>
@@ -659,16 +677,119 @@ $hasRankings = !empty($rankings);
                                         <div class="flex h-14 w-14 items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-300">
                                             <?= mtq_icon('trophy', 'h-6 w-6') ?>
                                         </div>
-                                        <p class="mt-4 text-sm text-slate-400">Belum ada data ranking untuk konfigurasi ini.</p>
+                                        <p class="mt-4 text-sm text-slate-400">Belum ada data <?= $isFinalist ? 'finalis' : 'ranking' ?> untuk konfigurasi ini.</p>
+                                    </div>
+                                <?php elseif ($isFinalist): ?>
+                                    <!-- Finalist Display - More prominent winner cards -->
+                                    <div class="relative z-10">
+                                        <?php
+                                        $finalistPutra = array_slice($putraRankings, 0, 6);
+                                        $finalistPutri = array_slice($putriRankings, 0, 6);
+                                        ?>
+                                        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-<?= (count($finalistPutra) > 0 && count($finalistPutri) > 0) ? '2' : '1' ?>">
+                                            <?php if (count($finalistPutra) > 0): ?>
+                                                <!-- Finalis Putra -->
+                                                <div class="space-y-3">
+                                                    <div class="flex items-center gap-3 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-900/30 to-transparent px-4 py-3">
+                                                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-xl font-black text-white shadow-lg shadow-amber-500/40">&#9794;</span>
+                                                        <div>
+                                                            <h4 class="font-bold text-amber-200">Finalis Putra</h4>
+                                                            <p class="text-xs text-amber-300/70"><?= e($finalistDisplayName) ?></p>
+                                                        </div>
+                                                    </div>
+                                                    <?php foreach ($finalistPutra as $idx => $p): ?>
+                                                        <?php
+                                                        $isSelected = $p['id'] == $selectedParticipant?->id;
+                                                        $isTop = $idx < 3;
+                                                        $rankLabel = 'Finalis ' . ($idx + 1);
+                                                        ?>
+                                                        <div class="group relative flex items-center gap-4 rounded-xl border px-4 py-3 transition-all <?= $isSelected ? 'border-cyan-400/50 bg-cyan-400/10' : ($isTop ? 'border-amber-400/40 bg-gradient-to-r from-amber-900/20 to-transparent' : 'border-slate-700/50 bg-slate-800/30 hover:border-amber-400/30 hover:bg-slate-800/60') ?>">
+                                                            <?php if ($isTop): ?>
+                                                                <div class="absolute -left-1 top-1/2 -translate-y-1/2 -translate-x-1/2">
+                                                                    <?= mtq_icon('star', 'h-5 w-5 text-amber-400') ?>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                            <div class="ml-<?= $isTop ? '3' : '0' ?> flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black <?= $isTop ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg' : 'border border-slate-600 bg-slate-800 text-slate-300' ?>">
+                                                                <?= $idx + 1 ?>
+                                                            </div>
+                                                            <div class="min-w-0 flex-1">
+                                                                <p class="truncate font-semibold <?= $isSelected ? 'text-cyan-200' : 'text-white' ?>">
+                                                                    <?= e($p['name']) ?>
+                                                                </p>
+                                                                <p class="truncate text-xs text-slate-400">
+                                                                    <?= e($p['district_name']) ?> • Lot <?= e($p['lot_number']) ?>
+                                                                </p>
+                                                            </div>
+                                                            <div class="text-right shrink-0">
+                                                                <?php if ($p['has_score']): ?>
+                                                                    <p class="text-lg font-bold <?= $isTop ? 'text-amber-200' : 'text-emerald-300' ?>">
+                                                                        <?= e(number_format($p['average_score'], 2)) ?>
+                                                                    </p>
+                                                                <?php else: ?>
+                                                                    <span class="text-xs text-slate-500">Belum</span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <?php if (count($finalistPutri) > 0): ?>
+                                                <!-- Finalis Putri -->
+                                                <div class="space-y-3">
+                                                    <div class="flex items-center gap-3 rounded-xl border border-pink-400/30 bg-gradient-to-r from-pink-900/30 to-transparent px-4 py-3">
+                                                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-xl font-black text-white shadow-lg shadow-pink-500/40">&#9793;</span>
+                                                        <div>
+                                                            <h4 class="font-bold text-pink-200">Finalis Putri</h4>
+                                                            <p class="text-xs text-pink-300/70"><?= e($finalistDisplayName) ?></p>
+                                                        </div>
+                                                    </div>
+                                                    <?php foreach ($finalistPutri as $idx => $p): ?>
+                                                        <?php
+                                                        $isSelected = $p['id'] == $selectedParticipant?->id;
+                                                        $isTop = $idx < 3;
+                                                        ?>
+                                                        <div class="group relative flex items-center gap-4 rounded-xl border px-4 py-3 transition-all <?= $isSelected ? 'border-cyan-400/50 bg-cyan-400/10' : ($isTop ? 'border-pink-400/40 bg-gradient-to-r from-pink-900/20 to-transparent' : 'border-slate-700/50 bg-slate-800/30 hover:border-pink-400/30 hover:bg-slate-800/60') ?>">
+                                                            <?php if ($isTop): ?>
+                                                                <div class="absolute -left-1 top-1/2 -translate-y-1/2 -translate-x-1/2">
+                                                                    <?= mtq_icon('star', 'h-5 w-5 text-pink-400') ?>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                            <div class="ml-<?= $isTop ? '3' : '0' ?> flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black <?= $isTop ? 'bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-lg' : 'border border-slate-600 bg-slate-800 text-slate-300' ?>">
+                                                                <?= $idx + 1 ?>
+                                                            </div>
+                                                            <div class="min-w-0 flex-1">
+                                                                <p class="truncate font-semibold <?= $isSelected ? 'text-cyan-200' : 'text-white' ?>">
+                                                                    <?= e($p['name']) ?>
+                                                                </p>
+                                                                <p class="truncate text-xs text-slate-400">
+                                                                    <?= e($p['district_name']) ?> • Lot <?= e($p['lot_number']) ?>
+                                                                </p>
+                                                            </div>
+                                                            <div class="text-right shrink-0">
+                                                                <?php if ($p['has_score']): ?>
+                                                                    <p class="text-lg font-bold <?= $isTop ? 'text-pink-200' : 'text-emerald-300' ?>">
+                                                                        <?= e(number_format($p['average_score'], 2)) ?>
+                                                                    </p>
+                                                                <?php else: ?>
+                                                                    <span class="text-xs text-slate-500">Belum</span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 <?php else: ?>
+                                    <!-- Normal Ranking Display -->
                                     <div class="relative z-10 grid gap-6 lg:grid-cols-2">
                                         <?php if ($showPutra && !empty($putraRankings)): ?>
                                             <!-- Putra Rankings -->
                                             <div class="overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-b from-blue-950/40 to-slate-900/80">
                                                 <div class="flex items-center gap-3 border-b border-blue-500/20 bg-blue-950/30 px-5 py-4">
                                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-lg font-black text-white shadow-lg shadow-blue-500/30">&#9794;</span>
-                                                    <h4 class="text-base font-bold text-blue-200">Klasemen Putra</h4>
+                                                    <h4 class="text-base font-bold text-blue-200"><?= $isFinalist ? 'Finalis Putra' : 'Klasemen Putra' ?></h4>
                                                 </div>
                                                 <div class="max-h-[400px] overflow-y-auto p-4">
                                                     <div class="space-y-2">
@@ -721,7 +842,7 @@ $hasRankings = !empty($rankings);
                                             <div class="overflow-hidden rounded-2xl border border-pink-500/20 bg-gradient-to-b from-pink-950/40 to-slate-900/80">
                                                 <div class="flex items-center gap-3 border-b border-pink-500/20 bg-pink-950/30 px-5 py-4">
                                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500 text-lg font-black text-white shadow-lg shadow-pink-500/30">&#9793;</span>
-                                                    <h4 class="text-base font-bold text-pink-200">Klasemen Putri</h4>
+                                                    <h4 class="text-base font-bold text-pink-200"><?= $isFinalist ? 'Finalis Putri' : 'Klasemen Putri' ?></h4>
                                                 </div>
                                                 <div class="max-h-[400px] overflow-y-auto p-4">
                                                     <div class="space-y-2">
