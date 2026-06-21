@@ -89,6 +89,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
         class="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8"
         x-data="<?= htmlspecialchars(json_encode([
             'mobileNavOpen' => false,
+            'showPrintModal' => false,
             'branches' => $allBranches,
             'mfqRankings' => $mfqRankings,
             'mfqCompletedSessions' => $mfqBranch['completed_sessions'] ?? [],
@@ -293,6 +294,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             <?= mtq_icon('crown', 'h-4 w-4 inline mr-1') ?>
                             Juara Umum
                         </button>
+                        <button
+                            type="button"
+                            @click="showPrintModal = true"
+                            class="rounded-xl border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 font-semibold text-emerald-300 transition-all hover:border-emerald-400/70 hover:bg-emerald-400/20"
+                        >
+                            <?= mtq_icon('printer', 'h-4 w-4 inline mr-1') ?>
+                            Rekap PDF
+                        </button>
                         <a href="<?= e(route('finalists.index')) ?>" class="secondary-button">
                             <?= mtq_icon('users', 'h-4 w-4') ?>
                             Kelola Finalis
@@ -303,6 +312,75 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         </a>
                     </div>
                 </header>
+
+                <!-- Print Modal -->
+                <div
+                    x-show="showPrintModal"
+                    x-on:keydown.escape.window="showPrintModal = false"
+                    class="fixed inset-0 z-50 flex items-center justify-center"
+                    style="display: none;"
+                >
+                    <!-- Backdrop -->
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showPrintModal = false"></div>
+
+                    <!-- Modal -->
+                    <div class="relative z-10 w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-2xl">
+                        <div class="mb-4 flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-white"><?= mtq_icon('printer', 'h-5 w-5 inline mr-2 text-emerald-400') ?> Rekap PDF Leaderboard</h3>
+                            <button type="button" @click="showPrintModal = false" class="text-slate-400 hover:text-white">
+                                <?= mtq_icon('x', 'h-5 w-5') ?>
+                            </button>
+                        </div>
+
+                        <p class="mb-4 text-sm text-slate-300">Pilih jenis rekap yang ingin dicetak:</p>
+
+                        <div class="space-y-3">
+                            <a href="<?= e(route('leaderboard.print', ['type' => 'semua'])) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-emerald-400/50 hover:bg-emerald-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-400">
+                                    <?= mtq_icon('list', 'h-5 w-5') ?>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-white">Semua Ranking</p>
+                                    <p class="text-xs text-slate-400">Ranking Final dan Penyisihan, semua peserta</p>
+                                </div>
+                            </a>
+
+                            <a href="<?= e(route('leaderboard.print', ['type' => 'penyisihan'])) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-cyan-400/50 hover:bg-cyan-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-400/20 text-cyan-400">
+                                    <?= mtq_icon('filter', 'h-5 w-5') ?>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-white">Babak Penyisihan</p>
+                                    <p class="text-xs text-slate-400">Ranking babak penyisihan saja</p>
+                                </div>
+                            </a>
+
+                            <a href="<?= e(route('leaderboard.print', ['type' => 'final'])) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-amber-400/50 hover:bg-amber-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/20 text-amber-400">
+                                    <?= mtq_icon('star', 'h-5 w-5') ?>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-white">Babak Final</p>
+                                    <p class="text-xs text-slate-400">Ranking babak final saja</p>
+                                </div>
+                            </a>
+
+                            <a href="<?= e(route('leaderboard.print', ['type' => 'juara'])) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-violet-400/50 hover:bg-violet-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-400/20 text-violet-400">
+                                    <?= mtq_icon('crown', 'h-5 w-5') ?>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-white">Rekap Juara</p>
+                                    <p class="text-xs text-slate-400">Juara 1-3 dari Final, Harapan 1-3 dari Penyisihan</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Stats Overview -->
                 <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

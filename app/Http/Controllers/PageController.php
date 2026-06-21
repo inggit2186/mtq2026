@@ -1036,6 +1036,288 @@ class PageController extends Controller
     }
 
     /**
+     * Print/Download leaderboard rankings as HTML Print-Friendly.
+     */
+    public function leaderboardPrint(Request $request): \Illuminate\Http\Response
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $filterType = $request->get('type', 'semua'); // semua, penyisihan, final, juara
+
+        // Get all categories (excluding MFQ which uses different system)
+        $categories = CompetitionCategory::query()
+            ->whereNotIn('id', [24, 25])
+            ->orderBy('id') // Sort by category ID as requested
+            ->get();
+
+        $participants = Participant::query()
+            ->with(['category', 'district', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        // Build rankings data per category
+        $categoryRankings = [];
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn (Participant $p) => (int) $p->competition_category_id === (int) $category->id
+            );
+
+            // Always include category if participants exist
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Build rankings based on filter type
+            $putraLeaders = [];
+            $putriLeaders = [];
+
+            if ($filterType === 'juara') {
+                // For juara: Final rank 1-3 = Juara 1-2-3, Penyisihan rank 4-6 = Harapan 1-2-3
+                // If Final doesn't have rank 1-3, fill from Penyisihan with status
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final');
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan');
+
+                // Process by gender
+                foreach (['putra', 'putri'] as $gender) {
+                    $finalOfGender = collect($finalRankings)
+                        ->filter(fn ($l) => strtolower((string) ($l['gender'] ?? '')) === $gender)
+                        ->values()
+                        ->all();
+                    $penyisihanOfGender = collect($penyisihanRankings)
+                        ->filter(fn ($l) => strtolower((string) ($l['gender'] ?? '')) === $gender)
+                        ->values()
+                        ->all();
+
+                    // Final rank 1-3 = Juara 1-2-3
+                    // If not enough in Final, fill from Penyisihan
+                    $juaraLeaders = [];
+                    $finalFilledCount = 0;
+                    $penyisihanFilledCount = 0;
+
+                    for ($i = 0; $i < 3; $i++) {
+                        if (isset($finalOfGender[$i])) {
+                            $juaraLeaders[] = [
+                                'name' => $finalOfGender[$i]['name'] ?? '-',
+                                'district' => $finalOfGender[$i]['district'] ?? '-',
+                                'lot_number' => $finalOfGender[$i]['lot_number'] ?? null,
+                                'average_score' => $finalOfGender[$i]['average_score'] ?? '0.00',
+                                'rank_label' => 'Juara ' . ($i + 1),
+                                'round' => 'Final',
+                                'source' => 'final',
+                            ];
+                            $finalFilledCount++;
+                        }
+                    }
+
+                    // Fill remaining juara spots from Penyisihan
+                    $juaraNeeded = 3 - $finalFilledCount;
+                    $penyisihanIndex = 0;
+                    for ($j = 0; $j < $juaraNeeded; $j++) {
+                        // Find first available in penyisihan that isn't already in juara
+                        while ($penyisihanIndex < count($penyisihanOfGender)) {
+                            $p = $penyisihanOfGender[$penyisihanIndex];
+                            $pName = $p['name'] ?? '';
+                            $alreadyAdded = collect($juaraLeaders)->contains('name', $pName);
+                            if (!$alreadyAdded) {
+                                $juaraLeaders[] = [
+                                    'name' => $p['name'] ?? '-',
+                                    'district' => $p['district'] ?? '-',
+                                    'lot_number' => $p['lot_number'] ?? null,
+                                    'average_score' => $p['average_score'] ?? '0.00',
+                                    'rank_label' => 'Juara ' . ($finalFilledCount + $j + 1),
+                                    'round' => 'Penyisihan',
+                                    'source' => 'penyisihan',
+                                    'is_fallback' => true,
+                                ];
+                                $penyisihanFilledCount++;
+                                $penyisihanIndex++;
+                                break;
+                            }
+                            $penyisihanIndex++;
+                        }
+                    }
+
+                    // Sort juara leaders by their rank number
+                    usort($juaraLeaders, function ($a, $b) {
+                        preg_match('/\d+/', $a['rank_label'], $aNum);
+                        preg_match('/\d+/', $b['rank_label'], $bNum);
+                        return ((int) ($aNum[0] ?? 0)) <=> ((int) ($bNum[0] ?? 0));
+                    });
+
+                    // Penyisihan rank 4-6 = Harapan 1-2-3 (only if not already in juara)
+                    $harapanLeaders = [];
+                    $usedNames = collect($juaraLeaders)->pluck('name')->toArray();
+                    $harapanCount = 0;
+
+                    for ($i = 0; $i < count($penyisihanOfGender) && $harapanCount < 3; $i++) {
+                        $p = $penyisihanOfGender[$i];
+                        $pName = $p['name'] ?? '';
+                        if (!in_array($pName, $usedNames)) {
+                            $harapanLeaders[] = [
+                                'name' => $pName,
+                                'district' => $p['district'] ?? '-',
+                                'lot_number' => $p['lot_number'] ?? null,
+                                'average_score' => $p['average_score'] ?? '0.00',
+                                'rank_label' => 'Harapan ' . ($harapanCount + 1),
+                                'round' => 'Penyisihan',
+                                'source' => 'penyisihan',
+                            ];
+                            $usedNames[] = $pName;
+                            $harapanCount++;
+                        }
+                    }
+
+                    if ($gender === 'putra') {
+                        $putraLeaders = array_merge($juaraLeaders, $harapanLeaders);
+                    } else {
+                        $putriLeaders = array_merge($juaraLeaders, $harapanLeaders);
+                    }
+                }
+            } elseif ($filterType === 'penyisihan') {
+                // For penyisihan, build round leaders then add participants without scores
+                $roundLeaders = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan');
+                $allLeaders = $roundLeaders;
+
+                // Separate by gender
+                $putraLeaders = collect($allLeaders)
+                    ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putra')
+                    ->values()
+                    ->all();
+
+                $putriLeaders = collect($allLeaders)
+                    ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putri')
+                    ->values()
+                    ->all();
+
+                // Add participants without penyisihan scores at the bottom
+                $leadersIds = collect($allLeaders)->pluck('participant_id')->toArray();
+                $noScoreParticipants = $categoryParticipants
+                    ->filter(fn ($p) => !in_array($p->id, $leadersIds));
+
+                foreach (['putra', 'putri'] as $gender) {
+                    $noScoreOfGender = $noScoreParticipants->filter(
+                        fn ($p) => strtolower((string) $p->gender) === $gender
+                    );
+
+                    foreach ($noScoreOfGender as $participant) {
+                        $leaderData = [
+                            'name' => $participant->name,
+                            'district' => $participant->district?->name ?? '-',
+                            'lot_number' => $participant->lot_number,
+                            'average_score' => '0.00',
+                            'current_round' => '-',
+                            'participant_id' => $participant->id,
+                        ];
+
+                        if ($gender === 'putra') {
+                            $putraLeaders[] = $leaderData;
+                        } else {
+                            $putriLeaders[] = $leaderData;
+                        }
+                    }
+                }
+            } elseif ($filterType === 'final') {
+                // For final, only show those with final scores (no fallback)
+                $roundLeaders = $this->buildRoundLeaders($categoryParticipants, 'Final');
+
+                $putraLeaders = collect($roundLeaders)
+                    ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putra')
+                    ->values()
+                    ->all();
+
+                $putriLeaders = collect($roundLeaders)
+                    ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putri')
+                    ->values()
+                    ->all();
+            } else {
+                // "semua" - build semua ranking and include all participants
+                $semuaLeaders = $this->buildSemuaRanking($categoryParticipants);
+                $allLeaders = $semuaLeaders;
+
+                // Separate by gender
+                $putraLeaders = collect($allLeaders)
+                    ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putra')
+                    ->values()
+                    ->all();
+
+                $putriLeaders = collect($allLeaders)
+                    ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putri')
+                    ->values()
+                    ->all();
+
+                // Add participants without scores at the bottom
+                $leadersIds = collect($allLeaders)->pluck('participant_id')->toArray();
+                $noScoreParticipants = $categoryParticipants
+                    ->filter(fn ($p) => !in_array($p->id, $leadersIds));
+
+                foreach (['putra', 'putri'] as $gender) {
+                    $noScoreOfGender = $noScoreParticipants->filter(
+                        fn ($p) => strtolower((string) $p->gender) === $gender
+                    );
+
+                    foreach ($noScoreOfGender as $participant) {
+                        $leaderData = [
+                            'name' => $participant->name,
+                            'district' => $participant->district?->name ?? '-',
+                            'lot_number' => $participant->lot_number,
+                            'average_score' => '0.00',
+                            'current_round' => '-',
+                            'participant_id' => $participant->id,
+                        ];
+
+                        if ($gender === 'putra') {
+                            $putraLeaders[] = $leaderData;
+                        } else {
+                            $putriLeaders[] = $leaderData;
+                        }
+                    }
+                }
+            }
+
+            $categoryRankings[$category->id] = [
+                'category' => $category,
+                'putra' => $putraLeaders,
+                'putri' => $putriLeaders,
+                'total_participants' => $categoryParticipants->count(),
+            ];
+        }
+
+        // MFQ Categories
+        $mfqCategories = CompetitionCategory::query()
+            ->whereIn('id', [24, 25])
+            ->orderBy('id')
+            ->get();
+
+        $mfqSessions = \App\Models\MfqSession::query()
+            ->with(['category', 'results.participant.district'])
+            ->where('status', 'completed')
+            ->get();
+
+        $mfqRankings = $this->buildMfqRankingsData($mfqSessions);
+
+        // Title based on filter type
+        $filterTitle = match ($filterType) {
+            'penyisihan' => 'Babak Penyisihan',
+            'final' => 'Babak Final',
+            'juara' => 'Rekap Juara',
+            default => 'Rekap Ranking Lengkap',
+        };
+
+        $html = view('pages.leaderboard-print', [
+            'categories' => $categories,
+            'categoryRankings' => $categoryRankings,
+            'mfqCategories' => $mfqCategories,
+            'mfqRankings' => $mfqRankings,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'totalParticipants' => $participants->count(),
+            'filterType' => $filterType,
+            'filterTitle' => $filterTitle,
+        ])->render();
+
+        return response($html)->header('Content-Type', 'text/html');
+    }
+
+    /**
      * Build MFQ rankings data for all categories
      * Format: ranking per district (sesuai dengan scoring-mfq-new.php)
      */
@@ -2375,6 +2657,7 @@ class PageController extends Controller
                     'category' => $participant->category?->name ?? '-',
                     'branch' => $participant->category?->branch ?? '-',
                     'gender' => $participant->gender ?? null,
+                    'lot_number' => $participant->lot_number,
                     'round_label' => $roundLabel,
                     'latest_score' => number_format($latestScoreValue, 2),
                     'average_score' => number_format($averageScore, 2),
@@ -2466,6 +2749,7 @@ class PageController extends Controller
                 'category' => $participant->category?->name ?? '-',
                 'branch' => $participant->category?->branch ?? '-',
                 'gender' => $participant->gender ?? null,
+                'lot_number' => $participant->lot_number,
                 'current_round' => $currentRound,
                 'latest_score' => number_format($scoreValue, 2),
                 'average_score' => number_format($scoreValue, 2),
