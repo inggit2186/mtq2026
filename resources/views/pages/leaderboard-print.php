@@ -579,7 +579,11 @@
                                             <?php endif; ?>
                                         </td>
                                         <td class="score-cell">
-                                            <div class="score-value"><?= number_format((float) $rank['total_score'], 2) ?></div>
+                                            <?php
+                                            $scoreVal = (float) $rank['total_score'];
+                                            $scoreDisplay = $scoreVal > 0 ? number_format($scoreVal, 0) : '-';
+                                            ?>
+                                            <div class="score-value"><?= e($scoreDisplay) ?></div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
