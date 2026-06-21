@@ -726,6 +726,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                     <?php if (! $setupCreated || $setupEditable): ?>
                     <form method="POST" action="<?= e(route('scoring.settings.store')) ?>" class="mt-6 grid gap-4" data-loading-text="Menyimpan konfigurasi penilaian..."
+                        x-on:submit.prevent="Object.keys(rounds).forEach(key => _syncHiddenInputs(key)); $el.submit()"
                         x-data="scoringRoundSetupForm({
                             rounds: <?= e(json_encode($defaultRoundForms, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
                             activeRound: <?= e(json_encode(array_key_exists(strtolower($selectedJudgingRound), $roundFormKeys) ? strtolower($selectedJudgingRound) : 'penyisihan', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)) ?>,
@@ -734,10 +735,10 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         })">
                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                         <?php foreach ($roundFormKeys as $roundLabel => $roundKey): ?>
-                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_names_text]" :value="roundJudgeNamesText('<?= e($roundKey) ?>')">
-                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][scoring_points_text]" :value="roundScoringPointsText('<?= e($roundKey) ?>')">
-                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_count]" :value="rounds['<?= e($roundKey) ?>'].judgeCount">
-                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_ids]" :value="JSON.stringify(roundJudgeIds('<?= e($roundKey) ?>'))">
+                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_names_text]" x-model="rounds['<?= e($roundKey) ?>']._judgeNamesText">
+                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][scoring_points_text]" x-model="rounds['<?= e($roundKey) ?>']._scoringPointsText">
+                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_count]" x-model.number="rounds['<?= e($roundKey) ?>'].judgeCount">
+                            <input type="hidden" name="rounds[<?= e($roundKey) ?>][judge_ids]" x-model="rounds['<?= e($roundKey) ?>']._judgeIdsJson">
                         <?php endforeach; ?>
 
                         <input type="hidden" name="competition_category_id" value="<?= e($selectedCategory?->id ?? '') ?>">
@@ -869,7 +870,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             <template x-for="judge in availableJudges.filter(j => categoryJudgeIds.includes(j.id) && !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'sk-' + judge.id">
                                                                 <button type="button"
                                                                     class="flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3 text-left transition hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:scale-[1.01]"
-                                                                    x-on:click="rounds.<?= e($activeRoundKey) ?>.judgeNames.push(judge.nama); rounds.<?= e($activeRoundKey) ?>.judgeCount = Math.min(15, rounds.<?= e($activeRoundKey) ?>.judgeNames.length); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
+                                                                    x-on:click="rounds.<?= e($activeRoundKey) ?>.judgeNames.push(judge.nama); rounds.<?= e($activeRoundKey) ?>.judgeCount = Math.min(15, rounds.<?= e($activeRoundKey) ?>.judgeNames.length); _syncHiddenInputs('<?= e($activeRoundKey) ?>'); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
                                                                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/15 text-xs font-bold text-cyan-200">
                                                                         <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
                                                                     </span>
@@ -899,7 +900,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                                             <template x-for="judge in availableJudges.filter(j => !categoryJudgeIds.includes(j.id) && !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase())))" :key="'other-' + judge.id">
                                                                 <button type="button"
                                                                     class="flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-800/30 p-3 text-left transition hover:border-amber-400/30 hover:bg-amber-400/5 hover:scale-[1.01]"
-                                                                    x-on:click="rounds.<?= e($activeRoundKey) ?>.judgeNames.push(judge.nama); rounds.<?= e($activeRoundKey) ?>.judgeCount = Math.min(15, rounds.<?= e($activeRoundKey) ?>.judgeNames.length); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
+                                                                    x-on:click="rounds.<?= e($activeRoundKey) ?>.judgeNames.push(judge.nama); rounds.<?= e($activeRoundKey) ?>.judgeCount = Math.min(15, rounds.<?= e($activeRoundKey) ?>.judgeNames.length); _syncHiddenInputs('<?= e($activeRoundKey) ?>'); $nextTick(() => { if (availableJudges.filter(j => !rounds.<?= e($activeRoundKey) ?>.judgeNames.includes(j.nama) && (!judgeSearchQuery || j.nama.toLowerCase().includes(judgeSearchQuery.toLowerCase()))).length === 0) judgeModalOpen = null; })">
                                                                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-600/40 bg-slate-800/50 text-xs font-bold text-slate-400">
                                                                         <span x-text="availableJudges.findIndex(j => j.id === judge.id) + 1"></span>
                                                                     </span>
@@ -2409,6 +2410,12 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                             ? (round.scoring_points ?? round.scoringPoints)
                             : [''];
                         round.judgeCount = Math.max(1, Math.min(15, round.judgeNames.length || 1));
+
+                        // Initialize hidden input sync properties
+                        round._judgeNamesText = this._getJudgeNamesText(roundKey);
+                        round._scoringPointsText = this._getScoringPointsText(roundKey);
+                        round._judgeIdsJson = JSON.stringify(this._getJudgeIds(roundKey));
+
                         this.rounds[roundKey] = round;
                         this.rounds[roundKey].scoringPoints = this.rounds[roundKey].scoringPoints
                             .map((value) => String(value ?? '').trim())
@@ -2416,9 +2423,46 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         if (!this.rounds[roundKey].scoringPoints.length) {
                             this.rounds[roundKey].scoringPoints = [''];
                         }
+                        // Update hidden inputs after cleaning
+                        this.rounds[roundKey]._judgeNamesText = this._getJudgeNamesText(roundKey);
+                        this.rounds[roundKey]._scoringPointsText = this._getScoringPointsText(roundKey);
                     });
                     if (!Object.prototype.hasOwnProperty.call(this.rounds, this.activeRound)) {
                         this.activeRound = Object.keys(this.rounds)[0] ?? 'penyisihan';
+                    }
+                },
+                // Helper methods for hidden input sync
+                _getJudgeNamesText(roundKey) {
+                    return (this.rounds[roundKey]?.judgeNames ?? [])
+                        .map((value) => String(value ?? '').trim())
+                        .filter(Boolean)
+                        .join('\n');
+                },
+                _getScoringPointsText(roundKey) {
+                    return (this.rounds[roundKey]?.scoringPoints ?? [])
+                        .map((value) => String(value ?? '').trim())
+                        .filter(Boolean)
+                        .join('\n');
+                },
+                _getJudgeIds(roundKey) {
+                    const judgeNames = (this.rounds[roundKey]?.judgeNames ?? [])
+                        .map((value) => String(value ?? '').trim())
+                        .filter(Boolean);
+                    const savedIds = this.rounds[roundKey]?.judge_ids ?? [];
+                    if (savedIds.length === judgeNames.length) {
+                        return savedIds;
+                    }
+                    return judgeNames.map((name) => {
+                        const judge = this.availableJudges.find((j) => j.nama.toLowerCase() === name.toLowerCase());
+                        return judge ? judge.id : name;
+                    });
+                },
+                // Sync hidden inputs when data changes
+                _syncHiddenInputs(roundKey) {
+                    if (this.rounds[roundKey]) {
+                        this.rounds[roundKey]._judgeNamesText = this._getJudgeNamesText(roundKey);
+                        this.rounds[roundKey]._scoringPointsText = this._getScoringPointsText(roundKey);
+                        this.rounds[roundKey]._judgeIdsJson = JSON.stringify(this._getJudgeIds(roundKey));
                     }
                 },
                 roundJudgeCount(roundKey) {
@@ -2526,6 +2570,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     if (round.judgeNames.length > total) {
                         round.judgeNames = round.judgeNames.slice(0, total);
                     }
+                    this._syncHiddenInputs(roundKey);
                 },
                 addJudge(roundKey) {
                     const round = this.rounds[roundKey];
@@ -2539,6 +2584,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 
                     round.judgeCount = this.roundJudgeCount(roundKey) + 1;
                     round.judgeNames.push('');
+                    this._syncHiddenInputs(roundKey);
                 },
                 removeJudge(roundKey, index) {
                     const round = this.rounds[roundKey];
@@ -2552,9 +2598,11 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                         this.rounds[roundKey].judgeNames = [''];
                         round.judgeCount = 1;
                     }
+                    this._syncHiddenInputs(roundKey);
                 },
                 addPoint(roundKey) {
                     this.rounds[roundKey].scoringPoints.push('');
+                    this._syncHiddenInputs(roundKey);
                 },
                 removePoint(roundKey, index) {
                     if (this.rounds[roundKey].scoringPoints.length <= 1) {
@@ -2562,6 +2610,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     }
 
                     this.rounds[roundKey].scoringPoints.splice(index, 1);
+                    this._syncHiddenInputs(roundKey);
                 },
                 movePointUp(roundKey, index) {
                     if (index <= 0) {
@@ -2572,6 +2621,7 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                     const current = points[index];
                     points[index] = points[index - 1];
                     points[index - 1] = current;
+                    this._syncHiddenInputs(roundKey);
                 },
             };
         }

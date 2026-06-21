@@ -946,7 +946,7 @@ class ScoringController extends Controller
     {
         $configs = [];
 
-        foreach (self::ROUND_KEYS as $roundLabel) {
+        foreach (self::ROUND_KEYS as $roundKey => $roundLabel) {
             $configs[$roundLabel] = $this->roundConfigForSetting($branch, $scoringSetting, $roundLabel, $fallbackName, $availableJudgeNames);
         }
 

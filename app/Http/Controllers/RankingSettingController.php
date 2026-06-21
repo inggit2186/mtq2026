@@ -17,7 +17,7 @@ class RankingSettingController extends Controller
      */
     public function index(): View
     {
-        $rankingSettings = RankingSetting::with('category')
+        $rankingSettings = RankingSetting::with(['category', 'finalistCategory'])
             ->orderBy('is_active', 'desc')
             ->orderBy('sort_order')
             ->get();
@@ -53,6 +53,8 @@ class RankingSettingController extends Controller
             'judging_round' => ['required', 'in:Penyisihan,Final'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+            'finalist_category_id' => ['nullable', 'integer', 'exists:competition_categories,id'],
+            'finalist_display_name' => ['nullable', 'string', 'max:255'],
         ]);
 
         $maxSortOrder = RankingSetting::max('sort_order') ?? 0;
@@ -79,6 +81,8 @@ class RankingSettingController extends Controller
             'judging_round' => ['required', 'in:Penyisihan,Final'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+            'finalist_category_id' => ['nullable', 'integer', 'exists:competition_categories,id'],
+            'finalist_display_name' => ['nullable', 'string', 'max:255'],
         ]);
 
         $validated['is_active'] = $validated['is_active'] ?? false;

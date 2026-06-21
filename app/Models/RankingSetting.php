@@ -15,6 +15,8 @@ class RankingSetting extends Model
         'judging_round',
         'sort_order',
         'is_active',
+        'finalist_category_id',
+        'finalist_display_name',
     ];
 
     protected function casts(): array
@@ -29,6 +31,31 @@ class RankingSetting extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(CompetitionCategory::class, 'competition_category_id');
+    }
+
+    public function finalistCategory(): BelongsTo
+    {
+        return $this->belongsTo(CompetitionCategory::class, 'finalist_category_id');
+    }
+
+    /**
+     * Check if this ranking is for finalist announcement
+     */
+    public function isFinalistAnnouncement(): bool
+    {
+        return $this->finalist_category_id !== null;
+    }
+
+    /**
+     * Get display name for finalist announcement
+     */
+    public function getFinalistDisplayName(): string
+    {
+        if ($this->finalist_display_name) {
+            return $this->finalist_display_name;
+        }
+
+        return $this->finalistCategory?->name ?? 'Pengumuman Finalis';
     }
 
     /**

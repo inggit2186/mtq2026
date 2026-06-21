@@ -153,28 +153,46 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
             <?php else: ?>
                 <div class="space-y-3">
                     <?php foreach($rankingSettings as $setting): ?>
-                    <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/50 p-4 transition-colors hover:bg-slate-900/80">
+                    <div class="flex items-center justify-between rounded-xl border <?= $setting->is_active ? ($setting->finalist_category_id ? 'border-amber-400/30 bg-gradient-to-r from-amber-900/20 to-slate-900/50' : 'border-slate-800 bg-slate-900/50') : 'border-slate-800 bg-slate-900/30 opacity-60' ?> p-4 transition-colors hover:bg-slate-900/80">
                         <div class="flex items-center gap-4">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-xl <?= $setting->is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700/50 text-slate-400' ?>">
-                                <?= $setting->is_active ? mtq_icon('check-circle', 'h-5 w-5') : mtq_icon('x-circle', 'h-5 w-5') ?>
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl <?= $setting->is_active ? ($setting->finalist_category_id ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300') : 'bg-slate-700/50 text-slate-400' ?>">
+                                <?php if($setting->finalist_category_id): ?>
+                                    <?= mtq_icon('star', 'h-5 w-5') ?>
+                                <?php else: ?>
+                                    <?= $setting->is_active ? mtq_icon('check-circle', 'h-5 w-5') : mtq_icon('x-circle', 'h-5 w-5') ?>
+                                <?php endif; ?>
                             </div>
                             <div>
                                 <div class="flex items-center gap-2">
-                                    <h4 class="font-semibold text-white <?= !$setting->is_active ? 'opacity-50' : '' ?>">
+                                    <h4 class="font-semibold text-white">
                                         <?= e($setting->name) ?>
                                     </h4>
-                                    <?php if($setting->category): ?>
-                                        <span class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-xs font-medium text-cyan-200">
-                                            <?= e($setting->category->name) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="rounded-full border border-purple-400/30 bg-purple-400/10 px-2 py-0.5 text-xs font-medium text-purple-200">
-                                            Semua Golongan
+                                    <?php if($setting->finalist_category_id): ?>
+                                        <span class="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                                            <?= mtq_icon('star', 'h-3 w-3') ?> Finalis
                                         </span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                    <span><?= e($setting->display_label) ?></span>
+                                    <?php if($setting->finalist_category_id): ?>
+                                        <span class="text-amber-400/80 font-medium">
+                                            <?= e($setting->getFinalistDisplayName()) ?>
+                                        </span>
+                                        <span class="text-slate-500">|</span>
+                                        <span>Menampilkan juara babak Penyisihan</span>
+                                    <?php else: ?>
+                                        <?php if($setting->category): ?>
+                                            <span class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-xs font-medium text-cyan-200">
+                                                <?= e($setting->category->name) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="rounded-full border border-purple-400/30 bg-purple-400/10 px-2 py-0.5 text-xs font-medium text-purple-200">
+                                                Semua Golongan
+                                            </span>
+                                        <?php endif; ?>
+                                        <span class="text-slate-500">|</span>
+                                        <span><?= e($setting->display_label) ?></span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -194,6 +212,8 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                                         'judging_round' => $setting->judging_round,
                                         'sort_order' => $setting->sort_order,
                                         'is_active' => (bool)$setting->is_active,
+                                        'finalist_category_id' => $setting->finalist_category_id,
+                                        'finalist_display_name' => $setting->finalist_display_name,
                                     ], JSON_HEX_APOS | JSON_HEX_QUOT)) ?>)"
                                     class="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 transition-colors hover:border-amber-400/50 hover:text-amber-300"
                                     title="Edit">
@@ -258,55 +278,116 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                                    required>
                         </div>
 
-                        <!-- Category -->
-                        <div>
-                            <label class="mb-2 block text-sm font-semibold text-slate-300">Golongan</label>
-                            <select name="competition_category_id"
-                                    x-model="form.competition_category_id"
-                                    @change="loadScheduleDays()"
-                                    class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
-                                <option value="">Semua Golongan</option>
-                                <?php foreach($categories as $cat): ?>
-                                    <option value="<?= e($cat['id']) ?>"><?= e($cat['label']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                        <!-- Type Toggle -->
+                        <div class="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                            <label class="mb-3 block text-sm font-semibold text-slate-300">Jenis Ranking</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button"
+                                        @click="form.finalist_category_id = ''; form.finalist_display_name = ''"
+                                        :class="!form.finalist_category_id ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200' : 'border-slate-600 bg-slate-800/50 text-slate-400'"
+                                        class="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all">
+                                    <?= mtq_icon('trophy', 'h-4 w-4') ?>
+                                    Ranking Biasa
+                                </button>
+                                <button type="button"
+                                        @click="form.finalist_category_id = form.finalist_category_id || '<?= $categories[0]['id'] ?? '' ?>'; form.finalist_display_name = ''"
+                                        :class="form.finalist_category_id ? 'border-amber-400 bg-amber-400/10 text-amber-200' : 'border-slate-600 bg-slate-800/50 text-slate-400'"
+                                        class="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all">
+                                    <?= mtq_icon('star', 'h-4 w-4') ?>
+                                    Pengumuman Finalis
+                                </button>
+                            </div>
                         </div>
 
-                        <!-- Gender -->
-                        <div>
-                            <label class="mb-2 block text-sm font-semibold text-slate-300">Jenis Kelamin</label>
-                            <select name="gender"
-                                    x-model="form.gender"
-                                    class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
-                                <option value="all">Putra & Putri</option>
-                                <option value="putra">Putra</option>
-                                <option value="putri">Putri</option>
-                            </select>
+                        <!-- Normal Ranking Fields (shown when NOT finalist) -->
+                        <div x-show="!form.finalist_category_id" class="space-y-4">
+                            <!-- Category -->
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-300">Golongan</label>
+                                <select name="competition_category_id"
+                                        x-model="form.competition_category_id"
+                                        @change="loadScheduleDays()"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
+                                    <option value="">Semua Golongan</option>
+                                    <?php foreach($categories as $cat): ?>
+                                        <option value="<?= e($cat['id']) ?>"><?= e($cat['label']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <!-- Gender -->
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-300">Jenis Kelamin</label>
+                                <select name="gender"
+                                        x-model="form.gender"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
+                                    <option value="all">Putra & Putri</option>
+                                    <option value="putra">Putra</option>
+                                    <option value="putri">Putri</option>
+                                </select>
+                            </div>
+
+                            <!-- Schedule Day -->
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-300">Jadwal / Sesi</label>
+                                <select name="appearance_day"
+                                        x-model="form.appearance_day"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
+                                    <option value="">Keseluruhan (Semua Hari)</option>
+                                    <template x-for="day in scheduleDays" :key="day.index">
+                                        <option :value="day.index" x-text="day.display || day.name"></option>
+                                    </template>
+                                </select>
+                                <p class="mt-1 text-xs text-slate-500">Pilih jadwal penampilan atau kosongkan untuk ranking keseluruhan</p>
+                            </div>
+
+                            <!-- Judging Round -->
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-300">Babak Penilaian</label>
+                                <select name="judging_round"
+                                        x-model="form.judging_round"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
+                                    <option value="Penyisihan">Penyisihan</option>
+                                    <option value="Final">Final</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <!-- Schedule Day -->
-                        <div>
-                            <label class="mb-2 block text-sm font-semibold text-slate-300">Jadwal / Sesi</label>
-                            <select name="appearance_day"
-                                    x-model="form.appearance_day"
-                                    class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
-                                <option value="">Keseluruhan (Semua Hari)</option>
-                                <template x-for="day in scheduleDays" :key="day.index">
-                                    <option :value="day.index" x-text="day.display || day.name"></option>
-                                </template>
-                            </select>
-                            <p class="mt-1 text-xs text-slate-500">Pilih jadwal penampilan atau kosongkan untuk ranking keseluruhan</p>
-                        </div>
+                        <!-- Finalist Fields (shown when finalist mode is active) -->
+                        <div x-show="form.finalist_category_id" class="space-y-4">
+                            <div class="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <?= mtq_icon('star', 'h-5 w-5 text-amber-400') ?>
+                                    <span class="font-semibold text-amber-200">Pengumuman Finalis</span>
+                                </div>
+                                <p class="mb-4 text-sm text-slate-300">
+                                    Pengumuman finalis akan menampilkan juara dari babak <strong>Penyisihan</strong> golongan tertentu untuk晋级 ke babak <strong>Final</strong>.
+                                </p>
 
-                        <!-- Judging Round -->
-                        <div>
-                            <label class="mb-2 block text-sm font-semibold text-slate-300">Babak Penilaian</label>
-                            <select name="judging_round"
-                                    x-model="form.judging_round"
-                                    class="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-cyan-400">
-                                <option value="Penyisihan">Penyisihan</option>
-                                <option value="Final">Final</option>
-                            </select>
+                                <!-- Finalist Category Selection -->
+                                <div class="mb-4">
+                                    <label class="mb-2 block text-xs font-semibold text-amber-200">Pilih Golongan yang akan ditampilkan</label>
+                                    <select name="finalist_category_id"
+                                            x-model="form.finalist_category_id"
+                                            class="w-full rounded-xl border border-amber-400/30 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-amber-400">
+                                        <option value="">Pilih Golongan...</option>
+                                        <?php foreach($categories as $cat): ?>
+                                            <option value="<?= e($cat['id']) ?>"><?= e($cat['label']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <!-- Finalist Display Name -->
+                                <div>
+                                    <label class="mb-2 block text-xs font-semibold text-amber-200">Nama Tampilan (Opsional)</label>
+                                    <input type="text"
+                                           name="finalist_display_name"
+                                           x-model="form.finalist_display_name"
+                                           placeholder="Contoh: Finalis Qiroah Putra"
+                                           class="w-full rounded-xl border border-amber-400/30 bg-slate-900/80 px-4 py-3 text-white outline-none focus:border-amber-400">
+                                    <p class="mt-2 text-xs text-slate-400">Kosongkan untuk menggunakan format default: "Finalis [Nama Golongan]"</p>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Sort Order -->
@@ -367,6 +448,8 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                     judging_round: 'Penyisihan',
                     sort_order: 0,
                     is_active: false,
+                    finalist_category_id: '',
+                    finalist_display_name: '',
                 },
                 scheduleDays: [],
 
@@ -402,6 +485,8 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                         judging_round: setting.judging_round || 'Penyisihan',
                         sort_order: setting.sort_order || 0,
                         is_active: setting.is_active || false,
+                        finalist_category_id: setting.finalist_category_id || '',
+                        finalist_display_name: setting.finalist_display_name || '',
                     };
                     this.showForm = true;
                     this.$nextTick(() => {
@@ -420,6 +505,8 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                         judging_round: 'Penyisihan',
                         sort_order: 0,
                         is_active: false,
+                        finalist_category_id: '',
+                        finalist_display_name: '',
                     };
                     this.scheduleDays = [];
                     this.showForm = true;

@@ -933,6 +933,70 @@ class ParticipantResultController extends Controller
     }
 
     /**
+     * Calculate priority values from score entries for a specific category
+     * Handles both new JSON format (with point_averages) and legacy format
+     */
+    protected function calculatePriorityValuesFromScores($scores, ?int $categoryId, array $priorityKeys): array
+    {
+        $scoreCollection = collect($scores);
+
+        if ($scoreCollection->isEmpty()) {
+            return array_fill(0, count($priorityKeys), 0.0);
+        }
+
+        // Try to get point_averages from new JSON format first
+        $firstEntry = $scoreCollection->first();
+        $allJudgeScores = method_exists($firstEntry, 'getAllJudgeScores')
+            ? $firstEntry->getAllJudgeScores()
+            : ($firstEntry->scores ?? []);
+
+        if (!empty($allJudgeScores)) {
+            $firstJudge = array_key_first($allJudgeScores);
+            $pointAverages = $allJudgeScores[$firstJudge]['point_averages'] ?? null;
+
+            if ($pointAverages !== null) {
+                return collect($priorityKeys)
+                    ->map(fn (string $key): float => (float) ($pointAverages[$key] ?? 0))
+                    ->values()
+                    ->all();
+            }
+
+            // Fallback: calculate from individual judge scores
+            $pointTotals = [];
+            $pointCounts = [];
+
+            foreach ($allJudgeScores as $judgeData) {
+                $judgeScores = $judgeData['scores'] ?? [];
+                foreach ($priorityKeys as $key) {
+                    $value = $judgeScores[$key] ?? null;
+                    if ($value !== null && $value !== '' && (float) $value >= 1) {
+                        $pointTotals[$key] = ($pointTotals[$key] ?? 0) + (float) $value;
+                        $pointCounts[$key] = ($pointCounts[$key] ?? 0) + 1;
+                    }
+                }
+            }
+
+            return collect($priorityKeys)
+                ->map(function (string $key) use ($pointTotals, $pointCounts): float {
+                    $total = $pointTotals[$key] ?? 0;
+                    $count = $pointCounts[$key] ?? 0;
+
+                    return $count > 0 ? round($total / $count, 2) : 0;
+                })
+                ->values()
+                ->all();
+        }
+
+        // Legacy fallback: use score_breakdown
+        return collect($priorityKeys)
+            ->map(function (string $key) use ($scoreCollection): float {
+                return (float) ($scoreCollection->avg(fn ($entry) => (float) (($entry->score_breakdown[$key] ?? 0))) ?? 0);
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * Get rankings based on admin settings for the results page
      */
     protected function getRankingsForResults(?int $categoryId = null): array
@@ -940,7 +1004,7 @@ class ParticipantResultController extends Controller
         try {
             // Always show ALL active rankings regardless of selected participant's category
             $activeRankings = RankingSetting::active()
-                ->with('category')
+                ->with(['category', 'finalistCategory'])
                 ->orderBy('sort_order')
                 ->get();
 
@@ -962,6 +1026,9 @@ class ParticipantResultController extends Controller
                     'appearance_day' => $setting->appearance_day,
                     'judging_round' => $setting->judging_round,
                     'sort_order' => $setting->sort_order,
+                    'finalist_category_id' => $setting->finalist_category_id,
+                    'finalist_display_name' => $setting->getFinalistDisplayName(),
+                    'is_finalist_announcement' => $setting->isFinalistAnnouncement(),
                     'data' => $this->buildRankingData($setting),
                 ];
             })->values()->all();
@@ -979,10 +1046,12 @@ class ParticipantResultController extends Controller
      */
     protected function buildRankingData(RankingSetting $setting): array
     {
-        $categoryId = $setting->competition_category_id;
+        // Use finalist_category_id if this is a finalist announcement, otherwise use competition_category_id
+        $categoryId = $setting->finalist_category_id ?? $setting->competition_category_id;
         $judgingRound = $setting->judging_round;
         $appearanceDay = $setting->appearance_day;
         $gender = $setting->gender;
+        $isFinalistAnnouncement = $setting->isFinalistAnnouncement();
 
         // Get appearance schedule for lot number filtering and schedule info
         $appearanceSchedule = $categoryId
@@ -1033,8 +1102,12 @@ class ParticipantResultController extends Controller
         }
 
         // Build ranking data - filter scores by judging round if specified
+        // Also get priority keys and labels for tiebreaker
+        $priorityKeys = $this->priorityKeysForCategory($categoryId);
+        $priorityLabels = app(PageController::class)->priorityLabelsForCategory($categoryId);
+
         $rankedData = $participants
-            ->map(function ($participant) use ($judgingRound) {
+            ->map(function ($participant) use ($judgingRound, $categoryId, $priorityKeys) {
                 $scores = $participant->scores ?? collect();
 
                 // Filter scores by judging round if specified
@@ -1060,6 +1133,9 @@ class ParticipantResultController extends Controller
                     $averageScore = $count > 0 ? $totalScore / $count : 0;
                 }
 
+                // Calculate priority values for tiebreaker
+                $priorityValues = $this->calculatePriorityValuesFromScores($roundScores, $categoryId, $priorityKeys);
+
                 $lotNumber = $participant->lot_number ?? '';
                 $parts = explode('-', $lotNumber);
                 $lotSuffix = (int) end($parts);
@@ -1073,13 +1149,33 @@ class ParticipantResultController extends Controller
                     'district_name' => $participant->district?->name ?? '-',
                     'institution' => $participant->institution,
                     'average_score' => round((float) $averageScore, 2),
+                    'average_score_value' => (float) $averageScore,
+                    'priority_values' => $priorityValues,
                     'has_score' => $count > 0,
                     'score_count' => $count,
                 ];
             })
-            // Sort by average score descending, then by lot suffix ascending (tiebreaker)
-            ->sortByDesc(function ($item) {
-                return [$item['average_score'], 1000 - $item['lot_suffix']];
+            // Sort by average score descending, then by priority values as tiebreaker, then by lot suffix
+            ->sort(function ($left, $right): int {
+                // Primary: average_score descending
+                $scoreComparison = $right['average_score_value'] <=> $left['average_score_value'];
+                if ($scoreComparison !== 0) {
+                    return $scoreComparison;
+                }
+
+                // Tiebreaker: priority values in order (higher is better)
+                $maxPriorityCount = max(count($left['priority_values'] ?? []), count($right['priority_values'] ?? []));
+                for ($i = 0; $i < $maxPriorityCount; $i++) {
+                    $leftValue = (float) ($left['priority_values'][$i] ?? 0);
+                    $rightValue = (float) ($right['priority_values'][$i] ?? 0);
+                    $priorityComparison = $rightValue <=> $leftValue;
+                    if ($priorityComparison !== 0) {
+                        return $priorityComparison;
+                    }
+                }
+
+                // Final tiebreaker: lot suffix (lower is better)
+                return $left['lot_suffix'] <=> $right['lot_suffix'];
             })
             ->values();
 
@@ -1092,12 +1188,14 @@ class ParticipantResultController extends Controller
         $putra = $rankedData->filter(fn ($item) => ($item['gender'] ?? '') === 'putra')->values()
             ->map(function ($item, $index) {
                 $item['rank'] = $index + 1;
+                unset($item['average_score_value'], $item['priority_values']);
                 return $item;
             })->values();
 
         $putri = $rankedData->filter(fn ($item) => ($item['gender'] ?? '') === 'putri')->values()
             ->map(function ($item, $index) {
                 $item['rank'] = $index + 1;
+                unset($item['average_score_value'], $item['priority_values']);
                 return $item;
             })->values();
 
@@ -1109,6 +1207,10 @@ class ParticipantResultController extends Controller
             'total' => $rankedData->count(),
             'schedule_date' => $scheduleDate,
             'schedule_time' => $scheduleTime,
+            'is_finalist_announcement' => $isFinalistAnnouncement,
+            'finalist_display_name' => $setting->getFinalistDisplayName(),
+            'priority_labels' => array_values($priorityLabels),
+            'priority_keys' => $priorityKeys,
         ];
     }
 }
