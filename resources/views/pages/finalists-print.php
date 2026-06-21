@@ -167,6 +167,7 @@
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            page-break-after: always;
         }
 
         .category-header {
@@ -189,6 +190,16 @@
             margin-top: 2px;
         }
 
+        .msq-badge {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
         .category-meta {
             display: flex;
             gap: 15px;
@@ -200,6 +211,11 @@
             border-radius: 6px;
             font-size: 11px;
             font-weight: 600;
+        }
+
+        .mfq-badge {
+            background: rgba(255,255,255,0.2);
+            color: white;
         }
 
         /* Table */
@@ -280,6 +296,7 @@
         .name-cell {
             font-weight: 600;
             color: var(--text-dark);
+            max-width: 200px;
         }
 
         .district-info {
@@ -291,7 +308,8 @@
 
         /* Lot Cell */
         .lot-cell {
-            width: 80px;
+            width: 150px;
+            text-align: center;
         }
 
         .lot-badge {
@@ -302,6 +320,7 @@
             font-weight: 700;
             padding: 3px 10px;
             border-radius: 6px;
+            margin: 2px;
         }
 
         .no-lot {
@@ -311,7 +330,7 @@
 
         /* Score Cell */
         .score-cell {
-            width: 100px;
+            width: 90px;
             text-align: right;
         }
 
@@ -366,18 +385,18 @@
             background: rgba(8, 145, 178, 0.1);
             color: var(--cyan);
             font-weight: 700;
-            font-size: 10px;
+            font-size: 12px;
             text-transform: uppercase;
-            padding: 8px 12px;
+            padding: 10px 12px;
         }
 
         .putri-subheader td {
             background: rgba(190, 24, 93, 0.1);
             color: var(--pink);
             font-weight: 700;
-            font-size: 10px;
+            font-size: 12px;
             text-transform: uppercase;
-            padding: 8px 12px;
+            padding: 10px 12px;
         }
 
         /* Responsive */
@@ -436,24 +455,184 @@
         </button>
 
         <!-- Categories -->
+        <?php
+        $mfqCategoryIds = $mfqCategoryIds ?? [24, 25];
+        $districtParticipantCounts = $districtParticipantCounts ?? [];
+        ?>
         <?php foreach ($categories as $category): ?>
             <?php
             $catFinalists = $groupedFinalists->get($category->id, collect());
             $putraFinalists = $catFinalists->get('putra', collect());
             $putriFinalists = $catFinalists->get('putri', collect());
             $hasAny = $putraFinalists->isNotEmpty() || $putriFinalists->isNotEmpty();
+
+            // Check if MSQ or MFQ category
+            $isMfq = in_array($category->id, $mfqCategoryIds);
+            $isMsq = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+            $isMsqMfq = $isMfq || $isMsq;
+
+            // Header: "Cabang - Golongan"
+            $headerName = e($category->branch) . ' - ' . e($category->name);
+
+            // Count districts for MSQ/MFQ
+            $districtCount = 0;
+            if ($isMsqMfq) {
+                $allFinalists = $putraFinalists->merge($putriFinalists);
+                $districtCount = $allFinalists->map(fn ($f) => $f->participant?->district_id)->filter()->unique()->count();
+            }
             ?>
-            <div class="category-section">
-                <div class="category-header">
-                    <div>
-                        <div class="category-name"><?= e($category->name) ?></div>
-                        <div class="category-subtitle"><?= e($category->branch) ?> • Golongan #<?= $category->id ?></div>
+            <?php if ($isMsqMfq): ?>
+                <?php
+                // For MSQ/MFQ: limit to top 3 per gender
+                $putraTop3 = $putraFinalists->filter(fn ($f) => $f->finalist_rank <= 3)->take(3);
+                $putriTop3 = $putriFinalists->filter(fn ($f) => $f->finalist_rank <= 3)->take(3);
+                $hasTop3 = $putraTop3->isNotEmpty() || $putriTop3->isNotEmpty();
+                ?>
+                <div class="category-section" style="<?= $isMfq ? 'border-color: #7c3aed;' : '' ?>">
+                    <div class="category-header" style="<?= $isMfq ? 'background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);' : '' ?>">
+                        <div>
+                            <div class="category-name">
+                                <?= $headerName ?>
+                                <?php if ($isMsq): ?>
+                                    <span class="msq-badge">📌 Nilai per Kecamatan</span>
+                                <?php elseif ($isMfq): ?>
+                                    <span class="msq-badge">🏆 Per Kecamatan</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="category-meta">
+                            <span class="meta-badge <?= $isMfq ? 'mfq-badge' : '' ?>"><?= $districtCount ?> Kecamatan</span>
+                            <span class="meta-badge <?= $isMfq ? 'mfq-badge' : '' ?>"><?= $hasTop3 ? ($putraTop3->count() + $putriTop3->count()) : 0 ?> Finalis</span>
+                        </div>
                     </div>
-                    <div class="category-meta">
-                        <span class="meta-badge">Putra: <?= $putraFinalists->count() ?></span>
-                        <span class="meta-badge">Putri: <?= $putriFinalists->count() ?></span>
-                    </div>
+
+                    <table class="finalist-table">
+                        <thead>
+                            <tr>
+                                <th class="rank-cell">Rank</th>
+                                <th>Nama Representative</th>
+                                <th class="lot-cell">No. Lot</th>
+                                <th class="score-cell">Total Nilai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($hasTop3): ?>
+                                <?php if ($putraTop3->isNotEmpty()): ?>
+                                    <tr class="gender-subheader putra-subheader">
+                                        <td colspan="4">♂ Kategori Putra</td>
+                                    </tr>
+                                    <?php foreach ($putraTop3 as $finalist): ?>
+                                        <?php
+                                        $participantName = $finalist->participant?->name ?? '-';
+                                        if ($isMsqMfq) {
+                                            $key = $category->id . '_' . $finalist->participant?->district_id;
+                                            $count = $districtParticipantCounts[$key] ?? 1;
+                                            if ($count > 1) {
+                                                $participantName .= ' dkk.';
+                                            }
+                                        }
+                                        ?>
+                                        <tr>
+                                            <td class="rank-cell">
+                                                <span class="rank-badge rank-<?= $finalist->finalist_rank ?>">
+                                                    <?php if ($finalist->finalist_rank <= 3): ?>
+                                                        <?= $finalist->finalist_rank == 1 ? '🥇' : ($finalist->finalist_rank == 2 ? '🥈' : '🥉') ?>
+                                                    <?php else: ?>
+                                                        <?= $finalist->finalist_rank ?>
+                                                    <?php endif; ?>
+                                                </span>
+                                            </td>
+                                            <td class="name-cell">
+                                                <?= e($participantName) ?>
+                                                <div class="district-info">📍 <?= e($finalist->participant?->district?->name ?? '-') ?></div>
+                                            </td>
+                                            <td class="lot-cell">
+                                                <?php if ($finalist->participant?->lot_number): ?>
+                                                    <span class="lot-badge"><?= $finalist->participant->lot_number ?></span>
+                                                <?php else: ?>
+                                                    <span class="no-lot">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="score-cell">
+                                                <?php
+                                                $scoreVal = (float) ($finalist->score ?? 0);
+                                                // MSQ: 2 decimal, MFQ: 0 decimal
+                                                $decimalPlaces = $isMfq ? 0 : 2;
+                                                $scoreDisplay = $scoreVal > 0 ? number_format($scoreVal, $decimalPlaces) : '-';
+                                                ?>
+                                                <div class="score-value" style="<?= $isMfq ? 'color: #7c3aed;' : '' ?>"><?= e($scoreDisplay) ?></div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+
+                                <?php if ($putriTop3->isNotEmpty()): ?>
+                                    <tr class="gender-subheader putri-subheader">
+                                        <td colspan="4">♀ Kategori Putri</td>
+                                    </tr>
+                                    <?php foreach ($putriTop3 as $finalist): ?>
+                                        <?php
+                                        $participantName = $finalist->participant?->name ?? '-';
+                                        if ($isMsqMfq) {
+                                            $key = $category->id . '_' . $finalist->participant?->district_id;
+                                            $count = $districtParticipantCounts[$key] ?? 1;
+                                            if ($count > 1) {
+                                                $participantName .= ' dkk.';
+                                            }
+                                        }
+                                        ?>
+                                        <tr>
+                                            <td class="rank-cell">
+                                                <span class="rank-badge rank-<?= $finalist->finalist_rank ?>">
+                                                    <?php if ($finalist->finalist_rank <= 3): ?>
+                                                        <?= $finalist->finalist_rank == 1 ? '🥇' : ($finalist->finalist_rank == 2 ? '🥈' : '🥉') ?>
+                                                    <?php else: ?>
+                                                        <?= $finalist->finalist_rank ?>
+                                                    <?php endif; ?>
+                                                </span>
+                                            </td>
+                                            <td class="name-cell">
+                                                <?= e($participantName) ?>
+                                                <div class="district-info">📍 <?= e($finalist->participant?->district?->name ?? '-') ?></div>
+                                            </td>
+                                            <td class="lot-cell">
+                                                <?php if ($finalist->participant?->lot_number): ?>
+                                                    <span class="lot-badge"><?= $finalist->participant->lot_number ?></span>
+                                                <?php else: ?>
+                                                    <span class="no-lot">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="score-cell">
+                                                <?php
+                                                $scoreVal = (float) ($finalist->score ?? 0);
+                                                // MSQ: 2 decimal, MFQ: 0 decimal
+                                                $decimalPlaces = $isMfq ? 0 : 2;
+                                                $scoreDisplay = $scoreVal > 0 ? number_format($scoreVal, $decimalPlaces) : '-';
+                                                ?>
+                                                <div class="score-value" style="<?= $isMfq ? 'color: #7c3aed;' : '' ?>"><?= e($scoreDisplay) ?></div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <tr class="empty-row">
+                                    <td colspan="4">Belum ada finalis untuk golongan ini. Generate terlebih dahulu.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
+            <?php else: ?>
+                <div class="category-section">
+                    <div class="category-header">
+                        <div>
+                            <div class="category-name"><?= $headerName ?></div>
+                        </div>
+                        <div class="category-meta">
+                            <span class="meta-badge">Putra: <?= $putraFinalists->count() ?></span>
+                            <span class="meta-badge">Putri: <?= $putriFinalists->count() ?></span>
+                        </div>
+                    </div>
 
                 <table class="finalist-table">
                     <thead>
@@ -544,13 +723,15 @@
                         <?php endif; ?>
                     </tbody>
                 </table>
-            </div>
+                </div>
+            <?php endif; ?>
         <?php endforeach; ?>
 
         <!-- Footer -->
         <footer class="footer">
             <div class="no-print" style="display: flex; justify-content: center; gap: 20px; margin-bottom: 15px;">
                 <img src="/images/logo-kabupaten.webp" alt="Logo" style="height: 35px; opacity: 0.7;">
+                <img src="/images/favicon.webp" alt="Logo" style="height: 35px; opacity: 0.7;">
                 <img src="/images/logo-lptq.webp" alt="Logo" style="height: 35px; opacity: 0.7;">
                 <img src="/images/emtq-resmi.webp" alt="Logo" style="height: 35px; opacity: 0.7;">
             </div>

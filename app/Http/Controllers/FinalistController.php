@@ -23,12 +23,13 @@ class FinalistController extends Controller
 
         $categoryId = $request->get('category_id');
 
-        // Get all categories (excluding MFQ which uses different system)
+        // Get all categories including MSQ and MFQ
         $categories = CompetitionCategory::query()
-            ->whereNotIn('id', [24, 25]) // Exclude MFQ categories
-            ->orderBy('branch')
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
+
+        // MFQ category IDs
+        $mfqCategoryIds = [24, 25];
 
         // Get finalists with optional filtering
         $finalistsQuery = Finalist::with(['participant.district', 'competitionCategory'])
@@ -53,6 +54,27 @@ class FinalistController extends Controller
             ->groupBy('competition_category_id')
             ->map(fn ($items) => $items->pluck('gender')->toArray());
 
+        // Get all participants for MSQ/MFQ to count district participants
+        $msqMfqCategoryIds = array_merge(
+            $mfqCategoryIds,
+            $categories->filter(fn ($c) => filled($c->maqra_system_type) && $c->maqra_system_type === 'syarhil')->pluck('id')->toArray()
+        );
+
+        $districtParticipantCounts = [];
+        if (!empty($msqMfqCategoryIds)) {
+            $msqMfqParticipants = \App\Models\Participant::query()
+                ->whereIn('competition_category_id', $msqMfqCategoryIds)
+                ->where('verification_status', 'verified')
+                ->get()
+                ->groupBy(fn ($p) => $p->competition_category_id.'_'.$p->district_id)
+                ->map(fn ($group) => $group->count())
+                ->toArray();
+
+            foreach ($msqMfqParticipants as $key => $count) {
+                $districtParticipantCounts[$key] = $count;
+            }
+        }
+
         return view('pages.finalists', [
             'assets' => app(PageController::class)->viteAssets(),
             'rolePanel' => app(PageController::class)->rolePanel((string) auth()->user()?->role),
@@ -60,6 +82,8 @@ class FinalistController extends Controller
             'groupedFinalists' => $groupedFinalists,
             'existingFinalists' => $existingFinalists,
             'selectedCategoryId' => $categoryId,
+            'mfqCategoryIds' => $mfqCategoryIds,
+            'districtParticipantCounts' => $districtParticipantCounts,
         ]);
     }
 
@@ -70,9 +94,8 @@ class FinalistController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
 
-        // Get all categories with finalists
+        // Get all categories including MFQ
         $categories = CompetitionCategory::query()
-            ->whereNotIn('id', [24, 25])
             ->orderBy('id') // Sort by category ID
             ->get();
 
@@ -86,10 +109,36 @@ class FinalistController extends Controller
         $groupedFinalists = $finalists->groupBy('competition_category_id')
             ->map(fn ($catFinalists) => $catFinalists->groupBy('gender'));
 
+        // MFQ category IDs
+        $mfqCategoryIds = [24, 25]; // Fahmil Quran
+
+        // Get all participants for MSQ/MFQ to count district participants
+        $msqMfqCategoryIds = array_merge(
+            $mfqCategoryIds,
+            $categories->filter(fn ($c) => filled($c->maqra_system_type) && $c->maqra_system_type === 'syarhil')->pluck('id')->toArray()
+        );
+
+        $districtParticipantCounts = [];
+        if (!empty($msqMfqCategoryIds)) {
+            $msqMfqParticipants = \App\Models\Participant::query()
+                ->whereIn('competition_category_id', $msqMfqCategoryIds)
+                ->where('verification_status', 'verified')
+                ->get()
+                ->groupBy(fn ($p) => $p->competition_category_id.'_'.$p->district_id)
+                ->map(fn ($group) => $group->count())
+                ->toArray();
+
+            foreach ($msqMfqParticipants as $key => $count) {
+                $districtParticipantCounts[$key] = $count;
+            }
+        }
+
         $html = view('pages.finalists-print', [
             'categories' => $categories,
             'groupedFinalists' => $groupedFinalists,
             'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'mfqCategoryIds' => $mfqCategoryIds,
+            'districtParticipantCounts' => $districtParticipantCounts,
         ])->render();
 
         return response($html)->header('Content-Type', 'text/html');
@@ -98,6 +147,7 @@ class FinalistController extends Controller
     /**
      * Generate finalists for a specific category.
      * Takes top 3 from each gender (putra and putri).
+     * For MSQ/MFQ: 1 representative per district.
      */
     public function generate(Request $request, int $categoryId): JsonResponse
     {
@@ -105,13 +155,10 @@ class FinalistController extends Controller
 
         $category = CompetitionCategory::findOrFail($categoryId);
 
-        // Exclude MFQ categories
-        if (in_array($categoryId, [24, 25])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kategori MFQ tidak menggunakan sistem finalis yang sama.',
-            ], 400);
-        }
+        // Check if this is MSQ/MFQ category
+        $isMfq = in_array($categoryId, [24, 25]);
+        $isMsq = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+        $isMsqMfq = $isMfq || $isMsq;
 
         try {
             DB::beginTransaction();
@@ -134,43 +181,97 @@ class FinalistController extends Controller
 
             $createdFinalists = [];
 
-            // Process each gender separately
-            foreach ([Finalist::GENDER_MALE, Finalist::GENDER_FEMALE] as $gender) {
-                $genderParticipants = $participants->filter(
-                    fn ($p) => $p->gender === $gender
-                );
+            // For MSQ/MFQ: pick 1 representative per district
+            if ($isMsqMfq) {
+                $byDistrict = $participants->groupBy('district_id');
 
-                if ($genderParticipants->isEmpty()) {
-                    continue;
-                }
+                foreach ($byDistrict as $districtId => $districtParticipants) {
+                    // Get representative (with lot number, lowest lot first)
+                    $withLot = $districtParticipants->filter(fn ($p) => filled($p->lot_number));
+                    $representative = $withLot->isNotEmpty()
+                        ? $withLot->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first()
+                        : $districtParticipants->first();
 
-                // Calculate rankings for this gender
-                $rankings = $this->calculateRankings($genderParticipants);
+                    if (!$representative) {
+                        continue;
+                    }
 
-                // Take top 3
-                $topThree = $rankings->take(3);
+                    // Calculate score (from regular scores for MSQ, from mfq_results for MFQ)
+                    $score = 0;
+                    if ($isMfq) {
+                        $mfqResults = \App\Models\MfqResult::where('participant_id', $representative->id)->get();
+                        $score = $mfqResults->avg('total_score') ?? 0;
+                    } else {
+                        // MSQ: average score from regular scores
+                        $scores = $representative->scores ?? collect();
+                        $latestScore = $scores->sortByDesc('submitted_at')->first();
+                        $score = (float) ($latestScore?->score ?? 0);
+                    }
 
-                foreach ($topThree as $rank => $data) {
                     $finalist = Finalist::create([
-                        'participant_id' => $data['participant_id'],
+                        'participant_id' => $representative->id,
                         'competition_category_id' => $categoryId,
-                        'gender' => $gender,
-                        'finalist_rank' => $rank + 1,
-                        'score' => $data['score'],
-                        'round' => $data['round'],
+                        'gender' => $representative->gender,
+                        'finalist_rank' => 1, // Will be recalculated
+                        'score' => $score,
+                        'round' => 'Final',
                         'status' => Finalist::STATUS_PENDING,
                     ]);
 
                     $createdFinalists[] = [
                         'id' => $finalist->id,
                         'participant_id' => $finalist->participant_id,
-                        'participant_name' => $data['name'],
-                        'district' => $data['district'],
-                        'gender' => $gender,
-                        'rank' => $rank + 1,
-                        'score' => $data['score'],
-                        'round' => $data['round'],
+                        'participant_name' => $representative->name,
+                        'district' => $representative->district?->name ?? '-',
+                        'gender' => $representative->gender,
+                        'rank' => 1,
+                        'score' => $score,
+                        'round' => 'Final',
                     ];
+                }
+
+                // Recalculate ranks based on score
+                $this->recalculateMsqMfqRanks($categoryId);
+            } else {
+                // Regular category: top 3 per gender
+                // Process each gender separately
+                foreach ([Finalist::GENDER_MALE, Finalist::GENDER_FEMALE] as $gender) {
+                    $genderParticipants = $participants->filter(
+                        fn ($p) => $p->gender === $gender
+                    );
+
+                    if ($genderParticipants->isEmpty()) {
+                        continue;
+                    }
+
+                    // Calculate rankings for this gender
+                    $rankings = $this->calculateRankings($genderParticipants);
+
+                    // Take top 3
+                    $topThree = $rankings->take(3);
+
+                    foreach ($topThree as $rank => $data) {
+                        $finalist = Finalist::create([
+                            'participant_id' => $data['participant_id'],
+                            'competition_category_id' => $categoryId,
+                            'gender' => $gender,
+                            'finalist_rank' => $rank + 1,
+                            'score' => $data['score'],
+                            'round' => $data['round'],
+                            'status' => Finalist::STATUS_PENDING,
+                        ]);
+
+                        $createdFinalists[] = [
+                            'id' => $finalist->id,
+                            'participant_id' => $finalist->participant_id,
+                            'participant_name' => $data['name'],
+                            'district' => $data['district'],
+                            'gender' => $gender,
+                            'rank' => $rank + 1,
+                            'score' => $data['score'],
+                            'round' => $data['round'],
+                        ];
+                    }
                 }
             }
 
@@ -180,6 +281,7 @@ class FinalistController extends Controller
                 'category_id' => $categoryId,
                 'category_name' => $category->name,
                 'finalist_count' => count($createdFinalists),
+                'is_msq_mfq' => $isMsqMfq,
                 'generated_by' => auth()->id(),
             ]);
 
@@ -205,6 +307,29 @@ class FinalistController extends Controller
     }
 
     /**
+     * Recalculate ranks for MSQ/MFQ finalists based on score
+     */
+    protected function recalculateMsqMfqRanks(int $categoryId): void
+    {
+        $finalists = Finalist::where('competition_category_id', $categoryId)
+            ->orderByDesc('score')
+            ->orderBy('gender')
+            ->get();
+
+        $rank = 1;
+        $prevScore = null;
+        $sameRank = 0;
+
+        foreach ($finalists as $index => $finalist) {
+            if ($prevScore !== null && $finalist->score < $prevScore) {
+                $rank = $index + 1;
+            }
+            $finalist->update(['finalist_rank' => $rank]);
+            $prevScore = $finalist->score;
+        }
+    }
+
+    /**
      * Generate finalists for ALL categories at once.
      */
     public function generateAll(Request $request): JsonResponse
@@ -214,20 +339,25 @@ class FinalistController extends Controller
         try {
             DB::beginTransaction();
 
-            // Get all non-MFQ categories
+            // Get all categories including MFQ and MSQ
             $categories = CompetitionCategory::query()
-                ->whereNotIn('id', [24, 25])
-                ->orderBy('branch')
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
+
+            $mfqCategoryIds = [24, 25];
 
             $allResults = [];
             $totalFinalists = 0;
 
             foreach ($categories as $category) {
+                $categoryId = $category->id;
+                $isMfq = in_array($categoryId, $mfqCategoryIds);
+                $isMsq = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+                $isMsqMfq = $isMfq || $isMsq;
+
                 // Get all verified participants for this category with their scores
                 $participants = Participant::with(['scores', 'district'])
-                    ->where('competition_category_id', $category->id)
+                    ->where('competition_category_id', $categoryId)
                     ->where('verification_status', 'verified')
                     ->get();
 
@@ -236,39 +366,88 @@ class FinalistController extends Controller
                 }
 
                 // Clear existing finalists for this category
-                Finalist::where('competition_category_id', $category->id)->delete();
+                Finalist::where('competition_category_id', $categoryId)->delete();
 
                 $categoryResults = [];
 
-                foreach ([Finalist::GENDER_MALE, Finalist::GENDER_FEMALE] as $gender) {
-                    $genderParticipants = $participants->filter(
-                        fn ($p) => $p->gender === $gender
-                    );
+                // For MSQ/MFQ: 1 representative per district
+                if ($isMsqMfq) {
+                    $byDistrict = $participants->groupBy('district_id');
 
-                    if ($genderParticipants->isEmpty()) {
-                        continue;
-                    }
+                    foreach ($byDistrict as $districtId => $districtParticipants) {
+                        // Get representative (with lot number, lowest lot first)
+                        $withLot = $districtParticipants->filter(fn ($p) => filled($p->lot_number));
+                        $representative = $withLot->isNotEmpty()
+                            ? $withLot->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first()
+                            : $districtParticipants->first();
 
-                    $rankings = $this->calculateRankings($genderParticipants);
-                    $topThree = $rankings->take(3);
+                        if (!$representative) {
+                            continue;
+                        }
 
-                    foreach ($topThree as $rank => $data) {
+                        // Calculate score
+                        $score = 0;
+                        if ($isMfq) {
+                            $mfqResults = \App\Models\MfqResult::where('participant_id', $representative->id)->get();
+                            $score = $mfqResults->avg('total_score') ?? 0;
+                        } else {
+                            $scores = $representative->scores ?? collect();
+                            $latestScore = $scores->sortByDesc('submitted_at')->first();
+                            $score = (float) ($latestScore?->score ?? 0);
+                        }
+
                         $finalist = Finalist::create([
-                            'participant_id' => $data['participant_id'],
-                            'competition_category_id' => $category->id,
-                            'gender' => $gender,
-                            'finalist_rank' => $rank + 1,
-                            'score' => $data['score'],
-                            'round' => $data['round'],
+                            'participant_id' => $representative->id,
+                            'competition_category_id' => $categoryId,
+                            'gender' => $representative->gender,
+                            'finalist_rank' => 1,
+                            'score' => $score,
+                            'round' => 'Final',
                             'status' => Finalist::STATUS_PENDING,
                         ]);
 
                         $categoryResults[] = [
                             'participant_id' => $finalist->participant_id,
-                            'participant_name' => $data['name'],
-                            'gender' => $gender,
-                            'rank' => $rank + 1,
+                            'participant_name' => $representative->name,
+                            'gender' => $representative->gender,
+                            'rank' => 1,
                         ];
+                    }
+
+                    // Recalculate ranks
+                    $this->recalculateMsqMfqRanks($categoryId);
+                } else {
+                    // Regular category: top 3 per gender
+                    foreach ([Finalist::GENDER_MALE, Finalist::GENDER_FEMALE] as $gender) {
+                        $genderParticipants = $participants->filter(
+                            fn ($p) => $p->gender === $gender
+                        );
+
+                        if ($genderParticipants->isEmpty()) {
+                            continue;
+                        }
+
+                        $rankings = $this->calculateRankings($genderParticipants);
+                        $topThree = $rankings->take(3);
+
+                        foreach ($topThree as $rank => $data) {
+                            $finalist = Finalist::create([
+                                'participant_id' => $data['participant_id'],
+                                'competition_category_id' => $categoryId,
+                                'gender' => $gender,
+                                'finalist_rank' => $rank + 1,
+                                'score' => $data['score'],
+                                'round' => $data['round'],
+                                'status' => Finalist::STATUS_PENDING,
+                            ]);
+
+                            $categoryResults[] = [
+                                'participant_id' => $finalist->participant_id,
+                                'participant_name' => $data['name'],
+                                'gender' => $gender,
+                                'rank' => $rank + 1,
+                            ];
+                        }
                     }
                 }
 

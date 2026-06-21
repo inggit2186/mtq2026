@@ -526,7 +526,7 @@
             $totalParticipants = $data['total_participants'] ?? 0;
 
             // Format header: "Fahmil Qur'an - Golongan Putra" for all categories
-            $headerName = e($category->name) . ' - ' . e($category->branch);
+            $headerName = e($category->branch) . ' - ' . e($category->name);
             ?>
             <?php if ($isMfq): ?>
                 <?php

@@ -7,6 +7,8 @@ $categories = $categories ?? collect();
 $groupedFinalists = $groupedFinalists ?? collect();
 $existingFinalists = $existingFinalists ?? [];
 $selectedCategoryId = $selectedCategoryId ?? null;
+$mfqCategoryIds = $mfqCategoryIds ?? [24, 25];
+$districtParticipantCounts = $districtParticipantCounts ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -97,13 +99,23 @@ $selectedCategoryId = $selectedCategoryId ?? null;
                 $putriCount = $catFinalists->get(Finalist::GENDER_FEMALE, collect())->count();
                 $totalFinalists = $putraCount + $putriCount;
                 $hasFinalists = $totalFinalists > 0;
+                $isMfq = in_array($category->id, $mfqCategoryIds);
+                $isMsq = filled($category->maqra_system_type ?? null) && $category->maqra_system_type === 'syarhil';
+                $isMsqMfq = $isMfq || $isMsq;
                 ?>
                 <div class="rounded-xl border p-4 transition-all hover:-translate-y-1 <?= $hasFinalists ? 'border-emerald-400/30 bg-emerald-400/5' : 'border-slate-700 bg-slate-900/50 hover:border-slate-600' ?>">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
-                            <span class="rounded-full border <?= $hasFinalists ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-slate-600/50 bg-slate-700/30 text-slate-400' ?> px-2 py-0.5 text-xs font-semibold">
-                                <?= e($category->branch) ?>
-                            </span>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="rounded-full border <?= $hasFinalists ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-slate-600/50 bg-slate-700/30 text-slate-400' ?> px-2 py-0.5 text-xs font-semibold">
+                                    <?= e($category->branch) ?>
+                                </span>
+                                <?php if ($isMsqMfq): ?>
+                                    <span class="rounded-full border border-purple-400/30 bg-purple-400/10 px-2 py-0.5 text-xs font-semibold text-purple-300">
+                                        <?= $isMsq ? '📌 MSQ' : '🏆 MFQ' ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                             <h3 class="mt-2 truncate font-bold text-white"><?= e($category->name) ?></h3>
                         </div>
                         <?php if ($hasFinalists): ?>
@@ -118,40 +130,67 @@ $selectedCategoryId = $selectedCategoryId ?? null;
                         <div class="flex items-center gap-2">
                             <?= mtq_icon('gender-male', 'h-4 w-4 text-cyan-400') ?>
                             <span class="text-sm text-slate-300">
-                                Putra: <strong class="<?= $putraCount >= 3 ? 'text-emerald-300' : 'text-amber-300' ?>"><?= $putraCount ?>/3</strong>
+                                Putra: <strong class="<?= $putraCount > 0 ? 'text-emerald-300' : 'text-slate-500' ?>"><?= $putraCount ?></strong>/3
                             </span>
                         </div>
                         <div class="flex items-center gap-2">
                             <?= mtq_icon('gender-female', 'h-4 w-4 text-pink-400') ?>
                             <span class="text-sm text-slate-300">
-                                Putri: <strong class="<?= $putriCount >= 3 ? 'text-emerald-300' : 'text-amber-300' ?>"><?= $putriCount ?>/3</strong>
+                                Putri: <strong class="<?= $putriCount > 0 ? 'text-emerald-300' : 'text-slate-500' ?>"><?= $putriCount ?></strong>/3
                             </span>
                         </div>
                     </div>
 
                     <!-- Finalist List (if exists) -->
                     <?php if ($hasFinalists): ?>
+                        <?php
+                        // For MSQ/MFQ: limit to top 3 per gender
+                        $putraFinalists = $catFinalists->get(Finalist::GENDER_MALE, collect());
+                        $putriFinalists = $catFinalists->get(Finalist::GENDER_FEMALE, collect());
+                        $putraTop3 = $isMsqMfq ? $putraFinalists->filter(fn ($f) => $f->finalist_rank <= 3) : $putraFinalists;
+                        $putriTop3 = $isMsqMfq ? $putriFinalists->filter(fn ($f) => $f->finalist_rank <= 3) : $putriFinalists;
+                        ?>
                         <div class="mt-4 space-y-2">
-                            <?php if ($putraCount > 0): ?>
+                            <?php if ($putraTop3->isNotEmpty()): ?>
                                 <div class="rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-2">
                                     <p class="mb-1 text-xs font-semibold uppercase text-cyan-400">Putra</p>
-                                    <?php foreach ($catFinalists->get(Finalist::GENDER_MALE, collect()) as $finalist): ?>
+                                    <?php foreach ($putraTop3 as $finalist): ?>
+                                        <?php
+                                        $participantName = $finalist->participant?->name ?? '-';
+                                        if ($isMsqMfq) {
+                                            $key = $category->id . '_' . $finalist->participant?->district_id;
+                                            $count = $districtParticipantCounts[$key] ?? 1;
+                                            if ($count > 1) {
+                                                $participantName .= ' dkk.';
+                                            }
+                                        }
+                                        ?>
                                         <div class="flex items-center justify-between text-sm">
                                             <span class="<?= $finalist->finalist_rank === 1 ? 'text-amber-300 font-bold' : 'text-slate-300' ?>">
-                                                <?= $finalist->finalist_rank ?>. <?= e($finalist->participant?->name ?? '-') ?>
+                                                <?= $finalist->finalist_rank ?>. <?= e($participantName) ?>
                                             </span>
                                             <span class="text-cyan-300"><?= number_format($finalist->score, 2) ?></span>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
-                            <?php if ($putriCount > 0): ?>
+                            <?php if ($putriTop3->isNotEmpty()): ?>
                                 <div class="rounded-lg border border-pink-400/20 bg-pink-400/5 p-2">
                                     <p class="mb-1 text-xs font-semibold uppercase text-pink-400">Putri</p>
-                                    <?php foreach ($catFinalists->get(Finalist::GENDER_FEMALE, collect()) as $finalist): ?>
+                                    <?php foreach ($putriTop3 as $finalist): ?>
+                                        <?php
+                                        $participantName = $finalist->participant?->name ?? '-';
+                                        if ($isMsqMfq) {
+                                            $key = $category->id . '_' . $finalist->participant?->district_id;
+                                            $count = $districtParticipantCounts[$key] ?? 1;
+                                            if ($count > 1) {
+                                                $participantName .= ' dkk.';
+                                            }
+                                        }
+                                        ?>
                                         <div class="flex items-center justify-between text-sm">
                                             <span class="<?= $finalist->finalist_rank === 1 ? 'text-amber-300 font-bold' : 'text-slate-300' ?>">
-                                                <?= $finalist->finalist_rank ?>. <?= e($finalist->participant?->name ?? '-') ?>
+                                                <?= $finalist->finalist_rank ?>. <?= e($participantName) ?>
                                             </span>
                                             <span class="text-pink-300"><?= number_format($finalist->score, 2) ?></span>
                                         </div>
