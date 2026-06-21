@@ -1444,8 +1444,24 @@ class ScoringController extends Controller
 
         $participants = $participantsQuery->get();
 
+        // Check if this is MSQ (Syarhil Quran) - district-based scoring
+        $isMsqCategory = filled($selectedCategory?->maqra_system_type) && $selectedCategory->maqra_system_type === 'syarhil';
+
+        // For MSQ: get one participant with lot_number per district (the representative)
+        $participantsForRanking = $isMsqCategory
+            ? $participants->filter(fn ($p) => filled($p->lot_number))
+                ->groupBy('district_id')
+                ->map(fn ($group) => $group->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first())
+                ->values()
+            : $participants;
+
+        // Count total participants per district for MSQ "dkk." suffix
+        $districtParticipantCounts = $isMsqCategory
+            ? $participants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray()
+            : [];
+
         // Build detailed data per participant
-        $detailedParticipants = $participants->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria) {
+        $detailedParticipants = $participantsForRanking->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria, $isMsqCategory, $districtParticipantCounts) {
             $scores = $participant->scores ?? collect();
             $roundScores = $scores->where('judging_round', $selectedJudgingRound);
 
@@ -1503,10 +1519,17 @@ class ScoringController extends Controller
             // Total score = sum of averages
             $totalScore = array_sum($pointAverages);
 
+            // For MSQ: build name with "dkk." suffix if there are more participants in district
+            $districtId = $participant->district_id;
+            $districtCount = $districtParticipantCounts[$districtId] ?? 1;
+            $displayName = $isMsqCategory && $districtCount > 1
+                ? $participant->name.' dkk.'
+                : $participant->name;
+
             return [
                 'id' => $participant->id,
-                'name' => $participant->name,
-                'lot_number' => $participant->lot_number ?? '-',
+                'name' => $displayName,
+                'original_name' => $participant->name,
                 'district_name' => $participant->district?->name ?? '-',
                 'institution' => $participant->institution,
                 'gender' => $participant->gender ?? 'putra',
@@ -1521,6 +1544,8 @@ class ScoringController extends Controller
                 'point_averages' => $pointAverages,
                 'point_counts' => $pointCounts,
                 'submitted_at' => $scoreEntry?->submitted_at,
+                'lot_number' => $participant->lot_number ?? '-',
+                'is_msq' => $isMsqCategory,
             ];
         })->values();
 
@@ -1552,6 +1577,7 @@ class ScoringController extends Controller
             'printDate' => now()->translatedFormat('d F Y H:i').' WIB',
             'eventName' => config('mtq.branding.name', 'MTQ'),
             'eventYear' => config('mtq.branding.year', date('Y')),
+            'isMsqCategory' => $isMsqCategory,
         ]);
     }
 
@@ -1597,8 +1623,24 @@ class ScoringController extends Controller
 
         $participants = $participantsQuery->get();
 
+        // Check if this is MSQ (Syarhil Quran) - district-based scoring
+        $isMsqCategory = filled($selectedCategory?->maqra_system_type) && $selectedCategory->maqra_system_type === 'syarhil';
+
+        // For MSQ: get one participant with lot_number per district (the representative)
+        $participantsForRanking = $isMsqCategory
+            ? $participants->filter(fn ($p) => filled($p->lot_number))
+                ->groupBy('district_id')
+                ->map(fn ($group) => $group->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first())
+                ->values()
+            : $participants;
+
+        // Count total participants per district for MSQ "dkk." suffix
+        $districtParticipantCounts = $isMsqCategory
+            ? $participants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray()
+            : [];
+
         // Build detailed data per participant (same logic as rankingPdf)
-        $detailedParticipants = $participants->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria) {
+        $detailedParticipants = $participantsForRanking->map(function ($participant) use ($selectedJudgingRound, $judgeNames, $criteria, $isMsqCategory, $districtParticipantCounts) {
             $scores = $participant->scores ?? collect();
             $roundScores = $scores->where('judging_round', $selectedJudgingRound);
             $scoreEntry = $roundScores->sortByDesc('submitted_at')->first();
@@ -1649,10 +1691,17 @@ class ScoringController extends Controller
             }
             $totalScore = array_sum($pointAverages);
 
+            // For MSQ: build name with "dkk." suffix if there are more participants in district
+            $districtId = $participant->district_id;
+            $districtCount = $districtParticipantCounts[$districtId] ?? 1;
+            $displayName = $isMsqCategory && $districtCount > 1
+                ? $participant->name.' dkk.'
+                : $participant->name;
+
             return [
                 'id' => $participant->id,
-                'name' => $participant->name,
-                'lot_number' => $participant->lot_number ?? '-',
+                'name' => $displayName,
+                'original_name' => $participant->name,
                 'district_name' => $participant->district?->name ?? '-',
                 'institution' => $participant->institution,
                 'gender' => $participant->gender ?? 'putra',
@@ -1667,6 +1716,8 @@ class ScoringController extends Controller
                 'point_averages' => $pointAverages,
                 'point_counts' => $pointCounts,
                 'submitted_at' => $scoreEntry?->submitted_at,
+                'lot_number' => $participant->lot_number ?? '-',
+                'is_msq' => $isMsqCategory,
             ];
         })->values();
 
@@ -1695,6 +1746,7 @@ class ScoringController extends Controller
             'printDate' => now()->translatedFormat('d F Y H:i').' WIB',
             'eventName' => config('mtq.branding.name', 'MTQ'),
             'eventYear' => config('mtq.branding.year', date('Y')),
+            'isMsqCategory' => $isMsqCategory,
         ]);
     }
 }

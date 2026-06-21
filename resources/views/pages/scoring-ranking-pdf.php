@@ -10,6 +10,7 @@ $putri = $putri ?? collect();
 $printDate = $printDate ?? date('d F Y H:i');
 $eventName = $eventName ?? 'MTQ';
 $eventYear = $eventYear ?? date('Y');
+$isMsqCategory = $isMsqCategory ?? false;
 
 $shortenName = function($name) {
     $name = preg_replace('/\b(S\.?|H\.?|Ag|S\.Ag|S\.I\.Q|S\.SOS|S\.Pd\.I?|MA|M\.Pd|LC|A\.Ma)\b\.?/i', '', $name);
@@ -277,6 +278,9 @@ $shortenName = function($name) {
             </div>
         </div>
         <div class="header-badges">
+            <?php if ($isMsqCategory): ?>
+                <span class="badge" style="background:#fef3c7;color:#92400e;">📌 Nilai per Kecamatan</span>
+            <?php endif; ?>
             <span class="badge">🏆 <?= e($selectedJudgingRound) ?></span>
             <span class="badge">📅 <?= e($eventName.' '.$eventYear) ?></span>
             <span class="badge badge-warning">🕐 <?= e($printDate) ?></span>
@@ -313,7 +317,7 @@ $shortenName = function($name) {
     <div class="section">
         <div class="section-header">
             <span><span class="icon">👦</span> RANKING PUTRA</span>
-            <span class="count">🎯 <?= $putra->count() ?> Peserta</span>
+            <span class="count">🎯 <?= $putra->count() ?> Kecamatan<?= $isMsqCategory ? ' (Nilai MSQ)' : ' Peserta' ?></span>
         </div>
         <div class="table-box">
             <?php if ($putra->isEmpty()): ?>
@@ -449,7 +453,7 @@ $shortenName = function($name) {
     <div class="section">
         <div class="section-header female">
             <span><span class="icon">👧</span> RANKING PUTRI</span>
-            <span class="count">🎯 <?= $putri->count() ?> Peserta</span>
+            <span class="count">🎯 <?= $putri->count() ?> Kecamatan<?= $isMsqCategory ? ' (Nilai MSQ)' : ' Peserta' ?></span>
         </div>
         <div class="table-box">
             <?php if ($putri->isEmpty()): ?>
