@@ -167,6 +167,7 @@
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            page-break-after: always;
         }
 
         .category-header {
@@ -392,6 +393,7 @@
             color: var(--text-light);
             font-size: 11px;
             border-top: 2px solid var(--border);
+            page-break-inside: avoid;
         }
 
         .footer-brand {
