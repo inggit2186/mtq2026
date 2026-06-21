@@ -656,6 +656,13 @@ $hasRankings = !empty($rankings);
                                                 <?php endif; ?>
                                             </p>
                                         </div>
+                                        <?php if ($isFinalist): ?>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-200">
+                                                <?= mtq_icon('star', 'h-3 w-3') ?> 3 Besar Teratas
+                                            </span>
+                                        </div>
+                                        <?php else: ?>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <?php if ($showPutra && ($rankingData['putra_count'] ?? 0) > 0): ?>
                                                 <span class="flex items-center gap-1.5 rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-200">
@@ -668,6 +675,7 @@ $hasRankings = !empty($rankings);
                                                 </span>
                                             <?php endif; ?>
                                         </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
 
@@ -680,11 +688,11 @@ $hasRankings = !empty($rankings);
                                         <p class="mt-4 text-sm text-slate-400">Belum ada data <?= $isFinalist ? 'finalis' : 'ranking' ?> untuk konfigurasi ini.</p>
                                     </div>
                                 <?php elseif ($isFinalist): ?>
-                                    <!-- Finalist Display - More prominent winner cards -->
+                                    <!-- Finalist Display - More prominent winner cards (Top 3 only) -->
                                     <div class="relative z-10">
                                         <?php
-                                        $finalistPutra = array_slice($putraRankings, 0, 6);
-                                        $finalistPutri = array_slice($putriRankings, 0, 6);
+                                        $finalistPutra = array_slice(array_filter($putraRankings, fn($p) => ($p['rank'] ?? 0) <= 3), 0, 3);
+                                        $finalistPutri = array_slice(array_filter($putriRankings, fn($p) => ($p['rank'] ?? 0) <= 3), 0, 3);
                                         ?>
                                         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-<?= (count($finalistPutra) > 0 && count($finalistPutri) > 0) ? '2' : '1' ?>">
                                             <?php if (count($finalistPutra) > 0): ?>
@@ -716,9 +724,9 @@ $hasRankings = !empty($rankings);
                                                                 <p class="truncate font-semibold <?= $isSelected ? 'text-cyan-200' : 'text-white' ?>">
                                                                     <?= e($p['name']) ?>
                                                                 </p>
-                                                                <p class="truncate text-xs text-slate-400">
-                                                                    <?= e($p['district_name']) ?> • Lot <?= e($p['lot_number']) ?>
-                                                                </p>
+                                                                <span class="inline-flex items-center gap-1 rounded-full border <?= $isTop ? 'border-amber-400/40 bg-amber-400/20 text-amber-200' : 'border-slate-600 bg-slate-800 text-slate-400' ?> px-2 py-0.5 text-xs font-bold">
+                                                                    LOT <?= e($p['lot_number']) ?>
+                                                                </span>
                                                             </div>
                                                             <div class="text-right shrink-0">
                                                                 <?php if ($p['has_score']): ?>
@@ -762,9 +770,9 @@ $hasRankings = !empty($rankings);
                                                                 <p class="truncate font-semibold <?= $isSelected ? 'text-cyan-200' : 'text-white' ?>">
                                                                     <?= e($p['name']) ?>
                                                                 </p>
-                                                                <p class="truncate text-xs text-slate-400">
-                                                                    <?= e($p['district_name']) ?> • Lot <?= e($p['lot_number']) ?>
-                                                                </p>
+                                                                <span class="inline-flex items-center gap-1 rounded-full border <?= $isTop ? 'border-pink-400/40 bg-pink-400/20 text-pink-200' : 'border-slate-600 bg-slate-800 text-slate-400' ?> px-2 py-0.5 text-xs font-bold">
+                                                                    LOT <?= e($p['lot_number']) ?>
+                                                                </span>
                                                             </div>
                                                             <div class="text-right shrink-0">
                                                                 <?php if ($p['has_score']): ?>

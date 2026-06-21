@@ -1046,12 +1046,16 @@ class ParticipantResultController extends Controller
      */
     protected function buildRankingData(RankingSetting $setting): array
     {
-        // Use finalist_category_id if this is a finalist announcement, otherwise use competition_category_id
-        $categoryId = $setting->finalist_category_id ?? $setting->competition_category_id;
+        // If this is a finalist announcement, load from finalists table
+        if ($setting->isFinalistAnnouncement()) {
+            return $this->buildFinalistData($setting);
+        }
+
+        // Use competition_category_id for regular rankings
+        $categoryId = $setting->competition_category_id;
         $judgingRound = $setting->judging_round;
         $appearanceDay = $setting->appearance_day;
         $gender = $setting->gender;
-        $isFinalistAnnouncement = $setting->isFinalistAnnouncement();
 
         // Get appearance schedule for lot number filtering and schedule info
         $appearanceSchedule = $categoryId
@@ -1207,10 +1211,73 @@ class ParticipantResultController extends Controller
             'total' => $rankedData->count(),
             'schedule_date' => $scheduleDate,
             'schedule_time' => $scheduleTime,
-            'is_finalist_announcement' => $isFinalistAnnouncement,
-            'finalist_display_name' => $setting->getFinalistDisplayName(),
+            'is_finalist_announcement' => false,
+            'finalist_display_name' => null,
             'priority_labels' => array_values($priorityLabels),
             'priority_keys' => $priorityKeys,
+        ];
+    }
+
+    /**
+     * Build finalist data from the finalists table (managed in /admin/finalis)
+     */
+    protected function buildFinalistData(RankingSetting $setting): array
+    {
+        $categoryId = $setting->finalist_category_id;
+
+        // Load finalists from the finalists table
+        $finalists = \App\Models\Finalist::with(['participant.district'])
+            ->where('competition_category_id', $categoryId)
+            ->where('status', '!=', \App\Models\Finalist::STATUS_SCRATCHED)
+            ->orderBy('gender')
+            ->orderBy('finalist_rank')
+            ->get();
+
+        // Separate by gender
+        $putraFinalists = [];
+        $putriFinalists = [];
+
+        foreach ($finalists as $finalist) {
+            $participant = $finalist->participant;
+            if (!$participant) {
+                continue;
+            }
+
+            $data = [
+                'id' => $participant->id,
+                'name' => $participant->name,
+                'lot_number' => $participant->lot_number ?? '-',
+                'lot_suffix' => (int) preg_replace('/[^0-9]/', '', $participant->lot_number ?? '0'),
+                'gender' => strtolower($participant->gender ?? 'putra'),
+                'district_name' => $participant->district?->name ?? '-',
+                'institution' => $participant->institution,
+                'average_score' => round((float) $finalist->score, 2),
+                'has_score' => $finalist->score > 0,
+                'score_count' => $finalist->score > 0 ? 1 : 0,
+                'rank' => $finalist->finalist_rank,
+                'finalist_id' => $finalist->id,
+                'finalist_status' => $finalist->status,
+            ];
+
+            if (strtolower($finalist->gender ?? '') === 'putri') {
+                $putriFinalists[] = $data;
+            } else {
+                $putraFinalists[] = $data;
+            }
+        }
+
+        return [
+            'putra' => $putraFinalists,
+            'putri' => $putriFinalists,
+            'putra_count' => count($putraFinalists),
+            'putri_count' => count($putriFinalists),
+            'total' => count($putraFinalists) + count($putriFinalists),
+            'schedule_date' => null,
+            'schedule_time' => null,
+            'is_finalist_announcement' => true,
+            'finalist_display_name' => $setting->getFinalistDisplayName(),
+            'priority_labels' => [],
+            'priority_keys' => [],
         ];
     }
 }

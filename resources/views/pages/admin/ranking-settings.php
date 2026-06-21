@@ -197,11 +197,14 @@ $updateUrlBase = route('ranking.settings.update', ['rankingSetting' => '__ID__']
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <a href="<?= e(route('ranking.settings.toggle', $setting)) ?>"
-                               class="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 transition-colors hover:border-cyan-400/50 hover:text-cyan-300"
-                               title="<?= $setting->is_active ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                <?= $setting->is_active ? mtq_icon('eye-off', 'h-4 w-4') : mtq_icon('eye', 'h-4 w-4') ?>
-                            </a>
+                            <form action="<?= e(route('ranking.settings.toggle', $setting)) ?>" method="POST" class="inline">
+                                <?= csrf_field() ?>
+                                <button type="submit"
+                                   class="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 transition-colors hover:border-cyan-400/50 hover:text-cyan-300"
+                                   title="<?= $setting->is_active ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                    <?= $setting->is_active ? mtq_icon('eye-off', 'h-4 w-4') : mtq_icon('eye', 'h-4 w-4') ?>
+                                </button>
+                            </form>
                             <button type="button"
                                     @click="openEdit(<?= e(json_encode([
                                         'id' => $setting->id,
