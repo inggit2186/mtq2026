@@ -607,19 +607,38 @@ class ScoringController extends Controller
         // For MSQ: get all participants in the same district that haven't been scored yet
         // For regular: just the selected participant
         if ($isMsqCategory) {
-            $participantsToScore = Participant::query()
-                ->where('competition_category_id', $participant->competition_category_id)
-                ->where('district_id', $participant->district_id)
-                ->where('verification_status', 'verified')
-                ->whereDoesntHave('scores', function ($query) use ($validated) {
-                    $query->where('judging_round', $validated['judging_round']);
-                })
-                ->get();
+            // Check if this participant already has a score (edit mode)
+            $existingScore = $participant->scores()->where('judging_round', $validated['judging_round'])->first();
+            if ($existingScore) {
+                // Edit mode: update ALL participants in the district with scores for this round
+                // (MSQ scores apply to all participants in the same district)
+                $participantsToScore = Participant::query()
+                    ->where('competition_category_id', $participant->competition_category_id)
+                    ->where('district_id', $participant->district_id)
+                    ->where('verification_status', 'verified')
+                    ->whereHas('scores', function ($query) use ($validated) {
+                        $query->where('judging_round', $validated['judging_round']);
+                    })
+                    ->get();
 
-            if ($participantsToScore->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'participant_id' => 'Semua peserta di kecamatan ini sudah dinilai untuk babak '.$validated['judging_round'].'.',
-                ]);
+                $updateExisting = true;
+            } else {
+                // New scoring: get all unscored participants in the district
+                $participantsToScore = Participant::query()
+                    ->where('competition_category_id', $participant->competition_category_id)
+                    ->where('district_id', $participant->district_id)
+                    ->where('verification_status', 'verified')
+                    ->whereDoesntHave('scores', function ($query) use ($validated) {
+                        $query->where('judging_round', $validated['judging_round']);
+                    })
+                    ->get();
+
+                if ($participantsToScore->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'participant_id' => 'Semua peserta di kecamatan ini sudah dinilai untuk babak '.$validated['judging_round'].'.',
+                    ]);
+                }
+                $updateExisting = false;
             }
         } else {
             // Allow direct update if already scored (edit mode)
