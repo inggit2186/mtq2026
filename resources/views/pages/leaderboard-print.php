@@ -202,6 +202,21 @@
             font-weight: 600;
         }
 
+        .msq-badge {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .msq-badge-small {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
         /* Table */
         .ranking-table {
             width: 100%;
@@ -500,38 +515,122 @@
             Cetak / Save as PDF
         </button>
 
-        <!-- Regular MTQ Categories -->
+        <!-- Categories -->
         <?php foreach ($categoryRankings as $categoryId => $data): ?>
             <?php
             $category = $data['category'];
-            $putraLeaders = $data['putra'] ?? [];
-            $putriLeaders = $data['putri'] ?? [];
-            $totalParticipants = $data['total_participants'];
-            $hasAny = !empty($putraLeaders) || !empty($putriLeaders);
-            $isJuara = ($filterType ?? 'semua') === 'juara';
-            ?>
-            <div class="category-section">
-                <div class="category-header">
-                    <div>
-                        <div class="category-name"><?= e($category->branch) ?> - <?= e($category->name) ?></div>
-                    </div>
-                    <div class="category-meta">
-                        <span class="meta-badge">Putra: <?= count($putraLeaders) ?></span>
-                        <span class="meta-badge">Putri: <?= count($putriLeaders) ?></span>
-                    </div>
-                </div>
+            $isMfq = !empty($data['is_mfq']);
+            $isMsq = !empty($data['is_msq']);
+            $totalParticipants = $data['total_participants'] ?? 0;
 
-                <table class="ranking-table">
-                    <thead>
-                        <tr>
-                            <th class="rank-cell">Rank</th>
-                            <th>Nama Peserta</th>
-                            <th class="lot-cell">No. Lot</th>
-                            <th class="score-cell">Total Nilai</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($hasAny): ?>
+            // Format header: "Fahmil Qur'an - Golongan Putra" for all categories
+            $headerName = e($category->name) . ' - ' . e($category->branch);
+            ?>
+            <?php if ($isMfq): ?>
+                <?php
+                $mfqRankings = $data['mfq_rankings'] ?? [];
+                $districtCount = count($mfqRankings);
+                ?>
+                <div class="category-section mfq-category">
+                    <div class="category-header" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);">
+                        <div>
+                            <div class="category-name" style="color: white;">
+                                <?= $headerName ?>
+                            </div>
+                        </div>
+                        <div class="category-meta">
+                            <span class="meta-badge" style="background: rgba(255,255,255,0.2); color: white;"><?= $districtCount ?> Kecamatan</span>
+                            <span class="meta-badge" style="background: rgba(255,255,255,0.2); color: white;"><?= $totalParticipants ?> Peserta</span>
+                        </div>
+                    </div>
+
+                    <table class="ranking-table">
+                        <thead>
+                            <tr>
+                                <th class="rank-cell">Rank</th>
+                                <th>Nama Representative</th>
+                                <th class="lot-cell">No. Lot</th>
+                                <th class="score-cell">Total Nilai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($mfqRankings)): ?>
+                                <?php foreach ($mfqRankings as $index => $rank): ?>
+                                    <tr>
+                                        <td class="rank-cell">
+                                            <span class="rank-badge rank-<?= ($index < 3) ? ($index + 1) : 'other' ?>">
+                                                <?= ($index < 3) ? (($index === 0) ? '🥇' : (($index === 1) ? '🥈' : '🥉')) : ($index + 1) ?>
+                                            </span>
+                                        </td>
+                                        <td class="name-cell">
+                                            <div class="name-text"><?= e($rank['representative_name']) ?></div>
+                                            <div class="district-text">📍 <?= e($rank['district_name']) ?> • <?= $rank['participant_count'] ?> peserta</div>
+                                        </td>
+                                        <td class="lot-cell">
+                                            <?php if (!empty($rank['lot_numbers'])): ?>
+                                                <?php foreach (array_slice($rank['lot_numbers'], 0, 5) as $lot): ?>
+                                                    <span class="lot-badge"><?= e($lot) ?></span>
+                                                <?php endforeach; ?>
+                                                <?php if (count($rank['lot_numbers']) > 5): ?>
+                                                    <span class="lot-badge" style="background: #64748b;">+<?= count($rank['lot_numbers']) - 5 ?></span>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="no-lot">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="score-cell">
+                                            <div class="score-value"><?= number_format((float) $rank['total_score'], 2) ?></div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr class="empty-row">
+                                    <td colspan="4">Belum ada data ranking untuk MFQ ini</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <?php
+                $putraLeaders = $data['putra'] ?? [];
+                $putriLeaders = $data['putri'] ?? [];
+                $hasAny = !empty($putraLeaders) || !empty($putriLeaders);
+                $isJuara = ($filterType ?? 'semua') === 'juara';
+                $districtCount = $data['district_count'] ?? 0;
+                ?>
+                <div class="category-section">
+                    <div class="category-header">
+                        <div>
+                            <div class="category-name">
+                                <?= $headerName ?>
+                                <?php if ($isMsq): ?>
+                                    <span class="msq-badge">📌 Nilai per Kecamatan</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="category-meta">
+                            <?php if ($isMsq): ?>
+                                <span class="meta-badge msq-badge-small"><?= $districtCount ?> Kecamatan</span>
+                            <?php else: ?>
+                                <span class="meta-badge"><?= $totalParticipants ?> Peserta</span>
+                            <?php endif; ?>
+                            <span class="meta-badge">Putra: <?= count($putraLeaders) ?></span>
+                            <span class="meta-badge">Putri: <?= count($putriLeaders) ?></span>
+                        </div>
+                    </div>
+
+                    <table class="ranking-table">
+                        <thead>
+                            <tr>
+                                <th class="rank-cell">Rank</th>
+                                <th>Nama Peserta</th>
+                                <th class="lot-cell">No. Lot</th>
+                                <th class="score-cell">Total Nilai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($hasAny): ?>
                             <?php if (!empty($putraLeaders)): ?>
                                 <tr class="gender-subheader putra-subheader">
                                     <td colspan="4">♂ Kategori Putra</td>
@@ -656,84 +755,9 @@
                         <?php endif; ?>
                     </tbody>
                 </table>
-            </div>
-        <?php endforeach; ?>
-
-        <!-- MFQ Section -->
-        <?php if (!empty($mfqCategories) && !empty($mfqRankings)): ?>
-            <?php foreach ($mfqCategories as $mfqCat): ?>
-                <?php
-                $catData = $mfqRankings[$mfqCat->id] ?? null;
-                if (!$catData) continue;
-
-                $semuaData = $catData['rounds']['Semua']['by_score'] ?? [];
-                $participantCount = $catData['participant_count'] ?? 0;
-                ?>
-                <div class="mfq-section">
-                    <div class="mfq-header">
-                        <div>
-                            <div class="mfq-name"><?= e($mfqCat->name) ?></div>
-                            <div class="mfq-subtitle"><?= e($mfqCat->branch) ?> • Golongan #<?= $mfqCat->id ?></div>
-                        </div>
-                        <div class="category-meta">
-                            <span class="meta-badge"><?= $participantCount ?> Peserta</span>
-                        </div>
-                    </div>
-
-                    <table class="ranking-table">
-                        <thead>
-                            <tr>
-                                <th class="rank-cell">Rank</th>
-                                <th>Kecamatan</th>
-                                <th class="lot-cell">No. Lot</th>
-                                <th class="score-cell">Total Poin</th>
-                                <th class="score-cell">Total Nilai</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($semuaData)): ?>
-                                <?php foreach ($semuaData as $index => $rank): ?>
-                                    <tr>
-                                        <td class="rank-cell">
-                                            <span class="rank-badge rank-<?= ($index < 3) ? ($index + 1) : 'other' ?>">
-                                                <?= ($index < 3) ? (($index === 0) ? '🥇' : (($index === 1) ? '🥈' : '🥉')) : ($index + 1) ?>
-                                            </span>
-                                        </td>
-                                        <td class="name-cell">
-                                            <div class="name-text"><?= e($rank['district_name'] ?? '-') ?></div>
-                                            <div class="district-text"><?= ($rank['participant_count'] ?? 0) ?> peserta</div>
-                                        </td>
-                                        <td class="lot-cell">
-                                            <?php
-                                            $lotNumbers = $rank['lot_numbers'] ?? [];
-                                            if (!empty($lotNumbers)): ?>
-                                                <?php foreach ($lotNumbers as $lot): ?>
-                                                    <span style="display: inline-block; background: var(--gold); color: white; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin: 1px;">
-                                                        <?= e($lot) ?>
-                                                    </span>
-                                                <?php endforeach; ?>
-                                            <?php else: ?>
-                                                <span class="no-lot">-</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="score-cell">
-                                            <div class="score-value" style="color: var(--gold-dark);"><?= $rank['total_points'] ?? 0 ?></div>
-                                        </td>
-                                        <td class="score-cell">
-                                            <div class="score-value"><?= number_format((float) ($rank['total_score'] ?? 0), 0) ?></div>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr class="empty-row">
-                                    <td colspan="5">Belum ada data ranking untuk MFQ ini</td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
                 </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+            <?php endif; ?>
+        <?php endforeach; ?>
 
         <!-- Footer with favicon -->
         <footer class="footer">

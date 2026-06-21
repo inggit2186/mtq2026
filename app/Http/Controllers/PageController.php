@@ -1044,10 +1044,9 @@ class PageController extends Controller
 
         $filterType = $request->get('type', 'semua'); // semua, penyisihan, final, juara
 
-        // Get all categories (excluding MFQ which uses different system)
+        // Get all categories including MFQ
         $categories = CompetitionCategory::query()
-            ->whereNotIn('id', [24, 25])
-            ->orderBy('id') // Sort by category ID as requested
+            ->orderBy('id') // Sort by category ID
             ->get();
 
         $participants = Participant::query()
@@ -1067,15 +1066,27 @@ class PageController extends Controller
                 continue;
             }
 
+            // Check if this is MFQ category (IDs 24, 25)
+            $isMfqCategory = in_array($category->id, [24, 25]);
+
             // Build rankings based on filter type
             $putraLeaders = [];
             $putriLeaders = [];
 
+            // Check if this is MSQ (Syarhil Quran) - district-based scoring
+            $isMsqCategory = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+
+            // For MSQ: count participants per district for "dkk." suffix
+            $districtParticipantCounts = [];
+            if ($isMsqCategory) {
+                $districtParticipantCounts = $categoryParticipants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray();
+            }
+
             if ($filterType === 'juara') {
                 // For juara: Final rank 1-3 = Juara 1-2-3, Penyisihan rank 4-6 = Harapan 1-2-3
                 // If Final doesn't have rank 1-3, fill from Penyisihan with status
-                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final');
-                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan');
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final', $isMsqCategory, $districtParticipantCounts);
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan', $isMsqCategory, $districtParticipantCounts);
 
                 // Process by gender
                 foreach (['putra', 'putri'] as $gender) {
@@ -1175,7 +1186,7 @@ class PageController extends Controller
                 }
             } elseif ($filterType === 'penyisihan') {
                 // For penyisihan, build round leaders then add participants without scores
-                $roundLeaders = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan');
+                $roundLeaders = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan', $isMsqCategory, $districtParticipantCounts);
                 $allLeaders = $roundLeaders;
 
                 // Separate by gender
@@ -1189,36 +1200,39 @@ class PageController extends Controller
                     ->values()
                     ->all();
 
-                // Add participants without penyisihan scores at the bottom
-                $leadersIds = collect($allLeaders)->pluck('participant_id')->toArray();
-                $noScoreParticipants = $categoryParticipants
-                    ->filter(fn ($p) => !in_array($p->id, $leadersIds));
+                // For MSQ: skip no-score participants (all have same score per district)
+                // For regular: add participants without scores at the bottom
+                if (!$isMsqCategory) {
+                    $leadersIds = collect($allLeaders)->pluck('participant_id')->toArray();
+                    $noScoreParticipants = $categoryParticipants
+                        ->filter(fn ($p) => !in_array($p->id, $leadersIds));
 
-                foreach (['putra', 'putri'] as $gender) {
-                    $noScoreOfGender = $noScoreParticipants->filter(
-                        fn ($p) => strtolower((string) $p->gender) === $gender
-                    );
+                    foreach (['putra', 'putri'] as $gender) {
+                        $noScoreOfGender = $noScoreParticipants->filter(
+                            fn ($p) => strtolower((string) $p->gender) === $gender
+                        );
 
-                    foreach ($noScoreOfGender as $participant) {
-                        $leaderData = [
-                            'name' => $participant->name,
-                            'district' => $participant->district?->name ?? '-',
-                            'lot_number' => $participant->lot_number,
-                            'average_score' => '0.00',
-                            'current_round' => '-',
-                            'participant_id' => $participant->id,
-                        ];
+                        foreach ($noScoreOfGender as $participant) {
+                            $leaderData = [
+                                'name' => $participant->name,
+                                'district' => $participant->district?->name ?? '-',
+                                'lot_number' => $participant->lot_number,
+                                'average_score' => '0.00',
+                                'current_round' => '-',
+                                'participant_id' => $participant->id,
+                            ];
 
-                        if ($gender === 'putra') {
-                            $putraLeaders[] = $leaderData;
-                        } else {
-                            $putriLeaders[] = $leaderData;
+                            if ($gender === 'putra') {
+                                $putraLeaders[] = $leaderData;
+                            } else {
+                                $putriLeaders[] = $leaderData;
+                            }
                         }
                     }
                 }
             } elseif ($filterType === 'final') {
                 // For final, only show those with final scores (no fallback)
-                $roundLeaders = $this->buildRoundLeaders($categoryParticipants, 'Final');
+                $roundLeaders = $this->buildRoundLeaders($categoryParticipants, 'Final', $isMsqCategory, $districtParticipantCounts);
 
                 $putraLeaders = collect($roundLeaders)
                     ->filter(fn ($leader) => strtolower((string) ($leader['gender'] ?? '')) === 'putra')
@@ -1231,7 +1245,7 @@ class PageController extends Controller
                     ->all();
             } else {
                 // "semua" - build semua ranking and include all participants
-                $semuaLeaders = $this->buildSemuaRanking($categoryParticipants);
+                $semuaLeaders = $this->buildSemuaRanking($categoryParticipants, $isMsqCategory, $districtParticipantCounts);
                 $allLeaders = $semuaLeaders;
 
                 // Separate by gender
@@ -1245,55 +1259,58 @@ class PageController extends Controller
                     ->values()
                     ->all();
 
-                // Add participants without scores at the bottom
-                $leadersIds = collect($allLeaders)->pluck('participant_id')->toArray();
-                $noScoreParticipants = $categoryParticipants
-                    ->filter(fn ($p) => !in_array($p->id, $leadersIds));
+                // For MSQ: skip no-score participants
+                // For regular: add participants without scores at the bottom
+                if (!$isMsqCategory) {
+                    $leadersIds = collect($allLeaders)->pluck('participant_id')->toArray();
+                    $noScoreParticipants = $categoryParticipants
+                        ->filter(fn ($p) => !in_array($p->id, $leadersIds));
 
-                foreach (['putra', 'putri'] as $gender) {
-                    $noScoreOfGender = $noScoreParticipants->filter(
-                        fn ($p) => strtolower((string) $p->gender) === $gender
-                    );
+                    foreach (['putra', 'putri'] as $gender) {
+                        $noScoreOfGender = $noScoreParticipants->filter(
+                            fn ($p) => strtolower((string) $p->gender) === $gender
+                        );
 
-                    foreach ($noScoreOfGender as $participant) {
-                        $leaderData = [
-                            'name' => $participant->name,
-                            'district' => $participant->district?->name ?? '-',
-                            'lot_number' => $participant->lot_number,
-                            'average_score' => '0.00',
-                            'current_round' => '-',
-                            'participant_id' => $participant->id,
-                        ];
+                        foreach ($noScoreOfGender as $participant) {
+                            $leaderData = [
+                                'name' => $participant->name,
+                                'district' => $participant->district?->name ?? '-',
+                                'lot_number' => $participant->lot_number,
+                                'average_score' => '0.00',
+                                'current_round' => '-',
+                                'participant_id' => $participant->id,
+                            ];
 
-                        if ($gender === 'putra') {
-                            $putraLeaders[] = $leaderData;
-                        } else {
-                            $putriLeaders[] = $leaderData;
+                            if ($gender === 'putra') {
+                                $putraLeaders[] = $leaderData;
+                            } else {
+                                $putriLeaders[] = $leaderData;
+                            }
                         }
                     }
                 }
             }
 
-            $categoryRankings[$category->id] = [
-                'category' => $category,
-                'putra' => $putraLeaders,
-                'putri' => $putriLeaders,
-                'total_participants' => $categoryParticipants->count(),
-            ];
+            // For MFQ: build rankings by district
+            if ($isMfqCategory) {
+                $mfqDistrictRankings = $this->buildMfqDistrictRankings($categoryParticipants);
+                $categoryRankings[$category->id] = [
+                    'category' => $category,
+                    'is_mfq' => true,
+                    'mfq_rankings' => $mfqDistrictRankings,
+                    'total_participants' => $categoryParticipants->count(),
+                ];
+            } else {
+                $categoryRankings[$category->id] = [
+                    'category' => $category,
+                    'putra' => $putraLeaders,
+                    'putri' => $putriLeaders,
+                    'total_participants' => $categoryParticipants->count(),
+                    'is_msq' => $isMsqCategory,
+                    'district_count' => $isMsqCategory ? count($districtParticipantCounts) : 0,
+                ];
+            }
         }
-
-        // MFQ Categories
-        $mfqCategories = CompetitionCategory::query()
-            ->whereIn('id', [24, 25])
-            ->orderBy('id')
-            ->get();
-
-        $mfqSessions = \App\Models\MfqSession::query()
-            ->with(['category', 'results.participant.district'])
-            ->where('status', 'completed')
-            ->get();
-
-        $mfqRankings = $this->buildMfqRankingsData($mfqSessions);
 
         // Title based on filter type
         $filterTitle = match ($filterType) {
@@ -1306,8 +1323,6 @@ class PageController extends Controller
         $html = view('pages.leaderboard-print', [
             'categories' => $categories,
             'categoryRankings' => $categoryRankings,
-            'mfqCategories' => $mfqCategories,
-            'mfqRankings' => $mfqRankings,
             'generatedAt' => now()->format('d/m/Y H:i:s'),
             'totalParticipants' => $participants->count(),
             'filterType' => $filterType,
@@ -2634,10 +2649,30 @@ class PageController extends Controller
             ->all();
     }
 
-    protected function buildRoundLeaders($participants, string $roundLabel): array
+    protected function buildRoundLeaders($participants, string $roundLabel, bool $isMsqCategory = false, array $districtParticipantCounts = []): array
     {
+        // For MSQ: group by district and get one representative per district
+        if ($isMsqCategory) {
+            $groupedByDistrict = collect($participants)->groupBy('district_id');
+            $districtRepresentatives = collect();
+
+            foreach ($groupedByDistrict as $districtId => $districtParticipants) {
+                // Get participant with lot_number, sorted by lot number
+                $withLot = $districtParticipants->filter(fn ($p) => filled($p->lot_number));
+                $representative = $withLot->isNotEmpty()
+                    ? $withLot->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first()
+                    : $districtParticipants->first();
+
+                if ($representative) {
+                    $districtRepresentatives->push($representative);
+                }
+            }
+
+            $participants = $districtRepresentatives;
+        }
+
         $rows = collect($participants)
-            ->map(function (Participant $participant) use ($roundLabel): ?array {
+            ->map(function (Participant $participant) use ($roundLabel, $isMsqCategory, $districtParticipantCounts): ?array {
                 $roundScores = $participant->scores->filter(fn (ScoreEntry $entry): bool => (string) $entry->judging_round === $roundLabel);
 
                 if ($roundScores->isEmpty()) {
@@ -2649,10 +2684,17 @@ class PageController extends Controller
                 $averageScore = (float) ($roundScores->avg('score') ?? 0);
                 $latestScoreValue = (float) ($latestScore->score ?? 0);
 
+                // For MSQ: build name with "dkk." suffix if there are more participants in district
+                $districtId = $participant->district_id;
+                $districtCount = $districtParticipantCounts[$districtId] ?? 1;
+                $displayName = $isMsqCategory && $districtCount > 1
+                    ? $participant->name.' dkk.'
+                    : $participant->name;
+
                 return [
                     'participant_id' => $participant->id,
-                    'name' => $participant->name,
-                    'institution' => $participant->institution,
+                    'name' => $displayName,
+                    'original_name' => $participant->name,
                     'district' => $participant->district?->name ?? '-',
                     'category' => $participant->category?->name ?? '-',
                     'branch' => $participant->category?->branch ?? '-',
@@ -2697,7 +2739,6 @@ class PageController extends Controller
         });
 
         return collect($rows)
-            ->take(10)
             ->map(function (array $row): array {
                 unset($row['latest_score_value'], $row['average_score_value'], $row['priority_values']);
 
@@ -2710,10 +2751,30 @@ class PageController extends Controller
     /**
      * Build ranking for "Semua" filter - Final participants always above Penyisihan-only
      */
-    protected function buildSemuaRanking($participants): array
+    protected function buildSemuaRanking($participants, bool $isMsqCategory = false, array $districtParticipantCounts = []): array
     {
+        // For MSQ: group by district and get one representative per district
+        if ($isMsqCategory) {
+            $groupedByDistrict = collect($participants)->groupBy('district_id');
+            $districtRepresentatives = collect();
+
+            foreach ($groupedByDistrict as $districtId => $districtParticipants) {
+                // Get participant with lot_number, sorted by lot number
+                $withLot = $districtParticipants->filter(fn ($p) => filled($p->lot_number));
+                $representative = $withLot->isNotEmpty()
+                    ? $withLot->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first()
+                    : $districtParticipants->first();
+
+                if ($representative) {
+                    $districtRepresentatives->push($representative);
+                }
+            }
+
+            $participants = $districtRepresentatives;
+        }
+
         // Get Penyisihan and Final scores for each participant
-        $participantsWithScores = collect($participants)->map(function (Participant $participant): ?array {
+        $participantsWithScores = collect($participants)->map(function (Participant $participant) use ($isMsqCategory, $districtParticipantCounts): ?array {
             $penyisihanScores = $participant->scores->filter(fn (ScoreEntry $entry): bool => (string) $entry->judging_round === 'Penyisihan');
             $finalScores = $participant->scores->filter(fn (ScoreEntry $entry): bool => (string) $entry->judging_round === 'Final');
 
@@ -2741,9 +2802,17 @@ class PageController extends Controller
 
             $priorityValues = $this->participantPriorityValues($participant);
 
+            // For MSQ: build name with "dkk." suffix if there are more participants in district
+            $districtId = $participant->district_id;
+            $districtCount = $districtParticipantCounts[$districtId] ?? 1;
+            $displayName = $isMsqCategory && $districtCount > 1
+                ? $participant->name.' dkk.'
+                : $participant->name;
+
             return [
                 'participant_id' => $participant->id,
-                'name' => $participant->name,
+                'name' => $displayName,
+                'original_name' => $participant->name,
                 'institution' => $participant->institution,
                 'district' => $participant->district?->name ?? '-',
                 'category' => $participant->category?->name ?? '-',
@@ -2793,7 +2862,6 @@ class PageController extends Controller
         });
 
         return collect($participantsWithScores)
-            ->take(10)
             ->map(function (array $row): array {
                 unset(
                     $row['latest_score_value'],
@@ -2806,6 +2874,74 @@ class PageController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Build MFQ rankings data grouped by district
+     */
+    protected function buildMfqDistrictRankings($participants): array
+    {
+        // Get MFQ results for these participants
+        $participantIds = $participants->pluck('id')->toArray();
+        $mfqResults = \App\Models\MfqResult::query()
+            ->whereIn('participant_id', $participantIds)
+            ->with('participant')
+            ->get()
+            ->groupBy('district_id');
+
+        // Group participants by district
+        $byDistrict = $participants->groupBy('district_id');
+
+        $rankings = [];
+        foreach ($byDistrict as $districtId => $districtParticipants) {
+            $district = $districtParticipants->first()?->district;
+            $participantCount = $districtParticipants->count();
+
+            // Get representative (participant with lot number, lowest lot first)
+            $withLot = $districtParticipants->filter(fn ($p) => filled($p->lot_number));
+            $representative = $withLot->isNotEmpty()
+                ? $withLot->sortBy(fn ($p) => (int) preg_replace('/[^0-9]/', '', $p->lot_number ?? '0'))->first()
+                : $districtParticipants->first();
+
+            // Build representative name with "dkk." suffix
+            $representativeName = $representative?->name ?? '-';
+            if ($participantCount > 1) {
+                $representativeName .= ' dkk.';
+            }
+
+            // Get scores from mfq_results for this district
+            $districtResults = $mfqResults[$districtId] ?? collect();
+            $totalScore = $districtResults->sum('total_score');
+            $countResults = $districtResults->count();
+
+            // Get lot numbers
+            $lotNumbers = $districtParticipants
+                ->pluck('lot_number')
+                ->filter()
+                ->sortBy(fn ($lot) => (int) preg_replace('/[^0-9]/', '', $lot ?? '0'))
+                ->values()
+                ->toArray();
+
+            // Determine gender based on participants
+            $genders = $districtParticipants->pluck('gender')->unique()->values()->toArray();
+            $genderLabel = count($genders) === 1 ? ucfirst($genders[0]) : 'Putra/Putri';
+
+            $rankings[] = [
+                'district_id' => $districtId,
+                'representative_name' => $representativeName,
+                'district_name' => $district?->name ?? '-',
+                'participant_count' => $participantCount,
+                'lot_numbers' => $lotNumbers,
+                'total_score' => $countResults > 0 ? round($totalScore / $countResults, 2) : 0,
+                'score_count' => $countResults,
+                'gender' => $genderLabel,
+            ];
+        }
+
+        // Sort by total score descending
+        usort($rankings, fn ($a, $b) => $b['total_score'] <=> $a['total_score']);
+
+        return $rankings;
     }
 
     protected function buildOfficialMandateAlert(?District $district): ?array
