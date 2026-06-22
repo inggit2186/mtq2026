@@ -267,30 +267,36 @@
 
         /* Judge Detail Row */
         .judge-row td {
-            background: #fffbeb !important;
-            font-size: 7.5px;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+            font-size: 10px;
             color: #92400e;
-            border-bottom: 1px dashed #fbbf24;
+            border-bottom: 2px dashed #fbbf24;
+            padding: 8px 6px;
         }
         .judge-label {
             display: flex;
             align-items: center;
-            gap: 4px;
-            font-weight: 600;
+            gap: 6px;
+            font-weight: 700;
             color: #78350f;
-            padding-left: 4px;
+            padding-left: 6px;
+            font-size: 11px;
+        }
+        .judge-label::before {
+            content: '📋';
         }
         .judge-item {
             display: inline-flex;
-            gap: 3px;
-            margin: 1px 3px;
-            background: #fef3c7;
-            padding: 2px 5px;
-            border-radius: 3px;
+            gap: 4px;
+            margin: 2px 4px;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
             border: 1px solid #fcd34d;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .judge-name { font-weight: 600; color: #92400e; font-size: 6.5px; }
-        .judge-score { font-weight: 700; color: #78350f; }
+        .judge-name { font-weight: 700; color: #92400e; font-size: 10px; }
+        .judge-score { font-weight: 800; color: #78350f; }
 
         /* Spacer Row */
         .spacer-row td {
@@ -303,21 +309,136 @@
         .signature-section {
             display: flex;
             justify-content: space-between;
-            margin-top: 15px;
-            padding: 12px 0;
-            border-top: 1px dashed var(--border-dark);
-            font-size: 9px;
+            align-items: flex-start;
+            margin-top: 20px;
+            padding: 20px 15px;
+            border-top: 2px solid var(--gold);
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border-radius: 0 0 8px 8px;
         }
 
-        .signature-left { width: 50%; }
+        .signature-left {
+            width: 45%;
+            padding-right: 15px;
+        }
 
-        .signature-right { width: 35%; text-align: right; }
+        .signature-right {
+            width: 35%;
+            text-align: center;
+            padding-left: 15px;
+            border-left: 1px dashed var(--border-dark);
+        }
 
-        .signature-title { font-weight: 700; color: var(--text-dark); }
+        .signature-title {
+            font-weight: 700;
+            color: var(--gold-dark);
+            font-size: 11px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
 
-        .signature-line { margin-top: 40px; border-top: 1px solid var(--text-dark); width: 80%; }
+        .signature-title::before {
+            content: '📋';
+            font-size: 14px;
+        }
 
-        .signature-name { margin-top: 4px; color: var(--text-light); font-size: 8px; }
+        /* Judge List Styling */
+        .hakim-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .hakim-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .hakim-number {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .hakim-name {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 12px;
+        }
+
+        .hakim-empty {
+            font-style: italic;
+            color: var(--text-light);
+            font-size: 11px;
+            padding: 15px;
+            text-align: center;
+            background: white;
+            border-radius: 8px;
+            border: 1px dashed var(--border-dark);
+        }
+
+        /* Signature Box */
+        .signature-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .signature-date {
+            font-size: 11px;
+            color: var(--text-medium);
+            margin-bottom: 10px;
+        }
+
+        .signature-position {
+            font-weight: 700;
+            color: var(--gold-dark);
+            font-size: 11px;
+            margin-bottom: 25px;
+        }
+
+        .signature-stamp-area {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            font-size: 9px;
+            border: 2px dashed var(--border);
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .signature-line {
+            border-top: 1px solid var(--text-dark);
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        .signature-name {
+            margin-top: 5px;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 11px;
+        }
 
         /* Footer */
         .footer {
@@ -463,7 +584,7 @@
                                             $val = $judge['breakdown'][$pKey] ?? 0;
                                             $parts[] = $val > 0 ? number_format($val, 1) : '-';
                                         }
-                                        $shortName = substr($judge['judge_name'], 0, 15);
+                                        $shortName = substr($judge['judge_name'], 0, 12);
                                         $judgeDetails[] = '<span class="judge-item"><span class="judge-name">H' . ($jIdx + 1) . ':</span>' . implode('/', $parts) . ' = <span class="judge-score">' . number_format($judge['score'], 2) . '</span></span>';
                                     }
                                 }
@@ -472,7 +593,7 @@
                                 <tr class="judge-row">
                                     <td class="rank-cell"></td>
                                     <td colspan="2">
-                                        <div class="judge-label">📋 Nilai Hakim ▼</div>
+                                        <div class="judge-label">Detail Nilai Hakim ▼</div>
                                     </td>
                                     <?php foreach ($priorityLabels as $pIdx => $label): ?>
                                         <td class="score-cell">
@@ -536,7 +657,7 @@
                                 <tr class="judge-row">
                                     <td class="rank-cell"></td>
                                     <td colspan="2">
-                                        <div class="judge-label">📋 Nilai Hakim ▼</div>
+                                        <div class="judge-label">Detail Nilai Hakim ▼</div>
                                     </td>
                                     <?php foreach ($priorityLabels as $pIdx => $label): ?>
                                         <td class="score-cell">
@@ -576,21 +697,28 @@
                 <!-- Signature Section -->
                 <div class="signature-section">
                     <div class="signature-left">
-                        <div class="signature-title">Dewan Hakim <?= e($category->branch) ?>:</div>
-                        <div class="muted">
-                            <?php foreach ($hakimList as $index => $hakim): ?>
-                                <?= ($index + 1) ?>. <?= e($hakim->nama) ?><br>
-                            <?php endforeach; ?>
-                            <?php if ($hakimList->isEmpty()): ?>
-                                (Belum ada data hakim)
-                            <?php endif; ?>
-                        </div>
+                        <div class="signature-title">Dewan Hakim <?= e($category->branch) ?></div>
+                        <?php if (!$hakimList->isEmpty()): ?>
+                            <div class="hakim-list">
+                                <?php foreach ($hakimList as $index => $hakim): ?>
+                                    <div class="hakim-item">
+                                        <span class="hakim-number"><?= $index + 1 ?></span>
+                                        <span class="hakim-name"><?= e($hakim->nama) ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="hakim-empty">(Belum ada data hakim)</div>
+                        <?php endif; ?>
                     </div>
                     <div class="signature-right">
-                        <div><?= e(($documentConfig['signature_city'] ?? 'Pariangan')) ?>, &nbsp; &nbsp; &nbsp;<?= e(date('F Y')) ?></div>
-                        <div class="signature-title"><?= e(($documentConfig['officials']['chief_judge']['title'] ?? 'Ketua Dewan Hakim')) ?></div>
-                        <div class="signature-line"></div>
-                        <div class="signature-name">(<?= e(($documentConfig['officials']['chief_judge']['name'] ?? '...............')) ?>)</div>
+                        <div class="signature-box">
+                            <div class="signature-date"><?= e(($documentConfig['signature_city'] ?? 'Pariangan')) ?>, <?= e(date('d F Y')) ?></div>
+                            <div class="signature-position"><?= e(($documentConfig['officials']['chief_judge']['title'] ?? 'Ketua Dewan Hakim')) ?></div>
+                            <div class="signature-stamp-area">📌 Area Tanda Tangan / Stempel</div>
+                            <div class="signature-line"></div>
+                            <div class="signature-name">(<?= e(($documentConfig['officials']['chief_judge']['name'] ?? '..........................')) ?>)</div>
+                        </div>
                     </div>
                 </div>
             </div>
