@@ -1340,9 +1340,20 @@ class PageController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
 
+        $categoryFilter = $request->input('category_id');
+        $branchFilter = $request->input('branch');
+
         $categories = CompetitionCategory::query()
             ->orderBy('id')
             ->get();
+
+        // Filter categories if specified
+        if ($categoryFilter) {
+            $categories = $categories->filter(fn ($c) => (int) $c->id === (int) $categoryFilter);
+        }
+        if ($branchFilter) {
+            $categories = $categories->filter(fn ($c) => $c->branch === $branchFilter);
+        }
 
         $participants = Participant::query()
             ->with(['category', 'district', 'scores'])
@@ -1425,6 +1436,14 @@ class PageController extends Controller
             ];
         }
 
+        // Get all categories for filter dropdown
+        $allCategories = CompetitionCategory::query()
+            ->orderBy('id')
+            ->get();
+
+        // Get unique branches for filter
+        $branches = $allCategories->pluck('branch')->unique()->filter()->values();
+
         $documentConfig = $this->documentConfig();
 
         return response(view('pages.leaderboard-detail-print', [
@@ -1432,6 +1451,10 @@ class PageController extends Controller
             'generatedAt' => now()->format('d/m/Y H:i:s'),
             'documentConfig' => $documentConfig,
             'filterTitle' => 'Rekap Detail Nilai Penyisihan & Final',
+            'allCategories' => $allCategories,
+            'branches' => $branches,
+            'selectedCategoryId' => $categoryFilter,
+            'selectedBranch' => $branchFilter,
         ]))->header('Content-Type', 'text/html');
     }
 

@@ -4,9 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($filterTitle ?? 'Rekap Detail Nilai') ?> - e-MTQ</title>
+    <link rel="icon" type="image/webp" href="<?= asset('images/favicon.webp') ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
             --gold: #b8860b;
@@ -143,6 +145,118 @@
             margin: 0 auto 15px;
             width: fit-content;
             box-shadow: 0 4px 12px rgba(184, 134, 11, 0.3);
+        }
+
+        /* Filter Section */
+        .filter-section {
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .filter-title {
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-title::before {
+            content: '🔍';
+        }
+
+        .filter-form {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-medium);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-select {
+            padding: 10px 15px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-dark);
+            background: white;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-select:hover {
+            border-color: var(--gold);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.2);
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(184, 134, 11, 0.3);
+        }
+
+        .filter-btn-reset {
+            padding: 10px 20px;
+            background: var(--bg-light);
+            color: var(--text-medium);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn-reset:hover {
+            background: var(--border);
+        }
+
+        .filter-info {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 10px;
+            font-style: italic;
         }
 
         /* Category Section */
@@ -497,6 +611,46 @@
                 </div>
             </div>
         </header>
+
+        <!-- Filter Section -->
+        <div class="filter-section no-print">
+            <div class="filter-title">Filter Rekap Detail Nilai</div>
+            <form method="GET" action="" class="filter-form">
+                <div class="filter-group">
+                    <label class="filter-label">Cabang Lomba</label>
+                    <select name="branch" class="filter-select" onchange="this.form.submit()">
+                        <option value="">Semua Cabang</option>
+                        <?php foreach ($branches as $branch): ?>
+                            <option value="<?= e($branch) ?>" <?= $selectedBranch === $branch ? 'selected' : '' ?>>
+                                <?= e($branch) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Golongan</label>
+                    <select name="category_id" class="filter-select" onchange="this.form.submit()">
+                        <option value="">Semua Golongan</option>
+                        <?php foreach ($allCategories as $cat): ?>
+                            <option value="<?= $cat->id ?>" <?= $selectedCategoryId == $cat->id ? 'selected' : '' ?>>
+                                <?= e($cat->branch) ?> - <?= e($cat->name) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button type="submit" class="filter-btn">
+                    <i class="fas fa-filter"></i> Tampilkan
+                </button>
+                <a href="<?= url()->current() ?>" class="filter-btn-reset">
+                    <i class="fas fa-times"></i> Reset
+                </a>
+            </form>
+            <?php if ($selectedCategoryId || $selectedBranch): ?>
+                <div class="filter-info">
+                    Menampilkan <?= count($categoryBlocks) ?> golongan hasil filter
+                </div>
+            <?php endif; ?>
+        </div>
 
         <!-- Print Button -->
         <button onclick="window.print()" class="print-btn no-print">
