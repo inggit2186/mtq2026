@@ -51,6 +51,7 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/leaderboard/cetak', [PageController::class, 'leaderboardPrint'])->middleware('role:admin,panitia')->name('leaderboard.print');
     Route::get('/leaderboard/cetak/detail', [PageController::class, 'leaderboardDetailPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-detail');
     Route::get('/leaderboard/cetak/detail-pdf', [PageController::class, 'leaderboardDetailPdf'])->middleware('role:admin,panitia')->name('leaderboard.print-detail-pdf');
+    Route::get('/leaderboard/cetak/juara-umum', [PageController::class, 'leaderboardJuaraUmumPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-juara-umum');
     Route::get('/admin/finalis', [FinalistController::class, 'index'])->middleware('role:admin,panitia')->name('finalists.index');
     Route::get('/admin/finalis/cetak', [FinalistController::class, 'print'])->middleware('role:admin,panitia')->name('finalists.print');
     Route::post('/admin/finalis/generate', [FinalistController::class, 'generateAll'])->middleware('role:admin,panitia')->name('finalists.generate-all');

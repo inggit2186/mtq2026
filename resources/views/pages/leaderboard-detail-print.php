@@ -229,11 +229,11 @@
         .rank-3 { background: linear-gradient(135deg, #fdba74 0%, #ea580c 100%); color: white; }
         .rank-other { background: var(--bg-light); color: var(--text-medium); border: 1px solid var(--border-dark); }
 
-        .name-cell { min-width: 120px; }
-        .name-text { font-weight: 600; color: var(--text-dark); font-size: 10px; }
+        .name-cell { width: 100px; }
+        .name-text { font-weight: 600; color: var(--text-dark); font-size: 9px; }
         .muted { color: var(--text-light); font-size: 7.5px; }
 
-        .lot-cell { width: 55px; text-align: center; }
+        .lot-cell { width: 50px; text-align: center; flex-shrink: 0; }
         .lot-badge {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             color: white;
@@ -242,8 +242,6 @@
             padding: 2px 6px;
             border-radius: 4px;
         }
-
-        .district-cell { width: 70px; font-size: 8px; }
 
         .score-cell { text-align: center; width: 45px; }
         .score-value { font-size: 10px; font-weight: 700; color: var(--green); }
@@ -400,7 +398,7 @@
             $putraRows = array_values(array_filter($rankingRows, fn ($row) => ($row['gender'] ?? '') === 'putra'));
             $putriRows = array_values(array_filter($rankingRows, fn ($row) => ($row['gender'] ?? '') === 'putri'));
 
-            $totalColumns = 4 + count($priorityLabels);
+            $totalColumns = 3 + count($priorityLabels);
             ?>
             <div class="category">
                 <div class="category-head">
@@ -418,9 +416,8 @@
                     <thead>
                         <tr>
                             <th class="rank-cell">#</th>
-                            <th>Nama Peserta</th>
+                            <th>Nama</th>
                             <th class="lot-cell">Lot</th>
-                            <th class="district-cell">Kecamatan</th>
                             <?php foreach ($priorityLabels as $idx => $label): ?>
                                 <th class="score-cell" title="<?= e($label) ?>"><?= e($label) ?></th>
                             <?php endforeach; ?>
@@ -442,12 +439,10 @@
                                     </td>
                                     <td class="name-cell">
                                         <div class="name-text"><?= e($row['name']) ?></div>
-                                        <div class="muted"><?= e($row['institution'] ?? '') ?></div>
                                     </td>
                                     <td class="lot-cell">
                                         <span class="lot-badge"><?= e($row['lot_number']) ?></span>
                                     </td>
-                                    <td class="district-cell"><?= e($row['district']) ?></td>
                                     <?php foreach ($priorityLabels as $label): ?>
                                         <td class="score-cell">
                                             <?= e($row['priority_label_values'][$label] ?? '0.00') ?>
@@ -476,8 +471,8 @@
                                 <?php if (!empty($judgeDetails)): ?>
                                 <tr class="judge-row">
                                     <td class="rank-cell"></td>
-                                    <td colspan="3">
-                                        <div class="judge-label">📋 Nilai per Hakim ▼</div>
+                                    <td colspan="2">
+                                        <div class="judge-label">📋 Nilai Hakim ▼</div>
                                     </td>
                                     <?php foreach ($priorityLabels as $pIdx => $label): ?>
                                         <td class="score-cell">
@@ -520,12 +515,10 @@
                                     </td>
                                     <td class="name-cell">
                                         <div class="name-text"><?= e($row['name']) ?></div>
-                                        <div class="muted"><?= e($row['institution'] ?? '') ?></div>
                                     </td>
                                     <td class="lot-cell">
                                         <span class="lot-badge"><?= e($row['lot_number']) ?></span>
                                     </td>
-                                    <td class="district-cell"><?= e($row['district']) ?></td>
                                     <?php foreach ($priorityLabels as $label): ?>
                                         <td class="score-cell">
                                             <?= e($row['priority_label_values'][$label] ?? '0.00') ?>
@@ -542,8 +535,8 @@
                                 <?php if (!empty($scoreEntries)): ?>
                                 <tr class="judge-row">
                                     <td class="rank-cell"></td>
-                                    <td colspan="3">
-                                        <div class="judge-label">📋 Nilai per Hakim ▼</div>
+                                    <td colspan="2">
+                                        <div class="judge-label">📋 Nilai Hakim ▼</div>
                                     </td>
                                     <?php foreach ($priorityLabels as $pIdx => $label): ?>
                                         <td class="score-cell">
@@ -594,10 +587,10 @@
                         </div>
                     </div>
                     <div class="signature-right">
-                        <div><?= e(($documentConfig['signature_city'] ?? 'Pariangan')) ?>, <?= e(date('F Y')) ?></div>
+                        <div><?= e(($documentConfig['signature_city'] ?? 'Pariangan')) ?>, &nbsp; &nbsp; &nbsp;<?= e(date('F Y')) ?></div>
                         <div class="signature-title"><?= e(($documentConfig['officials']['chief_judge']['title'] ?? 'Ketua Dewan Hakim')) ?></div>
                         <div class="signature-line"></div>
-                        <div class="signature-name">(<?= e(($documentConfig['officials']['chief_judge']['name'] ?? '................................')) ?>)</div>
+                        <div class="signature-name">(<?= e(($documentConfig['officials']['chief_judge']['name'] ?? '...............')) ?>)</div>
                     </div>
                 </div>
             </div>

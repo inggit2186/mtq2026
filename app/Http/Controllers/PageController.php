@@ -1563,6 +1563,168 @@ class PageController extends Controller
     }
 
     /**
+     * Generate HTML print-friendly Rekap Juara Umum by District
+     * Rule: Final Rank 1=9pt, Rank 2=7pt, Rank 3=5pt, Penyisihan Rank 4=3pt, Rank 5=2pt, Rank 6=1pt
+     */
+    public function leaderboardJuaraUmumPrint(Request $request)
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        // Point rules for juara umum
+        $pointRules = [
+            'final' => [1 => 9, 2 => 7, 3 => 5],
+            'penyisihan' => [4 => 3, 5 => 2, 6 => 1],
+        ];
+
+        $participants = Participant::query()
+            ->with(['district', 'category'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $districts = District::orderBy('name')->get();
+        $categories = CompetitionCategory::orderBy('id')->get();
+
+        // Build district rankings
+        $districtRankings = [];
+        foreach ($districts as $district) {
+            $districtParticipants = $participants->filter(fn ($p) => $p->district_id === $district->id);
+            if ($districtParticipants->isEmpty()) {
+                continue;
+            }
+            $districtRankings[] = [
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'participant_count' => $districtParticipants->count(),
+                'points' => 0,
+                'details' => [],
+            ];
+        }
+
+        // Process each category to calculate points
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            $isMfqCategory = in_array($category->id, [24, 25]);
+            if ($isMfqCategory) {
+                continue;
+            }
+
+            // Get Penyisihan rankings
+            $penyisihanRows = $this->buildSimpleRankings($categoryParticipants, 'Penyisihan');
+            usort($penyisihanRows, fn ($a, $b) => $b['average_score'] <=> $a['average_score']);
+
+            // Get Final rankings
+            $finalRows = $this->buildSimpleRankings($categoryParticipants, 'Final');
+            usort($finalRows, fn ($a, $b) => $b['average_score'] <=> $a['average_score']);
+
+            // Fallback: if no participants in Final, use Penyisihan top 3
+            $useFinalPoints = !empty($finalRows);
+            if (!$useFinalPoints) {
+                $finalRows = array_slice($penyisihanRows, 0, 3);
+            }
+
+            // Add points to districts based on final ranks (or fallback Penyisihan top 3)
+            foreach ($finalRows as $rankIndex => $participant) {
+                $rank = $rankIndex + 1;
+                if (isset($pointRules['final'][$rank])) {
+                    $points = $pointRules['final'][$rank];
+                    $districtId = $participant['district_id'];
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name,
+                            'type' => $useFinalPoints ? 'final' : 'penyisihan_final',
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $participant['name'],
+                        ];
+                    }
+                }
+            }
+
+            // Add points to districts based on penyisihan ranks (4, 5, 6)
+            foreach ($penyisihanRows as $rankIndex => $participant) {
+                $rank = $rankIndex + 1;
+                if (isset($pointRules['penyisihan'][$rank])) {
+                    $points = $pointRules['penyisihan'][$rank];
+                    $districtId = $participant['district_id'];
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name,
+                            'type' => 'penyisihan',
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $participant['name'],
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Sort by total points descending
+        usort($districtRankings, fn ($a, $b) => $b['points'] <=> $a['points']);
+
+        // Assign final ranks and count how many times each rank was achieved
+        foreach ($districtRankings as $idx => &$district) {
+            $district['rank'] = $idx + 1;
+            // Count how many times this district got rank 1, 2, 3, etc.
+            $district['rank_counts'] = [
+                1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0,
+            ];
+            foreach ($district['details'] as $detail) {
+                $detailRank = $detail['rank'];
+                if (isset($district['rank_counts'][$detailRank])) {
+                    $district['rank_counts'][$detailRank]++;
+                }
+            }
+        }
+
+        $documentConfig = $this->documentConfig();
+
+        return response(view('pages.leaderboard-juara-umum-print', [
+            'districtRankings' => $districtRankings,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'documentConfig' => $documentConfig,
+            'filterTitle' => 'Rekap Juara Umum',
+        ]))->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Build simple rankings for a collection of participants
+     */
+    protected function buildSimpleRankings($participants, string $round): array
+    {
+        $rows = [];
+        foreach ($participants as $participant) {
+            $scores = $participant->scores ?? collect();
+            $roundScores = $scores->filter(fn ($s) => ($s->judging_round ?? '') === $round);
+            if ($roundScores->isEmpty()) {
+                continue;
+            }
+            $allScores = [];
+            foreach ($roundScores as $entry) {
+                $allScores[] = (float) ($entry->average_score ?? $entry->score ?? 0);
+            }
+            $averageScore = count($allScores) > 0 ? array_sum($allScores) / count($allScores) : 0;
+            $rows[] = [
+                'participant_id' => $participant->id,
+                'name' => $participant->name,
+                'district_id' => $participant->district_id,
+                'average_score' => $averageScore,
+            ];
+        }
+        return $rows;
+    }
+
+    /**
      * Build detail ranking rows for a category with per-judge breakdown
      */
     protected function buildDetailRankingRows($participants, string $round, array $priorityKeys, array $priorityLabels): array

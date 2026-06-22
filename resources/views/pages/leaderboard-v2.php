@@ -390,14 +390,14 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                 </div>
                             </a>
 
-                            <a href="<?= e(route('leaderboard.print-detail-pdf')) ?>" target="_blank"
-                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-purple-400/50 hover:bg-purple-400/10">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-purple-400/20 text-purple-400">
-                                    <?= mtq_icon('document', 'h-5 w-5') ?>
+                            <a href="<?= e(route('leaderboard.print-juara-umum')) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-amber-400/50 hover:bg-amber-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/20 text-amber-400">
+                                    <?= mtq_icon('crown', 'h-5 w-5') ?>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-white">Rekap Detail Nilai (PDF)</p>
-                                    <p class="text-xs text-slate-400">Penyisihan & Final - Download PDF</p>
+                                    <p class="font-semibold text-white">Rekap Juara Umum</p>
+                                    <p class="text-xs text-slate-400">Peringkat Kecamatan</p>
                                 </div>
                             </a>
                         </div>
