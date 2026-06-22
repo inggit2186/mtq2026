@@ -558,34 +558,53 @@
                         <tbody>
                             <?php if (!empty($mfqRankings)): ?>
                                 <?php foreach ($mfqRankings as $index => $rank): ?>
+                                    <?php
+                                    $rankLabel = $rank['rank_label'] ?? ($index + 1);
+                                    $isHarapan = str_starts_with((string) $rankLabel, 'Harapan');
+                                    $numericRank = (int) preg_replace('/\D/', '', (string) $rankLabel);
+                                    if ($isHarapan) {
+                                        $rankClass = 'harapan-' . min($numericRank, 3);
+                                    } elseif ($numericRank >= 1 && $numericRank <= 3) {
+                                        $rankClass = 'rank-' . $numericRank;
+                                    } else {
+                                        $rankClass = 'rank-other';
+                                    }
+                                    $isFallback = !empty($rank['is_fallback']);
+                                    $source = $rank['source'] ?? $rank['round'] ?? '-';
+                                    $scoreValue = (float) ($rank['total_score'] ?? 0);
+                                    $scoreDisplay = $scoreValue > 0 ? number_format($scoreValue, 0) : '-';
+                                    $lotNumbers = $rank['lot_numbers'] ?? [];
+                                    ?>
                                     <tr>
                                         <td class="rank-cell">
-                                            <span class="rank-badge rank-<?= ($index < 3) ? ($index + 1) : 'other' ?>">
-                                                <?= ($index < 3) ? (($index === 0) ? '🥇' : (($index === 1) ? '🥈' : '🥉')) : ($index + 1) ?>
+                                            <span class="rank-badge <?= e($rankClass) ?>">
+                                                <?= e($rankLabel) ?>
+                                                <?php if ($isFallback): ?>
+                                                    <span class="fallback-badge">dari P</span>
+                                                <?php endif; ?>
                                             </span>
                                         </td>
                                         <td class="name-cell">
-                                            <div class="name-text"><?= e($rank['representative_name']) ?></div>
-                                            <div class="district-text">📍 <?= e($rank['district_name']) ?> • <?= $rank['participant_count'] ?> peserta</div>
+                                            <div class="name-text"><?= e($rank['representative_name'] ?? '-') ?></div>
+                                            <div class="district-text"><?= e($rank['district_name'] ?? '-') ?></div>
                                         </td>
                                         <td class="lot-cell">
-                                            <?php if (!empty($rank['lot_numbers'])): ?>
-                                                <?php foreach (array_slice($rank['lot_numbers'], 0, 5) as $lot): ?>
+                                            <?php if (!empty($lotNumbers) && is_array($lotNumbers)): ?>
+                                                <?php foreach (array_slice($lotNumbers, 0, 3) as $lot): ?>
                                                     <span class="lot-badge"><?= e($lot) ?></span>
                                                 <?php endforeach; ?>
-                                                <?php if (count($rank['lot_numbers']) > 5): ?>
-                                                    <span class="lot-badge" style="background: #64748b;">+<?= count($rank['lot_numbers']) - 5 ?></span>
+                                                <?php if (count($lotNumbers) > 3): ?>
+                                                    <span class="lot-badge" style="background: #64748b;">+<?= count($lotNumbers) - 3 ?></span>
                                                 <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="no-lot">-</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="score-cell">
-                                            <?php
-                                            $scoreVal = (float) $rank['total_score'];
-                                            $scoreDisplay = $scoreVal > 0 ? number_format($scoreVal, 0) : '-';
-                                            ?>
                                             <div class="score-value"><?= e($scoreDisplay) ?></div>
+                                            <div class="score-round <?= $source === 'Final' ? 'final' : '' ?>">
+                                                <?= e($source) ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

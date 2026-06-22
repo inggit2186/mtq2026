@@ -940,7 +940,7 @@ class PageController extends Controller
 
         // Also load MFQ results separately, filtered by result's round column
         $mfqResults = \App\Models\MfqResult::query()
-            ->with(['participant.district', 'session.category'])
+            ->with(['participant.district', 'district', 'session.category'])
             ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
             ->get();
 
@@ -1066,6 +1066,12 @@ class PageController extends Controller
         $participants = Participant::query()
             ->with(['category', 'district', 'scores'])
             ->where('verification_status', 'verified')
+            ->get();
+
+        // Load MFQ results for MFQ categories
+        $mfqResults = \App\Models\MfqResult::query()
+            ->with(['participant.district', 'district', 'session'])
+            ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
             ->get();
 
         // Build rankings data per category
@@ -1305,9 +1311,109 @@ class PageController extends Controller
                 }
             }
 
-            // For MFQ: build rankings by district
+            // For MFQ: build rankings by district using MFQ results
             if ($isMfqCategory) {
-                $mfqDistrictRankings = $this->buildMfqDistrictRankings($categoryParticipants);
+                // Get MFQ results for this category
+                $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+                // Determine which round to use based on filter type
+                $roundLabel = match ($filterType) {
+                    'penyisihan' => 'Penyisihan',
+                    'final' => 'Final',
+                    default => null,
+                };
+
+                if ($filterType === 'juara') {
+                    // For MFQ juara: Final rank 1-3 = Juara 1-2-3 (with Penyisihan fallback)
+                    $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+                    $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+
+                    $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+                    $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+
+                    $mfqJuaraRankings = [];
+                    $usedDistrictIds = [];
+
+                    // Add Final rankings first (Juara 1-2-3)
+                    for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                        $r = $finalRankings[$i];
+                        $mfqJuaraRankings[] = [
+                            'representative_name' => $r['representative_name'] ?? '-',
+                            'district_name' => $r['district_name'] ?? '-',
+                            'lot_numbers' => $r['lot_numbers'] ?? [],
+                            'total_score' => $r['total_score'] ?? 0,
+                            'rank_label' => 'Juara ' . ($i + 1),
+                            'round' => 'Final',
+                            'participant_count' => $r['participant_count'] ?? 0,
+                            'source' => 'final',
+                        ];
+                        $usedDistrictIds[] = $r['district_id'];
+                    }
+
+                    // Fill from Penyisihan if not enough Final
+                    $finalCount = count($mfqJuaraRankings);
+                    $penyisihanFilled = [];
+                    for ($i = 0; $i < (3 - $finalCount) && $i < count($penyisihanRankings); $i++) {
+                        $r = $penyisihanRankings[$i];
+                        if (in_array($r['district_id'], $usedDistrictIds)) {
+                            continue;
+                        }
+                        $mfqJuaraRankings[] = [
+                            'representative_name' => $r['representative_name'] ?? '-',
+                            'district_name' => $r['district_name'] ?? '-',
+                            'lot_numbers' => $r['lot_numbers'] ?? [],
+                            'total_score' => $r['total_score'] ?? 0,
+                            'rank_label' => 'Juara ' . ($finalCount + count($penyisihanFilled) + 1),
+                            'round' => 'Penyisihan',
+                            'participant_count' => $r['participant_count'] ?? 0,
+                            'source' => 'penyisihan',
+                            'is_fallback' => true,
+                        ];
+                        $penyisihanFilled[] = $r['district_id'];
+                        $usedDistrictIds[] = $r['district_id'];
+                    }
+
+                    // Add Harapan from Penyisihan rank 4+
+                    $harapanRankings = [];
+                    for ($i = 3; $i < count($penyisihanRankings); $i++) {
+                        $r = $penyisihanRankings[$i];
+                        if (!in_array($r['district_id'], $usedDistrictIds)) {
+                            $harapanRankings[] = [
+                                'representative_name' => $r['representative_name'] ?? '-',
+                                'district_name' => $r['district_name'] ?? '-',
+                                'lot_numbers' => $r['lot_numbers'] ?? [],
+                                'total_score' => $r['total_score'] ?? 0,
+                                'rank_label' => 'Harapan ' . (count($harapanRankings) + 1),
+                                'round' => 'Penyisihan',
+                                'participant_count' => $r['participant_count'] ?? 0,
+                                'source' => 'penyisihan',
+                            ];
+                            $usedDistrictIds[] = $r['district_id'];
+                            if (count($harapanRankings) >= 3) break;
+                        }
+                    }
+
+                    $mfqDistrictRankings = array_merge($mfqJuaraRankings, $harapanRankings);
+                } else {
+                    // For penyisihan, final, or semua
+                    if ($roundLabel) {
+                        $roundResults = $catResults->filter(fn ($r) => ($r->round ?? '') === $roundLabel);
+                    } else {
+                        // semua - use all results
+                        $roundResults = $catResults;
+                    }
+                    $mfqDistrictRankings = $this->buildMfqDistrictRankings($roundResults);
+
+                    // Add rank labels and format fields
+                    foreach ($mfqDistrictRankings as $i => &$r) {
+                        $r['rank_label'] = '#' . ($i + 1);
+                        // Ensure both name and representative_name are set
+                        $r['representative_name'] = $r['representative_name'] ?? $r['name'] ?? '-';
+                        $r['name'] = $r['representative_name'];
+                        $r['lot_number'] = !empty($r['lot_numbers']) ? implode(', ', $r['lot_numbers']) : null;
+                    }
+                }
+
                 $categoryRankings[$category->id] = [
                     'category' => $category,
                     'is_mfq' => true,
@@ -1707,7 +1813,7 @@ class PageController extends Controller
         // ========== MFQ CATEGORIES ==========
         // Load MFQ results
         $mfqResults = \App\Models\MfqResult::query()
-            ->with(['participant.district', 'session'])
+            ->with(['participant.district', 'district', 'session'])
             ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
             ->get();
 
@@ -1814,7 +1920,7 @@ class PageController extends Controller
             ->map(function ($districtResults) {
                 $firstResult = $districtResults->first();
                 $participant = $firstResult->participant ?? null;
-                $district = $firstResult->district ?? $participant?->district;
+                $district = $firstResult->district ?? $participant?->district ?? null;
 
                 // Get participant names for representative_name
                 $participantNames = $districtResults->map(fn ($r) => $r->participant?->name)->filter()->unique()->values();
@@ -1828,7 +1934,7 @@ class PageController extends Controller
 
                 return [
                     'district_id' => $district?->id ?? $firstResult->district_id ?? 0,
-                    'district_name' => $district?->name ?? 'Tanpa Kecamatan',
+                    'district_name' => $district?->name ?? $firstResult->district?->name ?? 'Tanpa Kecamatan',
                     'representative_name' => $representativeName,
                     'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
                     'lot_numbers' => $lotNumbers,
@@ -1995,7 +2101,8 @@ class PageController extends Controller
 
         foreach ($categoryIds as $catId) {
             $catSessions = $sessions->where('competition_category_id', $catId);
-            $catResults = $mfqResults->where('session.competition_category_id', $catId);
+            // Filter results by session's competition_category_id
+            $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $catId);
 
             // Count participants
             foreach ($catResults as $r) {
@@ -2020,12 +2127,13 @@ class PageController extends Controller
                 $roundSessions = $catSessions->whereIn('id', $roundSessionIds->toArray());
 
                 // Group by district
-                $rankingsByDistrict = $roundResults->groupBy(fn ($r) => $r->participant->district_id ?? 0)->map(function ($districtResults) use ($round) {
-                    $district = $districtResults->first()->participant->district;
+                $rankingsByDistrict = $roundResults->groupBy(fn ($r) => ($r->participant?->district_id ?? $r->district_id ?? 0))->map(function ($districtResults) use ($round) {
+                    $firstResult = $districtResults->first();
+                    $district = $firstResult->district ?? $firstResult->participant?->district;
                     $districtName = $district?->name ?? 'Tanpa Kecamatan';
 
                     // Get all lot numbers in this district
-                    $lotNumbers = $districtResults->map(fn ($r) => $r->participant->lot_number)->filter()->unique()->values();
+                    $lotNumbers = $districtResults->map(fn ($r) => $r->participant?->lot_number)->filter()->unique()->values();
 
                     // Get session names and points
                     $sessionNames = [];
@@ -2052,7 +2160,7 @@ class PageController extends Controller
                     }
 
                     return [
-                        'district_id' => $district->id ?? 0,
+                        'district_id' => $district?->id ?? $firstResult->district_id ?? 0,
                         'district_name' => $districtName,
                         'lot_numbers' => $lotNumbers->toArray(),
                         'session_names' => $sessionNames,
