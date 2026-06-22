@@ -15,7 +15,8 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
 $latestEntry = $scoreTimeline->first();
 $officialCanViewScoreDetail = $officialCanViewScoreDetail ?? false;
 $isOfficial = in_array($user?->role, ['official', 'pendamping'], true);
-$canViewScoreDetail = !$isOfficial || $officialCanViewScoreDetail;
+// When "Izinkan Official Lihat Detail Nilai" is CHECKED (enabled), hide Filter/Breakdown/Riwayat for officials
+$canViewScoreDetail = !$isOfficial || !$officialCanViewScoreDetail;
 
 // Get breakdown - new format uses point_averages from aggregated scores
 $latestBreakdown = null;
@@ -570,7 +571,7 @@ $hasRankings = !empty($rankings);
                                                 </div>
                                             </div>
 
-                                            <?php if (! empty($validBreakdown)): ?>
+                                            <?php if (! empty($validBreakdown) && $canViewScoreDetail): ?>
                                                 <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                                     <?php foreach ($validBreakdown as $key => $value): ?>
                                                         <div class="flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-900/50 px-3 py-2">
@@ -592,6 +593,17 @@ $hasRankings = !empty($rankings);
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
+                    </div>
+                </section>
+                <?php else: ?>
+                <!-- Score History - Hidden for officials when detail is closed -->
+                <section class="glass-card rounded-[2rem] p-6 animate-slide-up" style="animation-delay: 0.5s;">
+                    <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-800/30 p-8 text-center">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-500">
+                            <?= mtq_icon('lock', 'h-5 w-5') ?>
+                        </div>
+                        <h3 class="mt-4 text-lg font-bold text-slate-300">Riwayat Penilaian Ditutup</h3>
+                        <p class="mt-2 text-sm text-slate-400">Riwayat penilaian tidak dapat dilihat oleh official. Hubungi panitia untuk informasi lebih lanjut.</p>
                     </div>
                 </section>
                 <?php endif; ?>

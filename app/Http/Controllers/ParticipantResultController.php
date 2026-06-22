@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppearanceSchedule;
 use App\Models\CompetitionCategory;
+use App\Models\OfficialAccessSetting;
 use App\Models\Participant;
 use App\Models\ScoreEntry;
 use App\Models\ScoringSetting;
@@ -36,8 +37,7 @@ class ParticipantResultController extends Controller
         $rankings = $this->getRankingsForResults($categoryId);
 
         // Check if officials can view score detail
-        $juknis = \App\Models\JuknisSetting::currentOrDefault();
-        $officialCanViewScoreDetail = $juknis->content()['official']['can_view_score_detail'] ?? false;
+        $officialCanViewScoreDetail = OfficialAccessSetting::currentOrDefault()->official_can_view_score_detail ?? false;
 
         return view('pages/results-v2', [
             'assets' => app(PageController::class)->viteAssets(),

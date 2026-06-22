@@ -36,8 +36,6 @@ if (! is_array($eventScheduleRows)) {
 $eventScheduleRows = array_values($eventScheduleRows);
 $eventScheduleRows = array_pad($eventScheduleRows, max(count($eventScheduleRows) + 1, 8), []);
 
-$officialCanViewScoreDetail = (bool) ($juknisConfig['official']['can_view_score_detail'] ?? false);
-
 $administrationRequirementsText = old('administration_requirements_text', implode(PHP_EOL, $juknisConfig['administration_requirements'] ?? []));
 $participantRulesText = old('participant_rules_text', implode(PHP_EOL, $juknisConfig['participant_rules'] ?? []));
 $performanceRulesText = old('performance_rules_text', implode(PHP_EOL, $juknisConfig['performance_rules'] ?? []));
@@ -311,15 +309,6 @@ $summaryCounts = [
                                 <div><label class="mb-2 block text-sm font-semibold text-slate-200">Pengumuman</label><input name="registration[announcement]" type="text" value="<?= e(old('registration.announcement', $registration['announcement'] ?? '')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100"></div>
                                 <div><label class="mb-2 block text-sm font-semibold text-slate-200">Sanggah Buka</label><input name="registration[objection_start]" type="text" value="<?= e(old('registration.objection_start', $registration['objection_start'] ?? '')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100"></div>
                                 <div><label class="mb-2 block text-sm font-semibold text-slate-200">Sanggah Tutup</label><input name="registration[objection_end]" type="text" value="<?= e(old('registration.objection_end', $registration['objection_end'] ?? '')) ?>" class="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100"></div>
-                            </div>
-                            <div class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4">
-                                <label class="flex items-center gap-3 cursor-pointer">
-                                    <input type="checkbox" name="official[can_view_score_detail]" value="1" <?= $officialCanViewScoreDetail ? 'checked' : '' ?> class="h-5 w-5 rounded border-slate-600 bg-slate-950 text-amber-400">
-                                    <div>
-                                        <p class="font-semibold text-amber-200">Izinkan Official Lihat Detail Nilai</p>
-                                        <p class="mt-1 text-xs text-amber-300/70">Jika aktif, official dapat melihat rincian nilai per komponen (breakdown) di halaman hasil nilai.</p>
-                                    </div>
-                                </label>
                             </div>
                         </section>
 
