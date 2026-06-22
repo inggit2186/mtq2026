@@ -298,7 +298,7 @@
         .ranking-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9px;
+            font-size: 11px;
         }
 
         .ranking-table thead {
@@ -306,10 +306,10 @@
         }
 
         .ranking-table th {
-            padding: 5px 6px;
+            padding: 8px 10px;
             text-align: center;
             font-weight: 700;
-            font-size: 7.5px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             color: var(--text-medium);
@@ -317,7 +317,7 @@
         }
 
         .ranking-table td {
-            padding: 4px 6px;
+            padding: 8px 10px;
             border-bottom: 1px solid var(--border);
             vertical-align: middle;
         }
@@ -325,17 +325,17 @@
         .ranking-table tbody tr:nth-child(even) td { background: var(--bg-light); }
         .ranking-table tbody tr:last-child td { border-bottom: none; }
 
-        .rank-cell { width: 25px; text-align: center; font-weight: 700; }
+        .rank-cell { width: 35px; text-align: center; font-weight: 700; }
 
         .rank-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 22px;
-            padding: 2px 5px;
-            border-radius: 4px;
+            min-width: 28px;
+            padding: 4px 8px;
+            border-radius: 6px;
             font-weight: 700;
-            font-size: 9px;
+            font-size: 12px;
         }
 
         .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #78350f; }
@@ -343,22 +343,22 @@
         .rank-3 { background: linear-gradient(135deg, #fdba74 0%, #ea580c 100%); color: white; }
         .rank-other { background: var(--bg-light); color: var(--text-medium); border: 1px solid var(--border-dark); }
 
-        .name-cell { width: 100px; }
-        .name-text { font-weight: 600; color: var(--text-dark); font-size: 9px; }
-        .muted { color: var(--text-light); font-size: 7.5px; }
+        .name-cell { width: 150px; }
+        .name-text { font-weight: 700; color: var(--text-dark); font-size: 13px; }
+        .muted { color: var(--text-light); font-size: 9px; }
 
-        .lot-cell { width: 50px; text-align: center; flex-shrink: 0; }
+        .lot-cell { width: 60px; text-align: center; flex-shrink: 0; }
         .lot-badge {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             color: white;
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
         }
 
-        .score-cell { text-align: center; width: 45px; }
-        .score-value { font-size: 10px; font-weight: 700; color: var(--green); }
+        .score-cell { text-align: center; width: 55px; }
+        .score-value { font-size: 16px; font-weight: 800; color: var(--green); }
 
         /* Gender Subheader */
         .gender-subheader td {
@@ -382,10 +382,10 @@
         /* Judge Detail Row */
         .judge-row td {
             background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
-            font-size: 10px;
+            font-size: 12px;
             color: #92400e;
             border-bottom: 2px dashed #fbbf24;
-            padding: 8px 6px;
+            padding: 10px 8px;
         }
         .judge-label {
             display: flex;
@@ -394,23 +394,23 @@
             font-weight: 700;
             color: #78350f;
             padding-left: 6px;
-            font-size: 11px;
+            font-size: 12px;
         }
         .judge-label::before {
             content: '📋';
         }
         .judge-item {
             display: inline-flex;
-            gap: 4px;
-            margin: 2px 4px;
+            gap: 5px;
+            margin: 3px 5px;
             background: white;
-            padding: 4px 8px;
+            padding: 5px 10px;
             border-radius: 6px;
             border: 1px solid #fcd34d;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .judge-name { font-weight: 700; color: #92400e; font-size: 10px; }
-        .judge-score { font-weight: 800; color: #78350f; }
+        .judge-name { font-weight: 800; color: #92400e; font-size: 12px; }
+        .judge-score { font-weight: 900; color: #78350f; font-size: 13px; }
 
         /* Spacer Row */
         .spacer-row td {
@@ -469,8 +469,8 @@
         .hakim-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
+            gap: 8px;
+            padding: 6px 10px;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
@@ -478,8 +478,8 @@
         }
 
         .hakim-number {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
             color: white;
             border-radius: 50%;
@@ -487,14 +487,140 @@
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 12px;
+            font-size: 11px;
             flex-shrink: 0;
         }
 
+        /* Editable Hakim Name */
         .hakim-name {
+            flex: 1;
             font-weight: 600;
             color: var(--text-dark);
             font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px dashed transparent;
+            outline: none;
+            background: transparent;
+            min-width: 0;
+        }
+
+        .hakim-name:hover {
+            background: #fffbeb;
+            border-color: var(--gold);
+        }
+
+        .hakim-name:focus {
+            background: #fffbeb;
+            border: 2px solid var(--gold);
+            box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.15);
+        }
+
+        .hakim-edit-icon {
+            color: var(--text-light);
+            font-size: 12px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .hakim-item:hover .hakim-edit-icon {
+            opacity: 1;
+            color: var(--gold);
+        }
+
+        /* Hakim Action Buttons */
+        .hakim-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .hakim-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .hakim-add-row {
+            margin-top: 8px;
+        }
+
+        .hakim-add-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: white;
+            border: 2px dashed var(--green);
+            border-radius: 8px;
+            color: var(--green);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .hakim-add-btn:hover {
+            background: #ecfdf5;
+            border-style: solid;
+        }
+
+        @media print {
+            .hakim-btn, .hakim-add-btn {
+                display: none !important;
+            }
+        }
+
+        /* Editable Signature Fields */
+        .signature-date, .signature-name {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px dashed transparent;
+            outline: none;
+            background: transparent;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .signature-date {
+            font-size: 11px;
+            color: var(--text-medium);
+            min-width: 150px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .signature-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dark);
+            width: 100%;
+            display: block;
+        }
+
+        .signature-date:hover, .signature-name:hover {
+            background: #fffbeb;
+            border-color: var(--gold);
+        }
+
+        .signature-date:focus, .signature-name:focus {
+            background: #fffbeb;
+            border: 2px solid var(--gold);
+            box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.15);
+        }
+
+        .signature-label {
+            font-size: 10px;
+            color: var(--text-light);
+            margin-bottom: 4px;
         }
 
         .hakim-empty {
@@ -516,17 +642,12 @@
             border: 1px solid var(--border);
         }
 
-        .signature-date {
-            font-size: 11px;
-            color: var(--text-medium);
-            margin-bottom: 10px;
-        }
-
         .signature-position {
             font-weight: 700;
             color: var(--gold-dark);
             font-size: 11px;
             margin-bottom: 25px;
+            text-align: center;
         }
 
         .signature-stamp-area {
@@ -545,13 +666,6 @@
             border-top: 1px solid var(--text-dark);
             width: 100%;
             margin-top: 5px;
-        }
-
-        .signature-name {
-            margin-top: 5px;
-            font-weight: 600;
-            color: var(--text-dark);
-            font-size: 11px;
         }
 
         /* Footer */
@@ -852,31 +966,89 @@
                 <div class="signature-section">
                     <div class="signature-left">
                         <div class="signature-title">Dewan Hakim <?= e($category->branch) ?></div>
-                        <?php if (!$hakimList->isEmpty()): ?>
-                            <div class="hakim-list">
+                        <div class="hakim-list" id="hakim-list-<?= e($category->id) ?>">
+                            <?php if (!$hakimList->isEmpty()): ?>
                                 <?php foreach ($hakimList as $index => $hakim): ?>
                                     <div class="hakim-item">
                                         <span class="hakim-number"><?= $index + 1 ?></span>
-                                        <span class="hakim-name"><?= e($hakim->nama) ?></span>
+                                        <span class="hakim-name" contenteditable="true" spellcheck="false"><?= e($hakim->nama) ?></span>
+                                        <div class="hakim-actions">
+                                            <button class="hakim-btn hakim-btn-delete" onclick="deleteHakim(this)" title="Hapus">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
-                            </div>
-                        <?php else: ?>
-                            <div class="hakim-empty">(Belum ada data hakim)</div>
-                        <?php endif; ?>
+                            <?php else: ?>
+                                <div class="hakim-empty">(Belum ada data hakim)</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="hakim-add-row">
+                            <button class="hakim-add-btn" onclick="addHakim(<?= e($category->id) ?>)">
+                                <i class="fas fa-plus"></i> Tambah Hakim
+                            </button>
+                        </div>
                     </div>
                     <div class="signature-right">
                         <div class="signature-box">
-                            <div class="signature-date"><?= e(($documentConfig['signature_city'] ?? 'Pariangan')) ?>, <?= e(date('d F Y')) ?></div>
+                            <div class="signature-date" contenteditable="true" spellcheck="false"><?= e(($documentConfig['signature_city'] ?? 'Pariangan')) ?>, <?= e(date('d F Y')) ?></div>
                             <div class="signature-position"><?= e(($documentConfig['officials']['chief_judge']['title'] ?? 'Ketua Dewan Hakim')) ?></div>
                             <div class="signature-stamp-area">📌 Area Tanda Tangan / Stempel</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-name">(<?= e(($documentConfig['officials']['chief_judge']['name'] ?? '..........................')) ?>)</div>
+                            <div class="signature-name" contenteditable="true" spellcheck="false"><?= e(($documentConfig['officials']['chief_judge']['name'] ?? '..........................')) ?></div>
                         </div>
                     </div>
                 </div>
             </div>
         <?php endforeach; ?>
+
+        <!-- JavaScript for Hakim Actions -->
+        <script>
+        function addHakim(categoryId) {
+            const list = document.getElementById('hakim-list-' + categoryId);
+            const emptyMsg = list.querySelector('.hakim-empty');
+            if (emptyMsg) {
+                emptyMsg.remove();
+            }
+
+            const itemCount = list.querySelectorAll('.hakim-item').length;
+            const newItem = document.createElement('div');
+            newItem.className = 'hakim-item';
+            newItem.innerHTML = `
+                <span class="hakim-number">${itemCount + 1}</span>
+                <span class="hakim-name" contenteditable="true" spellcheck="false">Nama Hakim</span>
+                <div class="hakim-actions">
+                    <button class="hakim-btn hakim-btn-delete" onclick="deleteHakim(this)" title="Hapus">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            list.appendChild(newItem);
+            newItem.querySelector('.hakim-name').focus();
+            renumberHakim(list);
+        }
+
+        function deleteHakim(btn) {
+            const item = btn.closest('.hakim-item');
+            const list = item.closest('.hakim-list');
+            item.remove();
+            renumberHakim(list);
+
+            // Show empty message if no items left
+            if (list.querySelectorAll('.hakim-item').length === 0) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'hakim-empty';
+                emptyDiv.textContent = '(Belum ada data hakim)';
+                list.appendChild(emptyDiv);
+            }
+        }
+
+        function renumberHakim(list) {
+            const items = list.querySelectorAll('.hakim-item');
+            items.forEach((item, index) => {
+                item.querySelector('.hakim-number').textContent = index + 1;
+            });
+        }
+        </script>
 
         <!-- Footer -->
         <footer class="footer">

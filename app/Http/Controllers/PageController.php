@@ -938,12 +938,24 @@ class PageController extends Controller
             'mfq_sessions_by_category' => $mfqSessions->groupBy('competition_category_id')->map->count()->toArray(),
         ]);
 
-        $mfqRankings = $this->buildMfqRankingsData($mfqSessions);
+        // Also load MFQ results separately, filtered by result's round column
+        $mfqResults = \App\Models\MfqResult::query()
+            ->with(['participant.district', 'session.category'])
+            ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+            ->get();
+
+        $mfqRankings = $this->buildMfqRankingsData($mfqSessions, $mfqResults);
 
         // Count MFQ sessions per round for status display
         $mfqSessionCounts = [
             'penyisihan' => $mfqSessions->where('round', 'Penyisihan')->count(),
             'final' => $mfqSessions->where('round', 'Final')->count(),
+        ];
+
+        // Count results by result's round column
+        $mfqResultCounts = [
+            'penyisihan' => $mfqResults->where('round', 'Penyisihan')->count(),
+            'final' => $mfqResults->where('round', 'Final')->count(),
         ];
 
         // Add "Fahmil Qur'an" as a special branch
@@ -955,10 +967,10 @@ class PageController extends Controller
             'participant_total' => $mfqRankings['participant_count'] ?? 0,
             'score_entries' => $mfqRankings['session_count'] ?? 0,
             'score_entry_status' => [
-                'penyisihan' => $mfqSessionCounts['penyisihan'] > 0,
-                'final' => $mfqSessionCounts['final'] > 0,
-                'penyisihan_count' => $mfqSessionCounts['penyisihan'],
-                'final_count' => $mfqSessionCounts['final'],
+                'penyisihan' => $mfqResultCounts['penyisihan'] > 0,
+                'final' => $mfqResultCounts['final'] > 0,
+                'penyisihan_count' => $mfqResultCounts['penyisihan'],
+                'final_count' => $mfqResultCounts['final'],
             ],
             'completed_sessions' => $mfqSessions->map(function ($session) {
                 return [
@@ -969,8 +981,10 @@ class PageController extends Controller
                     'created_at' => $session->created_at?->format('d M Y, H:i'),
                 ];
             })->values()->all(),
-            'categories' => $mfqCategories->map(function ($cat) use ($mfqRankings, $mfqSessions) {
+            'categories' => $mfqCategories->map(function ($cat) use ($mfqRankings, $mfqSessions, $mfqResults) {
                 $catSessions = $mfqSessions->where('competition_category_id', $cat->id);
+                $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $cat->id);
+
                 return [
                     'category_id' => $cat->id,
                     'category_name' => $cat->name,
@@ -987,10 +1001,10 @@ class PageController extends Controller
                         ];
                     })->values()->all(),
                     'score_entry_status' => [
-                        'penyisihan' => $catSessions->where('round', 'Penyisihan')->count() > 0,
-                        'final' => $catSessions->where('round', 'Final')->count() > 0,
-                        'penyisihan_count' => $catSessions->where('round', 'Penyisihan')->count(),
-                        'final_count' => $catSessions->where('round', 'Final')->count(),
+                        'penyisihan' => $catResults->where('round', 'Penyisihan')->count() > 0,
+                        'final' => $catResults->where('round', 'Final')->count() > 0,
+                        'penyisihan_count' => $catResults->where('round', 'Penyisihan')->count(),
+                        'final_count' => $catResults->where('round', 'Final')->count(),
                     ],
                 ];
             })->values()->all(),
@@ -1623,17 +1637,15 @@ class PageController extends Controller
             ];
         }
 
-        // Process each category to calculate points
-        foreach ($categories as $category) {
+        // ========== REGULAR CATEGORIES ==========
+        // Process each regular category to calculate points
+        $regularCategories = $categories->whereNotIn('id', [24, 25]);
+
+        foreach ($regularCategories as $category) {
             $categoryParticipants = $participants->filter(
                 fn ($p) => (int) $p->competition_category_id === (int) $category->id
             );
             if ($categoryParticipants->isEmpty()) {
-                continue;
-            }
-
-            $isMfqCategory = in_array($category->id, [24, 25]);
-            if ($isMfqCategory) {
                 continue;
             }
 
@@ -1692,6 +1704,73 @@ class PageController extends Controller
             }
         }
 
+        // ========== MFQ CATEGORIES ==========
+        // Load MFQ results
+        $mfqResults = \App\Models\MfqResult::query()
+            ->with(['participant.district', 'session'])
+            ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+            ->get();
+
+        $mfqCategories = $categories->whereIn('id', [24, 25]);
+
+        foreach ($mfqCategories as $category) {
+            $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+            // Build rankings by district for Penyisihan
+            $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+            $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+
+            // Build rankings by district for Final
+            $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+            $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+
+            // Fallback: if no results in Final, use Penyisihan top 3
+            $useFinalPoints = !empty($finalRankings);
+            if (!$useFinalPoints) {
+                $finalRankings = array_slice($penyisihanRankings, 0, 3);
+            }
+
+            // Add points based on final rankings (or fallback Penyisihan top 3)
+            foreach ($finalRankings as $rankIndex => $rankData) {
+                $rank = $rankIndex + 1;
+                if (isset($pointRules['final'][$rank])) {
+                    $points = $pointRules['final'][$rank];
+                    $districtId = $rankData['district_id'];
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name . ' (MFQ)',
+                            'type' => $useFinalPoints ? 'final' : 'penyisihan_final',
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $rankData['district_name'],
+                        ];
+                    }
+                }
+            }
+
+            // Add points based on penyisihan rankings (rank 4, 5, 6)
+            foreach ($penyisihanRankings as $rankIndex => $rankData) {
+                $rank = $rankIndex + 1;
+                if (isset($pointRules['penyisihan'][$rank])) {
+                    $points = $pointRules['penyisihan'][$rank];
+                    $districtId = $rankData['district_id'];
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name . ' (MFQ)',
+                            'type' => 'penyisihan',
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $rankData['district_name'],
+                        ];
+                    }
+                }
+            }
+        }
+
         // Sort by total points descending
         usort($districtRankings, fn ($a, $b) => $b['points'] <=> $a['points']);
 
@@ -1718,6 +1797,36 @@ class PageController extends Controller
             'documentConfig' => $documentConfig,
             'filterTitle' => 'Rekap Juara Umum',
         ]))->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Build MFQ rankings by district from results
+     * Returns array of districts sorted by total score (descending)
+     */
+    protected function buildMfqDistrictRankings($results): array
+    {
+        if ($results->isEmpty()) {
+            return [];
+        }
+
+        // Group results by district and calculate total score
+        $districtRankings = $results->groupBy(fn ($r) => $r->participant->district_id ?? 0)
+            ->map(function ($districtResults) {
+                $district = $districtResults->first()->participant->district;
+                return [
+                    'district_id' => $district->id ?? 0,
+                    'district_name' => $district?->name ?? 'Tanpa Kecamatan',
+                    'total_score' => $districtResults->sum('total_score'),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        // Sort by total_score descending
+        usort($districtRankings, fn ($a, $b) => $b['total_score'] <=> $a['total_score']);
+
+        return $districtRankings;
     }
 
     /**
@@ -1859,15 +1968,18 @@ class PageController extends Controller
      * Build MFQ rankings data for all categories
      * Format: ranking per district (sesuai dengan scoring-mfq-new.php)
      */
-    protected function buildMfqRankingsData($sessions): array
+    protected function buildMfqRankingsData($sessions, $allResults = null): array
     {
         $result = [];
         $allParticipants = collect();
         $categoryIds = $sessions->pluck('competition_category_id')->unique();
 
+        // Use provided results or load from sessions
+        $mfqResults = $allResults ?? $sessions->map(fn ($s) => $s->results)->flatten();
+
         foreach ($categoryIds as $catId) {
             $catSessions = $sessions->where('competition_category_id', $catId);
-            $catResults = $catSessions->map(fn ($s) => $s->results)->flatten();
+            $catResults = $mfqResults->where('session.competition_category_id', $catId);
 
             // Count participants
             foreach ($catResults as $r) {
@@ -1884,12 +1996,12 @@ class PageController extends Controller
 
             // Build rounds per category - grouping by district
             foreach (['Penyisihan', 'Final'] as $round) {
-                $roundSessions = $catSessions->where('round', $round);
-                $roundResults = collect();
+                // Filter results by result's round column
+                $roundResults = $catResults->filter(fn ($r) => ($r->round ?? '') === $round);
 
-                foreach ($roundSessions as $session) {
-                    $roundResults = $roundResults->merge($session->results);
-                }
+                // Get unique sessions in this round
+                $roundSessionIds = $roundResults->pluck('mfq_session_id')->unique();
+                $roundSessions = $catSessions->whereIn('id', $roundSessionIds->toArray());
 
                 // Group by district
                 $rankingsByDistrict = $roundResults->groupBy(fn ($r) => $r->participant->district_id ?? 0)->map(function ($districtResults) use ($round) {
