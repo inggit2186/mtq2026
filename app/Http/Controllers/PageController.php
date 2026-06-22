@@ -1810,14 +1810,28 @@ class PageController extends Controller
         }
 
         // Group results by district and calculate total score
-        $districtRankings = $results->groupBy(fn ($r) => ($r->participant?->district_id ?? 0))
+        $districtRankings = $results->groupBy(fn ($r) => ($r->district_id ?? $r->participant?->district_id ?? 0))
             ->map(function ($districtResults) {
                 $firstResult = $districtResults->first();
                 $participant = $firstResult->participant ?? null;
-                $district = $participant?->district;
+                $district = $firstResult->district ?? $participant?->district;
+
+                // Get participant names for representative_name
+                $participantNames = $districtResults->map(fn ($r) => $r->participant?->name)->filter()->unique()->values();
+                $representativeName = $participantNames->first() ?? 'Peserta MFQ';
+                if ($participantNames->count() > 1) {
+                    $representativeName .= ' dkk.';
+                }
+
+                // Get lot numbers
+                $lotNumbers = $districtResults->map(fn ($r) => $r->participant?->lot_number)->filter()->unique()->values()->toArray();
+
                 return [
-                    'district_id' => $district?->id ?? 0,
+                    'district_id' => $district?->id ?? $firstResult->district_id ?? 0,
                     'district_name' => $district?->name ?? 'Tanpa Kecamatan',
+                    'representative_name' => $representativeName,
+                    'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
+                    'lot_numbers' => $lotNumbers,
                     'total_score' => $districtResults->sum('total_score'),
                 ];
             })
