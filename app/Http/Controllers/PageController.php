@@ -1810,11 +1810,13 @@ class PageController extends Controller
         }
 
         // Group results by district and calculate total score
-        $districtRankings = $results->groupBy(fn ($r) => $r->participant->district_id ?? 0)
+        $districtRankings = $results->groupBy(fn ($r) => ($r->participant?->district_id ?? 0))
             ->map(function ($districtResults) {
-                $district = $districtResults->first()->participant->district;
+                $firstResult = $districtResults->first();
+                $participant = $firstResult->participant ?? null;
+                $district = $participant?->district;
                 return [
-                    'district_id' => $district->id ?? 0,
+                    'district_id' => $district?->id ?? 0,
                     'district_name' => $district?->name ?? 'Tanpa Kecamatan',
                     'total_score' => $districtResults->sum('total_score'),
                 ];
