@@ -378,6 +378,28 @@ $navigation = app(\App\Http\Controllers\PageController::class)->consoleNavigatio
                                     <p class="text-xs text-slate-400">Juara 1-3 dari Final, Harapan 1-3 dari Penyisihan</p>
                                 </div>
                             </a>
+
+                            <a href="<?= e(route('leaderboard.print-detail')) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-pink-400/50 hover:bg-pink-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-pink-400/20 text-pink-400">
+                                    <?= mtq_icon('file-text', 'h-5 w-5') ?>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-white">Rekap Detail Nilai</p>
+                                    <p class="text-xs text-slate-400">Penyisihan & Final - HTML (Cetak/Save)</p>
+                                </div>
+                            </a>
+
+                            <a href="<?= e(route('leaderboard.print-detail-pdf')) ?>" target="_blank"
+                               class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 p-4 transition-all hover:border-purple-400/50 hover:bg-purple-400/10">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-purple-400/20 text-purple-400">
+                                    <?= mtq_icon('document', 'h-5 w-5') ?>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-white">Rekap Detail Nilai (PDF)</p>
+                                    <p class="text-xs text-slate-400">Penyisihan & Final - Download PDF</p>
+                                </div>
+                            </a>
                         </div>
                     </div>
                 </div>

@@ -188,7 +188,7 @@ $hasRankings = !empty($rankings);
                     </div>
                 </header>
 
-                <?php if (! $isParticipant): ?>
+                <?php if (!$isParticipant && $canViewScoreDetail): ?>
                     <!-- Filter Section -->
                     <section class="glass-card rounded-[2rem] p-5 sm:p-6 animate-slide-up" style="animation-delay: 0.1s;">
                         <div class="flex items-center gap-3 mb-5">
@@ -463,6 +463,7 @@ $hasRankings = !empty($rankings);
                     <?php endif; ?>
                 </section>
 
+                <?php if ($canViewScoreDetail): ?>
                 <section class="glass-card rounded-[2rem] p-6 animate-slide-up" style="animation-delay: 0.5s;">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-400/10">
@@ -593,6 +594,7 @@ $hasRankings = !empty($rankings);
                         <?php endif; ?>
                     </div>
                 </section>
+                <?php endif; ?>
 
 <?php if ($hasRankings): ?>
                 <!-- Rankings Section - Trophy Podium Design -->

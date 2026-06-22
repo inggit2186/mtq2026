@@ -1333,6 +1333,344 @@ class PageController extends Controller
     }
 
     /**
+     * Generate HTML print-friendly detailed score recap
+     * Ranking based on Penyisihan using tie-break rules
+     */
+    public function leaderboardDetailPrint(Request $request)
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('id')
+            ->get();
+
+        $participants = Participant::query()
+            ->with(['category', 'district', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $categoryBlocks = [];
+
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn (Participant $p) => (int) $p->competition_category_id === (int) $category->id
+            );
+
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            $isMfqCategory = in_array($category->id, [24, 25]);
+            if ($isMfqCategory) {
+                continue;
+            }
+
+            $priorityKeys = $this->priorityKeysForCategory($category->id, $category->branch);
+            $priorityLabels = $this->priorityLabelsForCategory($category->id, $category->branch);
+
+            // Dynamically get priority keys/labels from first score entry
+            $sampleEntry = $categoryParticipants
+                ->flatMap(fn ($p) => $p->scores ?? collect())
+                ->filter(fn ($s) => ($s->judging_round ?? '') === 'Penyisihan')
+                ->first();
+
+            if ($sampleEntry) {
+                $judgeScores = $sampleEntry->getAllJudgeScores();
+                if (!empty($judgeScores)) {
+                    $firstJudge = array_key_first($judgeScores);
+                    $pointScores = $judgeScores[$firstJudge]['scores'] ?? [];
+                    if (!empty($pointScores)) {
+                        $priorityKeys = array_keys($pointScores);
+                        $priorityLabels = array_map(fn ($k) => ucwords(str_replace('_', ' ', $k)), $priorityKeys);
+                    }
+                }
+            }
+
+            $hakimList = \App\Models\Hakim::query()
+                ->byGolongan($category->id)
+                ->get();
+
+            $penyisihanRows = $this->buildDetailRankingRows($categoryParticipants, 'Penyisihan', $priorityKeys, $priorityLabels);
+
+            usort($penyisihanRows, function ($a, $b) {
+                $scoreCompare = $b['average_score_value'] <=> $a['average_score_value'];
+                if ($scoreCompare !== 0) return $scoreCompare;
+
+                $maxPriority = max(count($a['priority_values'] ?? []), count($b['priority_values'] ?? []));
+                for ($i = 0; $i < $maxPriority; $i++) {
+                    $priorityCompare = ((float) ($b['priority_values'][$i] ?? 0)) <=> ((float) ($a['priority_values'][$i] ?? 0));
+                    if ($priorityCompare !== 0) return $priorityCompare;
+                }
+
+                return ((float) $b['best_score_value']) <=> ((float) $a['best_score_value']);
+            });
+
+            $rankingRows = [];
+            foreach ($penyisihanRows as $index => $row) {
+                $row['rank'] = $index + 1;
+                unset($row['average_score_value'], $row['best_score_value'], $row['priority_values']);
+                $rankingRows[] = $row;
+            }
+
+            $categoryBlocks[] = [
+                'category' => $category,
+                'category_id' => $category->id,
+                'branch' => $category->branch,
+                'category_name' => $category->name,
+                'participant_total' => $categoryParticipants->count(),
+                'priority_labels' => $priorityLabels,
+                'priority_keys' => $priorityKeys,
+                'ranking_rows' => $rankingRows,
+                'hakim_list' => $hakimList,
+            ];
+        }
+
+        $documentConfig = $this->documentConfig();
+
+        return response(view('pages.leaderboard-detail-print', [
+            'categoryBlocks' => $categoryBlocks,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'documentConfig' => $documentConfig,
+            'filterTitle' => 'Rekap Detail Nilai Penyisihan & Final',
+        ]))->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Generate detailed score PDF with per-point and per-judge breakdown
+     */
+    public function leaderboardDetailPdf(Request $request): \Illuminate\Http\Response
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('id')
+            ->get();
+
+        $participants = Participant::query()
+            ->with(['category', 'district', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $categoryBlocks = [];
+
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn (Participant $p) => (int) $p->competition_category_id === (int) $category->id
+            );
+
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            $isMfqCategory = in_array($category->id, [24, 25]);
+            if ($isMfqCategory) {
+                continue;
+            }
+
+            // Get priority labels and keys
+            $priorityKeys = $this->priorityKeysForCategory($category->id, $category->branch);
+            $priorityLabels = $this->priorityLabelsForCategory($category->id, $category->branch);
+
+            // Dynamically get priority keys/labels from first score entry
+            $sampleEntry = $categoryParticipants
+                ->flatMap(fn ($p) => $p->scores ?? collect())
+                ->filter(fn ($s) => ($s->judging_round ?? '') === 'Penyisihan')
+                ->first();
+
+            if ($sampleEntry) {
+                $judgeScores = $sampleEntry->getAllJudgeScores();
+                if (!empty($judgeScores)) {
+                    $firstJudge = array_key_first($judgeScores);
+                    $pointScores = $judgeScores[$firstJudge]['scores'] ?? [];
+                    if (!empty($pointScores)) {
+                        $priorityKeys = array_keys($pointScores);
+                        $priorityLabels = array_map(fn ($k) => ucwords(str_replace('_', ' ', $k)), $priorityKeys);
+                    }
+                }
+            }
+
+            // Get judges for this category
+            $hakimList = \App\Models\Hakim::query()
+                ->byGolongan($category->id)
+                ->get();
+
+            // Build Penyisihan rankings
+            $penyisihanRows = $this->buildDetailRankingRows($categoryParticipants, 'Penyisihan', $priorityKeys, $priorityLabels);
+
+            // Sort by Penyisihan ranking (tie-break rules)
+            usort($penyisihanRows, function ($a, $b) {
+                $scoreCompare = $b['average_score_value'] <=> $a['average_score_value'];
+                if ($scoreCompare !== 0) return $scoreCompare;
+
+                $maxPriority = max(count($a['priority_values'] ?? []), count($b['priority_values'] ?? []));
+                for ($i = 0; $i < $maxPriority; $i++) {
+                    $priorityCompare = ((float) ($b['priority_values'][$i] ?? 0)) <=> ((float) ($a['priority_values'][$i] ?? 0));
+                    if ($priorityCompare !== 0) return $priorityCompare;
+                }
+
+                return ((float) $b['best_score_value']) <=> ((float) $a['best_score_value']);
+            });
+
+            $rankingRows = [];
+            foreach ($penyisihanRows as $index => $row) {
+                $row['rank'] = $index + 1;
+                unset($row['average_score_value'], $row['best_score_value'], $row['priority_values']);
+                $rankingRows[] = $row;
+            }
+
+            $categoryBlocks[] = [
+                'category' => $category,
+                'category_id' => $category->id,
+                'branch' => $category->branch,
+                'category_name' => $category->name,
+                'participant_total' => $categoryParticipants->count(),
+                'priority_labels' => $priorityLabels,
+                'priority_keys' => $priorityKeys,
+                'ranking_rows' => $rankingRows,
+                'hakim_list' => $hakimList,
+            ];
+        }
+
+        $documentConfig = $this->documentConfig();
+        $organizationName = $documentConfig['organization_name'] ?? 'e-MTQ Kabupaten Tanah Datar';
+        $eventTitle = $documentConfig['event_title'] ?? '';
+
+        // Increase memory limit for PDF generation
+        ini_set('memory_limit', '512M');
+
+        $html = view('pdf.recap-detail-penyisihan-final', [
+            'categoryBlocks' => $categoryBlocks,
+            'generatedAt' => now(),
+            'documentConfig' => $documentConfig,
+            'organizationName' => $organizationName,
+            'eventTitle' => $eventTitle,
+        ])->render();
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="rekap-detail-nilai-penyisihan-final.pdf"',
+        ]);
+    }
+
+    /**
+     * Build detail ranking rows for a category with per-judge breakdown
+     */
+    protected function buildDetailRankingRows($participants, string $round, array $priorityKeys, array $priorityLabels): array
+    {
+        $rows = [];
+
+        foreach ($participants as $participant) {
+            $scores = $participant->scores ?? collect();
+            $roundScores = $scores->filter(fn (ScoreEntry $entry) => (string) ($entry->judging_round ?? '') === $round);
+
+            if ($roundScores->isEmpty()) {
+                continue;
+            }
+
+            // Calculate stats
+            $allScores = [];
+            $pointTotals = [];
+            $pointCounts = [];
+            $priorityValues = array_fill_keys($priorityKeys, 0.0);
+            $priorityValueCounts = array_fill_keys($priorityKeys, 0);
+
+            foreach ($roundScores as $entry) {
+                $judgeScores = $entry->getAllJudgeScores();
+                foreach ($judgeScores as $judgeName => $judgeData) {
+                    $score = (float) ($judgeData['score'] ?? 0);
+                    $allScores[] = $score;
+
+                    $pointScores = $judgeData['scores'] ?? [];
+                    foreach ($priorityKeys as $key) {
+                        $value = (float) ($pointScores[$key] ?? 0);
+                        if ($value > 0) {
+                            $pointTotals[$key] = ($pointTotals[$key] ?? 0) + $value;
+                            $pointCounts[$key] = ($pointCounts[$key] ?? 0) + 1;
+                            $priorityValues[$key] += $value;
+                            $priorityValueCounts[$key]++;
+                        }
+                    }
+                }
+
+                // Also check for point_averages in the JSON (newer format)
+                if (isset($judgeData['point_averages']) && is_array($judgeData['point_averages'])) {
+                    foreach ($judgeData['point_averages'] as $key => $value) {
+                        if (in_array($key, $priorityKeys) && (float) $value > 0) {
+                            $priorityValues[$key] = (float) $value; // Use the averaged value directly
+                            $priorityValueCounts[$key] = 1;
+                        }
+                    }
+                }
+            }
+
+            $averageScore = count($allScores) > 0 ? array_sum($allScores) / count($allScores) : 0;
+            $bestScore = count($allScores) > 0 ? max($allScores) : 0;
+
+            // Calculate priority averages
+            foreach ($priorityKeys as $key) {
+                $count = $priorityValueCounts[$key] ?? 0;
+                $priorityValues[$key] = $count > 0 ? round(($priorityValues[$key] ?? 0) / $count, 2) : 0;
+            }
+
+            // Build score entries with per-judge breakdown
+            $scoreEntries = $roundScores->map(function (ScoreEntry $entry) use ($priorityKeys, $priorityLabels) {
+                $judgeScores = $entry->getAllJudgeScores();
+                $judgeBreakdown = [];
+
+                foreach ($judgeScores as $judgeName => $judgeData) {
+                    $pointScores = $judgeData['scores'] ?? [];
+                    $breakdown = [];
+                    foreach ($priorityKeys as $key) {
+                        $breakdown[$key] = (float) ($pointScores[$key] ?? 0);
+                    }
+                    $judgeBreakdown[] = [
+                        'judge_name' => $judgeName,
+                        'score' => (float) ($judgeData['score'] ?? 0),
+                        'breakdown' => $breakdown,
+                        'remarks' => $judgeData['remarks'] ?? null,
+                    ];
+                }
+
+                return [
+                    'submitted_at' => optional($entry->submitted_at)->format('d/m/Y H:i'),
+                    'judging_round' => $entry->judging_round ?? '-',
+                    'judge_breakdown' => $judgeBreakdown,
+                ];
+            })->values()->all();
+
+            $rows[] = [
+                'participant_id' => $participant->id,
+                'name' => $participant->name,
+                'lot_number' => $participant->lot_number ?? '-',
+                'registration_number' => $participant->registration_number,
+                'district' => $participant->district?->name ?? '-',
+                'institution' => $participant->institution ?? '-',
+                'gender' => strtolower((string) ($participant->gender ?? 'putra')),
+                'average_score' => number_format((float) $averageScore, 2),
+                'average_score_value' => (float) $averageScore,
+                'best_score' => number_format((float) $bestScore, 2),
+                'best_score_value' => (float) $bestScore,
+                'entry_count' => count($allScores),
+                'priority_values' => array_values($priorityValues),
+                'priority_label_values' => array_combine($priorityLabels, array_map(fn ($v) => number_format((float) $v, 2), array_values($priorityValues))),
+                'score_entries' => $scoreEntries,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
      * Build MFQ rankings data for all categories
      * Format: ranking per district (sesuai dengan scoring-mfq-new.php)
      */

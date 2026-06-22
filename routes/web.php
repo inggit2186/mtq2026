@@ -49,6 +49,8 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::post('/profile/photo', [PageController::class, 'updateProfilePhoto'])->name('profile.update-photo');
     Route::get('/leaderboard', [PageController::class, 'leaderboard'])->middleware('role:admin,panitia')->name('leaderboard.index');
     Route::get('/leaderboard/cetak', [PageController::class, 'leaderboardPrint'])->middleware('role:admin,panitia')->name('leaderboard.print');
+    Route::get('/leaderboard/cetak/detail', [PageController::class, 'leaderboardDetailPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-detail');
+    Route::get('/leaderboard/cetak/detail-pdf', [PageController::class, 'leaderboardDetailPdf'])->middleware('role:admin,panitia')->name('leaderboard.print-detail-pdf');
     Route::get('/admin/finalis', [FinalistController::class, 'index'])->middleware('role:admin,panitia')->name('finalists.index');
     Route::get('/admin/finalis/cetak', [FinalistController::class, 'print'])->middleware('role:admin,panitia')->name('finalists.print');
     Route::post('/admin/finalis/generate', [FinalistController::class, 'generateAll'])->middleware('role:admin,panitia')->name('finalists.generate-all');
