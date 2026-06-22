@@ -260,6 +260,11 @@ $impersonation = session('impersonation', []);
                                         'description' => 'Mengizinkan official mengupload atau mengganti surat mandat kecamatan.',
                                     ],
                                     [
+                                        'key' => 'official_can_view_score_detail',
+                                        'title' => 'Izinkan Official Lihat Detail Nilai',
+                                        'description' => 'Jika aktif, official dapat melihat rincian nilai per komponen (breakdown) di halaman hasil nilai.',
+                                    ],
+                                    [
                                         'key' => 'participant_documents_open',
                                         'title' => 'Dokumen Peserta',
                                         'description' => 'Mengizinkan official membuka pratinjau dan unduh dokumen peserta.',

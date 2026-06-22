@@ -463,6 +463,7 @@ $hasRankings = !empty($rankings);
                     <?php endif; ?>
                 </section>
 
+                <?php if ($canViewScoreDetail): ?>
                 <section class="glass-card rounded-[2rem] p-6 animate-slide-up" style="animation-delay: 0.5s;">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-400/10">
@@ -569,7 +570,7 @@ $hasRankings = !empty($rankings);
                                                 </div>
                                             </div>
 
-                                            <?php if (! empty($validBreakdown)): ?>
+                                            <?php if (! empty($validBreakdown) && $canViewScoreDetail): ?>
                                                 <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                                     <?php foreach ($validBreakdown as $key => $value): ?>
                                                         <div class="flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-900/50 px-3 py-2">
@@ -593,6 +594,18 @@ $hasRankings = !empty($rankings);
                         <?php endif; ?>
                     </div>
                 </section>
+                <?php else: ?>
+                <!-- Score History - Hidden for officials when detail is closed -->
+                <section class="glass-card rounded-[2rem] p-6 animate-slide-up" style="animation-delay: 0.5s;">
+                    <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-800/30 p-8 text-center">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-500">
+                            <?= mtq_icon('lock', 'h-5 w-5') ?>
+                        </div>
+                        <h3 class="mt-4 text-lg font-bold text-slate-300">Riwayat Penilaian Ditutup</h3>
+                        <p class="mt-2 text-sm text-slate-400">Riwayat penilaian tidak dapat dilihat oleh official. Hubungi panitia untuk informasi lebih lanjut.</p>
+                    </div>
+                </section>
+                <?php endif; ?>
 
 <?php if ($hasRankings): ?>
                 <!-- Rankings Section - Trophy Podium Design -->
