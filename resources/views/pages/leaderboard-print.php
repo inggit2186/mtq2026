@@ -160,6 +160,46 @@
             box-shadow: 0 4px 15px rgba(184, 134, 11, 0.3);
         }
 
+        /* Lampiran Button */
+        .lampiran-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 0 auto 20px;
+            width: fit-content;
+            box-shadow: 0 4px 15px rgba(26, 54, 93, 0.3);
+            text-decoration: none;
+        }
+
+        .lampiran-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(26, 54, 93, 0.4);
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
         /* Category Section */
         .category-section {
             margin-bottom: 25px;
@@ -509,13 +549,23 @@
             </div>
         </header>
 
-        <!-- Print Button -->
-        <button onclick="window.print()" class="print-btn no-print">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-            </svg>
-            Cetak / Save as PDF
-        </button>
+        <!-- Print Buttons -->
+        <div class="button-container">
+            <?php if (($filterType ?? 'semua') === 'juara'): ?>
+            <a href="<?= route('leaderboard.print-juara-lampiran') ?>" class="lampiran-btn no-print">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Cetak Lampiran Resmi SK Dewan Hakim
+            </a>
+            <?php endif; ?>
+            <button onclick="window.print()" class="print-btn no-print">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                Cetak / Save as PDF
+            </button>
+        </div>
 
         <!-- Categories -->
         <?php foreach ($categoryRankings as $categoryId => $data): ?>

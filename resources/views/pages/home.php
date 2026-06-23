@@ -47,7 +47,202 @@ $homepageDescription = $brandingConfig['homepage_description'] ?? 'Pantau jadwal
         <link rel="stylesheet" href="<?= e($href) ?>">
     <?php endforeach; ?>
 </head>
-<body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased">
+<body class="grid-bg min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 antialiased" x-data="{ showCompletionModal: true }">
+    <!-- ============================================
+         MODAL PENGUMUMAN MENCOLOK - MTQ SELESAI!
+         ============================================ -->
+    <div
+        x-show="showCompletionModal"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-[100] overflow-y-auto"
+        x-cloak
+    >
+        <!-- Backdrop with blur -->
+        <div class="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl" x-show="showCompletionModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"></div>
+
+        <!-- Animated Background Orbs (modal) -->
+        <div class="pointer-events-none fixed inset-0 overflow-hidden">
+            <div class="hero-orb hero-orb-cyan -left-32 top-1/4 h-80 w-80 animate-[pulse_7s_ease-in-out_infinite]"></div>
+            <div class="hero-orb hero-orb-blue -right-32 top-1/3 h-96 w-96 animate-[pulse_9s_ease-in-out_infinite]"></div>
+            <div class="hero-orb hero-orb-cyan bottom-1/4 right-[25%] h-64 w-64 opacity-40"></div>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="relative flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div
+                x-show="showCompletionModal"
+                x-transition:enter="transition ease-out duration-500"
+                x-transition:enter-start="opacity-0 scale-95 translate-y-8"
+                x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                x-transition:leave-end="opacity-0 scale-95 translate-y-8"
+                class="relative w-full max-w-4xl overflow-hidden rounded-[2.5rem] border border-cyan-400/20 glass-card shadow-[0_0_80px_rgba(14,165,233,0.3),0_40px_80px_-30px_rgba(0,0,0,0.6)]"
+            >
+                <!-- Top glow line -->
+                <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div>
+
+                <!-- Close Button -->
+                <button
+                    type="button"
+                    x-on:click="showCompletionModal = false"
+                    class="absolute right-4 top-4 z-20 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur transition hover:bg-white/15 hover:border-white/20"
+                    aria-label="Tutup pengumuman"
+                >
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+
+                <div class="relative px-6 py-10 sm:px-10 sm:py-12">
+                    <!-- Top row: Logos + Event Badge -->
+                    <div class="flex flex-col items-center gap-5 mb-6">
+                        <!-- All Logos - Same Size -->
+                        <div class="flex items-center justify-center gap-3 sm:gap-4">
+                            <img src="<?= e(asset('images/logo-kabupaten.webp')) ?>" alt="Logo Kabupaten Tanah Datar" class="h-16 w-16 sm:h-20 sm:w-20 object-contain drop-shadow-[0_0_15px_rgba(125,211,252,0.5)]">
+                            <img src="<?= e(asset('images/favicon.webp')) ?>" alt="Logo MTQ" class="h-16 w-16 sm:h-20 sm:w-20 object-contain drop-shadow-[0_0_20px_rgba(125,211,252,0.6)] animate-[pulse_3s_ease-in-out_infinite]">
+                            <img src="<?= e(asset('images/logo-lptq.webp')) ?>" alt="Logo LPTQ" class="h-16 w-16 sm:h-20 sm:w-20 object-contain drop-shadow-[0_0_15px_rgba(125,211,252,0.5)]">
+                            <img src="<?= e(asset('images/emtq-resmi.webp')) ?>" alt="Logo e-MTQ" class="h-16 w-16 sm:h-20 sm:w-20 object-contain drop-shadow-[0_0_15px_rgba(125,211,252,0.5)]">
+                        </div>
+
+                        <!-- Decorative Islamic Icons -->
+                        <div class="flex items-center justify-center gap-5 text-2xl sm:text-3xl">
+                            <span class="text-cyan-400/60" style="animation: float 3s ease-in-out infinite;">🌙</span>
+                            <span class="text-cyan-300/50" style="animation: float 3.5s ease-in-out infinite 0.5s;">📖</span>
+                            <span class="text-cyan-400/60" style="animation: float 3s ease-in-out infinite 1s;">🕌</span>
+                            <span class="text-cyan-300/50" style="animation: float 3.5s ease-in-out infinite 1.5s;">⭐</span>
+                            <span class="text-cyan-400/60" style="animation: float 3s ease-in-out infinite 2s;">🌟</span>
+                            <span class="text-cyan-300/50" style="animation: float 3.5s ease-in-out infinite 0.3s;">✨</span>
+                            <span class="text-cyan-400/60" style="animation: float 3s ease-in-out infinite 0.8s;">📿</span>
+                            <span class="text-cyan-300/50" style="animation: float 3.5s ease-in-out infinite 1.3s;">🌙</span>
+                            <span class="text-cyan-400/60" style="animation: float 3s ease-in-out infinite 1.8s;">📖</span>
+                            <span class="text-cyan-300/50" style="animation: float 3.5s ease-in-out infinite 2.3s;">🕌</span>
+                        </div>
+
+                        <!-- Event Completion Badge -->
+                        <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-5 py-2 shadow-[0_0_20px_rgba(16,185,129,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                            <span class="relative flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                            </span>
+                            <span class="text-sm font-bold uppercase tracking-widest text-emerald-200">Event Telah Selesai</span>
+                            <span class="text-emerald-400/50">|</span>
+                            <span class="text-sm font-semibold text-emerald-300/80">23 Juni 2026</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Announcement Content -->
+                    <div class="text-center space-y-6">
+                        <!-- Icon Row -->
+                        <div class="flex items-center justify-center gap-3 text-4xl sm:text-5xl">
+                            <span class="animate-bounce inline-block" style="animation-duration: 2s;">🏆</span>
+                            <span class="animate-bounce inline-block" style="animation-duration: 2.5s; animation-delay: 0.2s;">🎉</span>
+                            <span class="animate-bounce inline-block" style="animation-duration: 2s; animation-delay: 0.4s;">📿</span>
+                            <span class="animate-bounce inline-block" style="animation-duration: 2.5s; animation-delay: 0.6s;">🎊</span>
+                            <span class="animate-bounce inline-block" style="animation-duration: 2s; animation-delay: 0.8s;">⭐</span>
+                        </div>
+
+                        <!-- Main Title -->
+                        <h2 class="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-sky-300 to-cyan-200 sm:text-4xl md:text-5xl lg:text-6xl drop-shadow-[0_0_40px_rgba(125,211,252,0.5)]">
+                            MTQ NASIONAL KE-XLIII
+                        </h2>
+
+                        <!-- Subtitle -->
+                        <div class="space-y-2">
+                            <p class="text-xl font-bold text-cyan-100/90 sm:text-2xl md:text-3xl">
+                                Tingkat Kabupaten Tanah Datar
+                            </p>
+                            <p class="text-base font-semibold text-sky-200/80 sm:text-lg">
+                                Pelaksanaan tanggal <span class="font-bold text-cyan-300">19 - 23 Juni 2026</span> di <span class="font-bold text-cyan-300">Kecamatan Pariangan</span>
+                            </p>
+                        </div>
+
+                        <!-- Completion Message -->
+                        <div class="inline-block rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-cyan-900/40 via-sky-900/30 to-cyan-900/40 px-6 py-3 shadow-[0_0_30px_rgba(14,165,233,0.2)]">
+                            <p class="text-base font-semibold text-cyan-100 sm:text-lg md:text-xl">
+                                <span class="mr-2">✅</span>
+                                Alhamdulillah, seluruh rangkaian kegiatan telah <span class="font-black text-cyan-300">SELESAI</span> dengan SUKSES!
+                            </p>
+                        </div>
+
+                        <!-- CTA Buttons - SUPER PROMINENT -->
+                        <div class="flex flex-col items-center gap-4 pt-4">
+                            <!-- Primary CTA: JUARA UMUM - HUGE AND SHINY -->
+                            <a
+                                href="<?= e(route('pengumuman.juara')) ?>"
+                                x-on:click="showCompletionModal = false"
+                                class="group relative inline-flex items-center gap-4 rounded-3xl px-8 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-[0_0_60px_rgba(125,211,252,0.6),0_20px_60px_-10px_rgba(0,0,0,0.5)] transition-all duration-300 hover:scale-105 hover:shadow-[0_0_80px_rgba(125,211,252,0.8),0_25px_80px_-10px_rgba(0,0,0,0.6)]"
+                                style="background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 30%, #0891b2 70%, #22d3ee 100%); background-size: 200% 200%; animation: shimmer 3s ease infinite;"
+                            >
+                                <!-- Shimmer effect overlay -->
+                                <span class="absolute inset-0 overflow-hidden rounded-3xl">
+                                    <span class="absolute inset-0 -translate-x-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent"></span>
+                                </span>
+
+                                <!-- Trophy Icon -->
+                                <span class="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/20 shadow-inner">
+                                    <svg class="h-7 w-7" fill="currentColor" viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+                                </span>
+
+                                <span class="relative">
+                                    🏆 LIHAT PENGUMUMAN JUARA UMUM
+                                </span>
+
+                                <span class="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/20 shadow-inner">
+                                    <svg class="h-7 w-7 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                </span>
+                            </a>
+
+                            <!-- Secondary CTA Buttons -->
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <a
+                                    href="<?= e(route('pengumuman.juara-peserta')) ?>"
+                                    x-on:click="showCompletionModal = false"
+                                    class="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-cyan-900/50 via-sky-900/40 to-cyan-900/50 px-5 py-3 text-sm font-bold uppercase tracking-wide text-cyan-200 transition-all duration-300 hover:border-cyan-300/50 hover:from-cyan-800/60 hover:via-sky-800/50 hover:to-cyan-800/60 hover:text-cyan-100 hover:scale-105"
+                                >
+                                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                    Juara Per Golongan
+                                </a>
+
+                                <a
+                                    href="<?= e(route('pengumuman.juara')) ?>#rankings-section"
+                                    x-on:click="showCompletionModal = false"
+                                    class="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white/90 transition-all duration-300 hover:border-white/30 hover:bg-white/20 hover:text-white hover:scale-105"
+                                >
+                                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                                    Leaderboard Kecamatan
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Fun decorative text -->
+                        <p class="pt-4 text-sm font-medium text-cyan-200/60 italic">
+                            ✨ Jazakumullahu Khairan - Terima kasih kepada seluruh peserta, panitia, dan supporter! ✨
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Bottom glow line -->
+                <div class="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shimmer animation style -->
+    <style>
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(5deg); }
+        }
+    </style>
+
     <main class="relative isolate overflow-hidden">
         <div class="hero-orb hero-orb-cyan left-[-8rem] top-12 h-72 w-72 animate-[pulse_7s_ease-in-out_infinite]"></div>
         <div class="hero-orb hero-orb-blue right-[-10rem] top-24 h-96 w-96 animate-[pulse_9s_ease-in-out_infinite]"></div>

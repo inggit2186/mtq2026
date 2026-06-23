@@ -28,6 +28,10 @@ Route::get('/big-screen', [PageController::class, 'bigScreen'])->name('big-scree
 Route::get('/api/big-screen/current-participant', [PageController::class, 'apiCurrentParticipant'])->name('api.big-screen.current-participant');
 Route::post('/api/big-screen/set-participant', [PageController::class, 'setCurrentParticipant'])->name('api.big-screen.set-participant');
 Route::get('/jadwal/berlangsung', [PageController::class, 'ongoingSchedules'])->name('schedules.ongoing');
+
+// Public pengumuman juara page (no auth required)
+Route::get('/pengumuman/juara', [PageController::class, 'pengumumanJuara'])->name('pengumuman.juara');
+Route::get('/pengumuman/juara-peserta', [PageController::class, 'pengumumanJuaraPerGolongan'])->name('pengumuman.juara-peserta');
 Route::redirect('/panduan/pendaftaran-official', '/panduan/pendaftaran-peserta');
 Route::get('/panduan/pendaftaran-peserta', [PageController::class, 'participantRegistrationGuidePdf'])->name('participants.guide.pdf');
 Route::get('/panduan/pendaftaran-peserta/snapshot', [PageController::class, 'participantRegistrationGuideSnapshot'])->name('participants.guide.snapshot');
@@ -52,6 +56,9 @@ Route::middleware(['auth', 'password.change'])->group(function (): void {
     Route::get('/leaderboard/cetak/detail', [PageController::class, 'leaderboardDetailPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-detail');
     Route::get('/leaderboard/cetak/detail-pdf', [PageController::class, 'leaderboardDetailPdf'])->middleware('role:admin,panitia')->name('leaderboard.print-detail-pdf');
     Route::get('/leaderboard/cetak/juara-umum', [PageController::class, 'leaderboardJuaraUmumPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-juara-umum');
+    Route::get('/leaderboard/cetak/juara-umum-lampiran', [PageController::class, 'leaderboardJuaraUmumLampiranPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-juara-umum-lampiran');
+    Route::get('/leaderboard/cetak/juara-lampiran', [PageController::class, 'leaderboardJuaraLampiranPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-juara-lampiran');
+    Route::get('/leaderboard/cetak/juara-kecamatan', [PageController::class, 'leaderboardJuaraKecamatanPrint'])->middleware('role:admin,panitia')->name('leaderboard.print-juara-kecamatan');
     Route::get('/admin/finalis', [FinalistController::class, 'index'])->middleware('role:admin,panitia')->name('finalists.index');
     Route::get('/admin/finalis/cetak', [FinalistController::class, 'print'])->middleware('role:admin,panitia')->name('finalists.print');
     Route::post('/admin/finalis/generate', [FinalistController::class, 'generateAll'])->middleware('role:admin,panitia')->name('finalists.generate-all');

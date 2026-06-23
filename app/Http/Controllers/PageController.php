@@ -260,6 +260,760 @@ class PageController extends Controller
         ]);
     }
 
+    /**
+     * Public pengumuman juara page - no authentication required
+     */
+    public function pengumumanJuara(Request $request): View
+    {
+        // Point rules for juara umum
+        $pointRules = [
+            1 => 9,  // Juara 1
+            2 => 7,  // Juara 2
+            3 => 5,  // Juara 3
+            4 => 3,  // Harapan 1
+            5 => 2,  // Harapan 2
+            6 => 1,  // Harapan 3
+        ];
+
+        $participants = Participant::query()
+            ->with(['district', 'category'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $districts = District::orderBy('name')->get();
+        $categories = CompetitionCategory::orderBy('sort_order')->orderBy('branch')->get();
+
+        // Build district rankings
+        $districtRankings = [];
+        foreach ($districts as $district) {
+            $districtParticipants = $participants->filter(fn ($p) => $p->district_id === $district->id);
+            if ($districtParticipants->isEmpty()) {
+                continue;
+            }
+            $districtRankings[] = [
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'participant_count' => $districtParticipants->count(),
+                'points' => 0,
+                'details' => [],
+            ];
+        }
+
+        // ========== REGULAR CATEGORIES ==========
+        $regularCategories = $categories->whereNotIn('id', [24, 25]);
+
+        foreach ($regularCategories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Check if this is MSQ category (Syarhil Quran)
+            $isMsqCategory = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+
+            // For MSQ: count participants per district
+            $districtParticipantCounts = [];
+            if ($isMsqCategory) {
+                $districtParticipantCounts = $categoryParticipants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray();
+            }
+
+            if ($isMsqCategory) {
+                // MSQ categories - each district = 1 score (no gender split)
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final', true, $districtParticipantCounts);
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan', true, $districtParticipantCounts);
+
+                // Build combined list with proper rank assignment
+                $rankingList = [];
+                $usedNames = [];
+
+                // Count how many finalists we have
+                $finalistCount = count(array_filter($finalRankings, fn ($r) => null !== ($r['original_name'] ?? $r['name'] ?? null)));
+
+                if ($finalistCount > 0) {
+                    // Take finalists first
+                    for ($i = 0; $i < min(3, count($finalRankings)); $i++) {
+                        if (!isset($finalRankings[$i])) continue;
+                        $r = $finalRankings[$i];
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $i + 1,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'final',
+                        ];
+                        $usedNames[] = $rName;
+                    }
+
+                    // Fill remaining juara slots (if Final < 3) from Penyisihan
+                    $juaraNeeded = 3 - count($rankingList);
+                    if ($juaraNeeded > 0) {
+                        $penyisihanNotInFinal = collect($penyisihanRankings)
+                            ->reject(fn ($r) => in_array($r['original_name'] ?? $r['name'] ?? '-', $usedNames))
+                            ->values()
+                            ->all();
+
+                        $nextRank = count($rankingList) + 1;
+                        foreach (array_slice($penyisihanNotInFinal, 0, $juaraNeeded) as $r) {
+                            $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                            $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                            $rankingList[] = [
+                                'rank' => $nextRank,
+                                'participant_id' => $r['participant_id'] ?? null,
+                                'participant_name' => $rName,
+                                'district' => $r['district'] ?? '-',
+                                'district_id' => $participant?->district_id,
+                                'source' => 'penyisihan_juara',
+                            ];
+                            $usedNames[] = $rName;
+                            $nextRank++;
+                        }
+                    }
+
+                    // Remaining Penyisihan entries become Harapan (ranks 4, 5, 6)
+                    $harapanEntries = collect($penyisihanRankings)
+                        ->reject(fn ($r) => in_array($r['original_name'] ?? $r['name'] ?? '-', $usedNames))
+                        ->values()
+                        ->all();
+
+                    $harapanRank = 4;
+                    foreach (array_slice($harapanEntries, 0, 3) as $r) {
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $harapanRank,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'penyisihan',
+                        ];
+                        $usedNames[] = $rName;
+                        $harapanRank++;
+                    }
+                } else {
+                    // No Final results: all from Penyisihan
+                    $allFromPenyisihan = collect($penyisihanRankings)
+                        ->reject(fn ($r) => empty($r['original_name'] ?? $r['name'] ?? null))
+                        ->values()
+                        ->all();
+
+                    // Top 3 become juara
+                    for ($i = 0; $i < min(3, count($allFromPenyisihan)); $i++) {
+                        $r = $allFromPenyisihan[$i];
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $i + 1,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'penyisihan_juara',
+                        ];
+                        $usedNames[] = $rName;
+                    }
+
+                    // Next 3 become harapan
+                    $harapanRank = 4;
+                    foreach ($allFromPenyisihan as $r) {
+                        if ($harapanRank > 6) break;
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        if (in_array($rName, $usedNames)) continue;
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $harapanRank,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'penyisihan',
+                        ];
+                        $usedNames[] = $rName;
+                        $harapanRank++;
+                    }
+                }
+
+                // Add points to districts
+                foreach ($rankingList as $entry) {
+                    $rank = $entry['rank'];
+                    if (!isset($pointRules[$rank])) continue;
+
+                    $points = $pointRules[$rank];
+                    $districtId = $entry['district_id'];
+                    if (!$districtId) continue;
+
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name,
+                            'branch' => $category->branch,
+                            'type' => $entry['source'],
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $entry['participant_name'],
+                        ];
+                    }
+                }
+            } else {
+                // Non-MSQ categories - per gender (putra, putri)
+                $finalRankings = $this->buildSimpleRankings($categoryParticipants, 'Final');
+                usort($finalRankings, function ($a, $b) {
+                    $scoreCompare = ((float) ($b['average_score_value'] ?? 0)) <=> ((float) ($a['average_score_value'] ?? 0));
+                    if ($scoreCompare !== 0) return $scoreCompare;
+
+                    $maxPriority = max(count($a['priority_values'] ?? []), count($b['priority_values'] ?? []));
+                    for ($i = 0; $i < $maxPriority; $i++) {
+                        $priorityCompare = ((float) ($b['priority_values'][$i] ?? 0)) <=> ((float) ($a['priority_values'][$i] ?? 0));
+                        if ($priorityCompare !== 0) return $priorityCompare;
+                    }
+
+                    return ((float) ($b['latest_score_value'] ?? 0)) <=> ((float) ($a['latest_score_value'] ?? 0));
+                });
+
+                $penyisihanRankings = $this->buildSimpleRankings($categoryParticipants, 'Penyisihan');
+                usort($penyisihanRankings, function ($a, $b) {
+                    $scoreCompare = ((float) ($b['average_score_value'] ?? 0)) <=> ((float) ($a['average_score_value'] ?? 0));
+                    if ($scoreCompare !== 0) return $scoreCompare;
+
+                    $maxPriority = max(count($a['priority_values'] ?? []), count($b['priority_values'] ?? []));
+                    for ($i = 0; $i < $maxPriority; $i++) {
+                        $priorityCompare = ((float) ($b['priority_values'][$i] ?? 0)) <=> ((float) ($a['priority_values'][$i] ?? 0));
+                        if ($priorityCompare !== 0) return $priorityCompare;
+                    }
+
+                    return ((float) ($b['latest_score_value'] ?? 0)) <=> ((float) ($a['latest_score_value'] ?? 0));
+                });
+
+                // Build juara/harapan list per gender (putra, putri)
+                foreach (['putra', 'putri'] as $gender) {
+                    $genderLower = strtolower($gender);
+                    $finalOfGender = collect($finalRankings)->filter(fn ($r) => strtolower($r['gender'] ?? '') === $genderLower)->values()->all();
+                    $penyisihanOfGender = collect($penyisihanRankings)->filter(fn ($r) => strtolower($r['gender'] ?? '') === $genderLower)->values()->all();
+
+                    // Check if Final has any results for this gender
+                    $hasFinalResults = count($finalOfGender) > 0;
+
+                    $rankingList = [];
+                    $usedParticipantIds = [];
+
+                    // Count how many finalists we have for each gender
+                    $finalistCount = count(array_filter($finalOfGender, fn ($r) => null !== ($r['participant_id'] ?? null)));
+
+                    if ($finalistCount > 0) {
+                        // Take finalists first
+                        for ($i = 0; $i < min(3, count($finalOfGender)); $i++) {
+                            if (!isset($finalOfGender[$i]) || !($finalOfGender[$i]['participant_id'] ?? null)) continue;
+
+                            $rankingList[] = [
+                                'rank' => $i + 1,
+                                'participant_id' => $finalOfGender[$i]['participant_id'] ?? null,
+                                'participant_name' => $finalOfGender[$i]['name'] ?? '-',
+                                'district_id' => $finalOfGender[$i]['district_id'] ?? null,
+                                'source' => 'final',
+                            ];
+                            $usedParticipantIds[] = $finalOfGender[$i]['participant_id'] ?? null;
+                        }
+
+                        // Fill remaining juara slots (if Final < 3) from Penyisihan
+                        $juaraNeeded = 3 - count($rankingList);
+                        if ($juaraNeeded > 0) {
+                            $penyisihanNotInFinal = collect($penyisihanOfGender)
+                                ->reject(fn ($p) => in_array($p['participant_id'] ?? null, $usedParticipantIds))
+                                ->values()
+                                ->all();
+
+                            $nextRank = count($rankingList) + 1;
+                            foreach (array_slice($penyisihanNotInFinal, 0, $juaraNeeded) as $p) {
+                                $rankingList[] = [
+                                    'rank' => $nextRank,
+                                    'participant_id' => $p['participant_id'] ?? null,
+                                    'participant_name' => $p['name'] ?? '-',
+                                    'district_id' => $p['district_id'] ?? null,
+                                    'source' => 'penyisihan_juara',
+                                ];
+                                $usedParticipantIds[] = $p['participant_id'] ?? null;
+                                $nextRank++;
+                            }
+                        }
+
+                        // Remaining Penyisihan entries become Harapan (ranks 4, 5, 6)
+                        $harapanEntries = collect($penyisihanOfGender)
+                            ->reject(fn ($p) => in_array($p['participant_id'] ?? null, $usedParticipantIds))
+                            ->values()
+                            ->all();
+
+                        $harapanRank = 4;
+                        foreach (array_slice($harapanEntries, 0, 3) as $p) {
+                            $rankingList[] = [
+                                'rank' => $harapanRank,
+                                'participant_id' => $p['participant_id'] ?? null,
+                                'participant_name' => $p['name'] ?? '-',
+                                'district_id' => $p['district_id'] ?? null,
+                                'source' => 'penyisihan',
+                            ];
+                            $usedParticipantIds[] = $p['participant_id'] ?? null;
+                            $harapanRank++;
+                        }
+                    } else {
+                        // No Final: all 3 juara from Penyisihan ranks 1-3, then 3 harapan from ranks 4-6
+                        for ($i = 0; $i < min(3, count($penyisihanOfGender)); $i++) {
+                            $p = $penyisihanOfGender[$i];
+                            $rankingList[] = [
+                                'rank' => $i + 1,
+                                'participant_id' => $p['participant_id'] ?? null,
+                                'participant_name' => $p['name'] ?? '-',
+                                'district_id' => $p['district_id'] ?? null,
+                                'source' => 'penyisihan_juara',
+                            ];
+                            $usedParticipantIds[] = $p['participant_id'] ?? null;
+                        }
+
+                        // Filter out already used and take next 3 for harapan
+                        $harapanEntries = collect($penyisihanOfGender)
+                            ->reject(fn ($p) => in_array($p['participant_id'] ?? null, $usedParticipantIds))
+                            ->values()
+                            ->all();
+
+                        $harapanRank = 4;
+                        foreach (array_slice($harapanEntries, 0, 3) as $p) {
+                            $rankingList[] = [
+                                'rank' => $harapanRank,
+                                'participant_id' => $p['participant_id'] ?? null,
+                                'participant_name' => $p['name'] ?? '-',
+                                'district_id' => $p['district_id'] ?? null,
+                                'source' => 'penyisihan',
+                            ];
+                            $usedParticipantIds[] = $p['participant_id'] ?? null;
+                            $harapanRank++;
+                        }
+                    }
+
+                    // Add points to districts
+                    foreach ($rankingList as $entry) {
+                        $rank = $entry['rank'];
+                        if (!isset($pointRules[$rank])) continue;
+
+                        $points = $pointRules[$rank];
+                        $districtId = $entry['district_id'];
+                        if (!$districtId) continue;
+
+                        $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                        if ($districtIdx !== false) {
+                            $districtRankings[$districtIdx]['points'] += $points;
+                            $districtRankings[$districtIdx]['details'][] = [
+                                'category' => $category->name,
+                                'branch' => $category->branch,
+                                'type' => $entry['source'],
+                                'rank' => $rank,
+                                'points' => $points,
+                                'participant_name' => $entry['participant_name'],
+                                'gender' => $gender,
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // ========== MFQ CATEGORIES ==========
+        $mfqResults = \App\Models\MfqResult::query()
+            ->with(['participant.district', 'district', 'session'])
+            ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+            ->get();
+
+        $mfqCategories = $categories->whereIn('id', [24, 25]);
+
+        foreach ($mfqCategories as $category) {
+            $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+            // Build rankings by district for Penyisihan and Final
+            $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+            $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+
+            $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+            $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+
+            // Check if Final has any results
+            $hasFinalResults = count($finalRankings) > 0;
+
+            // Build combined list with proper rank assignment
+            $rankingList = [];
+            $usedDistrictIds = [];
+
+            if ($hasFinalResults) {
+                // Normal case: Final rank 1-3 = Juara 1-2-3
+                for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                    $r = $finalRankings[$i];
+                    $rankingList[] = [
+                        'rank' => $i + 1,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'final',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                }
+
+                // Penyisihan rank 4-6 = Harapan 1-2-3 (not in Final)
+                $harapanRank = 4;
+                foreach ($penyisihanRankings as $r) {
+                    if ($harapanRank > 6) break;
+                    if (in_array($r['district_id'] ?? null, $usedDistrictIds)) {
+                        continue;
+                    }
+                    $rankingList[] = [
+                        'rank' => $harapanRank,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'penyisihan',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                    $harapanRank++;
+                }
+            } else {
+                // No Final: Penyisihan rank 1-3 = Juara 1-2-3, rank 4-6 = Harapan 1-2-3
+                for ($i = 0; $i < 3 && $i < count($penyisihanRankings); $i++) {
+                    $r = $penyisihanRankings[$i];
+                    $rankingList[] = [
+                        'rank' => $i + 1,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'penyisihan_juara',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                }
+
+                $harapanRank = 4;
+                foreach ($penyisihanRankings as $r) {
+                    if ($harapanRank > 6) break;
+                    if (in_array($r['district_id'] ?? null, $usedDistrictIds)) {
+                        continue;
+                    }
+                    $rankingList[] = [
+                        'rank' => $harapanRank,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'penyisihan',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                    $harapanRank++;
+                }
+            }
+
+            // Add points to districts
+            foreach ($rankingList as $entry) {
+                $rank = $entry['rank'];
+                if (!isset($pointRules[$rank])) continue;
+
+                $points = $pointRules[$rank];
+                $districtId = $entry['district_id'];
+                if (!$districtId) continue;
+
+                $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                if ($districtIdx !== false) {
+                    $districtRankings[$districtIdx]['points'] += $points;
+                    $districtRankings[$districtIdx]['details'][] = [
+                        'category' => $category->name . ' (MFQ)',
+                        'branch' => $category->branch,
+                        'type' => $entry['source'],
+                        'rank' => $rank,
+                        'points' => $points,
+                        'participant_name' => $entry['district_name'],
+                    ];
+                }
+            }
+        }
+
+        // Sort by total points descending
+        usort($districtRankings, fn ($a, $b) => $b['points'] <=> $a['points']);
+
+        // Assign final ranks
+        foreach ($districtRankings as $idx => &$district) {
+            $district['rank'] = $idx + 1;
+            // Count rank achievements
+            $district['rank_counts'] = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0];
+            foreach ($district['details'] as $detail) {
+                $detailRank = $detail['rank'];
+                if (isset($district['rank_counts'][$detailRank])) {
+                    $district['rank_counts'][$detailRank]++;
+                }
+            }
+        }
+
+        // Get category winners (Juara 1, 2, 3 from Final)
+        $categoryWinners = [];
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Get Final rankings
+            $finalRows = $this->buildSimpleRankings($categoryParticipants, 'Final');
+            usort($finalRows, fn ($a, $b) => $b['average_score'] <=> $a['average_score']);
+
+            // Take top 3
+            $topThree = array_slice($finalRows, 0, 3);
+
+            if (!empty($topThree)) {
+                $categoryWinners[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'winners' => $topThree,
+                ];
+            }
+        }
+
+        $documentConfig = $this->documentConfig();
+
+        return view('pages.pengumuman-juara', [
+            'districtRankings' => $districtRankings,
+            'categoryWinners' => $categoryWinners,
+            'generatedAt' => now()->format('d/m/Y H:i'),
+            'documentConfig' => $documentConfig,
+            'eventTitle' => $documentConfig['event_title'] ?? 'MTQ Nasional ke-XLIII',
+            'organizationName' => $documentConfig['organization_name'] ?? 'Kabupaten Tanah Datar',
+            'pointRules' => $pointRules,
+        ]);
+    }
+
+    /**
+     * Public pengumuman juara per golongan page - no authentication required
+     * Shows juara 1, 2, 3 and harapan 1, 2, 3 per category with participant photos
+     */
+    public function pengumumanJuaraPerGolongan(Request $request): View
+    {
+        $participants = Participant::query()
+            ->with(['district', 'category', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        $categoryResults = [];
+
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Check if this is MFQ category (Fahmil Qur'an id 24, 25)
+            $isMfqCategory = in_array($category->id, [24, 25]);
+
+            // Check if this is MSQ category (Syarhil Quran)
+            $isMsqCategory = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+
+            if ($isMfqCategory) {
+                // MFQ categories use district-based rankings
+                $mfqResults = \App\Models\MfqResult::query()
+                    ->with(['participant.district', 'district', 'session'])
+                    ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+                    ->get();
+
+                $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+                $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+                $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+
+                $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+                $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+
+                $juaraLeaders = [];
+                $usedDistrictIds = [];
+                for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                    $r = $finalRankings[$i];
+                    $participant = $categoryParticipants->firstWhere('district_id', $r['district_id'] ?? 0);
+                    $juaraLeaders[] = [
+                        'rank' => $i + 1,
+                        'rank_label' => 'Juara ' . ($i + 1),
+                        'name' => $r['representative_name'] ?? '-',
+                        'district' => $r['district_name'] ?? '-',
+                        'lot_number' => !empty($r['lot_numbers']) ? implode(', ', $r['lot_numbers']) : '-',
+                        'score' => number_format((float) ($r['total_score'] ?? 0), 0),
+                        'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                        'is_fallback' => false,
+                    ];
+                    $usedDistrictIds[] = $r['district_id'];
+                }
+
+                $harapanLeaders = [];
+                foreach ($penyisihanRankings as $r) {
+                    if (count($harapanLeaders) >= 3) break;
+                    if (!in_array($r['district_id'], $usedDistrictIds)) {
+                        $participant = $categoryParticipants->firstWhere('district_id', $r['district_id'] ?? 0);
+                        $harapanLeaders[] = [
+                            'rank' => count($harapanLeaders) + 1,
+                            'rank_label' => 'Harapan ' . (count($harapanLeaders) + 1),
+                            'name' => $r['representative_name'] ?? '-',
+                            'district' => $r['district_name'] ?? '-',
+                            'lot_number' => !empty($r['lot_numbers']) ? implode(', ', $r['lot_numbers']) : '-',
+                            'score' => number_format((float) ($r['total_score'] ?? 0), 0),
+                            'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                            'is_fallback' => false,
+                        ];
+                        $usedDistrictIds[] = $r['district_id'];
+                    }
+                }
+
+                $categoryResults[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'participant_count' => $categoryParticipants->count(),
+                    'is_mfq' => true,
+                    'is_msq' => false,
+                    'putra' => [
+                        'juara' => $juaraLeaders,
+                        'harapan' => $harapanLeaders,
+                    ],
+                    'putri' => [
+                        'juara' => [],
+                        'harapan' => [],
+                    ],
+                ];
+            } elseif ($isMsqCategory) {
+                // MSQ categories - each district = 1 score
+                $districtParticipantCounts = $categoryParticipants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray();
+
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final', true, $districtParticipantCounts);
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan', true, $districtParticipantCounts);
+
+                $juaraLeaders = [];
+                $harapanLeaders = [];
+                $usedNames = [];
+
+                for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                    $r = $finalRankings[$i];
+                    $rName = $r['name'] ?? '-';
+                    $participant = $categoryParticipants->firstWhere('name', $r['original_name'] ?? $rName);
+                    $juaraLeaders[] = [
+                        'rank' => $i + 1,
+                        'rank_label' => 'Juara ' . ($i + 1),
+                        'name' => $rName,
+                        'district' => $r['district'] ?? '-',
+                        'lot_number' => $r['lot_number'] ?? '-',
+                        'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                        'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                        'is_fallback' => false,
+                    ];
+                    $usedNames[] = $rName;
+                }
+
+                $juaraNeeded = 3 - count($juaraLeaders);
+                foreach ($penyisihanRankings as $r) {
+                    if ($juaraNeeded <= 0) break;
+                    $rName = $r['name'] ?? '-';
+                    if (!in_array($rName, $usedNames)) {
+                        $participant = $categoryParticipants->firstWhere('name', $r['original_name'] ?? $rName);
+                        $juaraLeaders[] = [
+                            'rank' => count($juaraLeaders) + 1,
+                            'rank_label' => 'Juara ' . (count($juaraLeaders) + 1),
+                            'name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'lot_number' => $r['lot_number'] ?? '-',
+                            'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                            'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                            'is_fallback' => true,
+                        ];
+                        $usedNames[] = $rName;
+                        $juaraNeeded--;
+                    }
+                }
+
+                usort($juaraLeaders, fn ($a, $b) => $a['rank'] <=> $b['rank']);
+
+                foreach ($penyisihanRankings as $r) {
+                    if (count($harapanLeaders) >= 3) break;
+                    $rName = $r['name'] ?? '-';
+                    if (!in_array($rName, $usedNames)) {
+                        $participant = $categoryParticipants->firstWhere('name', $r['original_name'] ?? $rName);
+                        $harapanLeaders[] = [
+                            'rank' => count($harapanLeaders) + 1,
+                            'rank_label' => 'Harapan ' . (count($harapanLeaders) + 1),
+                            'name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'lot_number' => $r['lot_number'] ?? '-',
+                            'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                            'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                            'is_fallback' => false,
+                        ];
+                        $usedNames[] = $rName;
+                    }
+                }
+
+                $categoryResults[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'participant_count' => $categoryParticipants->count(),
+                    'is_mfq' => false,
+                    'is_msq' => true,
+                    'putra' => [
+                        'juara' => $juaraLeaders,
+                        'harapan' => $harapanLeaders,
+                    ],
+                    'putri' => [
+                        'juara' => [],
+                        'harapan' => [],
+                    ],
+                ];
+            } else {
+                // Regular categories
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final');
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan');
+
+                $putraData = $this->buildJuaraHarapanDataWithPhoto($categoryParticipants, $finalRankings, $penyisihanRankings, 'putra');
+                $putriData = $this->buildJuaraHarapanDataWithPhoto($categoryParticipants, $finalRankings, $penyisihanRankings, 'putri');
+
+                $categoryResults[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'participant_count' => $categoryParticipants->count(),
+                    'is_mfq' => false,
+                    'is_msq' => false,
+                    'putra' => $putraData,
+                    'putri' => $putriData,
+                ];
+            }
+        }
+
+        // Group by branch
+        $groupedResults = collect($categoryResults)->groupBy('branch')->map(function ($items, $branch) {
+            return [
+                'branch' => $branch,
+                'categories' => $items->values()->all(),
+            ];
+        })->values();
+
+        $documentConfig = $this->documentConfig();
+
+        return view('pages.pengumuman-juara-peserta', [
+            'groupedResults' => $groupedResults,
+            'categoryResults' => $categoryResults,
+            'generatedAt' => now()->format('d/m/Y H:i'),
+            'documentConfig' => $documentConfig,
+            'eventTitle' => $documentConfig['event_title'] ?? 'MTQ Nasional ke-XLIII',
+            'organizationName' => $documentConfig['organization_name'] ?? 'Kabupaten Tanah Datar',
+        ]);
+    }
+
     public function bigScreen(Request $request): View
     {
         $filters = $request->validate([
@@ -1906,6 +2660,1145 @@ class PageController extends Controller
     }
 
     /**
+     * Generate HTML print-friendly Rekap Juara Umum (Ranking Kecamatan)
+     * Format: LAMPIRAN SURAT KEPUTUSAN KOORDINATOR DEWAN HAKIM
+     * Table: Peringkat | Kecamatan | Total Poin | Perolehan
+     *
+     * Aturan Poin:
+     * - FINAL Rank 1=9pt, Rank 2=7pt, Rank 3=5pt
+     * - PENYISIHAN Rank 4=3pt, Rank 5=2pt, Rank 6=1pt
+     * - Peserta yang dapat poin dari Final TIDAK dapat poin dari Penyisihan
+     */
+    public function leaderboardJuaraUmumLampiranPrint(Request $request)
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        // Point rules for juara umum
+        $pointRules = [
+            'final' => [1 => 9, 2 => 7, 3 => 5],
+            'penyisihan' => [4 => 3, 5 => 2, 6 => 1],
+        ];
+
+        $participants = Participant::query()
+            ->with(['district', 'category', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $districts = District::orderBy('name')->get();
+        $categories = CompetitionCategory::orderBy('sort_order')->orderBy('branch')->get();
+
+        // Build district rankings
+        $districtRankings = [];
+        foreach ($districts as $district) {
+            $districtParticipants = $participants->filter(fn ($p) => $p->district_id === $district->id);
+            if ($districtParticipants->isEmpty()) {
+                continue;
+            }
+            $districtRankings[] = [
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'participant_count' => $districtParticipants->count(),
+                'points' => 0,
+                'details' => [],
+            ];
+        }
+
+        // ========== REGULAR CATEGORIES ==========
+        $regularCategories = $categories->whereNotIn('id', [24, 25]);
+
+        foreach ($regularCategories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Get Final rankings
+            $finalRows = $this->buildSimpleRankings($categoryParticipants, 'Final');
+            usort($finalRows, fn ($a, $b) => $b['average_score'] <=> $a['average_score']);
+
+            // Get Penyisihan rankings
+            $penyisihanRows = $this->buildSimpleRankings($categoryParticipants, 'Penyisihan');
+            usort($penyisihanRows, fn ($a, $b) => $b['average_score'] <=> $a['average_score']);
+
+            // Process by gender (putra, putri)
+            foreach (['putra', 'putri'] as $gender) {
+                $genderLower = strtolower($gender);
+                $finalOfGender = collect($finalRows)->filter(fn ($r) => strtolower($r['gender'] ?? '') === $genderLower)->values()->all();
+                $penyisihanOfGender = collect($penyisihanRows)->filter(fn ($r) => strtolower($r['gender'] ?? '') === $genderLower)->values()->all();
+
+                // Get participant IDs who have Final scores (they don't get Penyisihan points)
+                $finalParticipantIdsOfGender = collect($finalOfGender)->pluck('participant_id')->toArray();
+
+                // Add points from Final (ranks 1, 2, 3)
+                foreach ($finalOfGender as $rankIndex => $participant) {
+                    $rank = $rankIndex + 1;
+                    if ($rank > 3) break;
+                    if (isset($pointRules['final'][$rank])) {
+                        $points = $pointRules['final'][$rank];
+                        $districtId = $participant['district_id'];
+                        $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                        if ($districtIdx !== false) {
+                            $districtRankings[$districtIdx]['points'] += $points;
+                            $districtRankings[$districtIdx]['details'][] = [
+                                'category' => $category->name,
+                                'branch' => $category->branch,
+                                'type' => 'final',
+                                'rank' => $rank,
+                                'points' => $points,
+                                'participant_name' => $participant['name'],
+                                'gender' => $gender,
+                            ];
+                        }
+                    }
+                }
+
+                // Add points from Penyisihan (ranks 4, 5, 6) - EXCLUDING those already in Final
+                foreach ($penyisihanOfGender as $rankIndex => $participant) {
+                    $rank = $rankIndex + 1;
+                    if ($rank < 4 || $rank > 6) continue;
+                    if (in_array($participant['participant_id'], $finalParticipantIdsOfGender)) continue;
+                    if (isset($pointRules['penyisihan'][$rank])) {
+                        $points = $pointRules['penyisihan'][$rank];
+                        $districtId = $participant['district_id'];
+                        $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                        if ($districtIdx !== false) {
+                            $districtRankings[$districtIdx]['points'] += $points;
+                            $districtRankings[$districtIdx]['details'][] = [
+                                'category' => $category->name,
+                                'branch' => $category->branch,
+                                'type' => 'penyisihan',
+                                'rank' => $rank,
+                                'points' => $points,
+                                'participant_name' => $participant['name'],
+                                'gender' => $gender,
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // ========== MFQ CATEGORIES ==========
+        $mfqResults = \App\Models\MfqResult::query()
+            ->with(['participant.district', 'district', 'session'])
+            ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+            ->get();
+
+        $mfqCategories = $categories->whereIn('id', [24, 25]);
+
+        foreach ($mfqCategories as $category) {
+            $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+            // Build rankings by district for Penyisihan
+            $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+            $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+
+            // Build rankings by district for Final
+            $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+            $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+
+            // Get district IDs who have Final results
+            $finalDistrictIds = collect($finalRankings)->pluck('district_id')->toArray();
+
+            // Add points from Final (ranks 1, 2, 3)
+            foreach ($finalRankings as $rankIndex => $rankData) {
+                $rank = $rankIndex + 1;
+                if ($rank > 3) break;
+                if (isset($pointRules['final'][$rank])) {
+                    $points = $pointRules['final'][$rank];
+                    $districtId = $rankData['district_id'];
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name . ' (MFQ)',
+                            'branch' => $category->branch,
+                            'type' => 'final',
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $rankData['district_name'],
+                        ];
+                    }
+                }
+            }
+
+            // Add points from Penyisihan (ranks 4, 5, 6) - EXCLUDING districts already in Final
+            foreach ($penyisihanRankings as $rankIndex => $rankData) {
+                $rank = $rankIndex + 1;
+                if ($rank < 4 || $rank > 6) continue;
+                if (in_array($rankData['district_id'], $finalDistrictIds)) continue; // Skip if already in Final
+                if (isset($pointRules['penyisihan'][$rank])) {
+                    $points = $pointRules['penyisihan'][$rank];
+                    $districtId = $rankData['district_id'];
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $category->name . ' (MFQ)',
+                            'branch' => $category->branch,
+                            'type' => 'penyisihan',
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $rankData['district_name'],
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Sort by total points descending
+        usort($districtRankings, fn ($a, $b) => $b['points'] <=> $a['points']);
+
+        // Assign final ranks and count achievements
+        foreach ($districtRankings as $idx => &$district) {
+            $district['rank'] = $idx + 1;
+            $district['rank_counts'] = [
+                1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0,
+            ];
+            foreach ($district['details'] as $detail) {
+                $detailRank = $detail['rank'];
+                if (isset($district['rank_counts'][$detailRank])) {
+                    $district['rank_counts'][$detailRank]++;
+                }
+            }
+        }
+
+        $documentConfig = $this->documentConfig();
+
+        return response(view('pages.leaderboard-juara-umum-lampiran-print', [
+            'districtRankings' => $districtRankings,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'documentConfig' => $documentConfig,
+        ]))->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Generate HTML print-friendly Rekap Juara per Golongan
+     * Format: LAMPIRAN SURAT KEPUTUSAN KOORDINATOR DEWAN HAKIM
+     * Table: Juara | Nomor Lot | Nama | Kecamatan | Total Nilai
+     */
+    public function leaderboardJuaraLampiranPrint(Request $request)
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        $participants = Participant::query()
+            ->with(['district', 'category', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $categories = CompetitionCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('branch')
+            ->orderBy('name')
+            ->get();
+
+        $categoryResults = [];
+
+        foreach ($categories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Check if this is MFQ category (Fahmil Qur'an id 24, 25)
+            $isMfqCategory = in_array($category->id, [24, 25]);
+
+            // Check if this is MSQ category (Syarhil Quran)
+            $isMsqCategory = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+
+            if ($isMfqCategory) {
+                // MFQ categories use district-based rankings
+                $mfqResults = \App\Models\MfqResult::query()
+                    ->with(['participant.district', 'district', 'session'])
+                    ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+                    ->get();
+
+                $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+                // Get Final and Penyisihan rankings separately
+                $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+                $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+
+                $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+                $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+
+                // Juara 1, 2, 3 dari Final saja
+                $juaraLeaders = [];
+                $usedDistrictIds = [];
+                for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                    $r = $finalRankings[$i];
+                    $juaraLeaders[] = [
+                        'rank' => $i + 1,
+                        'rank_label' => 'Juara ' . ($i + 1),
+                        'name' => $r['representative_name'] ?? '-',
+                        'district' => $r['district_name'] ?? '-',
+                        'lot_number' => !empty($r['lot_numbers']) ? implode(', ', $r['lot_numbers']) : '-',
+                        'score' => number_format((float) ($r['total_score'] ?? 0), 0),
+                        'is_fallback' => false,
+                    ];
+                    $usedDistrictIds[] = $r['district_id'];
+                }
+
+                // Harapan 1, 2, 3 dari Penyisihan (exclude districts already in juara)
+                $harapanLeaders = [];
+                foreach ($penyisihanRankings as $r) {
+                    if (count($harapanLeaders) >= 3) break;
+                    if (!in_array($r['district_id'], $usedDistrictIds)) {
+                        $harapanLeaders[] = [
+                            'rank' => count($harapanLeaders) + 1,
+                            'rank_label' => 'Harapan ' . (count($harapanLeaders) + 1),
+                            'name' => $r['representative_name'] ?? '-',
+                            'district' => $r['district_name'] ?? '-',
+                            'lot_number' => !empty($r['lot_numbers']) ? implode(', ', $r['lot_numbers']) : '-',
+                            'score' => number_format((float) ($r['total_score'] ?? 0), 0),
+                            'is_fallback' => false,
+                        ];
+                        $usedDistrictIds[] = $r['district_id'];
+                    }
+                }
+
+                $categoryResults[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'participant_count' => $categoryParticipants->count(),
+                    'is_mfq' => true,
+                    'putra' => [
+                        'juara' => $juaraLeaders,
+                        'harapan' => $harapanLeaders,
+                    ],
+                    'putri' => [
+                        'juara' => [],
+                        'harapan' => [],
+                    ],
+                ];
+            } elseif ($isMsqCategory) {
+                // MSQ categories - each district = 1 score
+                $districtParticipantCounts = $categoryParticipants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray();
+
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final', true, $districtParticipantCounts);
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan', true, $districtParticipantCounts);
+
+                // For MSQ: Final rank 1-3 = Juara 1-2-3, Penyisihan rank 4-6 = Harapan 1-2-3
+                // No gender split - just top 3 districts by score
+                $juaraLeaders = [];
+                $harapanLeaders = [];
+                $usedNames = [];
+
+                // Final rank 1-3 = Juara 1-2-3
+                for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                    $r = $finalRankings[$i];
+                    $juaraLeaders[] = [
+                        'rank' => $i + 1,
+                        'rank_label' => 'Juara ' . ($i + 1),
+                        'name' => $r['name'] ?? '-',
+                        'district' => $r['district'] ?? '-',
+                        'lot_number' => $r['lot_number'] ?? '-',
+                        'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                        'is_fallback' => false,
+                    ];
+                    $usedNames[] = $r['name'] ?? '-';
+                }
+
+                // Fill remaining juara from Penyisihan if needed
+                $juaraNeeded = 3 - count($juaraLeaders);
+                foreach ($penyisihanRankings as $r) {
+                    if ($juaraNeeded <= 0) break;
+                    $rName = $r['name'] ?? '-';
+                    if (!in_array($rName, $usedNames)) {
+                        $juaraLeaders[] = [
+                            'rank' => count($juaraLeaders) + 1,
+                            'rank_label' => 'Juara ' . (count($juaraLeaders) + 1),
+                            'name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'lot_number' => $r['lot_number'] ?? '-',
+                            'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                            'is_fallback' => true,
+                        ];
+                        $usedNames[] = $rName;
+                        $juaraNeeded--;
+                    }
+                }
+
+                // Sort juara leaders by rank
+                usort($juaraLeaders, fn ($a, $b) => $a['rank'] <=> $b['rank']);
+
+                // Penyisihan rank 4-6 = Harapan 1-2-3
+                foreach ($penyisihanRankings as $r) {
+                    if (count($harapanLeaders) >= 3) break;
+                    $rName = $r['name'] ?? '-';
+                    if (!in_array($rName, $usedNames)) {
+                        $harapanLeaders[] = [
+                            'rank' => count($harapanLeaders) + 1,
+                            'rank_label' => 'Harapan ' . (count($harapanLeaders) + 1),
+                            'name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'lot_number' => $r['lot_number'] ?? '-',
+                            'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                            'is_fallback' => false,
+                        ];
+                        $usedNames[] = $rName;
+                    }
+                }
+
+                $categoryResults[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'participant_count' => $categoryParticipants->count(),
+                    'is_mfq' => false,
+                    'is_msq' => true,
+                    'putra' => [
+                        'juara' => $juaraLeaders,
+                        'harapan' => $harapanLeaders,
+                    ],
+                    'putri' => [
+                        'juara' => [],
+                        'harapan' => [],
+                    ],
+                ];
+            } else {
+                // Regular categories
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final');
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan');
+
+                $putraData = $this->buildJuaraHarapanData($finalRankings, $penyisihanRankings, 'putra');
+                $putriData = $this->buildJuaraHarapanData($finalRankings, $penyisihanRankings, 'putri');
+
+                $categoryResults[] = [
+                    'category' => $category,
+                    'branch' => $category->branch,
+                    'name' => $category->name,
+                    'participant_count' => $categoryParticipants->count(),
+                    'is_mfq' => false,
+                    'putra' => $putraData,
+                    'putri' => $putriData,
+                ];
+            }
+        }
+
+        // Group by branch
+        $groupedResults = collect($categoryResults)->groupBy('branch')->map(function ($items, $branch) {
+            return [
+                'branch' => $branch,
+                'categories' => $items->values()->all(),
+            ];
+        })->values();
+
+        $documentConfig = $this->documentConfig();
+
+        return response(view('pages.leaderboard-juara-lampiran-print', [
+            'groupedResults' => $groupedResults,
+            'categoryResults' => $categoryResults,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'documentConfig' => $documentConfig,
+        ]))->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Generate HTML print-friendly Rekap Juara Umum per Kecamatan
+     * Based on ranking points per golongan (putra/putri separated)
+     *
+     * Point Rules:
+     * - Rank 1 (Juara 1): 9 points
+     * - Rank 2 (Juara 2): 7 points
+     * - Rank 3 (Juara 3): 5 points
+     * - Rank 4 (Harapan 1): 3 points
+     * - Rank 5 (Harapan 2): 2 points
+     * - Rank 6 (Harapan 3): 1 point
+     *
+     * Rankings are calculated per golongan with putra and putri separated
+     */
+    public function leaderboardJuaraKecamatanPrint(Request $request)
+    {
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'panitia'], true), 403);
+
+        // Point rules by rank (1-6)
+        $pointRules = [
+            1 => 9,  // Juara 1
+            2 => 7,  // Juara 2
+            3 => 5,  // Juara 3
+            4 => 3,  // Harapan 1
+            5 => 2,  // Harapan 2
+            6 => 1,  // Harapan 3
+        ];
+
+        $participants = Participant::query()
+            ->with(['district', 'category', 'scores'])
+            ->where('verification_status', 'verified')
+            ->get();
+
+        $districts = District::orderBy('name')->get();
+        $categories = CompetitionCategory::orderBy('sort_order')->orderBy('branch')->get();
+
+        // Build district rankings
+        $districtRankings = [];
+        foreach ($districts as $district) {
+            $districtParticipants = $participants->filter(fn ($p) => $p->district_id === $district->id);
+            if ($districtParticipants->isEmpty()) {
+                continue;
+            }
+            $districtRankings[] = [
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'participant_count' => $districtParticipants->count(),
+                'points' => 0,
+                'details' => [],
+            ];
+        }
+
+        // ========== REGULAR CATEGORIES ==========
+        $regularCategories = $categories->whereNotIn('id', [24, 25]);
+
+        foreach ($regularCategories as $category) {
+            $categoryParticipants = $participants->filter(
+                fn ($p) => (int) $p->competition_category_id === (int) $category->id
+            );
+            if ($categoryParticipants->isEmpty()) {
+                continue;
+            }
+
+            // Check if this is MSQ category (Syarhil Quran)
+            $isMsqCategory = filled($category->maqra_system_type) && $category->maqra_system_type === 'syarhil';
+
+            // For MSQ: count participants per district
+            $districtParticipantCounts = [];
+            if ($isMsqCategory) {
+                $districtParticipantCounts = $categoryParticipants->groupBy('district_id')->map(fn ($group) => $group->count())->toArray();
+            }
+
+            if ($isMsqCategory) {
+                // MSQ categories - each district = 1 score (no gender split)
+                $finalRankings = $this->buildRoundLeaders($categoryParticipants, 'Final', true, $districtParticipantCounts);
+                $penyisihanRankings = $this->buildRoundLeaders($categoryParticipants, 'Penyisihan', true, $districtParticipantCounts);
+
+                // Build combined list with proper rank assignment
+                $rankingList = [];
+                $usedNames = [];
+
+                // Count how many finalists we have
+                $finalistCount = count(array_filter($finalRankings, fn ($r) => null !== ($r['original_name'] ?? $r['name'] ?? null)));
+
+                if ($finalistCount > 0) {
+                    // Take finalists first
+                    for ($i = 0; $i < min(3, count($finalRankings)); $i++) {
+                        if (!isset($finalRankings[$i])) continue;
+                        $r = $finalRankings[$i];
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $i + 1,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'final',
+                        ];
+                        $usedNames[] = $rName;
+                    }
+
+                    // Fill remaining juara slots (if Final < 3) from Penyisihan
+                    $juaraNeeded = 3 - count($rankingList);
+                    if ($juaraNeeded > 0) {
+                        $penyisihanNotInFinal = collect($penyisihanRankings)
+                            ->reject(fn ($r) => in_array($r['original_name'] ?? $r['name'] ?? '-', $usedNames))
+                            ->values()
+                            ->all();
+
+                        // Take first $juaraNeeded from Penyisihan (for remaining juara slots)
+                        $nextRank = count($rankingList) + 1;
+                        foreach (array_slice($penyisihanNotInFinal, 0, $juaraNeeded) as $r) {
+                            $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                            $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                            $rankingList[] = [
+                                'rank' => $nextRank,
+                                'participant_id' => $r['participant_id'] ?? null,
+                                'participant_name' => $rName,
+                                'district' => $r['district'] ?? '-',
+                                'district_id' => $participant?->district_id,
+                                'source' => 'penyisihan_juara',
+                            ];
+                            $usedNames[] = $rName;
+                            $nextRank++;
+                        }
+                    }
+
+                    // Remaining Penyisihan entries become Harapan (ranks 4, 5, 6)
+                    $harapanEntries = collect($penyisihanRankings)
+                        ->reject(fn ($r) => in_array($r['original_name'] ?? $r['name'] ?? '-', $usedNames))
+                        ->values()
+                        ->all();
+
+                    $harapanRank = 4;
+                    foreach (array_slice($harapanEntries, 0, 3) as $r) {
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $harapanRank,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'penyisihan',
+                        ];
+                        $usedNames[] = $rName;
+                        $harapanRank++;
+                    }
+                } else {
+                    // No Final: all 3 juara from Penyisihan ranks 1-3, then 3 hope from ranks 4-6
+                    for ($i = 0; $i < min(3, count($penyisihanRankings)); $i++) {
+                        $r = $penyisihanRankings[$i];
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $i + 1,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'penyisihan_juara',
+                        ];
+                        $usedNames[] = $rName;
+                    }
+
+                    // Filter out already used and take next 3 for hope
+                    $harapanEntries = collect($penyisihanRankings)
+                        ->reject(fn ($r) => in_array($r['original_name'] ?? $r['name'] ?? '-', $usedNames))
+                        ->values()
+                        ->all();
+
+                    $harapanRank = 4;
+                    foreach (array_slice($harapanEntries, 0, 3) as $r) {
+                        $rName = $r['original_name'] ?? $r['name'] ?? '-';
+                        $participant = $categoryParticipants->first(fn ($p) => $p->name === $rName);
+                        $rankingList[] = [
+                            'rank' => $harapanRank,
+                            'participant_id' => $r['participant_id'] ?? null,
+                            'participant_name' => $rName,
+                            'district' => $r['district'] ?? '-',
+                            'district_id' => $participant?->district_id,
+                            'source' => 'penyisihan',
+                        ];
+                        $usedNames[] = $rName;
+                        $harapanRank++;
+                    }
+                }
+
+                // Add points to districts
+                foreach ($rankingList as $entry) {
+                    $rank = $entry['rank'];
+                    if (!isset($pointRules[$rank])) continue;
+
+                    $points = $pointRules[$rank];
+                    $districtId = $entry['district_id'];
+                    if (!$districtId) continue;
+
+                    $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                    if ($districtIdx !== false) {
+                        $districtRankings[$districtIdx]['points'] += $points;
+                        $districtRankings[$districtIdx]['details'][] = [
+                            'category' => $isMsqCategory ? ($category->branch . ' - ' . $category->name) : $category->name,
+                            'branch' => $category->branch,
+                            'type' => $entry['source'],
+                            'rank' => $rank,
+                            'points' => $points,
+                            'participant_name' => $entry['district'],
+                        ];
+                    }
+                }
+            } else {
+                // Regular categories (with gender split)
+                // Get Final rankings with tie-break priority sorting
+                $finalRankings = $this->buildSimpleRankings($categoryParticipants, 'Final');
+                usort($finalRankings, function ($a, $b) {
+                    $scoreCompare = ((float) ($b['average_score_value'] ?? 0)) <=> ((float) ($a['average_score_value'] ?? 0));
+                    if ($scoreCompare !== 0) return $scoreCompare;
+
+                    $maxPriority = max(count($a['priority_values'] ?? []), count($b['priority_values'] ?? []));
+                    for ($i = 0; $i < $maxPriority; $i++) {
+                        $priorityCompare = ((float) ($b['priority_values'][$i] ?? 0)) <=> ((float) ($a['priority_values'][$i] ?? 0));
+                        if ($priorityCompare !== 0) return $priorityCompare;
+                    }
+
+                    return ((float) ($b['latest_score_value'] ?? 0)) <=> ((float) ($a['latest_score_value'] ?? 0));
+                });
+
+                // Get Penyisihan rankings with tie-break priority sorting
+                $penyisihanRankings = $this->buildSimpleRankings($categoryParticipants, 'Penyisihan');
+                usort($penyisihanRankings, function ($a, $b) {
+                    $scoreCompare = ((float) ($b['average_score_value'] ?? 0)) <=> ((float) ($a['average_score_value'] ?? 0));
+                    if ($scoreCompare !== 0) return $scoreCompare;
+
+                    $maxPriority = max(count($a['priority_values'] ?? []), count($b['priority_values'] ?? []));
+                    for ($i = 0; $i < $maxPriority; $i++) {
+                        $priorityCompare = ((float) ($b['priority_values'][$i] ?? 0)) <=> ((float) ($a['priority_values'][$i] ?? 0));
+                        if ($priorityCompare !== 0) return $priorityCompare;
+                    }
+
+                    return ((float) ($b['latest_score_value'] ?? 0)) <=> ((float) ($a['latest_score_value'] ?? 0));
+                });
+
+                // Build juara/harapan list per gender (putra, putri)
+                foreach (['putra', 'putri'] as $gender) {
+                    $genderLower = strtolower($gender);
+                    $finalOfGender = collect($finalRankings)->filter(fn ($r) => strtolower($r['gender'] ?? '') === $genderLower)->values()->all();
+                    $penyisihanOfGender = collect($penyisihanRankings)->filter(fn ($r) => strtolower($r['gender'] ?? '') === $genderLower)->values()->all();
+
+                    // Check if Final has any results for this gender
+                    $hasFinalResults = count($finalOfGender) > 0;
+
+                    $rankingList = [];
+                    $usedParticipantIds = [];
+
+                    // Count how many finalists we have for each gender
+                    $finalistCount = count(array_filter($finalOfGender, fn ($r) => null !== ($r['participant_id'] ?? null)));
+
+                    if ($finalistCount > 0) {
+                        // Take finalists first
+                        for ($i = 0; $i < min(3, count($finalOfGender)); $i++) {
+                            if (!isset($finalOfGender[$i]) || !($finalOfGender[$i]['participant_id'] ?? null)) continue;
+
+                            $rankingList[] = [
+                                'rank' => $i + 1,
+                                'participant_id' => $finalOfGender[$i]['participant_id'] ?? null,
+                                'participant_name' => $finalOfGender[$i]['name'] ?? '-',
+                                'district_id' => $finalOfGender[$i]['district_id'] ?? null,
+                                'source' => 'final',
+                            ];
+                            $usedParticipantIds[] = $finalOfGender[$i]['participant_id'] ?? null;
+                        }
+
+                        // Fill remaining juara slots (if Final < 3) from Penyisihan
+                        $juaraNeeded = 3 - count($rankingList);
+                        if ($juaraNeeded > 0) {
+                            $penyisihanNotInFinal = collect($penyisihanOfGender)
+                                ->reject(fn ($p) => in_array($p['participant_id'] ?? null, $usedParticipantIds))
+                                ->values()
+                                ->all();
+
+                            // Take first $juaraNeeded from Penyisihan (for remaining juara slots)
+                            $nextRank = count($rankingList) + 1;
+                            foreach (array_slice($penyisihanNotInFinal, 0, $juaraNeeded) as $p) {
+                                $rankingList[] = [
+                                    'rank' => $nextRank,
+                                    'participant_id' => $p['participant_id'] ?? null,
+                                    'participant_name' => $p['name'] ?? '-',
+                                    'district_id' => $p['district_id'] ?? null,
+                                    'source' => 'penyisihan_juara',
+                                ];
+                                $usedParticipantIds[] = $p['participant_id'] ?? null;
+                                $nextRank++;
+                            }
+                        }
+
+                        // Remaining Penyisihan entries become Harapan (ranks 4, 5, 6)
+                        $harapanEntries = collect($penyisihanOfGender)
+                            ->reject(fn ($p) => in_array($p['participant_id'] ?? null, $usedParticipantIds))
+                            ->values()
+                            ->all();
+
+                        $harapanRank = 4;
+                        foreach (array_slice($harapanEntries, 0, 3) as $p) {
+                            $rankingList[] = [
+                                'rank' => $harapanRank,
+                                'participant_id' => $p['participant_id'] ?? null,
+                                'participant_name' => $p['name'] ?? '-',
+                                'district_id' => $p['district_id'] ?? null,
+                                'source' => 'penyisihan',
+                            ];
+                            $usedParticipantIds[] = $p['participant_id'] ?? null;
+                            $harapanRank++;
+                        }
+                    } else {
+                        // No Final: all 3 juara from Penyisihan ranks 1-3, then 3 harapan from ranks 4-6
+                        for ($i = 0; $i < min(3, count($penyisihanOfGender)); $i++) {
+                            $p = $penyisihanOfGender[$i];
+                            $rankingList[] = [
+                                'rank' => $i + 1,
+                                'participant_id' => $p['participant_id'] ?? null,
+                                'participant_name' => $p['name'] ?? '-',
+                                'district_id' => $p['district_id'] ?? null,
+                                'source' => 'penyisihan_juara',
+                            ];
+                            $usedParticipantIds[] = $p['participant_id'] ?? null;
+                        }
+
+                        // Filter out already used and take next 3 for harapan
+                        $harapanEntries = collect($penyisihanOfGender)
+                            ->reject(fn ($p) => in_array($p['participant_id'] ?? null, $usedParticipantIds))
+                            ->values()
+                            ->all();
+
+                        $harapanRank = 4;
+                        foreach (array_slice($harapanEntries, 0, 3) as $p) {
+                            $rankingList[] = [
+                                'rank' => $harapanRank,
+                                'participant_id' => $p['participant_id'] ?? null,
+                                'participant_name' => $p['name'] ?? '-',
+                                'district_id' => $p['district_id'] ?? null,
+                                'source' => 'penyisihan',
+                            ];
+                            $usedParticipantIds[] = $p['participant_id'] ?? null;
+                            $harapanRank++;
+                        }
+                    }
+
+                    // Add points to districts
+                    foreach ($rankingList as $entry) {
+                        $rank = $entry['rank'];
+                        if (!isset($pointRules[$rank])) continue;
+
+                        $points = $pointRules[$rank];
+                        $districtId = $entry['district_id'];
+                        if (!$districtId) continue;
+
+                        $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                        if ($districtIdx !== false) {
+                            $districtRankings[$districtIdx]['points'] += $points;
+                            $districtRankings[$districtIdx]['details'][] = [
+                                'category' => $category->name,
+                                'branch' => $category->branch,
+                                'type' => $entry['source'],
+                                'rank' => $rank,
+                                'points' => $points,
+                                'participant_name' => $entry['participant_name'],
+                                'gender' => $gender,
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // ========== MFQ CATEGORIES ==========
+        $mfqResults = \App\Models\MfqResult::query()
+            ->with(['participant.district', 'district', 'session'])
+            ->whereHas('session', fn ($q) => $q->where('status', 'completed'))
+            ->get();
+
+        $mfqCategories = $categories->whereIn('id', [24, 25]);
+
+        foreach ($mfqCategories as $category) {
+            $catResults = $mfqResults->filter(fn ($r) => ($r->session?->competition_category_id ?? 0) === $category->id);
+
+            // Build rankings by district for Penyisihan and Final
+            $penyisihanResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Penyisihan');
+            $finalResults = $catResults->filter(fn ($r) => ($r->round ?? '') === 'Final');
+
+            $penyisihanRankings = $this->buildMfqDistrictRankings($penyisihanResults);
+            $finalRankings = $this->buildMfqDistrictRankings($finalResults);
+
+            // Check if Final has any results
+            $hasFinalResults = count($finalRankings) > 0;
+
+            // Build combined list with proper rank assignment
+            $rankingList = [];
+            $usedDistrictIds = [];
+
+            if ($hasFinalResults) {
+                // Normal case: Final rank 1-3 = Juara 1-2-3
+                for ($i = 0; $i < 3 && $i < count($finalRankings); $i++) {
+                    $r = $finalRankings[$i];
+                    $rankingList[] = [
+                        'rank' => $i + 1,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'final',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                }
+
+                // Penyisihan rank 4-6 = Harapan 1-2-3 (not in Final)
+                $harapanRank = 4;
+                foreach ($penyisihanRankings as $r) {
+                    if ($harapanRank > 6) break;
+                    if (in_array($r['district_id'] ?? null, $usedDistrictIds)) {
+                        continue;
+                    }
+                    $rankingList[] = [
+                        'rank' => $harapanRank,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'penyisihan',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                    $harapanRank++;
+                }
+            } else {
+                // No Final: Penyisihan rank 1-3 = Juara 1-2-3, rank 4-6 = Harapan 1-2-3
+                for ($i = 0; $i < 3 && $i < count($penyisihanRankings); $i++) {
+                    $r = $penyisihanRankings[$i];
+                    $rankingList[] = [
+                        'rank' => $i + 1,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'penyisihan_juara',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                }
+
+                $harapanRank = 4;
+                foreach ($penyisihanRankings as $r) {
+                    if ($harapanRank > 6) break;
+                    if (in_array($r['district_id'] ?? null, $usedDistrictIds)) {
+                        continue;
+                    }
+                    $rankingList[] = [
+                        'rank' => $harapanRank,
+                        'district_id' => $r['district_id'] ?? null,
+                        'district_name' => $r['district_name'] ?? '-',
+                        'source' => 'penyisihan',
+                    ];
+                    $usedDistrictIds[] = $r['district_id'] ?? null;
+                    $harapanRank++;
+                }
+            }
+
+            // Add points to districts
+            foreach ($rankingList as $entry) {
+                $rank = $entry['rank'];
+                if (!isset($pointRules[$rank])) continue;
+
+                $points = $pointRules[$rank];
+                $districtId = $entry['district_id'];
+                if (!$districtId) continue;
+
+                $districtIdx = array_search($districtId, array_column($districtRankings, 'district_id'));
+                if ($districtIdx !== false) {
+                    $districtRankings[$districtIdx]['points'] += $points;
+                    $districtRankings[$districtIdx]['details'][] = [
+                        'category' => $category->name . ' (MFQ)',
+                        'branch' => $category->branch,
+                        'type' => $entry['source'],
+                        'rank' => $rank,
+                        'points' => $points,
+                        'participant_name' => $entry['district_name'],
+                    ];
+                }
+            }
+        }
+
+        // Sort by total points descending
+        usort($districtRankings, fn ($a, $b) => $b['points'] <=> $a['points']);
+
+        // Assign final ranks and count achievements
+        foreach ($districtRankings as $idx => &$district) {
+            $district['rank'] = $idx + 1;
+            $district['rank_counts'] = [
+                1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0,
+            ];
+            foreach ($district['details'] as $detail) {
+                $detailRank = $detail['rank'];
+                if (isset($district['rank_counts'][$detailRank])) {
+                    $district['rank_counts'][$detailRank]++;
+                }
+            }
+        }
+
+        $documentConfig = $this->documentConfig();
+
+        return response(view('pages.leaderboard-juara-kecamatan-print', [
+            'districtRankings' => $districtRankings,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'documentConfig' => $documentConfig,
+            'pointRules' => $pointRules,
+        ]))->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Build juara and harapan data for a gender category
+     * @param array $finalRankings Rankings from Final round
+     * @param array $penyisihanRankings Rankings from Penyisihan round
+     * @param string $gender 'putra' or 'putri'
+     */
+    protected function buildJuaraHarapanData($finalRankings, $penyisihanRankings, $gender): array
+    {
+        $finalOfGender = collect($finalRankings)
+            ->filter(fn ($l) => strtolower((string) ($l['gender'] ?? '')) === strtolower($gender))
+            ->values()
+            ->all();
+
+        $penyisihanOfGender = collect($penyisihanRankings)
+            ->filter(fn ($l) => strtolower((string) ($l['gender'] ?? '')) === strtolower($gender))
+            ->values()
+            ->all();
+
+        // Final rank 1-3 = Juara 1-2-3
+        $juaraLeaders = [];
+        $finalFilledCount = 0;
+
+        for ($i = 0; $i < 3; $i++) {
+            if (isset($finalOfGender[$i])) {
+                $juaraLeaders[] = [
+                    'rank' => $i + 1,
+                    'rank_label' => 'Juara ' . ($i + 1),
+                    'name' => $finalOfGender[$i]['name'] ?? '-',
+                    'district' => $finalOfGender[$i]['district'] ?? '-',
+                    'lot_number' => $finalOfGender[$i]['lot_number'] ?? '-',
+                    'score' => number_format((float) ($finalOfGender[$i]['average_score'] ?? 0), 2),
+                    'is_fallback' => false,
+                ];
+                $finalFilledCount++;
+            }
+        }
+
+        // Fill remaining juara spots from Penyisihan
+        $juaraNeeded = 3 - $finalFilledCount;
+        $penyisihanIndex = 0;
+        $usedNames = collect($juaraLeaders)->pluck('name')->toArray();
+
+        while ($juaraNeeded > 0 && $penyisihanIndex < count($penyisihanOfGender)) {
+            $p = $penyisihanOfGender[$penyisihanIndex];
+            $pName = $p['name'] ?? '';
+            if (!in_array($pName, $usedNames)) {
+                $juaraLeaders[] = [
+                    'rank' => count($juaraLeaders) + 1,
+                    'rank_label' => 'Juara ' . (count($juaraLeaders) + 1),
+                    'name' => $pName,
+                    'district' => $p['district'] ?? '-',
+                    'lot_number' => $p['lot_number'] ?? '-',
+                    'score' => number_format((float) ($p['average_score'] ?? 0), 2),
+                    'is_fallback' => true,
+                ];
+                $usedNames[] = $pName;
+                $juaraNeeded--;
+            }
+            $penyisihanIndex++;
+        }
+
+        // Sort juara leaders by rank
+        usort($juaraLeaders, fn ($a, $b) => $a['rank'] <=> $b['rank']);
+
+        // Penyisihan rank 4-6 = Harapan 1-2-3
+        $harapanLeaders = [];
+        $harapanCount = 0;
+
+        for ($i = 0; $i < count($penyisihanOfGender) && $harapanCount < 3; $i++) {
+            $p = $penyisihanOfGender[$i];
+            $pName = $p['name'] ?? '';
+            if (!in_array($pName, $usedNames)) {
+                $harapanLeaders[] = [
+                    'rank' => $harapanCount + 1,
+                    'rank_label' => 'Harapan ' . ($harapanCount + 1),
+                    'name' => $pName,
+                    'district' => $p['district'] ?? '-',
+                    'lot_number' => $p['lot_number'] ?? '-',
+                    'score' => number_format((float) ($p['average_score'] ?? 0), 2),
+                    'is_fallback' => false,
+                ];
+                $usedNames[] = $pName;
+                $harapanCount++;
+            }
+        }
+
+        return [
+            'juara' => $juaraLeaders,
+            'harapan' => $harapanLeaders,
+        ];
+    }
+
+    /**
+     * Build juara and harapan data for a gender category with photo URLs
+     */
+    protected function buildJuaraHarapanDataWithPhoto($categoryParticipants, $finalRankings, $penyisihanRankings, $gender): array
+    {
+        $finalOfGender = collect($finalRankings)
+            ->filter(fn ($l) => strtolower((string) ($l['gender'] ?? '')) === strtolower($gender))
+            ->values()
+            ->all();
+
+        $penyisihanOfGender = collect($penyisihanRankings)
+            ->filter(fn ($l) => strtolower((string) ($l['gender'] ?? '')) === strtolower($gender))
+            ->values()
+            ->all();
+
+        // Final rank 1-3 = Juara 1-2-3
+        $juaraLeaders = [];
+        $finalFilledCount = 0;
+
+        for ($i = 0; $i < 3; $i++) {
+            if (isset($finalOfGender[$i])) {
+                $r = $finalOfGender[$i];
+                $participant = $categoryParticipants->firstWhere('id', $r['participant_id'] ?? 0);
+                $juaraLeaders[] = [
+                    'rank' => $i + 1,
+                    'rank_label' => 'Juara ' . ($i + 1),
+                    'name' => $r['name'] ?? '-',
+                    'district' => $r['district'] ?? '-',
+                    'lot_number' => $r['lot_number'] ?? '-',
+                    'score' => number_format((float) ($r['average_score'] ?? 0), 2),
+                    'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                    'is_fallback' => false,
+                ];
+                $finalFilledCount++;
+            }
+        }
+
+        // Fill remaining juara spots from Penyisihan
+        $juaraNeeded = 3 - $finalFilledCount;
+        $penyisihanIndex = 0;
+        $usedNames = collect($juaraLeaders)->pluck('name')->toArray();
+
+        while ($juaraNeeded > 0 && $penyisihanIndex < count($penyisihanOfGender)) {
+            $p = $penyisihanOfGender[$penyisihanIndex];
+            $pName = $p['name'] ?? '';
+            if (!in_array($pName, $usedNames)) {
+                $participant = $categoryParticipants->firstWhere('id', $p['participant_id'] ?? 0);
+                $juaraLeaders[] = [
+                    'rank' => count($juaraLeaders) + 1,
+                    'rank_label' => 'Juara ' . (count($juaraLeaders) + 1),
+                    'name' => $pName,
+                    'district' => $p['district'] ?? '-',
+                    'lot_number' => $p['lot_number'] ?? '-',
+                    'score' => number_format((float) ($p['average_score'] ?? 0), 2),
+                    'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                    'is_fallback' => true,
+                ];
+                $usedNames[] = $pName;
+                $juaraNeeded--;
+            }
+            $penyisihanIndex++;
+        }
+
+        // Sort juara leaders by rank
+        usort($juaraLeaders, fn ($a, $b) => $a['rank'] <=> $b['rank']);
+
+        // Penyisihan rank 4-6 = Harapan 1-2-3
+        $harapanLeaders = [];
+        $harapanCount = 0;
+
+        for ($i = 0; $i < count($penyisihanOfGender) && $harapanCount < 3; $i++) {
+            $p = $penyisihanOfGender[$i];
+            $pName = $p['name'] ?? '';
+            if (!in_array($pName, $usedNames)) {
+                $participant = $categoryParticipants->firstWhere('id', $p['participant_id'] ?? 0);
+                $harapanLeaders[] = [
+                    'rank' => $harapanCount + 1,
+                    'rank_label' => 'Harapan ' . ($harapanCount + 1),
+                    'name' => $pName,
+                    'district' => $p['district'] ?? '-',
+                    'lot_number' => $p['lot_number'] ?? '-',
+                    'score' => number_format((float) ($p['average_score'] ?? 0), 2),
+                    'photo_url' => $participant ? $this->publicParticipantPhotoUrl($participant) : null,
+                    'is_fallback' => false,
+                ];
+                $usedNames[] = $pName;
+                $harapanCount++;
+            }
+        }
+
+        return [
+            'juara' => $juaraLeaders,
+            'harapan' => $harapanLeaders,
+        ];
+    }
+
+    /**
      * Build MFQ rankings by district from results
      * Returns array of districts sorted by total score (descending)
      */
@@ -1938,7 +3831,8 @@ class PageController extends Controller
                     'representative_name' => $representativeName,
                     'participant_count' => $districtResults->pluck('participant_id')->unique()->count(),
                     'lot_numbers' => $lotNumbers,
-                    'total_score' => $districtResults->sum('total_score'),
+                    // 1 kecamatan = 1 nilai (bukan jumlah 3 peserta)
+                    'total_score' => $firstResult->total_score ?? 0,
                 ];
             })
             ->filter()
@@ -1968,11 +3862,21 @@ class PageController extends Controller
                 $allScores[] = (float) ($entry->average_score ?? $entry->score ?? 0);
             }
             $averageScore = count($allScores) > 0 ? array_sum($allScores) / count($allScores) : 0;
+            $latestScore = $roundScores->sortByDesc('submitted_at')->first();
+            $latestScoreValue = (float) ($latestScore->score ?? $latestScore->average_score ?? 0);
+            $priorityValues = $this->participantPriorityValuesFromScores($participant, $roundScores, $round);
+
             $rows[] = [
                 'participant_id' => $participant->id,
                 'name' => $participant->name,
                 'district_id' => $participant->district_id,
+                'district' => $participant->district?->name ?? '-',
+                'gender' => $participant->gender ?? 'putra',
+                'lot_number' => $participant->lot_number,
                 'average_score' => $averageScore,
+                'average_score_value' => $averageScore,
+                'latest_score_value' => $latestScoreValue,
+                'priority_values' => $priorityValues,
             ];
         }
         return $rows;
